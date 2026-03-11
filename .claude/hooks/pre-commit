@@ -1,0 +1,25 @@
+#!/bin/bash
+# DiligentDeveloper Pre-Commit Hook
+# Prevents direct commits to main/master branches
+# Allows merge commits (from git merge) which are a legitimate part of the workflow
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+    # Allow merge commits (git merge creates these automatically)
+    if git rev-parse MERGE_HEAD > /dev/null 2>&1; then
+        exit 0
+    fi
+
+    echo "ERROR: Direct commits to $BRANCH are not allowed!"
+    echo ""
+    echo "DiligentDeveloper workflow requires all development on feature branches."
+    echo ""
+    echo "To fix this:"
+    echo "  1. Create a feature branch: git checkout -b feature/description"
+    echo "  2. Or use the /diligent-developer skill to guide you through the workflow"
+    echo ""
+    exit 1
+fi
+
+exit 0
