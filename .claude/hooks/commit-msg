@@ -1,0 +1,43 @@
+#!/bin/bash
+# DiligentDeveloper Commit Message Hook
+# Validates commit message format: tag prefix and Co-Authored-By line
+# Allows merge commits (from git merge) which use standard merge message format
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Extract first line
+FIRST_LINE=$(head -n 1 "$COMMIT_MSG_FILE")
+
+# Allow merge commits (standard "Merge ..." message from git merge)
+if echo "$FIRST_LINE" | grep -qE "^Merge "; then
+    exit 0
+fi
+
+# Valid commit tags
+VALID_TAGS='\[(Spec|Plan|Goal|WIP|Setup|Feature|Cleanup|Enhancement)\]'
+
+# Check that first line starts with a valid tag
+if ! echo "$FIRST_LINE" | grep -qE "^${VALID_TAGS}"; then
+    echo "ERROR: Commit message must start with a valid tag."
+    echo ""
+    echo "Valid tags: [Spec], [Plan], [Goal], [WIP], [Setup], [Feature], [Cleanup], [Enhancement]"
+    echo ""
+    echo "Example: [Goal]: Implement user authentication"
+    echo ""
+    echo "Your first line was:"
+    echo "  $FIRST_LINE"
+    echo ""
+    exit 1
+fi
+
+# Check for Co-Authored-By line
+if ! echo "$COMMIT_MSG" | grep -q "Co-Authored-By:"; then
+    echo "ERROR: Commit message must include a Co-Authored-By line."
+    echo ""
+    echo "Example: Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+    echo ""
+    exit 1
+fi
+
+exit 0
