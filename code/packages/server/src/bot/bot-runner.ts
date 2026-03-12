@@ -1,0 +1,283 @@
+// REQ-F-BOT01: Bot strategy interface
+// REQ-F-BOT02: EasyBot implementation
+// REQ-F-BOT05: Artificial thinking delay
+// REQ-F-MP01: Any combination 0-4 humans + bots
+
+import type { Seat, GameCard } from '@tichu/shared';
+import { getTeam, getValidPlays, canPlayerPass, isMahjong } from '@tichu/shared';
+import type { BotStrategy, BotPlayContext } from './bot-interface.js';
+import type { GameActor, GameMachineContext, GameEvent } from '../game/game-state-machine.js';
+
+/** Configuration for bot timing */
+export interface BotRunnerConfig {
+  /** Minimum delay in ms before bot acts */
+  minDelayMs: number;
+  /** Maximum delay in ms before bot acts */
+  maxDelayMs: number;
+}
+
+/** Default timing config based on animation speed */
+const DEFAULT_CONFIG: BotRunnerConfig = {
+  minDelayMs: 200,
+  maxDelayMs: 1500,
+};
+
+/** Fast config for testing */
+export const INSTANT_CONFIG: BotRunnerConfig = {
+  minDelayMs: 0,
+  maxDelayMs: 0,
+};
+
+/**
+ * REQ-F-BOT05: Manages bot instances for a game.
+ *
+ * Called by GameManager when it's a bot's turn or when a bot needs to make
+ * a decision. Adds artificial delay to simulate "thinking" before executing
+ * the bot's strategy.
+ */
+export class BotRunner {
+  /** Bot strategy instances keyed by seat */
+  private readonly bots = new Map<Seat, BotStrategy>();
+
+  /** Pending delay timers (for cleanup) */
+  private readonly pendingTimers = new Set<ReturnType<typeof setTimeout>>();
+
+  /** Whether the runner has been disposed */
+  private disposed = false;
+
+  constructor(
+    private readonly actor: GameActor,
+    private readonly config: BotRunnerConfig = DEFAULT_CONFIG,
+  ) {}
+
+  /** Register a bot strategy for a specific seat */
+  addBot(seat: Seat, strategy: BotStrategy): void {
+    this.bots.set(seat, strategy);
+  }
+
+  /** Remove a bot from a seat (e.g., when a human reconnects) */
+  removeBot(seat: Seat): void {
+    this.bots.delete(seat);
+  }
+
+  /** Check if a seat is occupied by a bot */
+  isBot(seat: Seat): boolean {
+    return this.bots.has(seat);
+  }
+
+  /** Get all bot seats */
+  getBotSeats(): Seat[] {
+    return Array.from(this.bots.keys());
+  }
+
+  /**
+   * Trigger bot actions based on current game state.
+   * Should be called after every state transition.
+   */
+  onStateChange(): void {
+    if (this.disposed) return;
+
+    const snapshot = this.actor.getSnapshot();
+    const context = snapshot.context;
+    const state = typeof snapshot.value === 'string' ? snapshot.value : String(snapshot.value);
+
+    switch (state) {
+      case 'grandTichuDecision':
+        this.handleGrandTichuPhase(context);
+        break;
+      case 'regularTichuDecision':
+        this.handleRegularTichuPhase(context);
+        break;
+      case 'cardPassing':
+        this.handleCardPassingPhase(context);
+        break;
+      case 'playing':
+        this.handlePlayingPhase(context);
+        break;
+      case 'awaitingDragonGift':
+        this.handleDragonGift(context);
+        break;
+    }
+  }
+
+  /** Clean up all pending timers */
+  dispose(): void {
+    this.disposed = true;
+    for (const timer of this.pendingTimers) {
+      clearTimeout(timer);
+    }
+    this.pendingTimers.clear();
+    this.bots.clear();
+  }
+
+  /** Schedule a bot action with artificial delay */
+  private scheduleAction(action: () => void): void {
+    if (this.disposed) return;
+
+    const { minDelayMs, maxDelayMs } = this.config;
+    if (minDelayMs === 0 && maxDelayMs === 0) {
+      // Instant mode (testing) — use microtask to avoid reentrant actor.send
+      const timer = setTimeout(() => {
+        this.pendingTimers.delete(timer);
+        if (!this.disposed) action();
+      }, 0);
+      this.pendingTimers.add(timer);
+      return;
+    }
+
+    const delay = minDelayMs + Math.random() * (maxDelayMs - minDelayMs);
+    const timer = setTimeout(() => {
+      this.pendingTimers.delete(timer);
+      if (!this.disposed) action();
+    }, delay);
+    this.pendingTimers.add(timer);
+  }
+
+  /** Send an event to the game actor */
+  private send(event: GameEvent): void {
+    if (this.disposed) return;
+    this.actor.send(event);
+  }
+
+  // ─── Phase Handlers ──────────────────────────────────────────────────────
+
+  private handleGrandTichuPhase(context: GameMachineContext): void {
+    for (const [seat, bot] of this.bots) {
+      if (context.grandTichuDecisions.has(seat)) continue;
+
+      const round = context.currentRound;
+      if (!round) continue;
+      const hand8 = round.players[seat].hand;
+
+      this.scheduleAction(() => {
+        const call = bot.chooseGrandTichu(hand8);
+        this.send(call
+          ? { type: 'GRAND_TICHU_CALL', seat }
+          : { type: 'GRAND_TICHU_PASS', seat },
+        );
+      });
+    }
+  }
+
+  private handleRegularTichuPhase(context: GameMachineContext): void {
+    for (const [seat, bot] of this.bots) {
+      if (context.regularTichuDecisions.has(seat)) continue;
+
+      const round = context.currentRound;
+      if (!round) continue;
+      const hand14 = round.players[seat].hand;
+
+      this.scheduleAction(() => {
+        const call = bot.chooseRegularTichu(hand14);
+        this.send(call
+          ? { type: 'REGULAR_TICHU_CALL', seat }
+          : { type: 'REGULAR_TICHU_PASS', seat },
+        );
+      });
+    }
+  }
+
+  private handleCardPassingPhase(context: GameMachineContext): void {
+    for (const [seat, bot] of this.bots) {
+      if (context.cardPassDecisions.has(seat)) continue;
+
+      const round = context.currentRound;
+      if (!round) continue;
+      const hand = round.players[seat].hand;
+
+      this.scheduleAction(() => {
+        const cards = bot.chooseCardsToPass(hand, seat);
+        this.send({ type: 'CARDS_PASSED', seat, cards });
+      });
+    }
+  }
+
+  private handlePlayingPhase(context: GameMachineContext): void {
+    const round = context.currentRound;
+    if (!round || !round.currentTurn) return;
+
+    const seat = round.currentTurn;
+    const bot = this.bots.get(seat);
+    if (!bot) return;
+
+    const player = round.players[seat];
+    const validPlays = getValidPlays(player.hand, round.currentTrick, round.mahjongWish);
+    const canPass = canPlayerPass(player.hand, round.currentTrick, round.mahjongWish);
+
+    const playContext: BotPlayContext = {
+      hand: player.hand,
+      currentTrick: round.currentTrick,
+      wish: round.mahjongWish,
+      validPlays,
+      canPass,
+      roundState: round,
+      seat,
+    };
+
+    this.scheduleAction(() => {
+      const decision = bot.choosePlay(playContext);
+
+      if (decision.action === 'pass') {
+        this.send({ type: 'PASS_TURN', seat });
+        return;
+      }
+
+      // Send PLAY_CARDS event
+      this.send({ type: 'PLAY_CARDS', seat, cards: decision.cards });
+
+      // If Mahjong was played, declare a wish
+      this.handleMahjongWishAfterPlay(seat, bot, decision.cards, player.hand);
+    });
+  }
+
+  private handleDragonGift(context: GameMachineContext): void {
+    const round = context.currentRound;
+    if (!round?.dragonGiftPending) return;
+
+    const seat = round.dragonGiftPending.from;
+    const bot = this.bots.get(seat);
+    if (!bot) return;
+
+    // Find opponents who haven't finished
+    const seatTeam = getTeam(seat);
+    const opponents = (['north', 'east', 'south', 'west'] as Seat[]).filter(
+      (s) => getTeam(s) !== seatTeam && round.players[s].finishOrder === null,
+    );
+
+    if (opponents.length === 0) return;
+
+    // Calculate trick points
+    const trickCards = round.dragonGiftPending.trickCards;
+    let trickPoints = 0;
+    for (const gc of trickCards) {
+      if (gc.card.kind === 'dragon') trickPoints += 25;
+      else if (gc.card.kind === 'phoenix') trickPoints -= 25;
+      else if (gc.card.kind === 'standard') {
+        if (gc.card.rank === 10 || gc.card.rank === 13) trickPoints += 10;
+        else if (gc.card.rank === 5) trickPoints += 5;
+      }
+    }
+
+    this.scheduleAction(() => {
+      const recipient = bot.chooseDragonGiftRecipient(opponents, trickPoints);
+      this.send({ type: 'DRAGON_GIFT_CHOSEN', seat, recipient });
+    });
+  }
+
+  /** After playing Mahjong, the bot should declare a wish */
+  private handleMahjongWishAfterPlay(
+    seat: Seat,
+    bot: BotStrategy,
+    playedCards: GameCard[],
+    hand: GameCard[],
+  ): void {
+    const mahjongPlayed = playedCards.some((gc) => isMahjong(gc.card));
+    if (!mahjongPlayed) return;
+
+    // Schedule wish declaration shortly after the play
+    this.scheduleAction(() => {
+      const wish = bot.chooseMahjongWish(hand);
+      this.send({ type: 'DECLARE_WISH', seat, rank: wish });
+    });
+  }
+}

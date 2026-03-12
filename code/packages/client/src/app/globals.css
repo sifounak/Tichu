@@ -1,0 +1,121 @@
+@import 'tailwindcss';
+
+/* REQ-NF-U01: Responsive design tokens for desktop + mobile */
+:root {
+  /* Table colors */
+  --color-felt-green: #1a472a;
+  --color-felt-green-light: #2d5a3f;
+  --color-felt-green-dark: #0f2d1a;
+
+  /* Card colors */
+  --color-card-white: #f5f0e8;
+  --color-card-back: #1a3a5c;
+  --color-card-back-pattern: #224a70;
+  --color-card-shadow: rgba(0, 0, 0, 0.3);
+  --color-card-disabled: rgba(255, 255, 255, 0.4);
+
+  /* Accent */
+  --color-gold-accent: #c9a84c;
+  --color-gold-light: #e0c878;
+
+  /* Suit colors */
+  --color-suit-jade: #2e8b57;
+  --color-suit-pagoda: #1a1a2e;
+  --color-suit-star: #c41e3a;
+  --color-suit-sword: #1a1a2e;
+
+  /* Special card colors */
+  --color-special-phoenix: #ff6b35;
+  --color-special-dragon: #7b2d8e;
+  --color-special-mahjong: #2e86ab;
+  --color-special-dog: #8b6914;
+
+  /* UI colors */
+  --color-bg-panel: rgba(0, 0, 0, 0.25);
+  --color-bg-overlay: rgba(0, 0, 0, 0.6);
+  --color-text-primary: #ffffff;
+  --color-text-secondary: rgba(255, 255, 255, 0.7);
+  /* REQ-NF-U05: WCAG AA — minimum 4.5:1 contrast on dark backgrounds */
+  --color-text-muted: rgba(255, 255, 255, 0.6);
+  --color-border: rgba(255, 255, 255, 0.15);
+  --color-error: #ef4444;
+  --color-success: #22c55e;
+  --color-warning: #eab308;
+  --color-tichu-badge: #ef4444;
+  --color-grand-tichu-badge: #f59e0b;
+
+  /* Card dimensions */
+  --card-width: 70px;
+  --card-height: 100px;
+  --card-overlap-desktop: 30px;
+  --card-overlap-mobile: 16px;
+  --card-lift-selected: -12px;
+  --card-border-radius: 6px;
+  --card-font-size: 16px;
+  --card-suit-size: 20px;
+
+  /* Layout */
+  --seat-avatar-size: 40px;
+  --trick-area-size: 200px;
+  --table-padding: 16px;
+
+  /* Typography */
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-card: 'Georgia', serif;
+
+  /* Shadows */
+  --shadow-card: 0 2px 4px var(--color-card-shadow);
+  --shadow-card-hover: 0 4px 12px var(--color-card-shadow);
+  --shadow-card-selected: 0 4px 16px rgba(201, 168, 76, 0.4);
+  --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.3);
+
+  /* Animation */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --easing-card: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* REQ-NF-U02: Animation speed override via data attribute */
+[data-animation-speed="slow"] {
+  --duration-fast: 225ms;
+  --duration-normal: 375ms;
+  --duration-slow: 600ms;
+}
+
+[data-animation-speed="fast"] {
+  --duration-fast: 75ms;
+  --duration-normal: 125ms;
+  --duration-slow: 200ms;
+}
+
+[data-animation-speed="off"] {
+  --duration-fast: 0ms;
+  --duration-normal: 0ms;
+  --duration-slow: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+  }
+}
+
+body {
+  font-family: var(--font-display);
+  color: var(--color-text-primary);
+  margin: 0;
+  min-height: 100dvh;
+  overflow: hidden;
+
+  /* REQ-NF-U01: Felt-green table texture with noise + radial depth */
+  background-color: var(--color-felt-green);
+  background-image:
+    /* Radial gradient for depth effect */
+    radial-gradient(ellipse at 50% 50%, var(--color-felt-green-light) 0%, var(--color-felt-green) 60%, var(--color-felt-green-dark) 100%),
+    /* Subtle noise SVG for felt texture */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}

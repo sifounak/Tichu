@@ -1,0 +1,28 @@
+/* Card hand fan layout with overlap */
+.hand {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 8px 0;
+  min-height: calc(var(--card-height) + 24px);
+}
+
+.cardSlot {
+  margin-left: calc(-1 * var(--card-overlap-desktop));
+  transition: margin var(--duration-fast) var(--easing-smooth);
+}
+
+.cardSlot:first-child {
+  margin-left: 0;
+}
+
+/* REQ-NF-U01: Mobile overlap */
+@media (max-width: 640px) {
+  .cardSlot {
+    margin-left: calc(-1 * var(--card-overlap-mobile));
+  }
+
+  .cardSlot:first-child {
+    margin-left: 0;
+  }
+}

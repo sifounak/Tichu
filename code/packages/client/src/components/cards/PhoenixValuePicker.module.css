@@ -1,0 +1,92 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.picker {
+  background: var(--color-felt-green-light);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 240px;
+  max-width: 320px;
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-special-phoenix);
+}
+
+.subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.option {
+  width: 48px;
+  height: 48px;
+  border: 2px solid var(--color-special-phoenix);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-card);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--easing-smooth);
+  min-width: 44px; /* REQ-NF-U06 */
+  min-height: 44px;
+}
+
+.option:hover {
+  background: var(--color-special-phoenix);
+  color: white;
+}
+
+.cancelButton {
+  padding: 8px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.cancelButton:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+}
+
+/* REQ-NF-U01: Mobile — Phoenix picker as bottom sheet */
+@media (max-width: 640px) {
+  .overlay {
+    align-items: flex-end;
+  }
+
+  .picker {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+}

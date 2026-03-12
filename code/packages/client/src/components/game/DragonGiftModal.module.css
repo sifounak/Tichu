@@ -1,0 +1,57 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  background: var(--color-felt-green-light);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  min-width: 280px;
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-special-dragon);
+}
+
+.subtitle {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.options {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.optionButton {
+  padding: 12px 24px;
+  background: var(--color-special-dragon);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  transition: transform var(--duration-fast) var(--easing-smooth),
+              opacity var(--duration-fast);
+}
+
+.optionButton:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
+}

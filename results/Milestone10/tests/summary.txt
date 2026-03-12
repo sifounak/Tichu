@@ -1,0 +1,22 @@
+Milestone 10: Bot Framework + EasyBot — Test Results
+=====================================================
+
+Date: 2026-03-11
+Runner: Vitest 3.2.4
+Package: @tichu/server
+
+Test Files: 13 passed (13 total)
+Tests: 220 passed (220 total)
+Duration: 2.71s
+
+New Bot Tests (30 tests):
+- easy-bot.test.ts: 16 tests passed (13ms)
+  - difficulty, Grand/Regular Tichu, card passing, play selection,
+    Phoenix handling, Dragon gift, Mahjong wish
+- bot-runner.test.ts: 14 tests passed (1483ms)
+  - bot management, Grand Tichu phase, Regular Tichu phase,
+    card passing phase, playing phase, human seat handling,
+    artificial delay, dispose, custom strategy,
+    full 4-bot game smoke test
+
+All existing tests continue to pass (190 pre-existing + 30 new = 220 total).

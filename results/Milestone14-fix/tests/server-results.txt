@@ -1,0 +1,50 @@
+
+> @tichu/server@0.1.0 test C:\MATLAB\Claude\Tichu\code\packages\server
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90mC:/MATLAB/Claude/Tichu/code/packages/server[39m
+
+ [32m✓[39m tests/room/room-handler.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 105[2mms[22m[39m
+[90mstderr[2m | tests/game/game-manager.test.ts[2m > [22m[2mGameManager[2m > [22m[2mdestroy[2m > [22m[2mshould stop accepting messages
+[22m[39mEvent "PLAYER_JOINED" was sent to stopped actor "x:19 (x:19)". This actor has already reached its final state, and will not transition.
+Event: {"type":"PLAYER_JOINED","seat":"north"}
+Event "PLAYER_JOINED" was sent to stopped actor "x:19 (x:19)". This actor has already reached its final state, and will not transition.
+Event: {"type":"PLAYER_JOINED","seat":"east"}
+Event "PLAYER_JOINED" was sent to stopped actor "x:19 (x:19)". This actor has already reached its final state, and will not transition.
+Event: {"type":"PLAYER_JOINED","seat":"south"}
+Event "PLAYER_JOINED" was sent to stopped actor "x:19 (x:19)". This actor has already reached its final state, and will not transition.
+Event: {"type":"PLAYER_JOINED","seat":"west"}
+
+ [32m✓[39m tests/game/game-manager.test.ts [2m([22m[2m21 tests[22m[2m)[22m[32m 82[2mms[22m[39m
+ [32m✓[39m tests/game/game-state-machine.test.ts [2m([22m[2m43 tests[22m[2m)[22m[32m 200[2mms[22m[39m
+ [32m✓[39m tests/game/move-handler.test.ts [2m([22m[2m30 tests[22m[2m)[22m[32m 174[2mms[22m[39m
+ [32m✓[39m tests/auth/account.test.ts [2m([22m[2m12 tests[22m[2m)[22m[33m 1262[2mms[22m[39m
+   [33m[2m✓[22m[39m account auth[2m > [22mloginAccount[2m > [22mshould login with correct password [33m 303[2mms[22m[39m
+   [33m[2m✓[22m[39m account auth[2m > [22mloginAccount[2m > [22mshould reject wrong password [33m 401[2mms[22m[39m
+ [32m✓[39m tests/game/disconnect-handler.test.ts [2m([22m[2m17 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+ [32m✓[39m tests/auth/auth-routes.test.ts [2m([22m[2m24 tests[22m[2m)[22m[33m 1313[2mms[22m[39m
+   [33m[2m✓[22m[39m auth-routes[2m > [22mPOST /api/auth/guest[2m > [22mshould create guest user and return user data [33m 423[2mms[22m[39m
+   [33m[2m✓[22m[39m auth-routes[2m > [22mPOST /api/auth/login[2m > [22mshould login with correct password and return token, userId, displayName [33m 388[2mms[22m[39m
+ [32m✓[39m tests/game/game-store.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32m✓[39m tests/ws/connection-manager.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 38[2mms[22m[39m
+ [32m✓[39m tests/room/room-manager.test.ts [2m([22m[2m38 tests[22m[2m)[22m[32m 40[2mms[22m[39m
+ [32m✓[39m tests/ws/message-router.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 35[2mms[22m[39m
+ [32m✓[39m tests/game/turn-timer.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 29[2mms[22m[39m
+ [32m✓[39m tests/bot/easy-bot.test.ts [2m([22m[2m16 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m tests/ws/broadcaster.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/bot/bot-runner.test.ts [2m([22m[2m14 tests[22m[2m)[22m[33m 3304[2mms[22m[39m
+   [33m[2m✓[22m[39m BotRunner full game smoke test[2m > [22mshould complete a full 4-bot game without errors [33m 3199[2mms[22m[39m
+ [32m✓[39m tests/ws/state-projection.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/db/game-persistence.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m tests/db/queries.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 21[2mms[22m[39m
+ [32m✓[39m tests/auth/guest.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m tests/smoke.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/db/connection.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/db/schema.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m22 passed[39m[22m[90m (22)[39m
+[2m      Tests [22m [1m[32m346 passed[39m[22m[90m (346)[39m
+[2m   Start at [22m 23:48:36
+[2m   Duration [22m 6.05s[2m (transform 2.34s, setup 0ms, collect 9.00s, tests 6.89s, environment 13ms, prepare 9.92s)[22m
+

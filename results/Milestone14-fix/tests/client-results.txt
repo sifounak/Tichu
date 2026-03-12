@@ -1,0 +1,44 @@
+
+> @tichu/client@0.1.0 test C:\MATLAB\Claude\Tichu\code\packages\client
+> vitest run
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90mC:/MATLAB/Claude/Tichu/code/packages/client[39m
+
+ [32m✓[39m tests/components/phases/GameEndPhase.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 910[2mms[22m[39m
+   [33m[2m✓[22m[39m GameEndPhase[2m > [22mshows game over dialog [33m 468[2mms[22m[39m
+   [33m[2m✓[22m[39m GameEndPhase[2m > [22mcalls onNewGame when button clicked [33m 364[2mms[22m[39m
+ [32m✓[39m tests/components/game/DragonGiftModal.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1245[2mms[22m[39m
+   [33m[2m✓[22m[39m DragonGiftModal[2m > [22mrenders dialog with correct title [33m 655[2mms[22m[39m
+   [33m[2m✓[22m[39m DragonGiftModal[2m > [22mrenders a button for each opponent [33m 325[2mms[22m[39m
+ [32m✓[39m tests/components/cards/PhoenixValuePicker.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 1706[2mms[22m[39m
+   [33m[2m✓[22m[39m PhoenixValuePicker[2m > [22mrenders dialog with correct title [33m 707[2mms[22m[39m
+ [32m✓[39m tests/components/phases/PreGamePhase.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 1281[2mms[22m[39m
+   [33m[2m✓[22m[39m PreGamePhase[2m > [22mGrand Tichu Decision[2m > [22mcalls onGrandTichuDecision(true) on call [33m 580[2mms[22m[39m
+ [32m✓[39m tests/components/game/ActionBar.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 2034[2mms[22m[39m
+   [33m[2m✓[22m[39m ActionBar[2m > [22mrenders Play and Pass buttons when it is my turn and playing [33m 586[2mms[22m[39m
+ [32m✓[39m tests/components/cards/CardHand.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 1828[2mms[22m[39m
+   [33m[2m✓[22m[39m CardHand[2m > [22mrenders all cards in hand [33m 738[2mms[22m[39m
+   [33m[2m✓[22m[39m CardHand[2m > [22mrenders 14-card hand correctly [33m 339[2mms[22m[39m
+ [32m✓[39m tests/components/cards/Card.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 3242[2mms[22m[39m
+   [33m[2m✓[22m[39m Card component[2m > [22mrendering[2m > [22mrenders a standard card with rank and suit [33m 514[2mms[22m[39m
+   [33m[2m✓[22m[39m Card component[2m > [22mall 56 cards render[2m > [22mrenders all 52 standard cards [33m 1937[2mms[22m[39m
+ [32m✓[39m tests/components/game/PlayerSeat.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 184[2mms[22m[39m
+ [32m✓[39m tests/components/game/TrickDisplay.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 272[2mms[22m[39m
+ [32m✓[39m tests/hooks/useWebSocket.test.ts [2m([22m[2m11 tests[22m[2m)[22m[32m 167[2mms[22m[39m
+ [32m✓[39m tests/components/game/GameTable.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 221[2mms[22m[39m
+ [32m✓[39m tests/components/phases/RoundEndPhase.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 968[2mms[22m[39m
+   [33m[2m✓[22m[39m RoundEndPhase[2m > [22mcalls onContinue when button clicked [33m 592[2mms[22m[39m
+ [32m✓[39m tests/components/game/ScorePanel.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 755[2mms[22m[39m
+   [33m[2m✓[22m[39m ScorePanel[2m > [22mexpands round history on toggle click [33m 532[2mms[22m[39m
+ [32m✓[39m tests/hooks/useCardSelection.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 92[2mms[22m[39m
+ [32m✓[39m tests/components/game/TrickArea.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32m✓[39m tests/components/cards/card-utils.test.ts [2m([22m[2m13 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/stores/uiStore.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/stores/gameStore.test.ts [2m([22m[2m12 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m18 passed[39m[22m[90m (18)[39m
+[2m      Tests [22m [1m[32m161 passed[39m[22m[90m (161)[39m
+[2m   Start at [22m 23:48:45
+[2m   Duration [22m 16.34s[2m (transform 2.75s, setup 16.60s, collect 7.75s, tests 15.02s, environment 47.93s, prepare 6.46s)[22m
+
