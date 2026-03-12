@@ -186,9 +186,7 @@ export class RoomHandler {
     }
 
     try {
-      this.roomManager.startGame(info.roomCode);
-
-      // Create the game via GameStore
+      // Create the game via GameStore (before setting gameInProgress flag)
       const game = this.gameStore.createGame(info.roomCode, room.config);
 
       // Seat all players into the game
@@ -208,9 +206,15 @@ export class RoomHandler {
         }
       }
 
+      // REQ-F-SG03: Set gameInProgress only after successful initialization
+      this.roomManager.startGame(info.roomCode);
+
       // Start the game (HOST_START_GAME triggers FSM transition)
       game.handleMessage(ws, info.seat as Seat, { type: 'START_GAME' });
     } catch (err) {
+      // REQ-F-SG03: Roll back gameInProgress flag on failure
+      this.roomManager.endGame(info.roomCode);
+      this.gameStore.destroyGameByRoom(info.roomCode);
       this.broadcaster.sendError(ws, 'START_GAME_FAILED', (err as Error).message);
     }
   }

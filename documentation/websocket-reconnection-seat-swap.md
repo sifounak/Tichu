@@ -35,3 +35,15 @@ The feature uses a new `SWAP_SEATS` WebSocket message with `{ targetSeat: number
 | Empty | Player moves to the empty seat |
 | Bot | Bot is removed, player takes the seat |
 | Other human | Both players swap positions |
+
+## Start Game & In-Progress Reconnection Fix
+
+**Date:** 2026-03-12
+
+### Problem
+Clicking "Start Game" appeared to do nothing. The server started the game and broadcast `GAME_STATE`, but the client navigated to `/game/{roomId}` which opened a new WebSocket. The game page's WebSocket was missing `userId`/`playerName` credentials, so the server rejected it immediately. Additionally, the server's reconnection logic did not send `GAME_STATE` for in-progress games.
+
+### Fix
+- **Game page WebSocket credentials:** The game page now includes `userId` and `playerName` query parameters in the WebSocket URL, matching the lobby/room pages.
+- **In-progress game reconnection:** When a player reconnects and has an active game, the server now sends the full `GAME_STATE` via `game.handleReconnect()`.
+- **StartGame rollback:** The `gameInProgress` flag is now set only after successful game initialization, and rolled back on failure.
