@@ -6,7 +6,7 @@
 // REQ-NF-U02: Tichu banner animation
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { GamePhase } from '@tichu/shared';
 import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -25,11 +25,27 @@ import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
 import { PreGamePhase, RoundEndPhase, GameEndPhase } from '@/components/phases';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
+const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
+
+// REQ-F-SG01: Retrieve userId and playerName for WebSocket authentication
+function getGuestId(): string {
+  let id = sessionStorage.getItem('tichu_user_id');
+  if (!id) {
+    id = `guest_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    sessionStorage.setItem('tichu_user_id', id);
+  }
+  return id;
+}
 
 export default function GamePage() {
   const gameStore = useGameStore();
   const uiStore = useUiStore();
+
+  // REQ-F-SG01: Include userId and playerName in WebSocket URL
+  const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
+  const playerName = typeof window !== 'undefined'
+    ? (sessionStorage.getItem('tichu_player_name') ?? 'Guest')
+    : 'Guest';
 
   const handleMessage = useCallback(
     (msg: ServerMessage) => {
@@ -60,8 +76,9 @@ export default function GamePage() {
     [gameStore, uiStore],
   );
 
+  const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
   const { status, send } = useWebSocket({
-    url: WS_URL,
+    url: wsUrl,
     onMessage: handleMessage,
     onStatusChange: uiStore.setConnectionStatus,
   });

@@ -114,6 +114,12 @@ export function createApp(config: Partial<AppConfig> = {}) {
       roomHandler.roomManager.markReconnected(userId);
       broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: existingRoom, seat: existingSeat });
       roomHandler.broadcastRoomUpdate(existingRoom);
+
+      // REQ-F-SG02: If a game is in progress, send GAME_STATE to reconnected player
+      const game = gameStore.getGameByRoom(existingRoom);
+      if (game) {
+        game.handleReconnect(ws, existingSeat);
+      }
     }
 
     ws.on('pong', () => {
