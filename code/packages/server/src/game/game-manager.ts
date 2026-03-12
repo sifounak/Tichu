@@ -20,6 +20,7 @@ import {
 import { TurnTimer } from './turn-timer.js';
 import { MoveHandler } from './move-handler.js';
 import { DisconnectHandler } from './disconnect-handler.js';
+import { projectGameState } from '../ws/state-projection.js';
 
 /**
  * Orchestrates a single game: receives client messages, validates moves
@@ -172,11 +173,12 @@ export class GameManager {
     this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue);
   }
 
-  /** Send current game state to a specific player */
+  /** Send current game state to a specific player (projected per-seat view) */
   private sendStateTo(seat: Seat): void {
+    const view = projectGameState(this.context, this.stateValue, seat);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
-      state: this.context,
+      state: view,
     });
   }
 
