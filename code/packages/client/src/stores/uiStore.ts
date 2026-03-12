@@ -1,0 +1,120 @@
+// Client-only UI state: card selection, animation settings, connection status, chat, disconnect
+'use client';
+
+import { create } from 'zustand';
+import type { CardId, Rank, Seat, TichuCall } from '@tichu/shared';
+import type { ConnectionStatus } from '@/hooks/useWebSocket';
+import type { ChatMessage } from '@/components/game/ChatPanel';
+
+export interface UiStore {
+  /* --- Card Selection --- */
+  selectedCardIds: Set<CardId>;
+  selectCard: (id: CardId) => void;
+  deselectCard: (id: CardId) => void;
+  toggleCard: (id: CardId) => void;
+  clearSelection: () => void;
+
+  /* --- Phoenix Value Picker --- */
+  phoenixPickerOptions: Rank[] | null;
+  showPhoenixPicker: (options: Rank[]) => void;
+  hidePhoenixPicker: () => void;
+
+  /* --- Connection --- */
+  connectionStatus: ConnectionStatus;
+  setConnectionStatus: (status: ConnectionStatus) => void;
+
+  /* --- Settings --- */
+  animationSpeed: 'slow' | 'normal' | 'fast' | 'off';
+  setAnimationSpeed: (speed: 'slow' | 'normal' | 'fast' | 'off') => void;
+
+  /* --- Chat (REQ-F-MP07) --- */
+  chatOpen: boolean;
+  chatMessages: ChatMessage[];
+  chatUnread: number;
+  toggleChat: () => void;
+  addChatMessage: (msg: ChatMessage) => void;
+
+  /* --- Disconnect (REQ-F-MP08) --- */
+  disconnectedSeat: Seat | null;
+  disconnectVoteRequired: boolean;
+  disconnectCountdown: number;
+  reconnectedSeat: Seat | null;
+  setDisconnected: (seat: Seat | null) => void;
+  setDisconnectVoteRequired: (required: boolean) => void;
+  setDisconnectCountdown: (seconds: number) => void;
+  setReconnected: (seat: Seat | null) => void;
+
+  /* --- Tichu Banner (REQ-NF-U02) --- */
+  tichuEvent: { seat: Seat; level: TichuCall } | null;
+  setTichuEvent: (event: { seat: Seat; level: TichuCall } | null) => void;
+}
+
+export const useUiStore = create<UiStore>()((set) => ({
+  /* --- Card Selection --- */
+  selectedCardIds: new Set(),
+
+  selectCard: (id) =>
+    set((s) => {
+      const next = new Set(s.selectedCardIds);
+      next.add(id);
+      return { selectedCardIds: next };
+    }),
+
+  deselectCard: (id) =>
+    set((s) => {
+      const next = new Set(s.selectedCardIds);
+      next.delete(id);
+      return { selectedCardIds: next };
+    }),
+
+  toggleCard: (id) =>
+    set((s) => {
+      const next = new Set(s.selectedCardIds);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return { selectedCardIds: next };
+    }),
+
+  clearSelection: () => set({ selectedCardIds: new Set() }),
+
+  /* --- Phoenix Value Picker --- */
+  phoenixPickerOptions: null,
+  showPhoenixPicker: (options) => set({ phoenixPickerOptions: options }),
+  hidePhoenixPicker: () => set({ phoenixPickerOptions: null }),
+
+  /* --- Connection --- */
+  connectionStatus: 'disconnected',
+  setConnectionStatus: (status) => set({ connectionStatus: status }),
+
+  /* --- Settings --- */
+  animationSpeed: 'normal',
+  setAnimationSpeed: (speed) => set({ animationSpeed: speed }),
+
+  /* --- Chat --- */
+  chatOpen: false,
+  chatMessages: [],
+  chatUnread: 0,
+  toggleChat: () =>
+    set((s) => ({ chatOpen: !s.chatOpen, chatUnread: s.chatOpen ? s.chatUnread : 0 })),
+  addChatMessage: (msg) =>
+    set((s) => ({
+      chatMessages: [...s.chatMessages, msg],
+      chatUnread: s.chatOpen ? s.chatUnread : s.chatUnread + 1,
+    })),
+
+  /* --- Disconnect --- */
+  disconnectedSeat: null,
+  disconnectVoteRequired: false,
+  disconnectCountdown: 0,
+  reconnectedSeat: null,
+  setDisconnected: (seat) =>
+    set({ disconnectedSeat: seat, disconnectVoteRequired: false, disconnectCountdown: 0 }),
+  setDisconnectVoteRequired: (required) => set({ disconnectVoteRequired: required }),
+  setDisconnectCountdown: (seconds) => set({ disconnectCountdown: seconds }),
+  setReconnected: (seat) =>
+    set({ reconnectedSeat: seat, disconnectedSeat: null, disconnectVoteRequired: false }),
+
+  /* --- Tichu Banner --- */
+  tichuEvent: null,
+  setTichuEvent: (event) => set({ tichuEvent: event }),
+}));

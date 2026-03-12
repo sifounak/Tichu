@@ -1,0 +1,69 @@
+.actionBar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+}
+
+.button {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--easing-smooth),
+              transform var(--duration-fast) var(--easing-smooth);
+  min-width: 80px;
+  min-height: 44px; /* REQ-NF-U06: 44px touch target */
+}
+
+.button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.button:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.playButton {
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
+}
+
+.passButton {
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.tichuButton {
+  background: var(--color-tichu-badge);
+  color: white;
+}
+
+/* Invalid play shake animation */
+.shake {
+  animation: shakeX var(--duration-normal) ease-out;
+}
+
+@keyframes shakeX {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-6px); }
+  30% { transform: translateX(5px); }
+  50% { transform: translateX(-4px); }
+  70% { transform: translateX(3px); }
+  90% { transform: translateX(-1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shake { animation: none; }
+}

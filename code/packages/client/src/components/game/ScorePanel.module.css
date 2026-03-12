@@ -1,0 +1,144 @@
+.panel {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 16px;
+  min-width: 200px;
+  text-align: center;
+}
+
+.scoreRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.teamLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.score {
+  font-size: 22px;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: center;
+}
+
+.separator {
+  font-size: 16px;
+  color: var(--color-text-muted);
+}
+
+.target {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.tichuCalls {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.tichuBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.tichu {
+  background: var(--color-tichu-badge);
+  color: white;
+}
+
+.grandTichu {
+  background: var(--color-grand-tichu-badge);
+  color: white;
+}
+
+.historyToggle {
+  margin-top: 6px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 4px 8px;
+  min-height: 30px;
+}
+
+.historyToggle:hover {
+  color: var(--color-text-secondary);
+}
+
+.history {
+  margin-top: 6px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 6px;
+}
+
+.historyRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+.roundNum {
+  color: var(--color-text-muted);
+  min-width: 28px;
+  text-align: right;
+}
+
+.historyScore {
+  min-width: 30px;
+  text-align: center;
+}
+
+.historySep {
+  color: var(--color-text-muted);
+}
+
+/* REQ-NF-U01: Mobile — collapsed score, expandable overlay */
+@media (max-width: 640px) {
+  .panel {
+    padding: 6px 12px;
+    min-width: 0;
+    border-radius: 8px;
+  }
+
+  .score {
+    font-size: 18px;
+    min-width: 32px;
+  }
+
+  .target {
+    display: none;
+  }
+
+  .tichuCalls {
+    margin-top: 4px;
+  }
+
+  .history {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--color-felt-green-dark);
+    border-top: 1px solid var(--color-border);
+    padding: 12px 16px;
+    z-index: 40;
+    max-height: 40vh;
+    overflow-y: auto;
+    border-radius: 12px 12px 0 0;
+  }
+}

@@ -1,0 +1,174 @@
+// REQ-NF-A02: Server authoritative — Fastify HTTP + WebSocket server setup
+// REQ-F-AU01: Guest access integration
+// REQ-F-AU02: Account auth integration
+
+import Fastify from 'fastify';
+import { WebSocketServer, WebSocket } from 'ws';
+import type { IncomingMessage } from 'http';
+import { ConnectionManager } from './ws/connection-manager.js';
+import { Broadcaster } from './ws/broadcaster.js';
+import { MessageRouter } from './ws/message-router.js';
+import { GameStore } from './game/game-store.js';
+import { RoomHandler } from './room/room-handler.js';
+import { createDatabase, type Database } from './db/connection.js';
+import { registerAuthRoutes } from './auth/auth-routes.js';
+
+export interface AppConfig {
+  port: number;
+  host: string;
+  corsOrigin: string;
+  pingIntervalMs?: number;
+  staleThresholdMs?: number;
+  databaseUrl?: string;
+  jwtSecret?: string;
+}
+
+const DEFAULT_CONFIG: AppConfig = {
+  port: parseInt(process.env.PORT ?? '3001', 10),
+  host: '0.0.0.0',
+  corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+};
+
+/**
+ * Creates and configures the Fastify server with WebSocket upgrade support.
+ * Returns the server components for external use and testing.
+ */
+export function createApp(config: Partial<AppConfig> = {}) {
+  const cfg: AppConfig = { ...DEFAULT_CONFIG, ...config };
+
+  // ─── Fastify HTTP server ─────────────────────────────────────────────
+  const fastify = Fastify({ logger: true });
+
+  // CORS headers
+  fastify.addHook('onRequest', async (request, reply) => {
+    reply.header('Access-Control-Allow-Origin', cfg.corsOrigin);
+    reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (request.method === 'OPTIONS') {
+      reply.status(204).send();
+    }
+  });
+
+  // Health endpoint
+  fastify.get('/health', async () => {
+    return { status: 'ok', timestamp: new Date().toISOString() };
+  });
+
+  // ─── Database & Auth (optional — skip if no DATABASE_URL) ───────────
+  let database: Database | null = null;
+  const dbUrl = cfg.databaseUrl ?? process.env.DATABASE_URL;
+  const jwtSecret = cfg.jwtSecret ?? process.env.JWT_SECRET ?? 'tichu-dev-secret';
+
+  if (dbUrl) {
+    database = createDatabase(dbUrl);
+    registerAuthRoutes(fastify, database, jwtSecret);
+  }
+
+  // ─── WebSocket infrastructure ────────────────────────────────────────
+  const connections = new ConnectionManager({
+    pingIntervalMs: cfg.pingIntervalMs,
+    staleThresholdMs: cfg.staleThresholdMs,
+  });
+  const broadcaster = new Broadcaster(connections);
+  const router = new MessageRouter(connections, broadcaster);
+
+  // ─── Game & Room infrastructure ─────────────────────────────────────
+  const gameStore = new GameStore(broadcaster);
+  const roomHandler = new RoomHandler(router, connections, broadcaster, gameStore);
+
+  // Create WebSocket server (no HTTP server — uses Fastify's)
+  const wss = new WebSocketServer({ noServer: true });
+
+  // Handle WebSocket upgrade requests
+  fastify.server.on('upgrade', (request: IncomingMessage, socket, head) => {
+    // Only upgrade requests to /ws path
+    const url = new URL(request.url ?? '/', `http://${request.headers.host}`);
+    if (url.pathname !== '/ws') {
+      socket.destroy();
+      return;
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
+  });
+
+  // Handle new WebSocket connections
+  wss.on('connection', (ws: WebSocket, request: IncomingMessage) => {
+    const url = new URL(request.url ?? '/', `http://${request.headers.host}`);
+    const userId = url.searchParams.get('userId');
+    const playerName = url.searchParams.get('playerName');
+
+    if (!userId || !playerName) {
+      ws.close(4001, 'Missing userId or playerName query parameters');
+      return;
+    }
+
+    connections.addClient(ws, userId, playerName);
+
+    ws.on('pong', () => {
+      connections.recordPong(ws);
+    });
+
+    ws.on('message', (data) => {
+      const message = typeof data === 'string' ? data : data.toString();
+      router.handleMessage(ws, message);
+    });
+
+    ws.on('close', () => {
+      const info = connections.removeClient(ws);
+      if (info?.roomCode) {
+        broadcaster.broadcastToRoom(info.roomCode, {
+          type: 'PLAYER_DISCONNECTED',
+          seat: info.seat!,
+        });
+      }
+    });
+
+    ws.on('error', () => {
+      connections.removeClient(ws);
+    });
+  });
+
+  // Stale connection handler
+  connections.onStaleConnection = (_ws, info) => {
+    if (info.roomCode && info.seat) {
+      broadcaster.broadcastToRoom(info.roomCode, {
+        type: 'PLAYER_DISCONNECTED',
+        seat: info.seat,
+      });
+    }
+  };
+
+  return {
+    fastify,
+    wss,
+    connections,
+    broadcaster,
+    router,
+    gameStore,
+    roomHandler,
+    database,
+    config: cfg,
+
+    /** Start listening and begin heartbeat */
+    async start(): Promise<void> {
+      await fastify.listen({ port: cfg.port, host: cfg.host });
+      connections.startHeartbeat();
+      roomHandler.roomManager.startCleanup();
+      fastify.log.info(`Tichu server listening on port ${cfg.port}`);
+    },
+
+    /** Graceful shutdown */
+    async stop(): Promise<void> {
+      roomHandler.dispose();
+      gameStore.dispose();
+      connections.dispose();
+      wss.close();
+      if (database) await database.close();
+      await fastify.close();
+    },
+  };
+}
+
+export type App = ReturnType<typeof createApp>;

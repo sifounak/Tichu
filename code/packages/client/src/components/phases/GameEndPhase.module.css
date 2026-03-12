@@ -1,0 +1,133 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  animation: fadeIn var(--duration-normal) var(--easing-smooth);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay { animation: none; }
+}
+
+.panel {
+  background: var(--color-felt-green-light);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 32px;
+  min-width: 340px;
+  max-width: 440px;
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+  animation: slideUp var(--duration-slow) var(--easing-card);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+}
+
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.winnerText {
+  margin: 8px 0 20px;
+  font-size: 20px;
+  color: var(--color-gold-accent);
+  font-weight: 600;
+}
+
+.finalScores {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.teamScore {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.teamLabel {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.score {
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.vs {
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+.history {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.historySummary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  padding: 8px;
+}
+
+.historyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.historyTable th {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+}
+
+.historyTable td {
+  padding: 4px 8px;
+  text-align: center;
+}
+
+.newGameButton {
+  padding: 12px 32px;
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  transition: transform var(--duration-fast) var(--easing-smooth);
+}
+
+.newGameButton:hover {
+  transform: translateY(-1px);
+}

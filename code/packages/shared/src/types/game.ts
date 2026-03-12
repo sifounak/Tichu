@@ -1,0 +1,164 @@
+// REQ-F-GF01: Game lifecycle state machine types
+
+import type { GameCard, Rank } from './card.js';
+import type { Combination } from './combination.js';
+
+/** Fixed seat positions at the table */
+export type Seat = 'north' | 'east' | 'south' | 'west';
+
+/** The two partnership teams */
+export type Team = 'northSouth' | 'eastWest';
+
+/** All seats in clockwise turn order */
+export const SEATS_IN_ORDER: readonly Seat[] = ['north', 'east', 'south', 'west'] as const;
+
+/** Maps a seat to its team */
+export function getTeam(seat: Seat): Team {
+  return seat === 'north' || seat === 'south' ? 'northSouth' : 'eastWest';
+}
+
+/** Maps a seat to its partner */
+export function getPartner(seat: Seat): Seat {
+  const partners: Record<Seat, Seat> = {
+    north: 'south',
+    south: 'north',
+    east: 'west',
+    west: 'east',
+  };
+  return partners[seat];
+}
+
+/** Returns the next seat in clockwise order */
+export function getNextSeat(seat: Seat): Seat {
+  const idx = SEATS_IN_ORDER.indexOf(seat);
+  return SEATS_IN_ORDER[(idx + 1) % 4];
+}
+
+/** All phases of the game state machine */
+export enum GamePhase {
+  /** Waiting for players to join */
+  WaitingForPlayers = 'waitingForPlayers',
+  /** First 8 cards dealt; players decide on Grand Tichu */
+  GrandTichuDecision = 'grandTichuDecision',
+  /** Remaining 6 cards dealt; players decide on Tichu */
+  TichuDecision = 'tichuDecision',
+  /** Players pass 1 card to each other player */
+  CardPassing = 'cardPassing',
+  /** Active gameplay — tricks are played */
+  Playing = 'playing',
+  /** Round ended, scoring in progress */
+  RoundScoring = 'roundScoring',
+  /** Game over — a team reached the target score */
+  GameOver = 'gameOver',
+}
+
+/** Tichu call level */
+export type TichuCall = 'none' | 'tichu' | 'grandTichu';
+
+/** State for an individual player within a round */
+export interface PlayerState {
+  seat: Seat;
+  hand: GameCard[];
+  tricksWon: GameCard[][];
+  tipiCall: TichuCall;
+  hasPlayed: boolean;
+  finishOrder: number | null;
+  passedCards: {
+    to: Record<Seat, GameCard | null>;
+    received: boolean;
+  };
+}
+
+/** State for the current trick */
+export interface TrickState {
+  plays: Array<{
+    seat: Seat;
+    combination: Combination;
+  }>;
+  passes: Seat[];
+  leadSeat: Seat;
+  currentWinner: Seat;
+}
+
+/** Score record for one round */
+export interface RoundScore {
+  roundNumber: number;
+  cardPoints: Record<Team, number>;
+  tichuBonuses: Record<Team, number>;
+  oneTwoBonus: Team | null;
+  total: Record<Team, number>;
+}
+
+/** Full state for one round of play */
+export interface RoundState {
+  roundNumber: number;
+  phase: GamePhase;
+  players: Record<Seat, PlayerState>;
+  currentTrick: TrickState | null;
+  currentTurn: Seat | null;
+  mahjongWish: Rank | null;
+  wishFulfilled: boolean;
+  finishOrder: Seat[];
+  dragonGiftPending: {
+    trickCards: GameCard[];
+    from: Seat;
+  } | null;
+}
+
+/** REQ-F-GF10: Customizable game configuration */
+export interface GameConfig {
+  targetScore: number;
+  turnTimerSeconds: number | null;
+  botDifficulty: 'easy' | 'medium' | 'hard';
+  animationSpeed: 'slow' | 'normal' | 'fast' | 'off';
+  spectatorsAllowed: boolean;
+  isPrivate: boolean;
+}
+
+/** Default game configuration */
+export const DEFAULT_GAME_CONFIG: GameConfig = {
+  targetScore: 1000,
+  turnTimerSeconds: null,
+  botDifficulty: 'easy',
+  animationSpeed: 'normal',
+  spectatorsAllowed: true,
+  isPrivate: false,
+};
+
+/** Full game state across rounds */
+export interface GameState {
+  gameId: string;
+  config: GameConfig;
+  phase: GamePhase;
+  scores: Record<Team, number>;
+  roundHistory: RoundScore[];
+  currentRound: RoundState | null;
+}
+
+/**
+ * REQ-NF-A02: Projected state for a specific player.
+ * Hides other players' hands; shows only public information.
+ */
+export interface ClientGameView {
+  gameId: string;
+  config: GameConfig;
+  phase: GamePhase;
+  scores: Record<Team, number>;
+  roundHistory: RoundScore[];
+  mySeat: Seat;
+  myHand: GameCard[];
+  myTichuCall: TichuCall;
+  otherPlayers: Array<{
+    seat: Seat;
+    cardCount: number;
+    tichuCall: TichuCall;
+    hasPlayed: boolean;
+    finishOrder: number | null;
+  }>;
+  currentTrick: TrickState | null;
+  currentTurn: Seat | null;
+  mahjongWish: Rank | null;
+  wishFulfilled: boolean;
+  finishOrder: Seat[];
+  dragonGiftPending: boolean;
+}

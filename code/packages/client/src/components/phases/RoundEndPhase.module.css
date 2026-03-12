@@ -1,0 +1,110 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  animation: fadeIn var(--duration-normal) var(--easing-smooth);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay { animation: none; }
+}
+
+.panel {
+  background: var(--color-felt-green-light);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 28px 32px;
+  min-width: 320px;
+  max-width: 420px;
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+  animation: slideUp var(--duration-slow) var(--easing-card);
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel { animation: none; }
+}
+
+.title {
+  margin: 0 0 20px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.headerCell {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-gold-accent);
+  padding: 6px 12px;
+  text-align: center;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.labelCell {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.valueCell {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 12px;
+  text-align: center;
+}
+
+.totalRow {
+  border-top: 1px solid var(--color-border);
+}
+
+.totalRow .labelCell,
+.totalRow .valueCell {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  padding-top: 10px;
+}
+
+.cumulativeRow .labelCell,
+.cumulativeRow .valueCell {
+  color: var(--color-gold-accent);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.continueButton {
+  padding: 10px 32px;
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  transition: transform var(--duration-fast) var(--easing-smooth);
+}
+
+.continueButton:hover {
+  transform: translateY(-1px);
+}

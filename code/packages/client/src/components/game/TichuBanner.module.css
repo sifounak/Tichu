@@ -1,0 +1,41 @@
+.banner {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 40px;
+  border-radius: 12px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.regular {
+  background: var(--color-tichu-badge);
+  box-shadow: 0 0 40px rgba(239, 68, 68, 0.5);
+}
+
+.grand {
+  background: var(--color-grand-tichu-badge);
+  box-shadow: 0 0 40px rgba(245, 158, 11, 0.5);
+}
+
+.seatLabel {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.9;
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.callLabel {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}

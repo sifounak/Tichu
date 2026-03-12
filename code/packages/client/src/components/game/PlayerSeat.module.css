@@ -1,0 +1,137 @@
+/* REQ-F-DI01-DI04: Player seat styling */
+
+.seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  position: relative;
+  transition: border-color var(--duration-fast) var(--easing-smooth);
+  min-width: 120px;
+}
+
+/* REQ-F-DI02: Current turn highlight */
+.active {
+  border-color: var(--color-gold-accent);
+  box-shadow: 0 0 12px rgba(201, 168, 76, 0.3);
+}
+
+.me {
+  border-color: var(--color-gold-light);
+}
+
+.avatar {
+  width: var(--seat-avatar-size);
+  height: var(--seat-avatar-size);
+  border-radius: 50%;
+  background: var(--color-felt-green-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.initial {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.finishBadge {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-gold-accent);
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cardCount {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.tichuBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tichu {
+  background: var(--color-tichu-badge);
+  color: white;
+}
+
+.grandTichu {
+  background: var(--color-grand-tichu-badge);
+  color: white;
+}
+
+.passIndicator {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.turnIndicator {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-gold-accent);
+}
+
+/* REQ-NF-U01: Mobile compact opponent seats — avatar + count only */
+@media (max-width: 640px) {
+  .seat {
+    padding: 6px 8px;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .seat:not(.me) .info .name {
+    font-size: 0;
+    width: 0;
+    overflow: hidden;
+  }
+
+  .seat:not(.me) .info .cardCount {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .initial {
+    font-size: 14px;
+  }
+}

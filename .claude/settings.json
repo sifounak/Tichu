@@ -1,10 +1,27 @@
 {
   "permissions": {
+    "allow": [
+      "Bash(pnpm --version)",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(npm config:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm turbo:*)",
+      "Bash(ls node_modules/.pnpm/tailwindcss*/node_modules/tailwindcss/package.json)",
+      "Bash(pnpm --filter @tichu/client build)",
+      "Bash(wc -l /c/MATLAB/Claude/Tichu/conversations/*.md)",
+      "Bash(npx turbo:*)",
+      "Bash(npx vitest:*)",
+      "Bash(ls -la \"c:\\\\MATLAB\\\\Claude\\\\Tichu\\\\documentation\"\" 2>/dev/null || ls -la \"c:MATLABClaudeTichu \")",
+      "Bash(gh issue:*)"
+    ],
     "additionalDirectories": [
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\matlab-test-generator\\references",
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\diligent-developer\\references",
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\diligent-developer\\conversations",
-      "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\diligent-developer"
+      "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\diligent-developer",
+      "C:\\MATLAB\\Claude\\Tichu\\code\\packages\\shared\\src\\types",
+      "C:\\MATLAB\\Claude\\Tichu\\code\\packages\\server\\src"
     ]
   }
 }
