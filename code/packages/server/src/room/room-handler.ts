@@ -41,6 +41,7 @@ export class RoomHandler {
     router.on('REMOVE_BOT', (ws, msg) => this.handleRemoveBot(ws, msg as ClientMessage & { type: 'REMOVE_BOT' }));
     router.on('GET_LOBBY', (ws) => this.handleGetLobby(ws));
     router.on('START_GAME', (ws) => this.handleStartGame(ws));
+    router.on('SWAP_SEATS', (ws, msg) => this.handleSwapSeats(ws, msg as ClientMessage & { type: 'SWAP_SEATS' }));
   }
 
   private handleCreateRoom(ws: WebSocket, msg: ClientMessage & { type: 'CREATE_ROOM' }): void {
@@ -214,8 +215,36 @@ export class RoomHandler {
     }
   }
 
+  // REQ-F-006: Handle seat swap requests
+  private handleSwapSeats(ws: WebSocket, msg: ClientMessage & { type: 'SWAP_SEATS' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    try {
+      const { affectedUserIds } = this.roomManager.swapSeat(info.userId, msg.targetSeat);
+
+      // Send updated ROOM_JOINED to each affected player with their new seat
+      for (const affectedUserId of affectedUserIds) {
+        const newSeat = this.roomManager.getUserSeat(affectedUserId);
+        const affectedWs = this.connections.getSocketByUserId(affectedUserId);
+        if (affectedWs && newSeat) {
+          this.connections.assignToRoom(affectedWs, info.roomCode, newSeat);
+          this.broadcaster.send(affectedWs, { type: 'ROOM_JOINED', roomCode: info.roomCode, seat: newSeat });
+        }
+      }
+
+      this.broadcastRoomUpdate(info.roomCode);
+    } catch (err) {
+      this.broadcaster.sendError(ws, 'SWAP_SEATS_FAILED', (err as Error).message);
+    }
+  }
+
+  // REQ-F-005: Public access for reconnection flow
   /** Broadcast ROOM_UPDATE to all players in a room */
-  private broadcastRoomUpdate(roomCode: string): void {
+  broadcastRoomUpdate(roomCode: string): void {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 

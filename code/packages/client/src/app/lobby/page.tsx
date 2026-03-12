@@ -57,9 +57,11 @@ export default function LobbyPage() {
     return () => clearInterval(interval);
   }, [status, send]);
 
+  // REQ-F-003: Persist playerName across page navigation
   const handleCreate = () => {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
     setError('');
+    sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'CREATE_ROOM', playerName: playerName.trim() });
   };
 
@@ -67,12 +69,14 @@ export default function LobbyPage() {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
     if (joinCode.length !== 6) { setError('Room code must be 6 characters'); return; }
     setError('');
+    sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'JOIN_ROOM', roomCode: joinCode.toUpperCase(), playerName: playerName.trim() });
   };
 
   const handleJoinRoom = (roomCode: string) => {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
     setError('');
+    sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'JOIN_ROOM', roomCode, playerName: playerName.trim() });
   };
 
