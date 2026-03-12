@@ -67,12 +67,16 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
     autoReconnect: true,
   });
 
-  // Auto-join room if we navigated here directly
+  // REQ-F-004: Auto-join with delay to allow server reconnection to arrive first
   useEffect(() => {
-    if (status === 'connected' && !roomCode && roomId) {
-      send({ type: 'JOIN_ROOM', roomCode: roomId, playerName });
-    }
-  }, [status, roomCode, roomId, send, playerName]);
+    if (status !== 'connected' || !roomId) return;
+    const timer = setTimeout(() => {
+      if (!useRoomStore.getState().roomCode) {
+        send({ type: 'JOIN_ROOM', roomCode: roomId, playerName });
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [status, roomId, send, playerName]);
 
   const isHost = mySeat === hostSeat;
 
@@ -88,6 +92,11 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
 
   const handleStartGame = () => {
     send({ type: 'START_GAME' });
+  };
+
+  // REQ-F-006: Seat swap
+  const handleSwapSeat = (seat: Seat) => {
+    send({ type: 'SWAP_SEATS', targetSeat: seat });
   };
 
   const handleConfigChange = (updates: Record<string, unknown>) => {
@@ -161,28 +170,54 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                       <div style={{ color: 'var(--color-text-muted)' }}>Empty</div>
                     )}
                   </div>
-                  {!player && isHost && (
-                    <button
-                      onClick={() => handleAddBot(seat)}
-                      className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
-                      style={{
-                        background: 'var(--color-felt-green-light)',
-                        color: 'var(--color-text-primary)',
-                        border: '1px solid var(--color-border)',
-                      }}
-                    >
-                      + Bot
-                    </button>
-                  )}
-                  {player?.isBot && isHost && (
-                    <button
-                      onClick={() => handleRemoveBot(seat)}
-                      className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
-                      style={{ color: 'var(--color-error)' }}
-                    >
-                      Remove
-                    </button>
-                  )}
+                  <div className="flex gap-1">
+                    {!player && !isMe && (
+                      <button
+                        onClick={() => handleSwapSeat(seat)}
+                        className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+                        style={{
+                          background: 'var(--color-gold-accent)',
+                          color: 'var(--color-felt-green-dark)',
+                        }}
+                      >
+                        Sit Here
+                      </button>
+                    )}
+                    {!player && isHost && (
+                      <button
+                        onClick={() => handleAddBot(seat)}
+                        className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+                        style={{
+                          background: 'var(--color-felt-green-light)',
+                          color: 'var(--color-text-primary)',
+                          border: '1px solid var(--color-border)',
+                        }}
+                      >
+                        + Bot
+                      </button>
+                    )}
+                    {player?.isBot && !isMe && (
+                      <button
+                        onClick={() => handleSwapSeat(seat)}
+                        className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+                        style={{
+                          background: 'var(--color-gold-accent)',
+                          color: 'var(--color-felt-green-dark)',
+                        }}
+                      >
+                        Sit Here
+                      </button>
+                    )}
+                    {player?.isBot && isHost && (
+                      <button
+                        onClick={() => handleRemoveBot(seat)}
+                        className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+                        style={{ color: 'var(--color-error)' }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

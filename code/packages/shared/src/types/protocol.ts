@@ -43,6 +43,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('REMOVE_BOT'), seat: seatSchema }),
   z.object({ type: z.literal('GET_LOBBY') }),
   z.object({ type: z.literal('START_GAME') }),
+  // REQ-F-006: Seat swap
+  z.object({ type: z.literal('SWAP_SEATS'), targetSeat: seatSchema }),
 
   // Game actions
   z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean() }),

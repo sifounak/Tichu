@@ -106,6 +106,16 @@ export function createApp(config: Partial<AppConfig> = {}) {
 
     connections.addClient(ws, userId, playerName);
 
+    // REQ-F-001: Detect returning user and restore room membership
+    const existingRoom = roomHandler.roomManager.getUserRoom(userId);
+    const existingSeat = roomHandler.roomManager.getUserSeat(userId);
+    if (existingRoom && existingSeat) {
+      connections.assignToRoom(ws, existingRoom, existingSeat);
+      roomHandler.roomManager.markReconnected(userId);
+      broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: existingRoom, seat: existingSeat });
+      roomHandler.broadcastRoomUpdate(existingRoom);
+    }
+
     ws.on('pong', () => {
       connections.recordPong(ws);
     });
@@ -118,6 +128,8 @@ export function createApp(config: Partial<AppConfig> = {}) {
     ws.on('close', () => {
       const info = connections.removeClient(ws);
       if (info?.roomCode) {
+        // REQ-F-002: Mark player as disconnected (preserves room membership for reconnection)
+        roomHandler.roomManager.markDisconnected(info.userId);
         broadcaster.broadcastToRoom(info.roomCode, {
           type: 'PLAYER_DISCONNECTED',
           seat: info.seat!,

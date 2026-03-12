@@ -281,6 +281,61 @@ export class RoomManager {
     return { roomCode, seat };
   }
 
+  // REQ-F-006: Swap a player to a different seat
+  // REQ-F-007: Block swap during game
+  swapSeat(userId: string, targetSeat: Seat): { room: Room; affectedUserIds: string[] } {
+    const roomCode = this.userToRoom.get(userId);
+    const currentSeat = this.userToSeat.get(userId);
+    if (!roomCode || !currentSeat) throw new Error('Not in a room.');
+
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Room not found.');
+    if (room.gameInProgress) throw new Error('Cannot swap seats during a game.');
+    if (currentSeat === targetSeat) throw new Error('Already in that seat.');
+
+    const targetPlayer = room.players.find(p => p.seat === targetSeat);
+    const currentPlayer = room.players.find(p => p.seat === currentSeat)!;
+    const affectedUserIds: string[] = [userId];
+
+    if (!targetPlayer) {
+      // Empty seat: move player there
+      currentPlayer.seat = targetSeat;
+      this.seatToUser.delete(`${roomCode}:${currentSeat}`);
+      this.userToSeat.set(userId, targetSeat);
+      this.seatToUser.set(`${roomCode}:${targetSeat}`, userId);
+      // Move host if needed
+      if (room.hostSeat === currentSeat) room.hostSeat = targetSeat;
+    } else if (targetPlayer.isBot) {
+      // Bot seat: remove bot, move player there
+      room.players = room.players.filter(p => p.seat !== targetSeat);
+      currentPlayer.seat = targetSeat;
+      this.seatToUser.delete(`${roomCode}:${currentSeat}`);
+      this.userToSeat.set(userId, targetSeat);
+      this.seatToUser.set(`${roomCode}:${targetSeat}`, userId);
+      if (room.hostSeat === currentSeat) room.hostSeat = targetSeat;
+    } else {
+      // Human seat: swap both players
+      const targetUserId = this.seatToUser.get(`${roomCode}:${targetSeat}`);
+      if (!targetUserId) throw new Error('Target seat user not found.');
+
+      currentPlayer.seat = targetSeat;
+      targetPlayer.seat = currentSeat;
+
+      this.userToSeat.set(userId, targetSeat);
+      this.userToSeat.set(targetUserId, currentSeat);
+      this.seatToUser.set(`${roomCode}:${currentSeat}`, targetUserId);
+      this.seatToUser.set(`${roomCode}:${targetSeat}`, userId);
+
+      // Swap host if either player was host
+      if (room.hostSeat === currentSeat) room.hostSeat = targetSeat;
+      else if (room.hostSeat === targetSeat) room.hostSeat = currentSeat;
+
+      affectedUserIds.push(targetUserId);
+    }
+
+    return { room, affectedUserIds };
+  }
+
   get size(): number {
     return this.rooms.size;
   }

@@ -344,4 +344,80 @@ describe('RoomManager', () => {
       expect([room.hostSeat, s2, s3, s4]).toEqual(['north', 'east', 'south', 'west']);
     });
   });
+
+  // ─── Seat swap (REQ-F-006, REQ-F-007) ──────────────────────────
+
+  // Verifies: REQ-F-006, REQ-F-007
+  describe('swapSeat', () => {
+    it('should move player to an empty seat', () => {
+      const room = manager.createRoom('u1', 'Alice');
+      const { affectedUserIds } = manager.swapSeat('u1', 'south');
+      expect(affectedUserIds).toEqual(['u1']);
+      expect(manager.getUserSeat('u1')).toBe('south');
+      expect(room.players[0].seat).toBe('south');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'south')).toBe('u1');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'north')).toBeUndefined();
+    });
+
+    it('should move host designation when host swaps to empty seat', () => {
+      const room = manager.createRoom('u1', 'Alice');
+      manager.joinRoom('u2', room.roomCode, 'Bob');
+      expect(room.hostSeat).toBe('north');
+      manager.swapSeat('u1', 'south');
+      expect(room.hostSeat).toBe('south');
+    });
+
+    it('should replace a bot when swapping to bot seat', () => {
+      const room = manager.createRoom('u1', 'Alice');
+      manager.addBot(room.roomCode, 'east');
+      expect(room.players).toHaveLength(2);
+      const { affectedUserIds } = manager.swapSeat('u1', 'east');
+      expect(affectedUserIds).toEqual(['u1']);
+      expect(manager.getUserSeat('u1')).toBe('east');
+      // Bot should be removed, only 1 player remains
+      expect(room.players).toHaveLength(1);
+      expect(room.players[0]).toMatchObject({ seat: 'east', name: 'Alice', isBot: false });
+    });
+
+    it('should swap two human players', () => {
+      const room = manager.createRoom('u1', 'Alice');
+      manager.joinRoom('u2', room.roomCode, 'Bob');
+      expect(manager.getUserSeat('u1')).toBe('north');
+      expect(manager.getUserSeat('u2')).toBe('east');
+
+      const { affectedUserIds } = manager.swapSeat('u1', 'east');
+      expect(affectedUserIds).toContain('u1');
+      expect(affectedUserIds).toContain('u2');
+      expect(manager.getUserSeat('u1')).toBe('east');
+      expect(manager.getUserSeat('u2')).toBe('north');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'east')).toBe('u1');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'north')).toBe('u2');
+    });
+
+    it('should swap host designation when host swaps with another human', () => {
+      const room = manager.createRoom('u1', 'Alice');
+      manager.joinRoom('u2', room.roomCode, 'Bob');
+      expect(room.hostSeat).toBe('north');
+      manager.swapSeat('u1', 'east');
+      expect(room.hostSeat).toBe('east'); // host follows u1
+    });
+
+    it('should reject swap during game in progress', () => {
+      const room = manager.createRoom('u1', 'Alice');
+      manager.addBot(room.roomCode, 'east');
+      manager.addBot(room.roomCode, 'south');
+      manager.addBot(room.roomCode, 'west');
+      manager.startGame(room.roomCode);
+      expect(() => manager.swapSeat('u1', 'east')).toThrow('Cannot swap seats during a game');
+    });
+
+    it('should reject swap to same seat', () => {
+      manager.createRoom('u1', 'Alice');
+      expect(() => manager.swapSeat('u1', 'north')).toThrow('Already in that seat');
+    });
+
+    it('should reject swap if not in a room', () => {
+      expect(() => manager.swapSeat('unknown', 'north')).toThrow('Not in a room');
+    });
+  });
 });
