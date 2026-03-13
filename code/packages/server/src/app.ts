@@ -10,6 +10,7 @@ import { Broadcaster } from './ws/broadcaster.js';
 import { MessageRouter } from './ws/message-router.js';
 import { GameStore } from './game/game-store.js';
 import { RoomHandler } from './room/room-handler.js';
+import { GameHandler } from './game/game-handler.js';
 import { createDatabase, type Database } from './db/connection.js';
 import { registerAuthRoutes } from './auth/auth-routes.js';
 
@@ -75,6 +76,8 @@ export function createApp(config: Partial<AppConfig> = {}) {
   // ─── Game & Room infrastructure ─────────────────────────────────────
   const gameStore = new GameStore(broadcaster);
   const roomHandler = new RoomHandler(router, connections, broadcaster, gameStore);
+  // REQ-F-GMR01: Route game messages (play, pass, tichu, etc.) to GameManager
+  const gameHandler = new GameHandler(router, connections, broadcaster, gameStore);
 
   // Create WebSocket server (no HTTP server — uses Fastify's)
   const wss = new WebSocketServer({ noServer: true });
@@ -166,6 +169,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
     router,
     gameStore,
     roomHandler,
+    gameHandler,
     database,
     config: cfg,
 

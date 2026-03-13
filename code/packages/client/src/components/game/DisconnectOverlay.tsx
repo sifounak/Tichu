@@ -37,11 +37,11 @@ export const DisconnectOverlay = memo(function DisconnectOverlay({
   const { durations, enabled } = useAnimationSettings();
   const [showReconnected, setShowReconnected] = useState(false);
 
-  // Show "reconnected" notification for 3 seconds
+  // REQ-NF-DL05: Show "reconnected" notification (reduced from 3s to 1.5s)
   useEffect(() => {
     if (reconnectedSeat) {
       setShowReconnected(true);
-      const timer = setTimeout(() => setShowReconnected(false), 3000);
+      const timer = setTimeout(() => setShowReconnected(false), 1500);
       return () => clearTimeout(timer);
     }
   }, [reconnectedSeat]);

@@ -53,7 +53,8 @@ export default function LobbyPage() {
   useEffect(() => {
     if (status !== 'connected') return;
     send({ type: 'GET_LOBBY' });
-    const interval = setInterval(() => send({ type: 'GET_LOBBY' }), 5000);
+    // REQ-NF-DL01: Reduced from 5000ms to 2000ms for snappier lobby updates
+    const interval = setInterval(() => send({ type: 'GET_LOBBY' }), 2000);
     return () => clearInterval(interval);
   }, [status, send]);
 
