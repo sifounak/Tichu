@@ -63,20 +63,20 @@ export const ActionBar = memo(function ActionBar({
       {showActions && (
         <>
           <button
-            className={`${styles.button} ${styles.playButton}`}
-            onClick={handlePlay}
-            disabled={!canPlay}
-            aria-label="Play selected cards"
-          >
-            Play
-          </button>
-          <button
             className={`${styles.button} ${styles.passButton}`}
             onClick={onPass}
             disabled={!canPass}
             aria-label="Pass turn"
           >
             Pass
+          </button>
+          <button
+            className={`${styles.button} ${styles.playButton}`}
+            onClick={handlePlay}
+            disabled={!canPlay}
+            aria-label="Play selected cards"
+          >
+            Play
           </button>
         </>
       )}

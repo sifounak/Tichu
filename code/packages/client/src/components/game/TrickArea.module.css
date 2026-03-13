@@ -59,6 +59,15 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
+  border-color: var(--color-gold-accent);
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .playSeat {
   font-weight: 600;
   text-transform: capitalize;
