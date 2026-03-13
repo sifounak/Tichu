@@ -33,7 +33,7 @@ const BASE_DURATIONS: AnimationDurations = {
   cardLift: 0.15,
   trickSweep: 0.4,
   tichuBanner: 0.5,
-  tichuDismiss: 2,
+  tichuDismiss: 1,    // REQ-NF-DL04: Reduced from 2s to 1s
   scoreTally: 1,
   invalidShake: 0.3,
   bombEffect: 0.6,
@@ -47,7 +47,7 @@ export function useAnimationSettings() {
     const mul = SPEED_MULTIPLIERS[animationSpeed] ?? 1;
     const durations = {} as AnimationDurations;
     for (const [key, base] of Object.entries(BASE_DURATIONS)) {
-      (durations as Record<string, number>)[key] = base * mul;
+      (durations as unknown as Record<string, number>)[key] = base * mul;
     }
     return {
       durations,

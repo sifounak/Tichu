@@ -49,6 +49,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   // Game actions
   z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean() }),
   z.object({ type: z.literal('TICHU_DECLARATION') }),
+  // REQ-F-RTP01: Regular Tichu pass (skip without calling)
+  z.object({ type: z.literal('REGULAR_TICHU_PASS') }),
   z.object({ type: z.literal('PASS_CARDS'), cards: z.record(seatSchema, gameCardSchema) }),
   z.object({ type: z.literal('PLAY_CARDS'), cardIds: z.array(z.number().int().min(0).max(55)).min(1), phoenixAs: rankSchema.optional() }),
   z.object({ type: z.literal('PASS_TURN') }),

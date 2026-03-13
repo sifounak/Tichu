@@ -108,6 +108,11 @@ export class GameManager {
         result = this.moveHandler.handleTichuDeclaration(seat);
         break;
 
+      // REQ-F-RTP02: Regular Tichu pass (skip without calling)
+      case 'REGULAR_TICHU_PASS':
+        result = this.moveHandler.handleRegularTichuPass(seat);
+        break;
+
       case 'PASS_CARDS':
         result = this.moveHandler.handlePassCards(seat, message.cards as Record<Seat, GameCard>);
         break;

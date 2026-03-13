@@ -74,7 +74,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
       if (!useRoomStore.getState().roomCode) {
         send({ type: 'JOIN_ROOM', roomCode: roomId, playerName });
       }
-    }, 150);
+    }, 50); // REQ-NF-DL02: Reduced from 150ms to 50ms
     return () => clearTimeout(timer);
   }, [status, roomId, send, playerName]);
 

@@ -17,9 +17,10 @@ export interface BotRunnerConfig {
 }
 
 /** Default timing config based on animation speed */
+// REQ-NF-DL03: Reduced from 200-1500ms to 100-800ms for snappier gameplay
 const DEFAULT_CONFIG: BotRunnerConfig = {
-  minDelayMs: 200,
-  maxDelayMs: 1500,
+  minDelayMs: 100,
+  maxDelayMs: 800,
 };
 
 /** Fast config for testing */

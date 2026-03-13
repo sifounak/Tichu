@@ -155,8 +155,9 @@ export default function GamePage() {
     [send],
   );
 
+  // REQ-F-RTP03: Send REGULAR_TICHU_PASS instead of GRAND_TICHU_DECISION
   const handleTichuSkip = useCallback(
-    () => send({ type: 'GRAND_TICHU_DECISION', call: false }),
+    () => send({ type: 'REGULAR_TICHU_PASS' }),
     [send],
   );
 
