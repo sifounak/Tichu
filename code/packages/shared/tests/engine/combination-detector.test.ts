@@ -204,6 +204,16 @@ describe('detectCombination', () => {
       // This isn't possible with 4 suits, but let's test 4+Phoenix
       expect(detectCombination([j(5), p(5), s(5), sw(5), phoenix()])).toBeNull();
     });
+
+    // Verifies: REQ-F-RT01 — Official FAQ: "Is 3,3,3,3,Phoenix a valid full house? No."
+    it('rejects [3,3,3,3,Phoenix] as full house (FAQ rule)', () => {
+      expect(detectCombination([j(3), p(3), s(3), sw(3), phoenix()])).toBeNull();
+    });
+
+    // Verifies: REQ-F-RT02 — Generalized 4-of-kind + Phoenix rejection
+    it('rejects [7,7,7,7,Phoenix] as full house', () => {
+      expect(detectCombination([j(7), p(7), s(7), sw(7), phoenix()])).toBeNull();
+    });
   });
 
   describe('Straights', () => {

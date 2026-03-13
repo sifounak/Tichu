@@ -10,7 +10,7 @@
 import type { GameCard, Rank } from '../types/card.js';
 import { isPhoenix, isStandard, isDragon, isDog, isMahjong } from '../types/card.js';
 import type { TrickState } from '../types/game.js';
-import { PHOENIX_SINGLE_VALUE, MAHJONG_RANK } from '../constants.js';
+import { PHOENIX_SINGLE_VALUE, MAHJONG_RANK, DRAGON_RANK } from '../constants.js';
 
 /** Result of resolving Phoenix values for a card selection */
 export type PhoenixResolution =
@@ -92,7 +92,7 @@ export function resolvePhoenixValues(
 
 // --- Single ---
 
-/** REQ-F-PH04, REQ-F-PH05: Single Phoenix resolution */
+/** REQ-F-PH04, REQ-F-PH05, REQ-F-PD01: Single Phoenix resolution */
 function resolveSinglePhoenix(currentTrick: TrickState | null): PhoenixResolution {
   if (!currentTrick || currentTrick.plays.length === 0) {
     // REQ-F-PH04: Leading single = 1.5
@@ -101,6 +101,10 @@ function resolveSinglePhoenix(currentTrick: TrickState | null): PhoenixResolutio
   // REQ-F-PH05: On existing trick = current winner's rank + 0.5
   const topPlay = currentTrick.plays[currentTrick.plays.length - 1];
   const topRank = topPlay.combination.rank;
+  // REQ-F-PD01: Phoenix cannot beat Dragon (rules: "can beat an Ace but not the Dragon")
+  if (topRank >= DRAGON_RANK) {
+    return { status: 'invalid' };
+  }
   return { status: 'single_ontrick', value: topRank + 0.5 };
 }
 
