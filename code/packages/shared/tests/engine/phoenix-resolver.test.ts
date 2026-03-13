@@ -106,6 +106,17 @@ describe('resolvePhoenixValues', () => {
       const result = resolvePhoenixValues([phoenix()], trickWithTopRank(14));
       expect(result).toEqual({ status: 'single_ontrick', value: 14.5 });
     });
+
+    // Verifies: REQ-F-PD01 — Phoenix cannot beat Dragon
+    it('returns invalid when Dragon (rank 25) is on the trick', () => {
+      const result = resolvePhoenixValues([phoenix()], trickWithTopRank(25));
+      expect(result.status).toBe('invalid');
+    });
+
+    it('returns single_ontrick with value 13.5 when King (rank 13) is on the trick', () => {
+      const result = resolvePhoenixValues([phoenix()], trickWithTopRank(13));
+      expect(result).toEqual({ status: 'single_ontrick', value: 13.5 });
+    });
   });
 
   // --- Pair ---
@@ -181,6 +192,24 @@ describe('resolvePhoenixValues', () => {
       // 4 Kings + Phoenix is not a valid full house
       const result = resolvePhoenixValues(
         [j(13), p(13), s(13), sw(13), phoenix()],
+        null,
+      );
+      expect(result.status).toBe('invalid');
+    });
+
+    // Verifies: REQ-F-RT01 — Official FAQ: "Is 3,3,3,3,Phoenix a valid full house? No."
+    it('returns invalid for [3,3,3,3,Phoenix]', () => {
+      const result = resolvePhoenixValues(
+        [j(3), p(3), s(3), sw(3), phoenix()],
+        null,
+      );
+      expect(result.status).toBe('invalid');
+    });
+
+    // Verifies: REQ-F-RT02 — Generalized 4-of-kind + Phoenix
+    it('returns invalid for [7,7,7,7,Phoenix]', () => {
+      const result = resolvePhoenixValues(
+        [j(7), p(7), s(7), sw(7), phoenix()],
         null,
       );
       expect(result.status).toBe('invalid');
