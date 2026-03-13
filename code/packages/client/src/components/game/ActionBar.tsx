@@ -1,6 +1,7 @@
 // REQ-F-HV06: Play/Pass action buttons with validity enforcement
 // REQ-F-DI04: Tichu call button during appropriate phases
 // REQ-NF-U02: Invalid play shake animation
+// REQ-F-BI09: Bomb button for out-of-turn play
 'use client';
 
 import { memo, useState, useCallback } from 'react';
@@ -20,10 +21,13 @@ export interface ActionBarProps {
   myTichuCall: TichuCall;
   /** Whether player has played any cards this round */
   hasPlayedCards: boolean;
+  /** REQ-F-BI09: Whether the player has a valid bomb selected (for out-of-turn play) */
+  hasBombReady: boolean;
   /** Callbacks */
   onPlay: () => void;
   onPass: () => void;
   onTichu: () => void;
+  onBomb: () => void;
 }
 
 export const ActionBar = memo(function ActionBar({
@@ -33,9 +37,11 @@ export const ActionBar = memo(function ActionBar({
   phase,
   myTichuCall,
   hasPlayedCards,
+  hasBombReady,
   onPlay,
   onPass,
   onTichu,
+  onBomb,
 }: ActionBarProps) {
   const isPlaying = phase === 'playing';
   const showActions = isPlaying && isMyTurn;
@@ -79,6 +85,16 @@ export const ActionBar = memo(function ActionBar({
             Play
           </button>
         </>
+      )}
+      {/* REQ-F-BI09: Show Bomb! button when off-turn with valid bomb selected */}
+      {!isMyTurn && isPlaying && hasBombReady && (
+        <button
+          className={`${styles.button} ${styles.bombButton}`}
+          onClick={onBomb}
+          aria-label="Play bomb"
+        >
+          Bomb!
+        </button>
       )}
       {canCallTichu && (
         <button

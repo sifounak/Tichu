@@ -83,7 +83,11 @@ export default function GamePage() {
     onStatusChange: uiStore.setConnectionStatus,
   });
 
+  // REQ-F-BI01: Compute isMyTurn early so useCardSelection can use it for bomb filtering
+  const isMyTurnForSelection = gameStore.currentTurn === gameStore.mySeat;
+
   // REQ-F-HV06, REQ-F-HV07: Card selection with progressive filtering
+  // REQ-F-BI10: Off-turn bomb selection enabled via isMyTurn param
   const selection = useCardSelection(
     gameStore.myHand,
     gameStore.currentTrick,
@@ -91,6 +95,7 @@ export default function GamePage() {
     uiStore.selectedCardIds,
     uiStore.toggleCard,
     uiStore.clearSelection,
+    isMyTurnForSelection,
   );
 
   // --- Action handlers ---
@@ -110,6 +115,14 @@ export default function GamePage() {
       : undefined;
 
     send({ type: 'PLAY_CARDS', cardIds, phoenixAs });
+    uiStore.clearSelection();
+  }, [selection, send, uiStore]);
+
+  // REQ-F-BI09: Handle out-of-turn bomb play
+  const handleBomb = useCallback(() => {
+    if (!selection.isBombSelection) return;
+    const cardIds = [...selection.selectedIds];
+    send({ type: 'PLAY_CARDS', cardIds });
     uiStore.clearSelection();
   }, [selection, send, uiStore]);
 
@@ -263,7 +276,7 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={selection.canPlay && isMyTurn} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={selection.canPlay && (isMyTurn || selection.isBombSelection)} />
 
       {/* Player hand + action bar at the bottom */}
       {phase !== GamePhase.WaitingForPlayers && (
@@ -275,9 +288,11 @@ export default function GamePage() {
             phase={phase}
             myTichuCall={gameStore.myTichuCall}
             hasPlayedCards={gameStore.hasPlayedCards}
+            hasBombReady={!isMyTurn && selection.isBombSelection}
             onPlay={handlePlay}
             onPass={handlePass}
             onTichu={handleTichu}
+            onBomb={handleBomb}
           />
           <CardHand
             cards={gameStore.myHand}

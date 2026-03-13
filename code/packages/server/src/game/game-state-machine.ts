@@ -8,6 +8,7 @@
 // REQ-F-GF09: Grand Tichu +200/-200
 // REQ-F-DR01: Dragon trick given to opponent
 // REQ-F-MP09: Optional turn timer
+// REQ-F-BI01: Out-of-turn bomb interrupts
 
 import { setup, assign, createActor, type ActorRefFrom } from 'xstate';
 import type {
@@ -40,6 +41,7 @@ import {
   canPlayerPass,
   scoreRound,
   checkGameOver,
+  detectCombination,
 } from '@tichu/shared';
 
 // ─── Event Types ────────────────────────────────────────────────────────────
@@ -282,6 +284,20 @@ export const gameMachine = setup({
       if (!round || !round.currentTurn) return false;
       if (!('seat' in event)) return false;
       return event.seat === round.currentTurn;
+    },
+
+    /** REQ-F-BI01: Out-of-turn bomb — any non-finished player during an active trick */
+    isBombPlay: ({ context, event }) => {
+      if (event.type !== 'PLAY_CARDS' || !context.currentRound) return false;
+      const round = context.currentRound;
+      const seat = event.seat;
+      // Player must not be finished
+      if (round.players[seat].finishOrder !== null) return false;
+      // Must have an active trick with plays (can't bomb-lead)
+      if (!round.currentTrick || round.currentTrick.plays.length === 0) return false;
+      // Detect combination and check it's a bomb
+      const combo = detectCombination(event.cards);
+      return combo !== null && combo.isBomb;
     },
 
     /** Player hasn't already decided Grand Tichu */
@@ -703,10 +719,17 @@ export const gameMachine = setup({
 
     playing: {
       on: {
-        PLAY_CARDS: {
-          guard: 'isPlayersTurn',
-          actions: 'playCards',
-        },
+        // REQ-F-BI01: Array transition — bomb bypass checked first, then normal turn check
+        PLAY_CARDS: [
+          {
+            guard: 'isBombPlay',
+            actions: 'playCards',
+          },
+          {
+            guard: 'isPlayersTurn',
+            actions: 'playCards',
+          },
+        ],
         PASS_TURN: {
           guard: 'isPlayersTurn',
           actions: 'passTurn',
