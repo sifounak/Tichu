@@ -2,9 +2,10 @@
 // REQ-F-DR02: Dragon auto-select when 1 opponent left
 // REQ-F-DR03: Bomb overrides Dragon gift
 // REQ-F-MP01: Any combination 0-4 humans + bots
+// REQ-F-BI01: Out-of-turn bomb interrupts
 
 import type { GameCard, Seat, Rank } from '@tichu/shared';
-import { SEATS_IN_ORDER, getTeam, isMahjong } from '@tichu/shared';
+import { SEATS_IN_ORDER, getTeam, isMahjong, detectCombination } from '@tichu/shared';
 import type { GameActor, GameEvent, GameMachineContext } from './game-state-machine.js';
 
 /** Result of handling a client game message */
@@ -159,13 +160,26 @@ export class MoveHandler {
     const round = this.context.currentRound;
     if (!round) return { ok: false, error: 'No active round' };
 
-    if (round.currentTurn !== seat) {
-      return { ok: false, error: 'Not your turn' };
-    }
-
     const cards = this.resolveCards(seat, cardIds);
     if (!cards) {
       return { ok: false, error: 'One or more cards not in hand' };
+    }
+
+    // REQ-F-BI01: Allow out-of-turn play only for bombs during an active trick
+    if (round.currentTurn !== seat) {
+      const combo = detectCombination(cards);
+      const hasActiveTrick = round.currentTrick !== null && round.currentTrick.plays.length > 0;
+      if (!combo?.isBomb || !hasActiveTrick) {
+        return { ok: false, error: 'Not your turn' };
+      }
+      // REQ-F-BI07: Finished players cannot bomb
+      if (round.players[seat].finishOrder !== null) {
+        return { ok: false, error: 'You have already finished' };
+      }
+      // REQ-F-BI05: Dragon gift pending blocks all play
+      if (round.dragonGiftPending) {
+        return { ok: false, error: 'Waiting for Dragon gift decision' };
+      }
     }
 
     // The state machine's playCards action handles full validation

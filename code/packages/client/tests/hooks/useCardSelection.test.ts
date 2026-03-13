@@ -30,7 +30,7 @@ describe('useCardSelection', () => {
   it('returns all cards selectable when nothing selected and leading', () => {
     const hand = [makeCard(0, 5), makeCard(1, 7), makeCard(2, 10)];
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, emptySet, noopToggle, noopClear),
+      useCardSelection(hand, null, null, emptySet, noopToggle, noopClear, true),
     );
 
     expect(result.current.selectableIds.size).toBe(3);
@@ -44,7 +44,7 @@ describe('useCardSelection', () => {
     const selected = new Set([0 as CardId]);
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, selected, noopToggle, noopClear),
+      useCardSelection(hand, null, null, selected, noopToggle, noopClear, true),
     );
 
     // With rank 5 selected (leading), other 5 selectable (pair prefix)
@@ -59,7 +59,7 @@ describe('useCardSelection', () => {
     const selected = new Set([0, 1] as CardId[]);
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, selected, noopToggle, noopClear),
+      useCardSelection(hand, null, null, selected, noopToggle, noopClear, true),
     );
 
     expect(result.current.canPlay).toBe(true); // pair of 5s
@@ -75,7 +75,7 @@ describe('useCardSelection', () => {
     const selected = new Set([0, 1, 2, 3, 52] as CardId[]);
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, selected, noopToggle, noopClear),
+      useCardSelection(hand, null, null, selected, noopToggle, noopClear, true),
     );
 
     // Phoenix resolution should be 'choose' (which rank to make triple)
@@ -90,7 +90,7 @@ describe('useCardSelection', () => {
     const selected = new Set([53 as CardId]);
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, selected, mockToggle, noopClear),
+      useCardSelection(hand, null, null, selected, mockToggle, noopClear, true),
     );
 
     // Try to select card 0 — should be blocked (Dragon disables all)
@@ -112,7 +112,7 @@ describe('useCardSelection', () => {
     };
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, trick, null, emptySet, noopToggle, noopClear),
+      useCardSelection(hand, trick, null, emptySet, noopToggle, noopClear, true),
     );
 
     expect(result.current.canPass).toBe(true);
@@ -122,7 +122,7 @@ describe('useCardSelection', () => {
     const hand = [makeCard(0, 5)];
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, emptySet, noopToggle, noopClear),
+      useCardSelection(hand, null, null, emptySet, noopToggle, noopClear, true),
     );
 
     expect(result.current.canPass).toBe(false);
@@ -140,7 +140,7 @@ describe('useCardSelection', () => {
     const selected = new Set([2 as CardId]); // 10 selected
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, trick, null, selected, noopToggle, noopClear),
+      useCardSelection(hand, trick, null, selected, noopToggle, noopClear, true),
     );
 
     // Nothing can beat Ace when you have 10 selected — both 5s disabled
@@ -156,7 +156,7 @@ describe('useCardSelection', () => {
     const selected = new Set([0 as CardId]);
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, selected, noopToggle, noopClear),
+      useCardSelection(hand, null, null, selected, noopToggle, noopClear, true),
     );
 
     expect(result.current.phoenixResolution.status).toBe('not_present');
@@ -167,7 +167,7 @@ describe('useCardSelection', () => {
     const selected = new Set([0, 52] as CardId[]);
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, selected, noopToggle, noopClear),
+      useCardSelection(hand, null, null, selected, noopToggle, noopClear, true),
     );
 
     expect(result.current.phoenixResolution.status).toBe('auto');
@@ -181,7 +181,7 @@ describe('useCardSelection', () => {
     const hand = [makeCard(0, 5)];
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, null, null, emptySet, noopToggle, mockClear),
+      useCardSelection(hand, null, null, emptySet, noopToggle, mockClear, true),
     );
 
     act(() => result.current.clearSelection());
@@ -198,7 +198,7 @@ describe('useCardSelection', () => {
     };
 
     const { result } = renderHook(() =>
-      useCardSelection(hand, trick, null, emptySet, noopToggle, noopClear),
+      useCardSelection(hand, trick, null, emptySet, noopToggle, noopClear, true),
     );
 
     expect(result.current.selectableIds.has(54 as CardId)).toBe(false);

@@ -50,6 +50,22 @@
   color: white;
 }
 
+/* REQ-F-BI09: Bomb button for out-of-turn play */
+.bombButton {
+  background: var(--color-error, #dc2626);
+  color: white;
+  animation: bombPulse 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bombButton { animation: none; }
+}
+
+@keyframes bombPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
 /* Invalid play shake animation */
 .shake {
   animation: shakeX var(--duration-normal) ease-out;
