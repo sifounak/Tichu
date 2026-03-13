@@ -9,6 +9,8 @@ import styles from './GameTable.module.css';
 
 export interface GameTableProps {
   view: ClientGameView;
+  onPlay?: () => void;
+  canPlay?: boolean;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -19,7 +21,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
 
   // Determine layout: player (me) is always at the bottom
@@ -82,6 +84,8 @@ export const GameTable = memo(function GameTable({ view }: GameTableProps) {
           trick={currentTrick}
           mahjongWish={mahjongWish}
           wishFulfilled={wishFulfilled}
+          onPlay={onPlay}
+          canPlay={canPlay}
         />
         <div className={styles.right}>
           {renderSeat(seatPositions.right)}

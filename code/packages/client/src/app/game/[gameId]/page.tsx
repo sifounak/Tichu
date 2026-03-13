@@ -263,7 +263,7 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={selection.canPlay && isMyTurn} />
 
       {/* Player hand + action bar at the bottom */}
       {phase !== GamePhase.WaitingForPlayers && (
@@ -283,7 +283,7 @@ export default function GamePage() {
             cards={gameStore.myHand}
             selectedIds={selection.selectedIds}
             disabledIds={selection.disabledIds}
-            onCardClick={isMyTurn ? selection.toggleCard : undefined}
+            onCardClick={phase === GamePhase.Playing ? selection.toggleCard : undefined}
           />
         </div>
       )}

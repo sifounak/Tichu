@@ -10,6 +10,9 @@ export interface TrickAreaProps {
   /** REQ-F-DI07: Active Mahjong wish */
   mahjongWish: Rank | null;
   wishFulfilled: boolean;
+  /** Click the trick area to play selected cards */
+  onPlay?: () => void;
+  canPlay?: boolean;
 }
 
 const RANK_LABELS: Record<number, string> = {
@@ -17,9 +20,15 @@ const RANK_LABELS: Record<number, string> = {
   8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A',
 };
 
-export const TrickArea = memo(function TrickArea({ trick, mahjongWish, wishFulfilled }: TrickAreaProps) {
+export const TrickArea = memo(function TrickArea({ trick, mahjongWish, wishFulfilled, onPlay, canPlay }: TrickAreaProps) {
   return (
-    <div className={styles.trickArea} aria-label="Trick area" aria-live="polite">
+    <div
+      className={`${styles.trickArea}${canPlay ? ` ${styles.clickable}` : ''}`}
+      aria-label="Trick area"
+      aria-live="polite"
+      onClick={canPlay ? onPlay : undefined}
+      role={canPlay ? 'button' : undefined}
+    >
       {/* Wish indicator */}
       {mahjongWish !== null && !wishFulfilled && (
         <div className={styles.wishIndicator} aria-label={`Wish for ${RANK_LABELS[mahjongWish]}`}>
