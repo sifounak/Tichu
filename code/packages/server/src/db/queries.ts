@@ -1,8 +1,8 @@
 // REQ-F-AU04: Leaderboard — top players by win rate, recent games, player profile stats
 
-import { desc, eq, sql } from 'drizzle-orm';
+import { desc, sql } from 'drizzle-orm';
 import type { Database } from './connection.js';
-import { playerStats, games } from './schema.js';
+import { games } from './schema.js';
 
 export interface LeaderboardEntry {
   userId: string;
@@ -63,7 +63,7 @@ export async function getLeaderboard(
     LIMIT ${limit}
   `);
 
-  return results.rows as unknown as LeaderboardEntry[];
+  return results as unknown as LeaderboardEntry[];
 }
 
 /**
@@ -133,6 +133,7 @@ export async function getPlayerProfile(
     LIMIT 1
   `);
 
-  if (results.rows.length === 0) return undefined;
-  return results.rows[0] as unknown as PlayerProfile;
+  const rows = results as unknown as PlayerProfile[];
+  if (rows.length === 0) return undefined;
+  return rows[0];
 }

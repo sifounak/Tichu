@@ -82,6 +82,7 @@ export function useWebSocket({
     };
 
     ws.onclose = () => {
+      if (wsRef.current !== ws) return; // Stale socket — ignore
       wsRef.current = null;
       if (intentionalCloseRef.current) {
         updateStatus('disconnected');
@@ -109,18 +110,20 @@ export function useWebSocket({
       retryTimerRef.current = null;
     }
     if (wsRef.current) {
+      wsRef.current.onclose = null;
       wsRef.current.close();
       wsRef.current = null;
     }
     updateStatus('disconnected');
   }, [updateStatus]);
 
-  const send = useCallback((message: ClientMessage) => {
+  const send = useCallback((message: ClientMessage): boolean => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
-    } else {
-      console.warn('[WS] Cannot send — not connected');
+      return true;
     }
+    console.warn('[WS] Cannot send — not connected');
+    return false;
   }, []);
 
   // Connect on mount, disconnect on unmount

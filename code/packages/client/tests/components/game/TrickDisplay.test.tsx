@@ -33,9 +33,9 @@ describe('TrickDisplay', () => {
     expect(screen.getByLabelText('Trick area')).toBeInTheDocument();
   });
 
-  it('shows "Lead a card" when no trick is active', () => {
+  it('shows "Play Area" box when no trick is active', () => {
     render(<TrickDisplay trick={null} mahjongWish={null} wishFulfilled={false} mySeat="south" />);
-    expect(screen.getByText('Lead a card')).toBeInTheDocument();
+    expect(screen.getByText('Play Area')).toBeInTheDocument();
   });
 
   it('renders plays when trick has cards', () => {
@@ -49,13 +49,14 @@ describe('TrickDisplay', () => {
     expect(playGroup.className).toContain('winner');
   });
 
-  it('renders pass indicators', () => {
+  it('pass indicators are handled by PlayerSeat (not in TrickDisplay)', () => {
     const trickWithPasses: TrickState = {
       ...singleTrick,
       passes: ['east'],
     };
     render(<TrickDisplay trick={trickWithPasses} mahjongWish={null} wishFulfilled={false} mySeat="south" />);
-    expect(screen.getByLabelText(/east passed/i)).toBeInTheDocument();
+    // Pass indicators moved to PlayerSeat boxes
+    expect(screen.queryByLabelText(/east passed/i)).not.toBeInTheDocument();
   });
 
   it('REQ-F-DI07: shows wish indicator when wish is active', () => {
@@ -69,14 +70,14 @@ describe('TrickDisplay', () => {
     expect(screen.queryByLabelText(/wish for 10/i)).not.toBeInTheDocument();
   });
 
-  it('positions plays relative to mySeat', () => {
+  it('centers the latest play in the trick area', () => {
     render(<TrickDisplay trick={singleTrick} mahjongWish={null} wishFulfilled={false} mySeat="south" />);
-    // North is my partner (top)
     const playGroup = screen.getByLabelText(/north played single/i);
-    expect(playGroup.className).toContain('top');
+    // Latest play is always centered
+    expect(playGroup.className).toContain('center');
   });
 
-  it('renders multiple plays in a trick', () => {
+  it('shows only the latest play in a multi-play trick', () => {
     const multiTrick: TrickState = {
       plays: [
         {
@@ -93,7 +94,8 @@ describe('TrickDisplay', () => {
       currentWinner: 'east',
     };
     render(<TrickDisplay trick={multiTrick} mahjongWish={null} wishFulfilled={false} mySeat="south" />);
-    expect(screen.getByLabelText(/north played single/i)).toBeInTheDocument();
+    // Only the latest play (east) is shown
     expect(screen.getByLabelText(/east played single/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/north played single/i)).not.toBeInTheDocument();
   });
 });

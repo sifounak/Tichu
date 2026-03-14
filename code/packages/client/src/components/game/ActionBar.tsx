@@ -5,6 +5,7 @@
 'use client';
 
 import { memo, useState, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import type { GamePhase, TichuCall } from '@tichu/shared';
 import styles from './ActionBar.module.css';
 
@@ -28,6 +29,10 @@ export interface ActionBarProps {
   onPass: () => void;
   onTichu: () => void;
   onBomb: () => void;
+  /** Layout mode: 'default' stacks vertically, 'split' puts Pass | playerSeat | Play in a row */
+  layout?: 'default' | 'split';
+  /** Player seat element to render between Pass and Play in split layout */
+  playerSeat?: ReactNode;
 }
 
 export const ActionBar = memo(function ActionBar({
@@ -42,14 +47,15 @@ export const ActionBar = memo(function ActionBar({
   onPass,
   onTichu,
   onBomb,
+  layout = 'default',
+  playerSeat,
 }: ActionBarProps) {
   const isPlaying = phase === 'playing';
   const showActions = isPlaying && isMyTurn;
   const [shaking, setShaking] = useState(false);
 
-  // REQ-F-GF08: Tichu can be called during playing phase before first play
-  const canCallTichu =
-    isPlaying && myTichuCall === 'none' && !hasPlayedCards;
+  // Tichu button moved to card hand area (left of cards)
+  const canCallTichu = false;
 
   const handlePlay = useCallback(() => {
     if (!canPlay) {
@@ -60,51 +66,78 @@ export const ActionBar = memo(function ActionBar({
     onPlay();
   }, [canPlay, onPlay]);
 
+  const passButton = showActions && (
+    <button
+      className={`${styles.button} ${styles.passButton}`}
+      onClick={onPass}
+      disabled={!canPass}
+      aria-label="Pass turn"
+    >
+      Pass
+    </button>
+  );
+
+  const playButton = showActions && (
+    <button
+      className={`${styles.button} ${styles.playButton}`}
+      onClick={handlePlay}
+      disabled={!canPlay}
+      aria-label="Play selected cards"
+    >
+      Play
+    </button>
+  );
+
+  const bombButton = !isMyTurn && isPlaying && hasBombReady && (
+    <button
+      className={`${styles.button} ${styles.bombButton}`}
+      onClick={onBomb}
+      aria-label="Play bomb"
+    >
+      Bomb!
+    </button>
+  );
+
+  const tichuBtn = canCallTichu && (
+    <button
+      className={`${styles.button} ${styles.tichuButton}`}
+      onClick={onTichu}
+      aria-label="Declare Tichu"
+    >
+      Tichu!
+    </button>
+  );
+
+  if (layout === 'split') {
+    return (
+      <div
+        className={`${styles.actionBar} ${styles.splitLayout} ${shaking ? styles.shake : ''}`}
+        role="toolbar"
+        aria-label="Game actions"
+      >
+        <div className={styles.splitLeft}>
+          {passButton}
+          {tichuBtn}
+        </div>
+        {playerSeat}
+        <div className={styles.splitRight}>
+          {playButton}
+          {bombButton}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`${styles.actionBar} ${shaking ? styles.shake : ''}`}
       role="toolbar"
       aria-label="Game actions"
     >
-      {showActions && (
-        <>
-          <button
-            className={`${styles.button} ${styles.passButton}`}
-            onClick={onPass}
-            disabled={!canPass}
-            aria-label="Pass turn"
-          >
-            Pass
-          </button>
-          <button
-            className={`${styles.button} ${styles.playButton}`}
-            onClick={handlePlay}
-            disabled={!canPlay}
-            aria-label="Play selected cards"
-          >
-            Play
-          </button>
-        </>
-      )}
-      {/* REQ-F-BI09: Show Bomb! button when off-turn with valid bomb selected */}
-      {!isMyTurn && isPlaying && hasBombReady && (
-        <button
-          className={`${styles.button} ${styles.bombButton}`}
-          onClick={onBomb}
-          aria-label="Play bomb"
-        >
-          Bomb!
-        </button>
-      )}
-      {canCallTichu && (
-        <button
-          className={`${styles.button} ${styles.tichuButton}`}
-          onClick={onTichu}
-          aria-label="Declare Tichu"
-        >
-          Tichu!
-        </button>
-      )}
+      {passButton}
+      {playButton}
+      {bombButton}
+      {tichuBtn}
     </div>
   );
 });

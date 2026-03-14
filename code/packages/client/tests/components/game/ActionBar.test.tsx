@@ -65,27 +65,9 @@ describe('ActionBar', () => {
     expect(onPass).toHaveBeenCalledTimes(1);
   });
 
-  it('REQ-F-GF08: shows Tichu button when playing, no call, no cards played', () => {
+  it('Tichu button moved to card hand area (not in ActionBar)', () => {
     render(<ActionBar {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /declare tichu/i })).toBeInTheDocument();
-  });
-
-  it('hides Tichu button when already called', () => {
-    render(<ActionBar {...defaultProps} myTichuCall="tichu" />);
     expect(screen.queryByRole('button', { name: /declare tichu/i })).not.toBeInTheDocument();
-  });
-
-  it('hides Tichu button when cards have been played', () => {
-    render(<ActionBar {...defaultProps} hasPlayedCards={true} />);
-    expect(screen.queryByRole('button', { name: /declare tichu/i })).not.toBeInTheDocument();
-  });
-
-  it('calls onTichu when Tichu button clicked', async () => {
-    const onTichu = vi.fn();
-    const user = userEvent.setup();
-    render(<ActionBar {...defaultProps} onTichu={onTichu} />);
-    await user.click(screen.getByRole('button', { name: /declare tichu/i }));
-    expect(onTichu).toHaveBeenCalledTimes(1);
   });
 
   it('has toolbar role', () => {

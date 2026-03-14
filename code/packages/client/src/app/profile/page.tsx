@@ -1,7 +1,7 @@
 // REQ-F-AU03: Game history — viewable in profile
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -37,6 +37,18 @@ interface GameHistoryEntry {
 }
 
 export default function ProfilePage() {
+  return (
+    <Suspense fallback={
+      <main className="min-h-dvh flex items-center justify-center" style={{ background: 'var(--color-felt-green-dark)' }}>
+        <p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>
+      </main>
+    }>
+      <ProfileContent />
+    </Suspense>
+  );
+}
+
+function ProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
@@ -64,7 +76,7 @@ export default function ProfilePage() {
       setProfile(profileData.profile);
       setGames(gamesData.games ?? []);
       setLoading(false);
-    }).catch((err) => {
+    }).catch(() => {
       setError('Failed to load profile. Please try again later.');
       setLoading(false);
     });

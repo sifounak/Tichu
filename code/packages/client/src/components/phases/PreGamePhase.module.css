@@ -2,31 +2,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-height: 100dvh;
-  gap: 24px;
-  padding: 16px;
+  gap: 12px;
+  padding: 8px 16px 0;
+  width: 100%;
 }
 
 .prompt {
   text-align: center;
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 24px 32px;
+  border-radius: 10px;
+  padding: 12px 24px;
   box-shadow: var(--shadow-panel);
 }
 
 .title {
-  margin: 0 0 8px;
-  font-size: 24px;
+  margin: 0 0 4px;
+  font-size: 18px;
   font-weight: 700;
 }
 
 .subtitle {
-  margin: 0 0 16px;
+  margin: 0 0 8px;
   color: var(--color-text-secondary);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .buttonRow {
@@ -62,19 +61,105 @@
   border: 1px solid var(--color-border);
 }
 
-.undoButton {
-  margin-top: 8px;
-  padding: 6px 16px;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  min-height: 44px;
-}
-
 .handArea {
   display: flex;
   justify-content: center;
+  --card-width: 105px;
+  --card-height: 150px;
+  --card-font-size: 24px;
+  --card-suit-size: 30px;
+  --card-border-radius: 9px;
+  --card-overlap-desktop: 70px;
+}
+
+/* === Card passing placeholder layout === */
+.passLayout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.passTop {
+  display: flex;
+  justify-content: center;
+}
+
+.passMiddle {
+  display: flex;
+  justify-content: center;
+  gap: 80px;
+}
+
+.passLeft,
+.passRight {
+  display: flex;
+  justify-content: center;
+}
+
+/* Individual slot wrapper */
+.slotWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.slotLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.slot {
+  width: var(--card-width);
+  height: var(--card-height);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--card-border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--easing-smooth),
+    background var(--duration-fast) var(--easing-smooth),
+    transform var(--duration-fast) var(--easing-smooth);
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.slot:hover {
+  border-color: var(--color-gold-accent);
+  background: rgba(201, 168, 76, 0.1);
+  transform: scale(1.05);
+}
+
+/* When a card is selected and slots are ready to receive */
+.slotReady {
+  border-color: var(--color-gold-light);
+  animation: slotPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes slotPulse {
+  0%, 100% { border-color: var(--color-gold-light); }
+  50% { border-color: var(--color-gold-accent); background: rgba(201, 168, 76, 0.15); }
+}
+
+/* Filled slot — contains a placed card */
+.slotFilled {
+  border: 2px solid var(--color-gold-accent);
+  background: transparent;
+  padding: 0;
+}
+
+.slotFilled:hover {
+  border-color: var(--color-error);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.slotPlaceholder {
+  font-size: 24px;
+  color: var(--color-text-muted);
+  font-weight: 300;
 }

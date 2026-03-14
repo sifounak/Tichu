@@ -6,7 +6,7 @@
 // REQ-NF-U02: Tichu banner animation
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { GamePhase } from '@tichu/shared';
 import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -14,6 +14,7 @@ import { useCardSelection } from '@/hooks/useCardSelection';
 import { useGameStore } from '@/stores/gameStore';
 import { useUiStore } from '@/stores/uiStore';
 import { GameTable } from '@/components/game/GameTable';
+import { PlayerSeat } from '@/components/game/PlayerSeat';
 import { ActionBar } from '@/components/game/ActionBar';
 import { DragonGiftModal } from '@/components/game/DragonGiftModal';
 import { ScorePanel } from '@/components/game/ScorePanel';
@@ -24,6 +25,7 @@ import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
 import { PreGamePhase, RoundEndPhase, GameEndPhase } from '@/components/phases';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
+import { ErrorToast } from '@/components/ui/ErrorToast';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 
@@ -69,6 +71,8 @@ export default function GamePage() {
         // REQ-NF-U02: Show Tichu banner
         uiStore.setTichuEvent({ seat: msg.seat as Seat, level: msg.level as TichuCall });
         gameStore.applyServerMessage(msg);
+      } else if (msg.type === 'ERROR') {
+        uiStore.showErrorToast(msg.message);
       } else {
         gameStore.applyServerMessage(msg);
       }
@@ -114,7 +118,10 @@ export default function GamePage() {
       ? (selection.phoenixResolution.value as Rank)
       : undefined;
 
-    send({ type: 'PLAY_CARDS', cardIds, phoenixAs });
+    if (!send({ type: 'PLAY_CARDS', cardIds, phoenixAs })) {
+      uiStore.showErrorToast('Not connected to server');
+      return;
+    }
     uiStore.clearSelection();
   }, [selection, send, uiStore]);
 
@@ -122,7 +129,10 @@ export default function GamePage() {
   const handleBomb = useCallback(() => {
     if (!selection.isBombSelection) return;
     const cardIds = [...selection.selectedIds];
-    send({ type: 'PLAY_CARDS', cardIds });
+    if (!send({ type: 'PLAY_CARDS', cardIds })) {
+      uiStore.showErrorToast('Not connected to server');
+      return;
+    }
     uiStore.clearSelection();
   }, [selection, send, uiStore]);
 
@@ -137,13 +147,18 @@ export default function GamePage() {
   );
 
   const handlePass = useCallback(() => {
-    send({ type: 'PASS_TURN' });
+    if (!send({ type: 'PASS_TURN' })) {
+      uiStore.showErrorToast('Not connected to server');
+      return;
+    }
     uiStore.clearSelection();
   }, [send, uiStore]);
 
   const handleTichu = useCallback(() => {
-    send({ type: 'TICHU_DECLARATION' });
-  }, [send]);
+    if (!send({ type: 'TICHU_DECLARATION' })) {
+      uiStore.showErrorToast('Not connected to server');
+    }
+  }, [send, uiStore]);
 
   const handleGrandTichuDecision = useCallback(
     (call: boolean) => send({ type: 'GRAND_TICHU_DECISION', call }),
@@ -199,28 +214,6 @@ export default function GamePage() {
 
   const { phase, mySeat } = gameStore;
 
-  // --- Pre-game phases ---
-  if (
-    phase === GamePhase.GrandTichuDecision ||
-    phase === GamePhase.TichuDecision ||
-    phase === GamePhase.CardPassing
-  ) {
-    return (
-      <>
-        <PreGamePhase
-          phase={phase}
-          myHand={gameStore.myHand}
-          mySeat={mySeat!}
-          onGrandTichuDecision={handleGrandTichuDecision}
-          onTichuDecision={handleTichuDecision}
-          onTichuSkip={handleTichuSkip}
-          onPassCards={handlePassCards}
-        />
-        <ConnectionStatus status={status} />
-      </>
-    );
-  }
-
   // --- Game over ---
   if (phase === GamePhase.GameOver && gameStore.gameOverInfo) {
     return (
@@ -236,7 +229,7 @@ export default function GamePage() {
     );
   }
 
-  // --- Build view ---
+  // --- Build view (used for both pre-game and playing phases) ---
   const view: ClientGameView = {
     gameId: gameStore.gameId,
     config: gameStore.config!,
@@ -257,6 +250,18 @@ export default function GamePage() {
 
   const isMyTurn = gameStore.currentTurn === mySeat;
 
+  // Auto-skip Tichu decision phase — player can call Tichu from the ActionBar during gameplay
+  useEffect(() => {
+    if (phase === GamePhase.TichuDecision) {
+      send({ type: 'REGULAR_TICHU_PASS' });
+    }
+  }, [phase, send]);
+
+  const isPreGame =
+    phase === GamePhase.GrandTichuDecision ||
+    phase === GamePhase.TichuDecision ||
+    phase === GamePhase.CardPassing;
+
   // Build tichu calls array for ScorePanel
   const tichuCalls = [
     { seat: mySeat!, call: gameStore.myTichuCall },
@@ -267,7 +272,7 @@ export default function GamePage() {
     <>
       {/* REQ-F-DI05: Score panel */}
       {gameStore.scores && (
-        <div style={{ position: 'fixed', top: 8, left: '50%', transform: 'translateX(-50%)', zIndex: 30 }}>
+        <div style={{ position: 'fixed', top: 8, right: 16, zIndex: 30 }}>
           <ScorePanel
             scores={gameStore.scores}
             roundHistory={gameStore.roundHistory}
@@ -277,30 +282,82 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={selection.canPlay && (isMyTurn || selection.isBombSelection)} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && selection.canPlay && (isMyTurn || selection.isBombSelection)} />
 
-      {/* Player hand + action bar at the bottom */}
+      {/* Bottom panel: pre-game prompt OR action bar + hand */}
       {phase !== GamePhase.WaitingForPlayers && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <ActionBar
-            canPlay={selection.canPlay}
-            canPass={selection.canPass}
-            isMyTurn={isMyTurn}
-            phase={phase}
-            myTichuCall={gameStore.myTichuCall}
-            hasPlayedCards={gameStore.hasPlayedCards}
-            hasBombReady={!isMyTurn && selection.isBombSelection}
-            onPlay={handlePlay}
-            onPass={handlePass}
-            onTichu={handleTichu}
-            onBomb={handleBomb}
-          />
-          <CardHand
-            cards={gameStore.myHand}
-            selectedIds={selection.selectedIds}
-            disabledIds={selection.disabledIds}
-            onCardClick={phase === GamePhase.Playing ? selection.toggleCard : undefined}
-          />
+        <div style={{ position: 'fixed', bottom: 24, left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {isPreGame ? (
+            <PreGamePhase
+              phase={phase}
+              myHand={gameStore.myHand}
+              mySeat={mySeat!}
+              onGrandTichuDecision={handleGrandTichuDecision}
+              onTichuDecision={handleTichuDecision}
+              onTichuSkip={handleTichuSkip}
+              onPassCards={handlePassCards}
+            />
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center' }}>
+                <ActionBar
+                  canPlay={selection.canPlay}
+                  canPass={selection.canPass}
+                  isMyTurn={isMyTurn}
+                  phase={phase}
+                  myTichuCall={gameStore.myTichuCall}
+                  hasPlayedCards={gameStore.hasPlayedCards}
+                  hasBombReady={!isMyTurn && selection.isBombSelection}
+                  onPlay={handlePlay}
+                  onPass={handlePass}
+                  onTichu={handleTichu}
+                  onBomb={handleBomb}
+                  layout="split"
+                  playerSeat={
+                    <PlayerSeat
+                      seat={mySeat!}
+                      cardCount={gameStore.myHand.length}
+                      tichuCall={gameStore.myTichuCall}
+                      hasPlayed={false}
+                      hasPassed={view.currentTrick?.passes.includes(mySeat!) ?? false}
+                      finishOrder={view.finishOrder.indexOf(mySeat!) >= 0 ? view.finishOrder.indexOf(mySeat!) + 1 : null}
+                      isCurrentTurn={gameStore.currentTurn === mySeat}
+                      isTrickLeader={view.currentTrick?.currentWinner === mySeat}
+                      isMe={true}
+                    />
+                  }
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', '--card-width': '105px', '--card-height': '150px', '--card-font-size': '24px', '--card-suit-size': '30px', '--card-border-radius': '9px', '--card-overlap-desktop': '70px' } as React.CSSProperties}>
+                {phase === 'playing' && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+                  <button
+                    onClick={handleTichu}
+                    style={{
+                      padding: '10px 18px',
+                      border: 'none',
+                      borderRadius: '10px',
+                      background: 'var(--color-tichu-badge)',
+                      color: 'white',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: '18px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      minHeight: '48px',
+                    }}
+                    aria-label="Declare Tichu"
+                  >
+                    Call Tichu!
+                  </button>
+                )}
+                <CardHand
+                  cards={gameStore.myHand}
+                  selectedIds={selection.selectedIds}
+                  onCardClick={phase === GamePhase.Playing ? selection.toggleCard : undefined}
+                />
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -352,6 +409,7 @@ export default function GamePage() {
       />
 
       <ConnectionStatus status={status} />
+      <ErrorToast message={uiStore.errorToast} onDismiss={uiStore.clearErrorToast} />
     </>
   );
 }

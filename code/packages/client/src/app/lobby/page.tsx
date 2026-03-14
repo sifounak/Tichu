@@ -41,7 +41,8 @@ export default function LobbyPage() {
     }
   }, [setLobbyRooms, setRoom, router]);
 
-  const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName || 'Guest')}`;
+  // Use stable 'Guest' in WS URL — real name is sent in CREATE_ROOM/JOIN_ROOM messages
+  const wsUrl = `${WS_BASE}?userId=${userId}&playerName=Guest`;
 
   const { send, status } = useWebSocket({
     url: wsUrl,
@@ -82,7 +83,7 @@ export default function LobbyPage() {
   };
 
   return (
-    <main className="min-h-dvh p-6" style={{ background: 'var(--color-felt-green-dark)' }}>
+    <main className="p-6" style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>Tichu Lobby</h1>

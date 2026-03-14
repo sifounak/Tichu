@@ -96,22 +96,44 @@ describe('card-utils', () => {
   });
 
   describe('cardSortKey', () => {
-    it('sorts specials before standard cards', () => {
+    it('sorts dog leftmost (lowest key)', () => {
+      expect(cardSortKey({ kind: 'dog' })).toBeLessThan(cardSortKey({ kind: 'mahjong' }));
       expect(cardSortKey({ kind: 'dog' })).toBeLessThan(cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 2 }));
+    });
+
+    it('sorts mahjong after dog, before 2s', () => {
+      expect(cardSortKey({ kind: 'mahjong' })).toBeGreaterThan(cardSortKey({ kind: 'dog' }));
       expect(cardSortKey({ kind: 'mahjong' })).toBeLessThan(cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 2 }));
     });
 
-    it('sorts phoenix and dragon after standard cards', () => {
+    it('sorts phoenix after aces, before dragon', () => {
       expect(cardSortKey({ kind: 'phoenix' })).toBeGreaterThan(cardSortKey({ kind: 'standard', suit: Suit.Sword, rank: 14 }));
-      expect(cardSortKey({ kind: 'dragon' })).toBeGreaterThan(cardSortKey({ kind: 'standard', suit: Suit.Sword, rank: 14 }));
+      expect(cardSortKey({ kind: 'phoenix' })).toBeLessThan(cardSortKey({ kind: 'dragon' }));
     });
 
-    it('sorts standard cards by suit then rank', () => {
+    it('sorts dragon rightmost (highest key)', () => {
+      expect(cardSortKey({ kind: 'dragon' })).toBeGreaterThan(cardSortKey({ kind: 'phoenix' }));
+      expect(cardSortKey({ kind: 'dragon' })).toBeGreaterThan(cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 14 }));
+    });
+
+    it('sorts standard cards by rank ascending (low ranks left, high ranks right)', () => {
+      const ace = cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 14 });
+      const ten = cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 10 });
+      const five = cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 5 });
+      const two = cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 2 });
+      expect(two).toBeLessThan(five);
+      expect(five).toBeLessThan(ten);
+      expect(ten).toBeLessThan(ace);
+    });
+
+    it('does not group by suit — same rank different suits are adjacent', () => {
       const j5 = cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 5 });
-      const j10 = cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 10 });
-      const p2 = cardSortKey({ kind: 'standard', suit: Suit.Pagoda, rank: 2 });
-      expect(j5).toBeLessThan(j10);
-      expect(j10).toBeLessThan(p2);
+      const p5 = cardSortKey({ kind: 'standard', suit: Suit.Pagoda, rank: 5 });
+      const j4 = cardSortKey({ kind: 'standard', suit: Suit.Jade, rank: 4 });
+      // Same rank cards should be between the ranks above and below
+      expect(Math.abs(j5 - p5)).toBeLessThan(1);
+      expect(j5).toBeGreaterThan(j4);
+      expect(p5).toBeGreaterThan(j4);
     });
   });
 });

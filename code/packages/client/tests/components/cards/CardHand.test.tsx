@@ -30,7 +30,7 @@ describe('CardHand', () => {
     ];
     render(<CardHand cards={cards} selectedIds={new Set()} />);
     const buttons = screen.getAllByRole('button');
-    // Sorted order: Jade 2, Star A, Phoenix
+    // Sorted order ascending (left to right): Jade 2, Star A, Phoenix
     expect(buttons[0]).toHaveAttribute('data-card-id', '2');
     expect(buttons[1]).toHaveAttribute('data-card-id', '0');
     expect(buttons[2]).toHaveAttribute('data-card-id', '1');
@@ -44,12 +44,11 @@ describe('CardHand', () => {
     expect(selectedButton).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('marks disabled cards', () => {
+  it('does not disable any cards (no greying out)', () => {
     const cards = makeCards(3);
-    render(<CardHand cards={cards} selectedIds={new Set()} disabledIds={new Set([0])} />);
+    render(<CardHand cards={cards} selectedIds={new Set()} />);
     const buttons = screen.getAllByRole('button');
-    const disabledButton = buttons.find((b) => b.getAttribute('data-card-id') === '0');
-    expect(disabledButton).toBeDisabled();
+    buttons.forEach((b) => expect(b).not.toBeDisabled());
   });
 
   it('calls onCardClick with card id', async () => {

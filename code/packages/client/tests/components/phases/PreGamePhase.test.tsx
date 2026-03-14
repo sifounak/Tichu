@@ -74,16 +74,18 @@ describe('PreGamePhase', () => {
   });
 
   describe('Card Passing', () => {
-    it('REQ-F-GF02: shows card passing prompt', () => {
+    it('REQ-F-GF02: shows card passing title and instruction', () => {
       render(<PreGamePhase {...defaultProps} phase="cardPassing" myHand={hand14} />);
       expect(screen.getByText('Pass Cards')).toBeInTheDocument();
-      expect(screen.getByText(/select a card to pass/i)).toBeInTheDocument();
+      expect(screen.getByText(/select a card.*click a slot/i)).toBeInTheDocument();
     });
 
-    it('shows the first target opponent', () => {
+    it('shows placeholder slots for all 3 targets', () => {
       render(<PreGamePhase {...defaultProps} phase="cardPassing" myHand={hand14} />);
-      // South → left opponent is West, then partner (North), then right (East)
-      expect(screen.getByText(/0\/3/)).toBeInTheDocument();
+      // South → partner (North), left opponent (West), right opponent (East)
+      expect(screen.getByText('North')).toBeInTheDocument();
+      expect(screen.getByText('West')).toBeInTheDocument();
+      expect(screen.getByText('East')).toBeInTheDocument();
     });
   });
 
