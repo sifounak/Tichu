@@ -288,7 +288,7 @@ export default function GamePage() {
 
       {/* Bottom panel: pre-game prompt OR action bar + hand */}
       {phase !== GamePhase.WaitingForPlayers && (
-        <div style={{ position: 'fixed', bottom: 48, left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '28px' }}>
+        <div style={{ position: 'fixed', bottom: 34, left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '28px' }}>
           {isPreGame ? (
             <PreGamePhase
               phase={phase}

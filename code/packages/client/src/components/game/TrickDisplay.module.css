@@ -77,6 +77,7 @@
 
 .trickCard {
   transition: transform var(--duration-normal) var(--easing-card);
+  pointer-events: none;
 }
 
 .passLabel {
