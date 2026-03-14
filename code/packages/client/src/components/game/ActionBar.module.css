@@ -7,17 +7,17 @@
 }
 
 .button {
-  padding: 10px 24px;
+  padding: 14px 32px;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: 26px;
   font-weight: 600;
   cursor: pointer;
   transition: opacity var(--duration-fast) var(--easing-smooth),
               transform var(--duration-fast) var(--easing-smooth);
-  min-width: 80px;
-  min-height: 44px; /* REQ-NF-U06: 44px touch target */
+  min-width: 100px;
+  min-height: 56px;
 }
 
 .button:disabled {
@@ -82,4 +82,27 @@
 
 @media (prefers-reduced-motion: reduce) {
   .shake { animation: none; }
+}
+
+/* Split layout: Pass/Tichu | PlayerSeat | Play/Bomb */
+.splitLayout {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.splitLeft,
+.splitRight {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 100px;
+}
+
+.splitLeft {
+  justify-content: flex-end;
+}
+
+.splitRight {
+  justify-content: flex-start;
 }

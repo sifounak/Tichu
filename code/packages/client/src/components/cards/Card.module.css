@@ -22,7 +22,7 @@
   overflow: hidden;
 }
 
-.card:hover:not(.disabled):not(.faceDown) {
+.card:hover:not(.disabled):not(.faceDown):not(.selected) {
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-4px);
 }
@@ -89,7 +89,7 @@
 
 .suitCorner {
   position: absolute;
-  top: 22px;
+  top: calc(var(--card-font-size) + 8px);
   left: 6px;
   font-size: 12px;
   line-height: 1;
@@ -97,7 +97,7 @@
 
 .suitCenter {
   font-size: var(--card-suit-size);
-  margin-top: 4px;
+  margin-top: calc(var(--card-font-size) * 0.5 + 4px);
 }
 
 .specialName {

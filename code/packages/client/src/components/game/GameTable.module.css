@@ -1,11 +1,14 @@
 /* REQ-NF-U01: Responsive game table with CSS Grid */
-/* Desktop: landscape — partner top, opponents left/right, player bottom */
-/* Mobile: portrait stack */
+/* Desktop: 3x3 grid — partner top-center, opponents left/right, player bottom-center */
 
 .table {
   display: grid;
+  grid-template-columns: 1fr 1fr;
   grid-template-rows: auto 1fr auto;
-  grid-template-columns: 1fr;
+  grid-template-areas:
+    "top    top"
+    "left   right"
+    "bottom bottom";
   width: 100%;
   height: 100dvh;
   padding: var(--table-padding);
@@ -14,59 +17,49 @@
   overflow: hidden;
 }
 
-/* Score bar at top */
-.scoreBar {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  padding: 4px 16px;
-  background: var(--color-bg-panel);
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  position: absolute;
-  top: 8px;
-  right: 16px;
-  z-index: 10;
-}
-
-.score {
-  color: var(--color-text-primary);
-}
-
-.scoreSep {
-  color: var(--color-text-muted);
-}
-
-/* Partner at top */
+/* Partner at top-center */
 .top {
+  grid-area: top;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 8px;
+  padding-top: 24px;
 }
 
-/* Middle: left opponent + trick area + right opponent */
-.middle {
+/* Left opponent — vertically centered in middle row */
+.left {
+  grid-area: left;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 8px;
+  justify-content: flex-start;
+  padding-left: 28px;
 }
 
-.left,
-.right {
+/* Trick area — absolutely centered in the table viewport */
+.center {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-}
-
-/* Player at bottom */
-.bottom {
-  display: flex;
   justify-content: center;
-  align-items: flex-end;
-  padding-bottom: 8px;
+  z-index: 1;
+}
+
+/* Right opponent — vertically centered in middle row */
+.right {
+  grid-area: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 28px;
+}
+
+/* Player at bottom — reserve space for the fixed bottom panel */
+.bottom {
+  grid-area: bottom;
+  min-height: 280px;
 }
 
 /* Phase indicator */
@@ -83,16 +76,36 @@
   border-radius: 4px;
 }
 
+/* Click-to-play trick area wrapper */
+.clickableTrick {
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background var(--duration-fast) var(--easing-smooth),
+              box-shadow var(--duration-fast) var(--easing-smooth);
+  box-shadow: 0 0 16px rgba(74, 158, 255, 0.3);
+}
+
+.clickableTrick:hover {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 24px rgba(74, 158, 255, 0.5);
+}
+
 /* REQ-NF-U01: Mobile portrait layout */
 @media (max-width: 640px) {
   .table {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "top"
+      "left"
+      "right"
+      "bottom";
     padding: 8px;
     gap: 4px;
   }
 
-  .middle {
-    flex-direction: column;
-    gap: 8px;
+  .center {
+    top: 50%;
   }
 
   .left,
@@ -100,9 +113,7 @@
     justify-content: center;
   }
 
-  .scoreBar {
-    font-size: 12px;
-    top: 4px;
-    right: 8px;
+  .bottom {
+    min-height: 200px;
   }
 }

@@ -4,7 +4,7 @@
 import { memo } from 'react';
 import type { ClientGameView, Seat } from '@tichu/shared';
 import { PlayerSeat } from './PlayerSeat';
-import { TrickArea } from './TrickArea';
+import { TrickDisplay } from './TrickDisplay';
 import styles from './GameTable.module.css';
 
 export interface GameTableProps {
@@ -23,6 +23,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
 
 export const GameTable = memo(function GameTable({ view, onPlay, canPlay }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
+  const trickLeader = currentTrick?.currentWinner ?? null;
 
   // Determine layout: player (me) is always at the bottom
   // Partner is at the top, opponents on left and right
@@ -39,6 +40,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay }: Game
           hasPassed={hasPassed(view, seat)}
           finishOrder={view.finishOrder.indexOf(seat) >= 0 ? view.finishOrder.indexOf(seat) + 1 : null}
           isCurrentTurn={currentTurn === seat}
+          isTrickLeader={trickLeader === seat}
           isMe={true}
         />
       );
@@ -54,6 +56,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay }: Game
         hasPassed={hasPassed(view, seat)}
         finishOrder={other.finishOrder}
         isCurrentTurn={currentTurn === seat}
+        isTrickLeader={trickLeader === seat}
         isMe={false}
       />
     );
@@ -61,41 +64,38 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay }: Game
 
   return (
     <div className={styles.table} aria-label="Game table">
-      {/* Score display */}
-      {view.scores && (
-        <div className={styles.scoreBar} aria-label="Scores">
-          <span className={styles.score}>NS: {view.scores.northSouth}</span>
-          <span className={styles.scoreSep}>|</span>
-          <span className={styles.score}>EW: {view.scores.eastWest}</span>
-        </div>
-      )}
-
       {/* Partner (top) */}
       <div className={styles.top}>
         {renderSeat(seatPositions.top)}
       </div>
 
-      {/* Middle row: left opponent, trick area, right opponent */}
-      <div className={styles.middle}>
-        <div className={styles.left}>
-          {renderSeat(seatPositions.left)}
-        </div>
-        <TrickArea
+      {/* Left opponent */}
+      <div className={styles.left}>
+        {renderSeat(seatPositions.left)}
+      </div>
+
+      {/* Trick area (center) */}
+      <div
+        className={`${styles.center} ${canPlay ? styles.clickableTrick : ''}`}
+        onClick={canPlay ? onPlay : undefined}
+        role={canPlay ? 'button' : undefined}
+        aria-label={canPlay ? 'Play selected cards' : undefined}
+      >
+        <TrickDisplay
           trick={currentTrick}
           mahjongWish={mahjongWish}
           wishFulfilled={wishFulfilled}
-          onPlay={onPlay}
-          canPlay={canPlay}
+          mySeat={mySeat}
         />
-        <div className={styles.right}>
-          {renderSeat(seatPositions.right)}
-        </div>
       </div>
 
-      {/* Player (bottom) */}
-      <div className={styles.bottom}>
-        {renderSeat(seatPositions.bottom)}
+      {/* Right opponent */}
+      <div className={styles.right}>
+        {renderSeat(seatPositions.right)}
       </div>
+
+      {/* Player (bottom) — rendered in the fixed bottom panel in page.tsx */}
+      <div className={styles.bottom} />
 
       {/* Phase indicator */}
       <div className={styles.phaseIndicator} aria-live="polite">

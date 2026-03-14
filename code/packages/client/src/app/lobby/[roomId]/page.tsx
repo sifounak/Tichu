@@ -10,7 +10,6 @@ import { useRoomStore } from '@/stores/roomStore';
 import type { ServerMessage, Seat, GameConfig } from '@tichu/shared';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
-const SEATS: Seat[] = ['north', 'east', 'south', 'west'];
 const SEAT_LABELS: Record<Seat, string> = {
   north: 'North',
   east: 'East',
@@ -105,8 +104,96 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
 
   const canStart = players.length === 4 && !gameInProgress;
 
+  function renderSeatCard(seat: Seat) {
+    const player = players.find(p => p.seat === seat);
+    const isMe = seat === mySeat;
+    const isHostSeat = seat === hostSeat;
+
+    return (
+      <div
+        className="p-3 rounded-lg flex items-center justify-between"
+        style={{
+          background: isMe ? 'rgba(201, 168, 76, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+          border: isMe ? '1px solid var(--color-gold-accent)' : '1px solid var(--color-border)',
+          minWidth: '160px',
+        }}
+      >
+        <div>
+          <span className="text-xs uppercase tracking-wider"
+            style={{ color: 'var(--color-text-muted)' }}>
+            {SEAT_LABELS[seat]}
+          </span>
+          {player ? (
+            <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+              {player.name}
+              {isHostSeat && (
+                <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
+                  style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}>
+                  Host
+                </span>
+              )}
+              {isMe && !isHostSeat && (
+                <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>(you)</span>
+              )}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--color-text-muted)' }}>Empty</div>
+          )}
+        </div>
+        <div className="flex gap-1">
+          {!player && !isMe && (
+            <button
+              onClick={() => handleSwapSeat(seat)}
+              className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+              style={{
+                background: 'var(--color-gold-accent)',
+                color: 'var(--color-felt-green-dark)',
+              }}
+            >
+              Sit Here
+            </button>
+          )}
+          {!player && isHost && (
+            <button
+              onClick={() => handleAddBot(seat)}
+              className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+              style={{
+                background: 'var(--color-felt-green-light)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              + Bot
+            </button>
+          )}
+          {player?.isBot && !isMe && (
+            <button
+              onClick={() => handleSwapSeat(seat)}
+              className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+              style={{
+                background: 'var(--color-gold-accent)',
+                color: 'var(--color-felt-green-dark)',
+              }}
+            >
+              Sit Here
+            </button>
+          )}
+          {player?.isBot && isHost && (
+            <button
+              onClick={() => handleRemoveBot(seat)}
+              className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+              style={{ color: 'var(--color-error)' }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-dvh p-6" style={{ background: 'var(--color-felt-green-dark)' }}>
+    <main className="p-6" style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-6">
@@ -128,99 +215,44 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           </div>
         )}
 
-        {/* Seats (2x2 grid showing partnerships) */}
+        {/* Seats (D-pad cross layout matching game table) */}
         <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+          <h2 className="text-lg font-semibold mb-3 text-center" style={{ color: 'var(--color-text-primary)' }}>
             Seats
           </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {SEATS.map((seat) => {
-              const player = players.find(p => p.seat === seat);
-              const isMe = seat === mySeat;
-              const isHostSeat = seat === hostSeat;
-
-              return (
-                <div
-                  key={seat}
-                  className="p-3 rounded-lg flex items-center justify-between"
-                  style={{
-                    background: isMe ? 'rgba(201, 168, 76, 0.15)' : 'rgba(255, 255, 255, 0.05)',
-                    border: isMe ? '1px solid var(--color-gold-accent)' : '1px solid var(--color-border)',
-                  }}
-                >
-                  <div>
-                    <span className="text-xs uppercase tracking-wider"
-                      style={{ color: 'var(--color-text-muted)' }}>
-                      {SEAT_LABELS[seat]}
-                    </span>
-                    {player ? (
-                      <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                        {player.name}
-                        {isHostSeat && (
-                          <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
-                            style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}>
-                            Host
-                          </span>
-                        )}
-                        {isMe && !isHostSeat && (
-                          <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>(you)</span>
-                        )}
-                      </div>
-                    ) : (
-                      <div style={{ color: 'var(--color-text-muted)' }}>Empty</div>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    {!player && !isMe && (
-                      <button
-                        onClick={() => handleSwapSeat(seat)}
-                        className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
-                        style={{
-                          background: 'var(--color-gold-accent)',
-                          color: 'var(--color-felt-green-dark)',
-                        }}
-                      >
-                        Sit Here
-                      </button>
-                    )}
-                    {!player && isHost && (
-                      <button
-                        onClick={() => handleAddBot(seat)}
-                        className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
-                        style={{
-                          background: 'var(--color-felt-green-light)',
-                          color: 'var(--color-text-primary)',
-                          border: '1px solid var(--color-border)',
-                        }}
-                      >
-                        + Bot
-                      </button>
-                    )}
-                    {player?.isBot && !isMe && (
-                      <button
-                        onClick={() => handleSwapSeat(seat)}
-                        className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
-                        style={{
-                          background: 'var(--color-gold-accent)',
-                          color: 'var(--color-felt-green-dark)',
-                        }}
-                      >
-                        Sit Here
-                      </button>
-                    )}
-                    {player?.isBot && isHost && (
-                      <button
-                        onClick={() => handleRemoveBot(seat)}
-                        className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
-                        style={{ color: 'var(--color-error)' }}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr auto 1fr',
+            gridTemplateRows: 'auto auto auto',
+            gap: '12px',
+            justifyItems: 'center',
+            maxWidth: '500px',
+            margin: '0 auto',
+          }}>
+            {/* North — row 1, col 2 */}
+            <div style={{ gridColumn: 2, gridRow: 1 }}>
+              {renderSeatCard('north')}
+            </div>
+            {/* West — row 2, col 1 */}
+            <div style={{ gridColumn: 1, gridRow: 2 }}>
+              {renderSeatCard('west')}
+            </div>
+            {/* Center label — row 2, col 2 */}
+            <div style={{
+              gridColumn: 2, gridRow: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--color-text-muted)', fontSize: '13px', fontWeight: 600,
+            }}>
+              vs
+            </div>
+            {/* East — row 2, col 3 */}
+            <div style={{ gridColumn: 3, gridRow: 2 }}>
+              {renderSeatCard('east')}
+            </div>
+            {/* South — row 3, col 2 */}
+            <div style={{ gridColumn: 2, gridRow: 3 }}>
+              {renderSeatCard('south')}
+            </div>
           </div>
           <p className="mt-2 text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
             Teams: North + South vs East + West

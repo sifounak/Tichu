@@ -191,8 +191,8 @@ export class RoomHandler {
 
       // Seat all players into the game
       for (const player of room.players) {
+        game.seatPlayer(player.seat);
         if (!player.isBot) {
-          game.seatPlayer(player.seat);
           // Assign the WebSocket connection's seat to the game
           const userId = this.roomManager.getUserIdAtSeat(info.roomCode, player.seat);
           if (userId) {
@@ -202,7 +202,8 @@ export class RoomHandler {
             }
           }
         } else {
-          game.seatPlayer(player.seat);
+          // REQ-F-MP01: Register bot strategy for this seat
+          game.registerBot(player.seat, room.config.botDifficulty);
         }
       }
 

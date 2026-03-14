@@ -12,12 +12,19 @@ describe('PlayerSeat', () => {
     hasPassed: false,
     finishOrder: null,
     isCurrentTurn: false,
+    isTrickLeader: false,
     isMe: false,
   };
 
   it('renders seat with name and card count', () => {
     render(<PlayerSeat {...baseProps} />);
     expect(screen.getByText('North')).toBeInTheDocument();
+    // Non-"me" seats show card-back stacks with count badge
+    expect(screen.getByText('14')).toBeInTheDocument();
+  });
+
+  it('renders text card count for own seat', () => {
+    render(<PlayerSeat {...baseProps} isMe />);
     expect(screen.getByText('14 cards')).toBeInTheDocument();
   });
 
@@ -26,15 +33,15 @@ describe('PlayerSeat', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument();
   });
 
-  it('shows Tichu badge when called', () => {
+  it('shows Tichu banner when called', () => {
     render(<PlayerSeat {...baseProps} tichuCall="tichu" />);
-    expect(screen.getByText('T')).toBeInTheDocument();
+    expect(screen.getByText('Tichu')).toBeInTheDocument();
     expect(screen.getByLabelText('Tichu called')).toBeInTheDocument();
   });
 
-  it('shows Grand Tichu badge when called', () => {
+  it('shows Grand Tichu banner when called', () => {
     render(<PlayerSeat {...baseProps} tichuCall="grandTichu" />);
-    expect(screen.getByText('GT')).toBeInTheDocument();
+    expect(screen.getByText('Grand Tichu')).toBeInTheDocument();
     expect(screen.getByLabelText('Grand Tichu called')).toBeInTheDocument();
   });
 

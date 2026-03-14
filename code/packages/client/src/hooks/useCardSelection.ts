@@ -113,20 +113,12 @@ export function useCardSelection(
     [hand, currentTrick, wish],
   );
 
-  // Toggle handler that respects selectability
+  // Toggle handler — freely select/deselect any card in hand
   const toggleCard = useCallback(
     (id: CardId) => {
-      // Allow deselecting any selected card
-      if (selectedIds.has(id)) {
-        onToggleCard(id);
-        return;
-      }
-      // Only allow selecting if the card is selectable
-      if (selectableIds.has(id)) {
-        onToggleCard(id);
-      }
+      onToggleCard(id);
     },
-    [selectedIds, selectableIds, onToggleCard],
+    [onToggleCard],
   );
 
   return {

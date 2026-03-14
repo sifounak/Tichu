@@ -47,7 +47,7 @@
   /* Card dimensions */
   --card-width: 70px;
   --card-height: 100px;
-  --card-overlap-desktop: 30px;
+  --card-overlap-desktop: 45px;
   --card-overlap-mobile: 16px;
   --card-lift-selected: -12px;
   --card-border-radius: 6px;
@@ -56,7 +56,7 @@
 
   /* Layout */
   --seat-avatar-size: 40px;
-  --trick-area-size: 200px;
+  --trick-area-size: 400px;
   --table-padding: 16px;
 
   /* Typography */

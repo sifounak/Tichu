@@ -84,6 +84,7 @@ function createMockGameStore(): GameStore {
       gameId: 'game_123',
       roomCode: 'ABCDEF',
       seatPlayer: vi.fn().mockReturnValue(true),
+      registerBot: vi.fn(),
       handleMessage: vi.fn(),
       broadcastState: vi.fn(),
       destroy: vi.fn(),

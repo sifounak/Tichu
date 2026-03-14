@@ -38,20 +38,13 @@ function makeView(overrides: Partial<ClientGameView> = {}): ClientGameView {
 }
 
 describe('GameTable', () => {
-  it('renders game table with all 4 seats', () => {
+  it('renders game table with opponent and partner seats', () => {
     render(<GameTable view={makeView()} />);
     expect(screen.getByLabelText('Game table')).toBeInTheDocument();
-    // Should render 4 player seats
-    expect(screen.getByText('South')).toBeInTheDocument();
+    // 3 seats rendered in grid (partner + 2 opponents); own seat is in page.tsx bottom panel
     expect(screen.getByText('North')).toBeInTheDocument();
     expect(screen.getByText('East')).toBeInTheDocument();
     expect(screen.getByText('West')).toBeInTheDocument();
-  });
-
-  it('shows scores', () => {
-    render(<GameTable view={makeView()} />);
-    expect(screen.getByText('NS: 150')).toBeInTheDocument();
-    expect(screen.getByText('EW: 75')).toBeInTheDocument();
   });
 
   it('shows phase indicator', () => {
@@ -64,15 +57,25 @@ describe('GameTable', () => {
     expect(screen.getByLabelText('Trick area')).toBeInTheDocument();
   });
 
-  it('positions player at bottom regardless of seat', () => {
-    // When mySeat is east, east should still appear
-    render(<GameTable view={makeView({ mySeat: 'east' as Seat })} />);
+  it('positions opponents correctly when mySeat changes', () => {
+    // When mySeat is east, other players should be south, north, west
+    const eastView = makeView({
+      mySeat: 'east' as Seat,
+      otherPlayers: [
+        { seat: 'south' as Seat, cardCount: 10, tichuCall: 'none', hasPlayed: false, finishOrder: null },
+        { seat: 'north' as Seat, cardCount: 12, tichuCall: 'none', hasPlayed: false, finishOrder: null },
+        { seat: 'west' as Seat, cardCount: 8, tichuCall: 'none', hasPlayed: false, finishOrder: null },
+      ],
+    });
+    render(<GameTable view={eastView} />);
     expect(screen.getByLabelText('Game table')).toBeInTheDocument();
-    expect(screen.getByText('East')).toBeInTheDocument();
+    expect(screen.getByText('North')).toBeInTheDocument();
+    expect(screen.getByText('South')).toBeInTheDocument();
+    expect(screen.getByText('West')).toBeInTheDocument();
   });
 
   it('shows Tichu call on opponent', () => {
     render(<GameTable view={makeView()} />);
-    expect(screen.getByText('T')).toBeInTheDocument(); // West called Tichu
+    expect(screen.getByText('Tichu')).toBeInTheDocument(); // West called Tichu
   });
 });

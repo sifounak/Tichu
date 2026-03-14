@@ -57,17 +57,24 @@ export function cardAriaLabel(card: Card): string {
   return SPECIAL_NAMES[card.kind];
 }
 
-/** Sort rank for ordering cards in hand: Dog, Mahjong first; standard by suit+rank; Phoenix, Dragon last */
+/**
+ * Sort key for ordering cards in hand.
+ * Ascending left-to-right: lowest-value cards on the left, highest on the right.
+ * Order (left to right): Dog, Mahjong, 2…A by rank, Phoenix, Dragon
+ *
+ * Dog = 0 (leftmost), standard cards by ascending rank,
+ * Dragon = 16 (rightmost).
+ */
 export function cardSortKey(card: Card): number {
   switch (card.kind) {
-    case 'dog': return 0;
-    case 'mahjong': return 1;
+    case 'dog': return 0;               // leftmost (lowest value)
+    case 'mahjong': return 1;           // after dog, before 2s
     case 'standard': {
-      // Group by suit then rank: suit index * 20 + rank, offset to 100-179 range
-      const suitOrder = { jade: 0, pagoda: 1, star: 2, sword: 3 };
-      return 100 + suitOrder[card.suit] * 20 + card.rank;
+      // Rank 2 → key 2, Rank 14 (Ace) → key 14; within same rank, break tie by suit
+      const suitTie = { jade: 0.1, pagoda: 0.2, star: 0.3, sword: 0.4 };
+      return 2 + (card.rank - 2) + suitTie[card.suit];
     }
-    case 'phoenix': return 200;
-    case 'dragon': return 201;
+    case 'phoenix': return 15;          // after aces, before dragon
+    case 'dragon': return 16;           // rightmost (highest value)
   }
 }

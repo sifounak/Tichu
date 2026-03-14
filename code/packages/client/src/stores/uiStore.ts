@@ -47,6 +47,11 @@ export interface UiStore {
   /* --- Tichu Banner (REQ-NF-U02) --- */
   tichuEvent: { seat: Seat; level: TichuCall } | null;
   setTichuEvent: (event: { seat: Seat; level: TichuCall } | null) => void;
+
+  /* --- Error Toast --- */
+  errorToast: string | null;
+  showErrorToast: (message: string) => void;
+  clearErrorToast: () => void;
 }
 
 export const useUiStore = create<UiStore>()((set) => ({
@@ -117,4 +122,9 @@ export const useUiStore = create<UiStore>()((set) => ({
   /* --- Tichu Banner --- */
   tichuEvent: null,
   setTichuEvent: (event) => set({ tichuEvent: event }),
+
+  /* --- Error Toast --- */
+  errorToast: null,
+  showErrorToast: (message) => set({ errorToast: message }),
+  clearErrorToast: () => set({ errorToast: null }),
 }));

@@ -4,7 +4,7 @@ import { eq, desc, or, sql } from 'drizzle-orm';
 import type { ExtractTablesWithRelations } from 'drizzle-orm';
 import type { PgTransaction, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import type { Database } from './connection.js';
-import { games, gameRounds, playerStats } from './schema.js';
+import { games, gameRounds } from './schema.js';
 import * as schema from './schema.js';
 import type { Seat } from '@tichu/shared';
 

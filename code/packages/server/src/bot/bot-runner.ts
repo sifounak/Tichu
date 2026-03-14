@@ -16,11 +16,11 @@ export interface BotRunnerConfig {
   maxDelayMs: number;
 }
 
-/** Default timing config based on animation speed */
-// REQ-NF-DL03: Reduced from 200-1500ms to 100-800ms for snappier gameplay
+/** Default timing config — artificial thinking delay for readability */
+// REQ-NF-DL03: Bot delay so human players can follow gameplay
 const DEFAULT_CONFIG: BotRunnerConfig = {
-  minDelayMs: 100,
-  maxDelayMs: 800,
+  minDelayMs: 800,
+  maxDelayMs: 1500,
 };
 
 /** Fast config for testing */
@@ -45,6 +45,9 @@ export class BotRunner {
 
   /** Whether the runner has been disposed */
   private disposed = false;
+
+  /** Callback invoked after each bot action so the game can broadcast state */
+  private afterActionCallback: (() => void) | null = null;
 
   constructor(
     private readonly actor: GameActor,
@@ -74,9 +77,12 @@ export class BotRunner {
   /**
    * Trigger bot actions based on current game state.
    * Should be called after every state transition.
+   * @param onAfterAction — called after each bot action so the game can broadcast updated state
    */
-  onStateChange(): void {
-    if (this.disposed) return;
+  onStateChange(onAfterAction?: () => void): void {
+    if (this.disposed || this.bots.size === 0) return;
+
+    this.afterActionCallback = onAfterAction ?? null;
 
     const snapshot = this.actor.getSnapshot();
     const context = snapshot.context;
@@ -134,10 +140,11 @@ export class BotRunner {
     this.pendingTimers.add(timer);
   }
 
-  /** Send an event to the game actor */
+  /** Send an event to the game actor, then broadcast updated state */
   private send(event: GameEvent): void {
     if (this.disposed) return;
     this.actor.send(event);
+    this.afterActionCallback?.();
   }
 
   // ─── Phase Handlers ──────────────────────────────────────────────────────

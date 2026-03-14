@@ -13,7 +13,11 @@
       "Bash(npx turbo:*)",
       "Bash(npx vitest:*)",
       "Bash(ls -la \"c:\\\\MATLAB\\\\Claude\\\\Tichu\\\\documentation\"\" 2>/dev/null || ls -la \"c:MATLABClaudeTichu \")",
-      "Bash(gh issue:*)"
+      "Bash(gh issue:*)",
+      "Bash(pnpm build:*)",
+      "Bash(npx next:*)",
+      "Bash(pnpm dev:*)",
+      "Bash(npm test:*)"
     ],
     "additionalDirectories": [
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\matlab-test-generator\\references",

@@ -34,12 +34,12 @@ function seatPosition(seat: Seat, mySeat: Seat): 'bottom' | 'top' | 'left' | 'ri
   return (['bottom', 'right', 'top', 'left'] as const)[rel];
 }
 
-/** Entry direction offsets per seat position */
+/** Entry direction offsets per seat position — start near the player boxes */
 const ENTRY_OFFSETS: Record<string, { x: number; y: number }> = {
-  bottom: { x: 0, y: 60 },
-  top: { x: 0, y: -60 },
-  left: { x: -60, y: 0 },
-  right: { x: 60, y: 0 },
+  bottom: { x: 0, y: 250 },
+  top: { x: 0, y: -250 },
+  left: { x: -300, y: 0 },
+  right: { x: 300, y: 0 },
 };
 
 export const TrickDisplay = memo(function TrickDisplay({
@@ -92,16 +92,19 @@ export const TrickDisplay = memo(function TrickDisplay({
               transition: { duration: durations.trickSweep },
             } : undefined}
           >
-            {trick.plays.map((play, i) => {
-              const pos = seatPosition(play.seat, mySeat);
-              const isWinner = play.seat === trick.currentWinner;
+            {/* Show only the latest play, centered */}
+            {(() => {
+              const latestPlay = trick.plays[trick.plays.length - 1];
+              if (!latestPlay) return null;
+              const pos = seatPosition(latestPlay.seat, mySeat);
+              const isWinner = latestPlay.seat === trick.currentWinner;
               const offset = ENTRY_OFFSETS[pos];
               return (
                 <motion.div
-                  key={`${play.seat}-${i}`}
-                  className={`${styles.playGroup} ${styles[pos]} ${isWinner ? styles.winner : ''}`}
-                  data-seat={play.seat}
-                  aria-label={`${play.seat} played ${play.combination.type}`}
+                  key={`${latestPlay.seat}-${trick.plays.length}`}
+                  className={`${styles.playGroup} ${styles.center} ${isWinner ? styles.winner : ''}`}
+                  data-seat={latestPlay.seat}
+                  aria-label={`${latestPlay.seat} played ${latestPlay.combination.type}`}
                   initial={enabled ? { x: offset.x, y: offset.y, opacity: 0 } : false}
                   animate={{ x: 0, y: 0, opacity: 1 }}
                   transition={{
@@ -112,7 +115,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                   }}
                 >
                   <div className={styles.cards}>
-                    {play.combination.cards.map((gc, cardIdx) => (
+                    {latestPlay.combination.cards.map((gc, cardIdx) => (
                       <motion.div
                         key={gc.id}
                         className={styles.trickCard}
@@ -120,34 +123,19 @@ export const TrickDisplay = memo(function TrickDisplay({
                         animate={{ scale: 1, rotate: 0 }}
                         transition={{ duration: durations.bombEffect, delay: cardIdx * 0.05 }}
                       >
-                        <Card gameCard={gc} state="normal" style={{ width: '50px', height: '72px' }} />
+                        <Card gameCard={gc} state="normal" style={{ width: '125px', height: '180px' }} />
                       </motion.div>
                     ))}
                   </div>
                 </motion.div>
               );
-            })}
+            })()}
 
-            {/* Pass indicators */}
-            {trick.passes.map((seat) => {
-              const pos = seatPosition(seat, mySeat);
-              return (
-                <motion.div
-                  key={`pass-${seat}`}
-                  className={`${styles.passLabel} ${styles[pos]}`}
-                  aria-label={`${seat} passed`}
-                  initial={enabled ? { opacity: 0 } : false}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: durations.cardLift }}
-                >
-                  Pass
-                </motion.div>
-              );
-            })}
+            {/* Pass indicators moved to PlayerSeat boxes */}
           </motion.div>
         ) : (
-          <div className={styles.empty} key="trick-empty">
-            <span className={styles.emptyText}>Lead a card</span>
+          <div className={styles.playArea} key="trick-empty">
+            <span className={styles.playAreaText}>Play Area</span>
           </div>
         )}
       </AnimatePresence>

@@ -83,21 +83,21 @@ describe('useCardSelection', () => {
     expect(result.current.canPlay).toBe(false);
   });
 
-  it('REQ-F-HV07: toggleCard respects selectability', () => {
+  it('REQ-F-HV07: toggleCard allows free selection of any card', () => {
     const mockToggle = vi.fn();
     const hand = [makeDragon(), makeCard(0, 5)];
-    // Dragon selected — all others disabled
+    // Dragon selected
     const selected = new Set([53 as CardId]);
 
     const { result } = renderHook(() =>
       useCardSelection(hand, null, null, selected, mockToggle, noopClear, true),
     );
 
-    // Try to select card 0 — should be blocked (Dragon disables all)
+    // Selecting any card is allowed (free selection)
     act(() => result.current.toggleCard(0 as CardId));
-    expect(mockToggle).not.toHaveBeenCalled();
+    expect(mockToggle).toHaveBeenCalledWith(0);
 
-    // Deselecting Dragon should work
+    // Deselecting Dragon should also work
     act(() => result.current.toggleCard(53 as CardId));
     expect(mockToggle).toHaveBeenCalledWith(53);
   });

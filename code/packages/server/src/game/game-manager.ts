@@ -21,6 +21,9 @@ import { TurnTimer } from './turn-timer.js';
 import { MoveHandler } from './move-handler.js';
 import { DisconnectHandler } from './disconnect-handler.js';
 import { projectGameState } from '../ws/state-projection.js';
+import { BotRunner } from '../bot/bot-runner.js';
+import { EasyBot } from '../bot/easy-bot.js';
+import type { BotStrategy } from '../bot/bot-interface.js';
 
 /**
  * Orchestrates a single game: receives client messages, validates moves
@@ -38,6 +41,7 @@ export class GameManager {
   private readonly moveHandler: MoveHandler;
   private readonly broadcaster: Broadcaster;
   private readonly disconnectHandler: DisconnectHandler;
+  private readonly botRunner: BotRunner;
   private destroyed = false;
 
   constructor(
@@ -55,6 +59,9 @@ export class GameManager {
     // Create the XState game actor
     this.actor = createGameActor(gameId, config);
     this.moveHandler = new MoveHandler(this.actor);
+
+    // REQ-F-MP01: Create bot runner for automated bot decisions
+    this.botRunner = new BotRunner(this.actor);
 
     // Create turn timer with timeout callback
     const turnTimerSeconds = config?.turnTimerSeconds ?? null;
@@ -172,6 +179,19 @@ export class GameManager {
     return result.ok;
   }
 
+  /** REQ-F-MP01: Register a bot at the given seat */
+  registerBot(seat: Seat, difficulty: 'easy' | 'medium' | 'hard' = 'easy'): void {
+    let strategy: BotStrategy;
+    switch (difficulty) {
+      case 'easy':
+      default:
+        strategy = new EasyBot();
+        break;
+      // Medium/hard bots can be added here when implemented
+    }
+    this.botRunner.addBot(seat, strategy);
+  }
+
   /** Broadcast current game state to all players in the room */
   broadcastState(): void {
     if (this.destroyed) return;
@@ -198,6 +218,9 @@ export class GameManager {
     } else {
       this.timer.stop();
     }
+
+    // REQ-F-MP01: Trigger bot decisions and broadcast after each bot action
+    this.botRunner.onStateChange(() => this.broadcastState());
   }
 
   /** Clean up resources */
@@ -205,6 +228,7 @@ export class GameManager {
     if (this.destroyed) return;
     this.destroyed = true;
     this.timer.dispose();
+    this.botRunner.dispose();
     this.actor.stop();
   }
 }
