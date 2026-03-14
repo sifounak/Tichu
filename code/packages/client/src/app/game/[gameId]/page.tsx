@@ -200,6 +200,15 @@ export default function GamePage() {
     [send],
   );
 
+  // Auto-skip Tichu decision phase — player can call Tichu from the ActionBar during gameplay
+  // NOTE: Must be above early returns to respect Rules of Hooks
+  const phase = gameStore.phase;
+  useEffect(() => {
+    if (phase === GamePhase.TichuDecision) {
+      send({ type: 'REGULAR_TICHU_PASS' });
+    }
+  }, [phase, send]);
+
   // --- Loading state ---
   if (!gameStore.gameId || !gameStore.phase) {
     return (
@@ -212,7 +221,7 @@ export default function GamePage() {
     );
   }
 
-  const { phase, mySeat } = gameStore;
+  const { mySeat } = gameStore;
 
   // --- Game over ---
   if (phase === GamePhase.GameOver && gameStore.gameOverInfo) {
@@ -250,13 +259,6 @@ export default function GamePage() {
 
   const isMyTurn = gameStore.currentTurn === mySeat;
 
-  // Auto-skip Tichu decision phase — player can call Tichu from the ActionBar during gameplay
-  useEffect(() => {
-    if (phase === GamePhase.TichuDecision) {
-      send({ type: 'REGULAR_TICHU_PASS' });
-    }
-  }, [phase, send]);
-
   const isPreGame =
     phase === GamePhase.GrandTichuDecision ||
     phase === GamePhase.TichuDecision ||
@@ -286,7 +288,7 @@ export default function GamePage() {
 
       {/* Bottom panel: pre-game prompt OR action bar + hand */}
       {phase !== GamePhase.WaitingForPlayers && (
-        <div style={{ position: 'fixed', bottom: 24, left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ position: 'fixed', bottom: 48, left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '28px' }}>
           {isPreGame ? (
             <PreGamePhase
               phase={phase}
@@ -328,26 +330,33 @@ export default function GamePage() {
                   }
                 />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', '--card-width': '105px', '--card-height': '150px', '--card-font-size': '24px', '--card-suit-size': '30px', '--card-border-radius': '9px', '--card-overlap-desktop': '70px' } as React.CSSProperties}>
+              <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px', '--card-overlap-desktop': '81px' } as React.CSSProperties}>
                 {phase === 'playing' && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
                   <button
                     onClick={handleTichu}
                     style={{
-                      padding: '10px 18px',
+                      position: 'absolute',
+                      right: '100%',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      marginRight: '48px',
+                      width: '84px',
+                      height: '84px',
+                      padding: '6px',
                       border: 'none',
-                      borderRadius: '10px',
+                      borderRadius: '12px',
                       background: 'var(--color-tichu-badge)',
                       color: 'white',
                       fontFamily: 'var(--font-display)',
-                      fontSize: '18px',
+                      fontSize: '21px',
                       fontWeight: 600,
                       cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      minHeight: '48px',
+                      lineHeight: '1.2',
+                      textAlign: 'center',
                     }}
                     aria-label="Declare Tichu"
                   >
-                    Call Tichu!
+                    Call<br />Tichu!
                   </button>
                 )}
                 <CardHand

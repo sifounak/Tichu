@@ -17,7 +17,8 @@
       "Bash(pnpm build:*)",
       "Bash(npx next:*)",
       "Bash(pnpm dev:*)",
-      "Bash(npm test:*)"
+      "Bash(npm test:*)",
+      "Bash(taskkill //F //IM node.exe)"
     ],
     "additionalDirectories": [
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\matlab-test-generator\\references",

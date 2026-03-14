@@ -114,7 +114,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                     damping: 20,
                   }}
                 >
-                  <div className={styles.cards}>
+                  <div className={styles.cards} style={{ '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px' } as React.CSSProperties}>
                     {latestPlay.combination.cards.map((gc, cardIdx) => (
                       <motion.div
                         key={gc.id}
@@ -123,7 +123,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                         animate={{ scale: 1, rotate: 0 }}
                         transition={{ duration: durations.bombEffect, delay: cardIdx * 0.05 }}
                       >
-                        <Card gameCard={gc} state="normal" style={{ width: '125px', height: '180px' }} />
+                        <Card gameCard={gc} state="normal" />
                       </motion.div>
                     ))}
                   </div>
