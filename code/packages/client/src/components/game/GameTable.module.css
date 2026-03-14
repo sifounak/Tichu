@@ -26,19 +26,21 @@
   padding-top: 24px;
 }
 
-/* Left opponent — vertically centered in middle row */
+/* Left opponent — vertically aligned with play area center */
 .left {
-  grid-area: left;
+  position: absolute;
+  left: 28px;
+  top: calc(50vh - 100px);
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding-left: 28px;
+  z-index: 1;
 }
 
-/* Trick area — absolutely centered in the table viewport */
+/* Trick area — vertically centered between top player bottom edge and bottom player top edge */
 .center {
   position: absolute;
-  top: 45%;
+  top: calc(50vh - 100px);
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
@@ -47,13 +49,15 @@
   z-index: 1;
 }
 
-/* Right opponent — vertically centered in middle row */
+/* Right opponent — vertically aligned with play area center */
 .right {
-  grid-area: right;
+  position: absolute;
+  right: 28px;
+  top: calc(50vh - 100px);
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding-right: 28px;
+  z-index: 1;
 }
 
 /* Player at bottom — reserve space for the fixed bottom panel */
@@ -110,6 +114,8 @@
 
   .left,
   .right {
+    position: static;
+    transform: none;
     justify-content: center;
   }
 
