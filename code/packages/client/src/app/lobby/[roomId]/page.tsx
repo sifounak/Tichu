@@ -134,8 +134,8 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           {displayName}
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2 justify-center">
+        {/* Action buttons — fixed height for uniform card size */}
+        <div className="flex gap-2 justify-center" style={{ minHeight: '26px' }}>
           {!player && !isMe && (
             <button
               onClick={() => handleSwapSeat(seat)}
