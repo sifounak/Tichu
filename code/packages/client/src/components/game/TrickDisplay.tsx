@@ -16,6 +16,18 @@ const RANK_LABELS: Record<number, string> = {
   8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A',
 };
 
+/** Format the effective value of a Phoenix single for display */
+function formatPhoenixValue(rank: number): string {
+  const baseRank = Math.floor(rank);
+  const label = RANK_LABELS[baseRank];
+  if (!label) return `(${rank})`;
+  // Numeric ranks (2-10): show as decimal, e.g. "(2.5)"
+  if (baseRank <= 10) return `(${rank})`;
+  // Face cards: show as "Jack + 0.5" etc.
+  const FACE_NAMES: Record<number, string> = { 11: 'Jack', 12: 'Queen', 13: 'King', 14: 'Ace' };
+  return `(${FACE_NAMES[baseRank] ?? label} + 0.5)`;
+}
+
 export interface TrickDisplayProps {
   trick: TrickState | null;
   /** REQ-F-DI07: Active Mahjong wish */
@@ -176,17 +188,27 @@ export const TrickDisplay = memo(function TrickDisplay({
                     }}
                   >
                     <div className={styles.cards} style={{ '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px' } as React.CSSProperties}>
-                      {latestPlay.combination.cards.map((gc, cardIdx) => (
-                        <motion.div
-                          key={gc.id}
-                          className={styles.trickCard}
-                          initial={enabled && isBombPlay ? { scale: 1.3, rotate: (cardIdx - 1) * 15 } : false}
-                          animate={{ scale: 1, rotate: 0 }}
-                          transition={{ duration: durations.bombEffect, delay: cardIdx * 0.05 }}
-                        >
-                          <Card gameCard={gc} state="normal" />
-                        </motion.div>
-                      ))}
+                      {latestPlay.combination.cards.map((gc, cardIdx) => {
+                        const isPhoenixSingle =
+                          latestPlay.combination.type === 'single' &&
+                          gc.card.kind === 'phoenix';
+                        return (
+                          <motion.div
+                            key={gc.id}
+                            className={styles.trickCard}
+                            initial={enabled && isBombPlay ? { scale: 1.3, rotate: (cardIdx - 1) * 15 } : false}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ duration: durations.bombEffect, delay: cardIdx * 0.05 }}
+                          >
+                            <Card gameCard={gc} state="normal" />
+                            {isPhoenixSingle && (
+                              <div className={styles.phoenixValue}>
+                                {formatPhoenixValue(latestPlay.combination.rank)}
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </motion.div>
                 );
