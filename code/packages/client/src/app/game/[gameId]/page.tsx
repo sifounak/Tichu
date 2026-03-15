@@ -79,7 +79,11 @@ export default function GamePage() {
 
         // REQ-F-DA01: Detect Dog play and trigger animation
         // Skip entirely when only bots remain (no human needs to see it)
-        if (view.lastDogPlay && animEnabled && anyHumanActive) {
+        const botSeats = new Set(roomPlayers.filter((p) => p.isBot).map((p) => p.seat));
+        const humanStillActive = (['north', 'east', 'south', 'west'] as const).some(
+          (s) => !botSeats.has(s) && !view.finishOrder.includes(s),
+        );
+        if (view.lastDogPlay && animEnabled && humanStillActive) {
           // Clear any previous Dog animation timer
           if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
           uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
@@ -122,7 +126,7 @@ export default function GamePage() {
         gameStore.applyServerMessage(msg);
       }
     },
-    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive],
+    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers],
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
