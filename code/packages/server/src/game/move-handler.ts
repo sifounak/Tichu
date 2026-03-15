@@ -236,6 +236,12 @@ export class MoveHandler {
       return { ok: false, error: 'Can only declare wish after playing Mahjong' };
     }
 
+    // REQ-F-WR02: Reject if another player has played since the Mahjong play
+    const lastPlay = round.currentTrick.plays[round.currentTrick.plays.length - 1];
+    if (!lastPlay || lastPlay.seat !== seat) {
+      return { ok: false, error: 'Cannot declare wish after another player has played' };
+    }
+
     // REQ-F-WV01: Validate wish rank is an integer between 2 and 14
     if (rank !== null && (typeof rank !== 'number' || rank < 2 || rank > 14 || !Number.isInteger(rank))) {
       return { ok: false, error: 'Wish rank must be an integer between 2 and 14' };

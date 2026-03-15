@@ -789,14 +789,17 @@ export const gameMachine = setup({
         },
         DECLARE_WISH: {
           // REQ-F-GF03: Mahjong wish declared separately after playing Mahjong
+          // REQ-F-WR02: Guard against race condition — only accept if last play was by this player
           actions: assign(({ context, event }) => {
             if (event.type !== 'DECLARE_WISH' || !context.currentRound) return {};
             const round = structuredClone(context.currentRound) as RoundState;
-            // Only set wish if Mahjong was played in the current trick
             if (!round.currentTrick) return {};
-            const mahjongPlayed = round.currentTrick.plays.some((p) =>
-              p.seat === event.seat && p.combination.cards.some((gc) => isMahjong(gc.card)),
-            );
+
+            // Only process if the last play was by this player and contained Mahjong
+            const lastPlay = round.currentTrick.plays[round.currentTrick.plays.length - 1];
+            if (!lastPlay || lastPlay.seat !== event.seat) return {}; // Too late — someone else played
+
+            const mahjongPlayed = lastPlay.combination.cards.some((gc) => isMahjong(gc.card));
             if (!mahjongPlayed) return {};
             round.mahjongWish = event.rank;
             if (event.rank !== null) {

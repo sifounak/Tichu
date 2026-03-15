@@ -254,11 +254,17 @@ export class BotRunner {
         return;
       }
 
-      // Send PLAY_CARDS event
-      this.send({ type: 'PLAY_CARDS', seat, cards: decision.cards });
+      // REQ-F-WR01: Include wish inline with PLAY_CARDS to avoid race condition
+      const mahjongPlayed = decision.cards.some((gc) => isMahjong(gc.card));
+      let wish: number | null | undefined;
+      if (mahjongPlayed) {
+        const remainingHand = player.hand.filter(
+          (gc) => !decision.cards.some((pc) => pc.id === gc.id),
+        );
+        wish = bot.chooseMahjongWish(remainingHand);
+      }
 
-      // If Mahjong was played, declare a wish
-      this.handleMahjongWishAfterPlay(seat, bot, decision.cards, player.hand);
+      this.send({ type: 'PLAY_CARDS', seat, cards: decision.cards, wish });
     }, trickSweepPause);
   }
 
@@ -296,20 +302,4 @@ export class BotRunner {
     });
   }
 
-  /** After playing Mahjong, the bot should declare a wish */
-  private handleMahjongWishAfterPlay(
-    seat: Seat,
-    bot: BotStrategy,
-    playedCards: GameCard[],
-    hand: GameCard[],
-  ): void {
-    const mahjongPlayed = playedCards.some((gc) => isMahjong(gc.card));
-    if (!mahjongPlayed) return;
-
-    // Schedule wish declaration shortly after the play
-    this.scheduleAction(() => {
-      const wish = bot.chooseMahjongWish(hand);
-      this.send({ type: 'DECLARE_WISH', seat, rank: wish });
-    });
-  }
 }
