@@ -20,7 +20,6 @@ import { useUiStore } from '@/stores/uiStore';
 import { GameTable } from '@/components/game/GameTable';
 import { PlayerSeat } from '@/components/game/PlayerSeat';
 import { ActionBar } from '@/components/game/ActionBar';
-import { DragonGiftModal } from '@/components/game/DragonGiftModal';
 import { ScorePanel } from '@/components/game/ScorePanel';
 import { TichuBanner } from '@/components/game/TichuBanner';
 import { ChatPanel } from '@/components/game/ChatPanel';
@@ -458,6 +457,26 @@ export default function GamePage() {
 
   const isMyTurn = gameStore.currentTurn === mySeat;
 
+  // REQ-F-DR01: Compute Dragon gift targets — opponents the player can give the trick to
+  const dragonGiftTargets = useMemo(() => {
+    if (!gameStore.dragonGiftPending) return undefined;
+    // Only the player who won the trick (currentTurn during awaitingDragonGift) picks
+    if (gameStore.currentTurn !== mySeat) return undefined;
+    const targets = new Set<Seat>();
+    for (const p of gameStore.otherPlayers) {
+      // Opponents (not teammates) who haven't finished
+      if (p.seat !== mySeat && p.finishOrder === null) {
+        // Check if opponent (not same team as me)
+        const myTeam = mySeat === 'north' || mySeat === 'south' ? 'ns' : 'ew';
+        const theirTeam = p.seat === 'north' || p.seat === 'south' ? 'ns' : 'ew';
+        if (myTeam !== theirTeam) {
+          targets.add(p.seat);
+        }
+      }
+    }
+    return targets.size > 0 ? targets : undefined;
+  }, [gameStore.dragonGiftPending, gameStore.currentTurn, mySeat, gameStore.otherPlayers]);
+
   const isPreGame =
     phase === GamePhase.GrandTichuDecision ||
     phase === GamePhase.TichuDecision ||
@@ -588,7 +607,7 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} />
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {phase !== GamePhase.WaitingForPlayers && (
@@ -724,13 +743,7 @@ export default function GamePage() {
         />
       )}
 
-      {/* REQ-F-DR01: Dragon gift modal */}
-      {gameStore.dragonGiftPending && gameStore.dragonGiftOptions.length > 0 && (
-        <DragonGiftModal
-          options={gameStore.dragonGiftOptions}
-          onGift={handleDragonGift}
-        />
-      )}
+      {/* REQ-F-DR01: Dragon gift selection is now handled via PlayerSeat clicks + TrickDisplay notification */}
 
       {/* REQ-F-SC01: Round end overlay */}
       {showRoundEnd && phase === GamePhase.RoundScoring && gameStore.latestRoundScore && gameStore.scores && (

@@ -35,6 +35,34 @@
   box-shadow: 0 0 28px rgba(232, 168, 48, 0.65), 0 0 12px rgba(232, 168, 48, 0.4);
 }
 
+/* REQ-F-DR01: Dragon gift target — purple glow */
+.dragonTarget {
+  border-color: #9b59b6;
+  box-shadow: 0 0 28px rgba(155, 89, 182, 0.65), 0 0 12px rgba(155, 89, 182, 0.4);
+  animation: dragonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dragonPulse {
+  0%, 100% { box-shadow: 0 0 28px rgba(155, 89, 182, 0.65), 0 0 12px rgba(155, 89, 182, 0.4); }
+  50% { box-shadow: 0 0 36px rgba(155, 89, 182, 0.85), 0 0 18px rgba(155, 89, 182, 0.6); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragonTarget { animation: none; }
+}
+
+.dragonLabel {
+  position: absolute;
+  bottom: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 26px;
+  font-weight: 700;
+  color: #9b59b6;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
 /* Both active turn AND trick leader — blue takes priority for border, combine glows */
 .active.trickLeader {
   border-color: #4a9eff;

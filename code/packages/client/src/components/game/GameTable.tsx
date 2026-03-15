@@ -14,6 +14,10 @@ export interface GameTableProps {
   canPlay?: boolean;
   hideCenter?: boolean;
   hideEmptyTrick?: boolean;
+  /** REQ-F-DR01: Seats eligible for Dragon gift */
+  dragonGiftTargets?: Set<Seat>;
+  /** Callback when a Dragon gift target is clicked */
+  onDragonGift?: (seat: Seat) => void;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -24,7 +28,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const trickLeader = currentTrick?.currentWinner ?? null;
@@ -34,6 +38,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const seatPositions = getSeatPositions(mySeat);
 
   function renderSeat(seat: Seat) {
+    const isDragonTarget = dragonGiftTargets?.has(seat) ?? false;
     if (seat === mySeat) {
       return (
         <PlayerSeat
@@ -62,6 +67,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         isCurrentTurn={currentTurn === seat}
         isTrickLeader={trickLeader === seat}
         isMe={false}
+        dragonTarget={isDragonTarget}
+        onSeatClick={isDragonTarget ? () => onDragonGift?.(seat) : undefined}
       />
     );
   }
@@ -93,6 +100,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
             mySeat={mySeat}
             hideEmptyPlaceholder={hideEmptyTrick}
             dogAnimation={dogAnimation}
+            dragonGiftPending={dragonGiftTargets && dragonGiftTargets.size > 0}
           />
         </div>
       )}

@@ -17,6 +17,10 @@ export interface PlayerSeatProps {
   isCurrentTurn: boolean;
   isTrickLeader: boolean;
   isMe: boolean;
+  /** REQ-F-DR01: Highlight as a Dragon gift target */
+  dragonTarget?: boolean;
+  /** Callback when seat is clicked (e.g., for Dragon gift selection) */
+  onSeatClick?: () => void;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -36,6 +40,8 @@ export const PlayerSeat = memo(function PlayerSeat({
   isCurrentTurn,
   isTrickLeader,
   isMe,
+  dragonTarget,
+  onSeatClick,
 }: PlayerSeatProps) {
   const name = displayName ?? SEAT_LABELS[seat];
 
@@ -45,13 +51,17 @@ export const PlayerSeat = memo(function PlayerSeat({
     isTrickLeader && styles.trickLeader,
     hasPassed && styles.passed,
     isMe && styles.me,
+    dragonTarget && styles.dragonTarget,
   ].filter(Boolean).join(' ');
 
   return (
     <div
       className={className}
       data-seat={seat}
-      aria-label={`${name}'s seat`}
+      aria-label={dragonTarget ? `Give Dragon trick to ${name}` : `${name}'s seat`}
+      onClick={dragonTarget ? onSeatClick : undefined}
+      role={dragonTarget ? 'button' : undefined}
+      style={dragonTarget ? { cursor: 'pointer' } : undefined}
     >
       <span className={styles.name}>{name}</span>
       <div className={styles.seatRow}>
@@ -100,8 +110,13 @@ export const PlayerSeat = memo(function PlayerSeat({
       )}
 
       {/* Turn indicator */}
-      {isCurrentTurn && (
+      {isCurrentTurn && !dragonTarget && (
         <span className={styles.turnLabel}>{isMe ? 'Your Turn' : 'Their Turn'}</span>
+      )}
+
+      {/* Dragon gift target label */}
+      {dragonTarget && (
+        <span className={styles.dragonLabel}>Give Dragon</span>
       )}
 
       {/* Trick leader label */}
