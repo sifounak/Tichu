@@ -1,18 +1,14 @@
 // REQ-F-BW01: Bomb consideration window — 2s delay after each play while humans are active
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import type { Seat, Rank } from '@tichu/shared';
-import type { RoomPlayer } from '@tichu/shared';
+import { useCallback, useEffect, useRef } from 'react';
+import type { Rank } from '@tichu/shared';
 import { useAnimationSettings } from './useAnimationSettings';
 import { useUiStore } from '@/stores/uiStore';
 
-const ALL_SEATS: Seat[] = ['north', 'east', 'south', 'west'];
-
 interface UseBombWindowOptions {
   send: (msg: Record<string, unknown>) => boolean;
-  roomPlayers: RoomPlayer[];
-  finishOrder: Seat[];
+  anyHumanActive: boolean;
 }
 
 /**
@@ -26,7 +22,7 @@ interface UseBombWindowOptions {
  * - All human players have finished (only bots remain with cards)
  * - Animation speed is set to 'off'
  */
-export function useBombWindow({ send, roomPlayers, finishOrder }: UseBombWindowOptions) {
+export function useBombWindow({ send, anyHumanActive }: UseBombWindowOptions) {
   const { durations, enabled } = useAnimationSettings();
   const bombWindowActive = useUiStore((s) => s.bombWindowActive);
   const bombWindowEndTime = useUiStore((s) => s.bombWindowEndTime);
@@ -36,14 +32,6 @@ export function useBombWindow({ send, roomPlayers, finishOrder }: UseBombWindowO
   const clearQueuedPlay = useUiStore((s) => s.clearQueuedPlay);
   const clearSelection = useUiStore((s) => s.clearSelection);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // REQ-F-BW01: Check if any human player still has cards
-  const anyHumanActive = useMemo(() => {
-    if (roomPlayers.length === 0) return true; // Default to showing window if room info unavailable
-    const botSeats = new Set(roomPlayers.filter((p) => p.isBot).map((p) => p.seat));
-    const finishedSeats = new Set(finishOrder);
-    return ALL_SEATS.some((seat) => !botSeats.has(seat) && !finishedSeats.has(seat));
-  }, [roomPlayers, finishOrder]);
 
   // Flush queued play and clear window
   const flushQueuedPlay = useCallback(() => {
