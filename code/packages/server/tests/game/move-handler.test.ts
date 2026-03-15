@@ -314,6 +314,79 @@ describe('MoveHandler', () => {
       }
     });
 
+    // Verifies: REQ-F-WR02 — Race condition guard
+    describe('race condition guard', () => {
+      it('should reject DECLARE_WISH after another player has played', () => {
+        advanceToPlaying(actor);
+        const mahjongSeat = getCurrentTurn(actor);
+        const hand = getHand(actor, mahjongSeat);
+        const mahjong = hand.find(gc => isMahjong(gc.card));
+        expect(mahjong).toBeDefined();
+
+        // Play Mahjong
+        actor.send({ type: 'PLAY_CARDS', seat: mahjongSeat, cards: [mahjong!] });
+
+        // Another player plays on top
+        const nextTurn = getCurrentTurn(actor);
+        expect(nextTurn).not.toBe(mahjongSeat);
+        const nextHand = getHand(actor, nextTurn);
+        // Find a card that can beat the Mahjong (any standard card with value > 1)
+        const beater = nextHand.find(gc => gc.card.kind === 'standard');
+        if (beater) {
+          actor.send({ type: 'PLAY_CARDS', seat: nextTurn, cards: [beater] });
+
+          // Original Mahjong player tries to declare wish — too late
+          const result = handler.handleDeclareWish(mahjongSeat, 7 as Rank);
+          expect(result.ok).toBe(false);
+          expect(result.ok === false && result.error).toContain('another player has played');
+        }
+      });
+
+      it('should accept DECLARE_WISH when Mahjong player is still last play', () => {
+        advanceToPlaying(actor);
+        const mahjongSeat = getCurrentTurn(actor);
+        const hand = getHand(actor, mahjongSeat);
+        const mahjong = hand.find(gc => isMahjong(gc.card));
+        expect(mahjong).toBeDefined();
+
+        // Play Mahjong
+        actor.send({ type: 'PLAY_CARDS', seat: mahjongSeat, cards: [mahjong!] });
+
+        // Immediately declare wish (no one else has played)
+        const result = handler.handleDeclareWish(mahjongSeat, 10 as Rank);
+        expect(result.ok).toBe(true);
+      });
+    });
+
+    // Verifies: REQ-F-WR01 — Inline wish with PLAY_CARDS
+    describe('inline wish with PLAY_CARDS', () => {
+      it('should set wish when passed inline with Mahjong play', () => {
+        advanceToPlaying(actor);
+        const turn = getCurrentTurn(actor);
+        const hand = getHand(actor, turn);
+        const mahjong = hand.find(gc => isMahjong(gc.card));
+        expect(mahjong).toBeDefined();
+
+        actor.send({ type: 'PLAY_CARDS', seat: turn, cards: [mahjong!], wish: 8 });
+
+        const round = actor.getSnapshot().context.currentRound!;
+        expect(round.mahjongWish).toBe(8);
+        expect(round.wishFulfilled).toBe(false);
+      });
+
+      it('should not set wish when inline wish on non-Mahjong play', () => {
+        advanceToPlaying(actor);
+        const turn = getCurrentTurn(actor);
+        const hand = getHand(actor, turn);
+        const nonMahjong = hand.find(gc => gc.card.kind === 'standard');
+        if (nonMahjong) {
+          actor.send({ type: 'PLAY_CARDS', seat: turn, cards: [nonMahjong], wish: 8 });
+          const round = actor.getSnapshot().context.currentRound!;
+          expect(round.mahjongWish).toBeNull();
+        }
+      });
+    });
+
     // Verifies: REQ-F-WV01 — Wish rank validation (defense-in-depth)
     describe('rank validation', () => {
       /** Play Mahjong to set up a valid wish declaration context */
