@@ -91,10 +91,12 @@ function getInitialSelectableCards(
     }
 
     // If wish is active and fulfillable, only allow cards that can participate
-    // in wish-fulfilling plays
+    // in wish-fulfilling plays OR bomb-forming plays (bombs bypass wish out-of-turn)
     if (mustFulfillWish) {
       if (canParticipateInWishPlay(gc, hand, wish!, currentTop)) {
         selectable.add(gc.id);
+      } else if (canParticipateInBomb(gc, hand)) {
+        selectable.add(gc.id); // bombs always playable (out-of-turn bypass)
       }
       continue;
     }
@@ -434,6 +436,49 @@ function canParticipateInWishPlay(
       (gc2) => (gc2.card as { rank: Rank }).rank === (gc.card as { rank: Rank }).rank,
     );
     if (sameRank.length === 4) return true; // Could be four-bomb
+  }
+
+  return false;
+}
+
+/**
+ * Check if a card can participate in forming a bomb (four-of-a-kind or straight flush).
+ * Used to keep bomb-forming cards selectable during wish enforcement,
+ * since out-of-turn bombs bypass the wish requirement.
+ */
+function canParticipateInBomb(gc: GameCard, hand: GameCard[]): boolean {
+  if (!isStandard(gc.card)) return false;
+
+  const rank = gc.card.rank;
+  const suit = (gc.card as { suit: string }).suit;
+
+  // Four-of-a-kind bomb: 4 cards of the same rank in hand
+  const sameRank = hand.filter(
+    (h) => isStandard(h.card) && (h.card as { rank: Rank }).rank === rank,
+  );
+  if (sameRank.length === 4) return true;
+
+  // Straight flush bomb: 5+ same-suit consecutive cards in hand
+  const sameSuit = hand
+    .filter((h) => isStandard(h.card) && (h.card as { suit: string }).suit === suit)
+    .map((h) => (h.card as { rank: Rank }).rank)
+    .sort((a, b) => a - b);
+
+  if (sameSuit.length >= 5) {
+    // Check if this card's rank is part of any 5+ consecutive run in sameSuit
+    let runLength = 1;
+    let inRun = sameSuit[0] === rank;
+    for (let i = 1; i < sameSuit.length; i++) {
+      if (sameSuit[i] === sameSuit[i - 1] + 1) {
+        runLength++;
+        if (sameSuit[i] === rank || inRun) inRun = true;
+      } else {
+        if (inRun && runLength >= 5) return true;
+        runLength = 1;
+        inRun = sameSuit[i] === rank;
+      }
+    }
+    if (inRun && runLength >= 5) return true;
   }
 
   return false;

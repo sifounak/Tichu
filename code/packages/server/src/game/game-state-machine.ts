@@ -524,12 +524,19 @@ export const gameMachine = setup({
       const seat = event.seat;
       const cards = event.cards;
 
+      // REQ-F-BI01: Out-of-turn bombs bypass wish enforcement
+      const isOutOfTurn = seat !== round.currentTurn;
+      const combo = detectCombination(cards);
+      const isOutOfTurnBomb = isOutOfTurn && combo?.isBomb;
+      const activeWish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
+      const effectiveWish = isOutOfTurnBomb ? null : activeWish;
+
       // Validate the play
       const validation = validatePlay(
         cards,
         round.players[seat].hand,
         round.currentTrick,
-        round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null,
+        effectiveWish,
       );
 
       if (!validation.valid) return {}; // Invalid play — no state change
