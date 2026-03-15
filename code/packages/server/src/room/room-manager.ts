@@ -136,6 +136,31 @@ export class RoomManager {
     return { room, roomCode, seat };
   }
 
+  /** Kick a player from the room. Only the host can kick. */
+  kickPlayer(hostUserId: string, seat: Seat): { kickedUserId: string; roomCode: string } {
+    const roomCode = this.userToRoom.get(hostUserId);
+    if (!roomCode) throw new Error('Not in a room.');
+
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Room not found.');
+
+    if (!this.isHost(hostUserId)) throw new Error('Only the host can kick players.');
+    if (room.gameInProgress) throw new Error('Cannot kick during a game.');
+
+    // Find the userId at the target seat
+    const kickedUserId = this.seatToUser.get(`${roomCode}:${seat}`);
+    if (!kickedUserId) throw new Error('No player at that seat.');
+
+    // Cannot kick yourself
+    if (kickedUserId === hostUserId) throw new Error('Cannot kick yourself.');
+
+    // Remove the kicked player
+    this.removeUser(kickedUserId);
+    room.players = room.players.filter(p => p.seat !== seat);
+
+    return { kickedUserId, roomCode };
+  }
+
   /** Add a bot to a seat. */
   addBot(roomCode: string, seat: Seat, difficulty?: 'easy' | 'medium' | 'hard'): Room {
     const room = this.rooms.get(roomCode);

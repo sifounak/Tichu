@@ -45,6 +45,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('START_GAME') }),
   // REQ-F-006: Seat swap
   z.object({ type: z.literal('SWAP_SEATS'), targetSeat: seatSchema }),
+  z.object({ type: z.literal('KICK_PLAYER'), seat: seatSchema }),
 
   // Game actions
   z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean() }),
@@ -75,6 +76,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ROOM_JOINED'), roomCode: z.string(), seat: seatSchema }),
   z.object({ type: z.literal('ROOM_UPDATE'), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean() }),
   z.object({ type: z.literal('ROOM_LEFT') }),
+  z.object({ type: z.literal('KICKED'), message: z.string() }),
   z.object({ type: z.literal('LOBBY_LIST'), rooms: z.array(z.object({ roomCode: z.string(), hostName: z.string(), playerCount: z.number(), spectatorCount: z.number(), config: z.any(), gameInProgress: z.boolean() })) }),
 
   // Game state

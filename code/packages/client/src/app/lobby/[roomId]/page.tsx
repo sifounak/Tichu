@@ -44,6 +44,11 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         leaveRoom();
         router.push('/lobby');
         break;
+      case 'KICKED':
+        leaveRoom();
+        sessionStorage.setItem('tichu_kicked_message', msg.message);
+        router.push('/lobby');
+        break;
       case 'GAME_STATE':
         // Game started — navigate to game page
         router.push(`/game/${roomId}`);
@@ -87,6 +92,10 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
 
   const handleRemoveBot = (seat: Seat) => {
     send({ type: 'REMOVE_BOT', seat });
+  };
+
+  const handleKickPlayer = (seat: Seat) => {
+    send({ type: 'KICK_PLAYER', seat });
   };
 
   const handleStartGame = () => {
@@ -190,6 +199,15 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)', borderRadius: '4px' }}
             >
               Remove
+            </button>
+          )}
+          {(player && !player.isBot && !isMe && isHost) && (
+            <button
+              onClick={() => handleKickPlayer(seat)}
+              className="text-sm px-4 py-1.5 rounded transition-opacity hover:opacity-80"
+              style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)', borderRadius: '4px' }}
+            >
+              Kick
             </button>
           )}
         </div>
