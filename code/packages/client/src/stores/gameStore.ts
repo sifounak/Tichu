@@ -33,6 +33,7 @@ export interface GameStore {
   wishFulfilled: boolean;
   finishOrder: Seat[];
   dragonGiftPending: boolean;
+  receivedCards: Record<Seat, GameCard | null>;
   /** REQ-F-DR01: Opponent options for Dragon gift */
   dragonGiftOptions: Seat[];
   /** Whether the player has played any cards this round (for Tichu call eligibility) */
@@ -67,6 +68,7 @@ const initialState = {
   wishFulfilled: false,
   finishOrder: [] as Seat[],
   dragonGiftPending: false,
+  receivedCards: { north: null, east: null, south: null, west: null } as Record<Seat, GameCard | null>,
   dragonGiftOptions: [] as Seat[],
   hasPlayedCards: false,
   latestRoundScore: null as RoundScore | null,
@@ -93,8 +95,9 @@ export const useGameStore = create<GameStore>()((set) => ({
       wishFulfilled: view.wishFulfilled,
       finishOrder: view.finishOrder,
       dragonGiftPending: view.dragonGiftPending,
+      receivedCards: view.receivedCards,
       dragonGiftOptions: [],
-      hasPlayedCards: false,
+      hasPlayedCards: view.myHasPlayed,
       latestRoundScore: null,
       gameOverInfo: null,
     }),

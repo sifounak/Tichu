@@ -62,7 +62,6 @@ export const CardHand = memo(function CardHand({
             exit={enabled ? { opacity: 0, y: -30, scale: 0.9, transition: { duration: durations.cardPlay } } : undefined}
             transition={{
               duration: durations.cardDeal,
-              delay: i * durations.cardDealStagger,
               type: 'spring',
               stiffness: 300,
               damping: 25,

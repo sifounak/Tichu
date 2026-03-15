@@ -4,7 +4,7 @@
 // REQ-NF-U02: Framer Motion card play, trick sweep, bomb effect animations
 'use client';
 
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TrickState, Seat, Rank } from '@tichu/shared';
 import { Card } from '../cards/Card';
@@ -23,6 +23,8 @@ export interface TrickDisplayProps {
   wishFulfilled: boolean;
   /** Player's own seat (for relative positioning) */
   mySeat: Seat;
+  /** Hide the empty "Play Area" placeholder but still show active trick cards */
+  hideEmptyPlaceholder?: boolean;
 }
 
 /** Map seat to position relative to player */
@@ -42,13 +44,39 @@ const ENTRY_OFFSETS: Record<string, { x: number | string; y: number | string }> 
   right: { x: '50%', y: 0 },
 };
 
+/** Exit offsets — slide toward the winner's seat */
+const EXIT_OFFSETS: Record<string, { x: number | string; y: number | string }> = {
+  bottom: { x: 0, y: '120%' },
+  top: { x: 0, y: '-120%' },
+  left: { x: '-120%', y: 0 },
+  right: { x: '120%', y: 0 },
+};
+
 export const TrickDisplay = memo(function TrickDisplay({
   trick,
   mahjongWish,
   wishFulfilled,
   mySeat,
+  hideEmptyPlaceholder,
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
+
+  // Track last trick to animate the sweep toward the winner
+  const prevTrickRef = useRef<TrickState | null>(null);
+  const [sweepTarget, setSweepTarget] = useState<'bottom' | 'top' | 'left' | 'right' | null>(null);
+
+  useEffect(() => {
+    const prev = prevTrickRef.current;
+    if (prev && prev.plays.length > 0 && !trick) {
+      // Trick just cleared — animate sweep toward the winner's position
+      const winnerPos = seatPosition(prev.currentWinner, mySeat);
+      setSweepTarget(winnerPos);
+      const timer = setTimeout(() => setSweepTarget(null), (durations.trickSweep + 0.1) * 1000);
+      prevTrickRef.current = trick;
+      return () => clearTimeout(timer);
+    }
+    prevTrickRef.current = trick;
+  }, [trick, mySeat, durations.trickSweep]);
 
   // Detect bomb plays for special effect
   const [showBomb, setShowBomb] = useState(false);
@@ -62,6 +90,19 @@ export const TrickDisplay = memo(function TrickDisplay({
       return () => clearTimeout(timer);
     }
   }, [isBombPlay, enabled, durations.bombEffect, lastPlay]);
+
+  // Compute exit animation based on sweep target
+  const exitAnim = enabled && sweepTarget
+    ? {
+        x: EXIT_OFFSETS[sweepTarget].x,
+        y: EXIT_OFFSETS[sweepTarget].y,
+        opacity: 0,
+        scale: 0.7,
+        transition: { duration: durations.trickSweep, ease: 'easeIn' as const },
+      }
+    : enabled
+      ? { opacity: 0, scale: 0.8, transition: { duration: durations.trickSweep } }
+      : undefined;
 
   return (
     <div className={`${styles.trickDisplay} ${showBomb ? styles.bombFlash : ''}`} aria-label="Trick area">
@@ -86,11 +127,7 @@ export const TrickDisplay = memo(function TrickDisplay({
           <motion.div
             key="trick-active"
             className={styles.trickContent}
-            exit={enabled ? {
-              opacity: 0,
-              scale: 0.8,
-              transition: { duration: durations.trickSweep },
-            } : undefined}
+            exit={exitAnim}
           >
             {/* Previous play fades out while new play slides in */}
             <AnimatePresence>
@@ -137,11 +174,11 @@ export const TrickDisplay = memo(function TrickDisplay({
 
             {/* Pass indicators moved to PlayerSeat boxes */}
           </motion.div>
-        ) : (
+        ) : !hideEmptyPlaceholder ? (
           <div className={styles.playArea} key="trick-empty">
             <span className={styles.playAreaText}>Play Area</span>
           </div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

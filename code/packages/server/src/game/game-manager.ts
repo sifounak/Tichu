@@ -124,6 +124,10 @@ export class GameManager {
         result = this.moveHandler.handlePassCards(seat, message.cards as Record<Seat, GameCard>);
         break;
 
+      case 'CANCEL_PASS_CARDS':
+        result = this.moveHandler.handleCancelPassCards(seat);
+        break;
+
       case 'PLAY_CARDS':
         result = this.moveHandler.handlePlayCards(seat, message.cardIds, message.phoenixAs);
         break;
@@ -150,6 +154,9 @@ export class GameManager {
     }
 
     if (!result.ok) {
+      const snapshot = this.actor.getSnapshot();
+      const stateVal = typeof snapshot.value === 'string' ? snapshot.value : String(snapshot.value);
+      console.error(`[INVALID_MOVE] seat=${seat} type=${message.type} state=${stateVal} error=${result.error}`);
       this.broadcaster.sendError(ws, 'INVALID_MOVE', result.error);
       return;
     }

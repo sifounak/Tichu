@@ -151,10 +151,22 @@ export class MoveHandler {
     return { ok: true };
   }
 
+  /** Handle CANCEL_PASS_CARDS */
+  handleCancelPassCards(seat: Seat): MoveResult {
+    if (this.stateValue !== 'cardPassing') {
+      return { ok: false, error: 'Not in card passing phase' };
+    }
+    if (!this.context.cardPassDecisions.has(seat)) {
+      return { ok: false, error: 'No pass to cancel' };
+    }
+    this.actor.send({ type: 'CARDS_PASS_CANCELLED', seat });
+    return { ok: true };
+  }
+
   /** Handle PLAY_CARDS */
   handlePlayCards(seat: Seat, cardIds: number[], _phoenixAs?: Rank): MoveResult {
     if (this.stateValue !== 'playing') {
-      return { ok: false, error: 'Not in playing phase' };
+      return { ok: false, error: `Not in playing phase (server state: ${this.stateValue})` };
     }
 
     const round = this.context.currentRound;
@@ -190,7 +202,7 @@ export class MoveHandler {
   /** Handle PASS_TURN */
   handlePassTurn(seat: Seat): MoveResult {
     if (this.stateValue !== 'playing') {
-      return { ok: false, error: 'Not in playing phase' };
+      return { ok: false, error: `Not in playing phase (server state: ${this.stateValue})` };
     }
 
     const round = this.context.currentRound;

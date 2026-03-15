@@ -76,6 +76,7 @@ export default function SpectatePage() {
     mySeat: mySeat ?? 'south',
     myHand: [],
     myTichuCall: 'none',
+    myHasPlayed: false,
     otherPlayers: gameStore.otherPlayers,
     currentTrick: gameStore.currentTrick,
     currentTurn: gameStore.currentTurn,
@@ -83,6 +84,7 @@ export default function SpectatePage() {
     wishFulfilled: gameStore.wishFulfilled,
     finishOrder: gameStore.finishOrder,
     dragonGiftPending: false,
+    receivedCards: { north: null, east: null, south: null, west: null },
   };
 
   const tichuCalls = gameStore.otherPlayers.map((p) => ({ seat: p.seat, call: p.tichuCall }));
