@@ -53,7 +53,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('REGULAR_TICHU_PASS') }),
   z.object({ type: z.literal('PASS_CARDS'), cards: z.record(seatSchema, gameCardSchema) }),
   z.object({ type: z.literal('CANCEL_PASS_CARDS') }),
-  z.object({ type: z.literal('PLAY_CARDS'), cardIds: z.array(z.number().int().min(0).max(55)).min(1), phoenixAs: rankSchema.optional() }),
+  z.object({ type: z.literal('PLAY_CARDS'), cardIds: z.array(z.number().int().min(0).max(55)).min(1), phoenixAs: rankSchema.optional(), wish: rankSchema.nullable().optional() }),
   z.object({ type: z.literal('PASS_TURN') }),
   z.object({ type: z.literal('DECLARE_WISH'), rank: rankSchema.nullable() }),
   z.object({ type: z.literal('GIFT_DRAGON'), to: seatSchema }),

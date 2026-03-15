@@ -19,6 +19,12 @@ export interface UiStore {
   showPhoenixPicker: (options: Rank[]) => void;
   hidePhoenixPicker: () => void;
 
+  /* --- Wish Picker --- */
+  wishPickerVisible: boolean;
+  pendingWishPlay: { cardIds: number[]; phoenixAs?: Rank } | null;
+  showWishPicker: (play: { cardIds: number[]; phoenixAs?: Rank }) => void;
+  hideWishPicker: () => void;
+
   /* --- Connection --- */
   connectionStatus: ConnectionStatus;
   setConnectionStatus: (status: ConnectionStatus) => void;
@@ -86,6 +92,12 @@ export const useUiStore = create<UiStore>()((set) => ({
   phoenixPickerOptions: null,
   showPhoenixPicker: (options) => set({ phoenixPickerOptions: options }),
   hidePhoenixPicker: () => set({ phoenixPickerOptions: null }),
+
+  /* --- Wish Picker --- */
+  wishPickerVisible: false,
+  pendingWishPlay: null,
+  showWishPicker: (play) => set({ wishPickerVisible: true, pendingWishPlay: play }),
+  hideWishPicker: () => set({ wishPickerVisible: false, pendingWishPlay: null }),
 
   /* --- Connection --- */
   connectionStatus: 'disconnected',

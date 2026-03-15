@@ -129,7 +129,7 @@ export class GameManager {
         break;
 
       case 'PLAY_CARDS':
-        result = this.moveHandler.handlePlayCards(seat, message.cardIds, message.phoenixAs);
+        result = this.moveHandler.handlePlayCards(seat, message.cardIds, message.phoenixAs, message.wish);
         break;
 
       case 'PASS_TURN':

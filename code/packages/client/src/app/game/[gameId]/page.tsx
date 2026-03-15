@@ -25,6 +25,7 @@ import { ChatPanel } from '@/components/game/ChatPanel';
 import { DisconnectOverlay } from '@/components/game/DisconnectOverlay';
 import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
+import { WishPicker } from '@/components/game/WishPicker';
 import { PreGamePhase, RoundEndPhase, GameEndPhase } from '@/components/phases';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import { ErrorToast } from '@/components/ui/ErrorToast';
@@ -114,6 +115,12 @@ export default function GamePage() {
 
   // --- Action handlers ---
 
+  /** Check if Mahjong is among the selected cards */
+  const hasMahjongInSelection = useCallback(() => {
+    const hand = gameStore.myHand;
+    return hand.some(gc => selection.selectedIds.has(gc.id) && gc.card.kind === 'mahjong');
+  }, [gameStore.myHand, selection.selectedIds]);
+
   const handlePlay = useCallback(() => {
     if (!selection.canPlay) return;
     const cardIds = [...selection.selectedIds];
@@ -128,12 +135,18 @@ export default function GamePage() {
       ? (selection.phoenixResolution.value as Rank)
       : undefined;
 
+    // REQ-F-WP01: If Mahjong is in the play, show wish picker
+    if (hasMahjongInSelection()) {
+      uiStore.showWishPicker({ cardIds, phoenixAs });
+      return;
+    }
+
     if (!send({ type: 'PLAY_CARDS', cardIds, phoenixAs })) {
       uiStore.showErrorToast('Not connected to server');
       return;
     }
     uiStore.clearSelection();
-  }, [selection, send, uiStore]);
+  }, [selection, send, uiStore, hasMahjongInSelection]);
 
   // REQ-F-BI09: Handle out-of-turn bomb play
   const handleBomb = useCallback(() => {
@@ -149,11 +162,30 @@ export default function GamePage() {
   const handlePhoenixChoice = useCallback(
     (value: Rank) => {
       const cardIds = [...selection.selectedIds];
-      send({ type: 'PLAY_CARDS', cardIds, phoenixAs: value });
       uiStore.hidePhoenixPicker();
+
+      // REQ-F-WP01: If Mahjong is also in the play, show wish picker after Phoenix picker
+      if (hasMahjongInSelection()) {
+        uiStore.showWishPicker({ cardIds, phoenixAs: value });
+        return;
+      }
+
+      send({ type: 'PLAY_CARDS', cardIds, phoenixAs: value });
       uiStore.clearSelection();
     },
-    [selection.selectedIds, send, uiStore],
+    [selection.selectedIds, send, uiStore, hasMahjongInSelection],
+  );
+
+  // REQ-F-WP01: Handle wish choice from WishPicker
+  const handleWishChoice = useCallback(
+    (wish: Rank | null) => {
+      const pending = uiStore.pendingWishPlay;
+      if (!pending) return;
+      send({ type: 'PLAY_CARDS', ...pending, wish });
+      uiStore.hideWishPicker();
+      uiStore.clearSelection();
+    },
+    [send, uiStore],
   );
 
   const handlePass = useCallback(() => {
@@ -609,6 +641,14 @@ export default function GamePage() {
           options={uiStore.phoenixPickerOptions}
           onSelect={handlePhoenixChoice}
           onCancel={uiStore.hidePhoenixPicker}
+        />
+      )}
+
+      {/* REQ-F-WP01: Wish picker for Mahjong */}
+      {uiStore.wishPickerVisible && (
+        <WishPicker
+          onSelect={handleWishChoice}
+          onCancel={uiStore.hideWishPicker}
         />
       )}
 
