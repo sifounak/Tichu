@@ -37,12 +37,16 @@
   z-index: 1;
 }
 
-/* Trick area — vertically centered between top player bottom edge and bottom player top edge */
+/* Trick area — vertically centered, horizontally spans between side players and main player */
+/* Left player right edge ≈ 268px.  Main player left edge ≈ 50vw - 120px.                  */
+/* Left of play area = midpoint(268px, 50vw - 120px) = 74px + 25vw                         */
+/* Right is symmetric.                                                                       */
 .center {
   position: absolute;
   top: calc(50vh - 100px);
-  left: 50%;
-  transform: translate(-50%, -50%);
+  left: calc(74px + 25%);
+  right: calc(74px + 25%);
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -110,6 +114,8 @@
 
   .center {
     top: 50%;
+    left: 0;
+    right: 0;
   }
 
   .left,

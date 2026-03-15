@@ -68,14 +68,14 @@ describe('ScorePanel', () => {
       { seat: 'north' as const, call: 'grandTichu' as const },
     ];
     render(<ScorePanel {...baseProps} tichuCalls={calls} />);
-    expect(screen.getByText('C: T')).toBeInTheDocument();
-    expect(screen.getByText('A: GT')).toBeInTheDocument();
+    expect(screen.getByText('T')).toBeInTheDocument();
+    expect(screen.getByText('GT')).toBeInTheDocument();
   });
 
   it('hides tichu calls when none active', () => {
     const calls = [{ seat: 'south' as const, call: 'none' as const }];
     render(<ScorePanel {...baseProps} tichuCalls={calls} />);
-    expect(screen.queryByText('C: T')).not.toBeInTheDocument();
+    expect(screen.queryByText('T')).not.toBeInTheDocument();
   });
 
   it('shows history toggle button when rounds exist', () => {

@@ -42,38 +42,38 @@ export const ScorePanel = memo(function ScorePanel({
 }: ScorePanelProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const activeCalls = tichuCalls.filter((tc) => tc.call !== 'none');
+  const callMap = new Map(tichuCalls.filter((tc) => tc.call !== 'none').map((tc) => [tc.seat, tc.call]));
   const pos = getSeatPositions(mySeat);
   const myTeam = getTeam(mySeat);
   const oppTeam: Team = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
+
+  function renderName(seat: Seat) {
+    const call = callMap.get(seat);
+    return (
+      <span className={styles.playerName}>
+        {seatNames[seat]}
+        {call && (
+          <span className={`${styles.tichuBadge} ${call === 'grandTichu' ? styles.grandTichu : styles.tichu}`}>
+            {call === 'grandTichu' ? 'GT' : 'T'}
+          </span>
+        )}
+      </span>
+    );
+  }
 
   return (
     <div className={styles.panel} aria-label="Score panel">
       {/* Team columns: my team (left) vs opponent team (right) */}
       <div className={styles.teamGrid}>
-        <span className={styles.playerName}>{seatNames[pos.bottom]}</span>
-        <span className={styles.playerName}>{seatNames[pos.left]}</span>
-        <span className={styles.playerName}>{seatNames[pos.top]}</span>
-        <span className={styles.playerName}>{seatNames[pos.right]}</span>
+        {renderName(pos.bottom)}
+        {renderName(pos.left)}
+        {renderName(pos.top)}
+        {renderName(pos.right)}
         <AnimatedScore value={scores[myTeam]} className={styles.score} />
         <AnimatedScore value={scores[oppTeam]} className={styles.score} />
       </div>
 
       <div className={styles.target}>First to {targetScore}</div>
-
-      {/* REQ-F-DI04: Active Tichu calls */}
-      {activeCalls.length > 0 && (
-        <div className={styles.tichuCalls}>
-          {activeCalls.map(({ seat, call }) => (
-            <span
-              key={seat}
-              className={`${styles.tichuBadge} ${call === 'grandTichu' ? styles.grandTichu : styles.tichu}`}
-            >
-              {seatNames[seat]?.[0] ?? seat[0].toUpperCase()}: {call === 'grandTichu' ? 'GT' : 'T'}
-            </span>
-          ))}
-        </div>
-      )}
 
       {/* Expandable history */}
       {roundHistory.length > 0 && (

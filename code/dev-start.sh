@@ -6,18 +6,36 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVER_DIR="$SCRIPT_DIR/packages/server"
 CLIENT_DIR="$SCRIPT_DIR/packages/client"
 
-echo "=== Stopping existing processes ==="
-# Kill any node processes on our ports
-for port in 3000 3001; do
+# Kill process on a given port, retrying with PowerShell if needed
+kill_port() {
+  local port=$1
+  local pid
   pid=$(netstat -ano 2>/dev/null | grep ":$port.*LISTENING" | awk '{print $5}' | head -1)
-  if [ -n "$pid" ] && [ "$pid" != "0" ]; then
-    echo "Killing PID $pid on port $port"
-    taskkill //F //PID "$pid" 2>/dev/null || true
+  if [ -z "$pid" ] || [ "$pid" = "0" ]; then
+    return 0
   fi
-done
+  echo "Killing PID $pid on port $port"
+  # Try taskkill with tree flag first (kills children too)
+  taskkill //F //T //PID "$pid" 2>/dev/null || true
+  sleep 1
+  # If still alive, use PowerShell
+  if netstat -ano 2>/dev/null | grep -q ":$port.*LISTENING"; then
+    echo "  Retrying with PowerShell..."
+    powershell -Command "Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue" 2>/dev/null || true
+    sleep 2
+  fi
+  # Final check
+  if netstat -ano 2>/dev/null | grep -q ":$port.*LISTENING"; then
+    echo "  ERROR: Port $port still in use!"
+    return 1
+  fi
+  echo "  Port $port freed"
+}
 
-# Brief pause to let file handles release
-sleep 2
+echo "=== Stopping existing processes ==="
+for port in 3001 3000; do
+  kill_port "$port"
+done
 
 echo "=== Cleaning .next cache ==="
 rm -rf "$CLIENT_DIR/.next" 2>/dev/null || true
@@ -33,6 +51,9 @@ for i in $(seq 1 10); do
     echo "Server ready on port 3001 (PID $SERVER_PID)"
     break
   fi
+  if [ "$i" -eq 10 ]; then
+    echo "WARNING: Server may not have started on port 3001"
+  fi
   sleep 1
 done
 
@@ -46,6 +67,9 @@ for i in $(seq 1 15); do
   if netstat -ano 2>/dev/null | grep -q ":3000.*LISTENING"; then
     echo "Client ready on port 3000 (PID $CLIENT_PID)"
     break
+  fi
+  if [ "$i" -eq 15 ]; then
+    echo "WARNING: Client may not have started on port 3000"
   fi
   sleep 1
 done

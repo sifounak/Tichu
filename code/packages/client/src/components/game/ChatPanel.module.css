@@ -49,9 +49,9 @@
 .panel {
   position: fixed;
   top: calc(50vh + 100px);
+  left: calc(87.5vw - 171px);
   right: 16px;
   bottom: 81px;
-  width: 280px;
   z-index: 25;
   display: flex;
   flex-direction: column;
@@ -72,7 +72,7 @@
 }
 
 .headerTitle {
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -103,7 +103,7 @@
 
 .emptyText {
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: 18px;
   text-align: center;
   margin-top: 16px;
 }
@@ -113,14 +113,14 @@
 }
 
 .sender {
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--color-gold-accent);
   margin-right: 6px;
 }
 
 .messageText {
-  font-size: 13px;
+  font-size: 18px;
   color: var(--color-text-primary);
   word-break: break-word;
 }
@@ -138,9 +138,9 @@
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 8px 12px;
   color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: 18px;
   font-family: var(--font-display);
   min-height: 36px;
 }
@@ -154,8 +154,8 @@
   color: var(--color-felt-green-dark);
   border: none;
   border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 13px;
+  padding: 8px 14px;
+  font-size: 18px;
   font-weight: 600;
   cursor: pointer;
   min-height: 36px;
