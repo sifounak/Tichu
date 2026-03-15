@@ -54,6 +54,7 @@ export type GameEvent =
   | { type: 'REGULAR_TICHU_CALL'; seat: Seat }
   | { type: 'REGULAR_TICHU_PASS'; seat: Seat }
   | { type: 'CARDS_PASSED'; seat: Seat; cards: Record<Seat, GameCard> }
+  | { type: 'CARDS_PASS_CANCELLED'; seat: Seat }
   | { type: 'PLAY_CARDS'; seat: Seat; cards: GameCard[]; wish?: Rank }
   | { type: 'PASS_TURN'; seat: Seat }
   | { type: 'DRAGON_GIFT_CHOSEN'; seat: Seat; recipient: Seat }
@@ -321,6 +322,10 @@ export const gameMachine = setup({
       if (!('seat' in event)) return false;
       return !context.cardPassDecisions.has(event.seat);
     },
+    hasPassedCards: ({ context, event }) => {
+      if (!('seat' in event)) return false;
+      return context.cardPassDecisions.has(event.seat);
+    },
 
     /** Seat is not already occupied */
     seatAvailable: ({ context, event }) => {
@@ -440,6 +445,23 @@ export const gameMachine = setup({
 
       const decisions = new Set(context.cardPassDecisions);
       decisions.add(seat);
+      return { currentRound: round, cardPassDecisions: decisions };
+    }),
+
+    /** Cancel a player's card pass — remove from decisions and clear stored passed cards */
+    cancelCardPass: assign(({ context, event }) => {
+      if (event.type !== 'CARDS_PASS_CANCELLED' || !context.currentRound) return {};
+      const round = structuredClone(context.currentRound) as RoundState;
+      const seat = event.seat;
+
+      // Clear the passed cards
+      for (const targetSeat of SEATS_IN_ORDER) {
+        if (targetSeat === seat) continue;
+        round.players[seat].passedCards.to[targetSeat] = undefined as unknown as GameCard;
+      }
+
+      const decisions = new Set(context.cardPassDecisions);
+      decisions.delete(seat);
       return { currentRound: round, cardPassDecisions: decisions };
     }),
 
@@ -712,6 +734,10 @@ export const gameMachine = setup({
         CARDS_PASSED: {
           guard: 'hasNotPassedCards',
           actions: 'recordCardPass',
+        },
+        CARDS_PASS_CANCELLED: {
+          guard: 'hasPassedCards',
+          actions: 'cancelCardPass',
         },
       },
       always: {

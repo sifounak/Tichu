@@ -148,6 +148,8 @@ export interface ClientGameView {
   mySeat: Seat;
   myHand: GameCard[];
   myTichuCall: TichuCall;
+  /** Whether the player has played any cards this round (for Tichu call eligibility) */
+  myHasPlayed: boolean;
   otherPlayers: Array<{
     seat: Seat;
     cardCount: number;
@@ -161,4 +163,6 @@ export interface ClientGameView {
   wishFulfilled: boolean;
   finishOrder: Seat[];
   dragonGiftPending: boolean;
+  /** Cards received during card passing, keyed by the seat that sent them */
+  receivedCards: Record<Seat, GameCard | null>;
 }

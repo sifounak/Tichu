@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
   padding: 8px 16px 0;
   width: 100%;
 }
@@ -64,37 +64,41 @@
 .handArea {
   display: flex;
   justify-content: center;
-  --card-width: 105px;
-  --card-height: 150px;
-  --card-font-size: 24px;
-  --card-suit-size: 30px;
-  --card-border-radius: 9px;
-  --card-overlap-desktop: 70px;
+  --card-width: 131px;
+  --card-height: 188px;
+  --card-font-size: 30px;
+  --card-suit-size: 38px;
+  --card-border-radius: 11px;
+  --card-overlap-desktop: 81px;
 }
 
 /* === Card passing placeholder layout === */
-.passLayout {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.passTop {
-  display: flex;
-  justify-content: center;
-}
-
+/* Single row: left card | (top card + button) | right card, bottom-aligned */
 .passMiddle {
   display: flex;
   justify-content: center;
-  gap: 80px;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 32px;
+  --card-width: 131px;
+  --card-height: 188px;
+  --card-font-size: 30px;
+  --card-suit-size: 38px;
+  --card-border-radius: 11px;
 }
 
 .passLeft,
 .passRight {
   display: flex;
   justify-content: center;
+}
+
+/* Center column: top card stacked above the button with matching gap */
+.passCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
 }
 
 /* Individual slot wrapper */

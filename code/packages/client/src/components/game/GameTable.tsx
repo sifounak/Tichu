@@ -11,6 +11,8 @@ export interface GameTableProps {
   view: ClientGameView;
   onPlay?: () => void;
   canPlay?: boolean;
+  hideCenter?: boolean;
+  hideEmptyTrick?: boolean;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -21,7 +23,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const trickLeader = currentTrick?.currentWinner ?? null;
 
@@ -74,20 +76,23 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay }: Game
         {renderSeat(seatPositions.left)}
       </div>
 
-      {/* Trick area (center) */}
-      <div
-        className={`${styles.center} ${canPlay ? styles.clickableTrick : ''}`}
-        onClick={canPlay ? onPlay : undefined}
-        role={canPlay ? 'button' : undefined}
-        aria-label={canPlay ? 'Play selected cards' : undefined}
-      >
-        <TrickDisplay
-          trick={currentTrick}
-          mahjongWish={mahjongWish}
-          wishFulfilled={wishFulfilled}
-          mySeat={mySeat}
-        />
-      </div>
+      {/* Trick area (center) — hidden during pre-game phases */}
+      {!hideCenter && (
+        <div
+          className={`${styles.center} ${canPlay ? styles.clickableTrick : ''}`}
+          onClick={canPlay ? onPlay : undefined}
+          role={canPlay ? 'button' : undefined}
+          aria-label={canPlay ? 'Play selected cards' : undefined}
+        >
+          <TrickDisplay
+            trick={currentTrick}
+            mahjongWish={mahjongWish}
+            wishFulfilled={wishFulfilled}
+            mySeat={mySeat}
+            hideEmptyPlaceholder={hideEmptyTrick}
+          />
+        </div>
+      )}
 
       {/* Right opponent */}
       <div className={styles.right}>
@@ -97,10 +102,6 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay }: Game
       {/* Player (bottom) — rendered in the fixed bottom panel in page.tsx */}
       <div className={styles.bottom} />
 
-      {/* Phase indicator */}
-      <div className={styles.phaseIndicator} aria-live="polite">
-        {view.phase}
-      </div>
     </div>
   );
 });

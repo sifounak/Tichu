@@ -4,7 +4,7 @@
 // REQ-F-MP01: Any combination 0-4 humans + bots
 
 import type { Seat, GameCard } from '@tichu/shared';
-import { getTeam, getValidPlays, canPlayerPass, isMahjong } from '@tichu/shared';
+import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext } from './bot-interface.js';
 import type { GameActor, GameMachineContext, GameEvent } from '../game/game-state-machine.js';
 
@@ -117,6 +117,15 @@ export class BotRunner {
     this.bots.clear();
   }
 
+  /** Check if all active (non-finished) players are bots */
+  private onlyBotsRemain(): boolean {
+    const snapshot = this.actor.getSnapshot();
+    const round = snapshot.context.currentRound;
+    if (!round) return false;
+    const activePlayers = SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null);
+    return activePlayers.length > 0 && activePlayers.every((s) => this.bots.has(s));
+  }
+
   /** Schedule a bot action with artificial delay */
   private scheduleAction(action: () => void): void {
     if (this.disposed) return;
@@ -132,7 +141,12 @@ export class BotRunner {
       return;
     }
 
-    const delay = minDelayMs + Math.random() * (maxDelayMs - minDelayMs);
+    // Speed up significantly when only bots are left playing
+    const fast = this.onlyBotsRemain();
+    const min = fast ? 50 : minDelayMs;
+    const max = fast ? 150 : maxDelayMs;
+
+    const delay = min + Math.random() * (max - min);
     const timer = setTimeout(() => {
       this.pendingTimers.delete(timer);
       if (!this.disposed) action();

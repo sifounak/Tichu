@@ -7,6 +7,7 @@ import type {
   TichuCall,
   ClientGameView,
   GamePhase,
+  GameCard,
 } from '@tichu/shared';
 import { SEATS_IN_ORDER } from '@tichu/shared';
 import type { GameMachineContext } from '../game/game-state-machine.js';
@@ -38,6 +39,7 @@ export function projectGameState(
       mySeat: forSeat,
       myHand: [],
       myTichuCall: 'none',
+      myHasPlayed: false,
       otherPlayers: SEATS_IN_ORDER
         .filter(s => s !== forSeat)
         .map(seat => ({
@@ -53,6 +55,7 @@ export function projectGameState(
       wishFulfilled: false,
       finishOrder: [],
       dragonGiftPending: false,
+      receivedCards: { north: null, east: null, south: null, west: null },
     };
   }
 
@@ -67,6 +70,7 @@ export function projectGameState(
     mySeat: forSeat,
     myHand: [...myPlayer.hand],
     myTichuCall: myPlayer.tipiCall,
+    myHasPlayed: myPlayer.hasPlayed,
     otherPlayers: SEATS_IN_ORDER
       .filter(s => s !== forSeat)
       .map(seat => {
@@ -85,6 +89,14 @@ export function projectGameState(
     wishFulfilled: round.wishFulfilled,
     finishOrder: [...round.finishOrder],
     dragonGiftPending: round.dragonGiftPending !== null,
+    receivedCards: myPlayer.passedCards.received
+      ? SEATS_IN_ORDER.reduce((acc, fromSeat) => {
+          acc[fromSeat] = fromSeat === forSeat
+            ? null
+            : (round.players[fromSeat].passedCards.to[forSeat] ?? null);
+          return acc;
+        }, {} as Record<Seat, GameCard | null>)
+      : { north: null, east: null, south: null, west: null } as Record<Seat, GameCard | null>,
   };
 }
 

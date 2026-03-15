@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GamePhase } from '@tichu/shared';
-import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall } from '@tichu/shared';
+import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useCardSelection } from '@/hooks/useCardSelection';
 import { useGameStore } from '@/stores/gameStore';
@@ -175,23 +175,97 @@ export default function GamePage() {
     [send],
   );
 
-  const handleTichuDecision = useCallback(
-    () => send({ type: 'TICHU_DECLARATION' }),
-    [send],
-  );
+  // --- Card passing state (lifted from PreGamePhase for visual continuity) ---
+  const [passSelection, setPassSelection] = useState<Map<Seat, GameCard>>(new Map());
+  const [activePassCardId, setActivePassCardId] = useState<CardId | null>(null);
+  const [passConfirmed, setPassConfirmed] = useState(false);
 
-  // REQ-F-RTP03: Send REGULAR_TICHU_PASS instead of GRAND_TICHU_DECISION
-  const handleTichuSkip = useCallback(
-    () => send({ type: 'REGULAR_TICHU_PASS' }),
-    [send],
-  );
+  // Show received cards after the exchange
+  const [showReceivedCards, setShowReceivedCards] = useState(false);
 
-  const handlePassCards = useCallback(
-    (cards: Record<Seat, GameCard>) => {
-      send({ type: 'PASS_CARDS', cards: cards as Record<Seat, GameCard> });
+  // Reset card passing state when leaving the card passing phase (e.g. new round)
+  const currentPhase = gameStore.phase;
+  const hasReceivedCards = gameStore.receivedCards
+    ? Object.values(gameStore.receivedCards).some((c) => c !== null)
+    : false;
+
+  useEffect(() => {
+    if (currentPhase !== GamePhase.CardPassing && currentPhase !== GamePhase.Playing) {
+      // New round — reset everything
+      setPassSelection(new Map());
+      setActivePassCardId(null);
+      setPassConfirmed(false);
+      setShowReceivedCards(false);
+    } else if (currentPhase === GamePhase.CardPassing) {
+      // Entering card passing — reset pass state but not received cards
+      setPassConfirmed(false);
+    }
+  }, [currentPhase]);
+
+  // When cards are received (phase changed to playing and receivedCards populated), show them
+  useEffect(() => {
+    if (hasReceivedCards && currentPhase === GamePhase.Playing) {
+      setShowReceivedCards(true);
+    }
+  }, [hasReceivedCards, currentPhase]);
+
+  const placedCardIds = new Set([...passSelection.values()].map((gc) => gc.id));
+
+  const handlePassCardClick = useCallback(
+    (id: CardId) => {
+      if (placedCardIds.has(id)) return;
+      setActivePassCardId((prev) => (prev === id ? null : id));
     },
-    [send],
+    [placedCardIds],
   );
+
+  const handleSlotClick = useCallback(
+    (seat: Seat) => {
+      if (activePassCardId === null) {
+        // No card selected — clicking a filled slot removes it
+        if (passSelection.has(seat)) {
+          const next = new Map(passSelection);
+          next.delete(seat);
+          setPassSelection(next);
+        }
+        return;
+      }
+      // Card selected — place (or replace) into this slot
+      const card = gameStore.myHand.find((gc) => gc.id === activePassCardId);
+      if (!card) return;
+      const next = new Map(passSelection);
+      next.set(seat, card);
+      setPassSelection(next);
+      setActivePassCardId(null);
+    },
+    [activePassCardId, gameStore.myHand, passSelection],
+  );
+
+  const handleSlotRemove = useCallback(
+    (seat: Seat) => {
+      if (!passSelection.has(seat)) return;
+      const next = new Map(passSelection);
+      next.delete(seat);
+      setPassSelection(next);
+    },
+    [passSelection],
+  );
+
+  const handleConfirmPass = useCallback(() => {
+    if (passSelection.size !== 3) return;
+    const cards: Record<string, GameCard> = {};
+    for (const [seat, gc] of passSelection) {
+      cards[seat] = gc;
+    }
+    send({ type: 'PASS_CARDS', cards: cards as Record<Seat, GameCard> });
+    setPassConfirmed(true);
+    setActivePassCardId(null);
+  }, [passSelection, send]);
+
+  const handleCancelPass = useCallback(() => {
+    send({ type: 'CANCEL_PASS_CARDS' });
+    setPassConfirmed(false);
+  }, [send]);
 
   const handleDragonGift = useCallback(
     (to: Seat) => send({ type: 'GIFT_DRAGON', to }),
@@ -258,6 +332,7 @@ export default function GamePage() {
     mySeat: gameStore.mySeat!,
     myHand: gameStore.myHand,
     myTichuCall: gameStore.myTichuCall,
+    myHasPlayed: gameStore.hasPlayedCards,
     otherPlayers: gameStore.otherPlayers,
     currentTrick: gameStore.currentTrick,
     currentTurn: gameStore.currentTurn,
@@ -265,6 +340,7 @@ export default function GamePage() {
     wishFulfilled: gameStore.wishFulfilled,
     finishOrder: gameStore.finishOrder,
     dragonGiftPending: gameStore.dragonGiftPending,
+    receivedCards: gameStore.receivedCards,
   };
 
   const isMyTurn = gameStore.currentTurn === mySeat;
@@ -308,8 +384,8 @@ export default function GamePage() {
           border: '1px solid var(--color-border)',
           borderRadius: '8px',
           color: 'var(--color-text-secondary)',
-          padding: '6px 14px',
-          fontSize: '13px',
+          padding: '10px 24px',
+          fontSize: '23px',
           fontWeight: 600,
           cursor: 'pointer',
         }}
@@ -399,89 +475,121 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && selection.canPlay && (isMyTurn || selection.isBombSelection)} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} />
 
-      {/* Bottom panel: pre-game prompt OR action bar + hand */}
+      {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {phase !== GamePhase.WaitingForPlayers && (
         <div style={{ position: 'fixed', bottom: 34, left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '28px' }}>
-          {isPreGame ? (
+          {/* Pre-game prompts (no hand — hand is always rendered below) */}
+          {isPreGame && (
             <PreGamePhase
               phase={phase}
-              myHand={gameStore.myHand}
               mySeat={mySeat!}
               onGrandTichuDecision={handleGrandTichuDecision}
-              onTichuDecision={handleTichuDecision}
-              onTichuSkip={handleTichuSkip}
-              onPassCards={handlePassCards}
+              passSelection={passSelection}
+              activeCardId={activePassCardId}
+              onSlotClick={handleSlotClick}
+              onSlotRemove={handleSlotRemove}
+              onConfirmPass={handleConfirmPass}
+              passConfirmed={passConfirmed}
+              onCancelPass={handleCancelPass}
             />
-          ) : (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center' }}>
-                <ActionBar
-                  canPlay={selection.canPlay}
-                  canPass={selection.canPass}
-                  isMyTurn={isMyTurn}
-                  phase={phase}
-                  myTichuCall={gameStore.myTichuCall}
-                  hasPlayedCards={gameStore.hasPlayedCards}
-                  hasBombReady={!isMyTurn && selection.isBombSelection}
-                  onPlay={handlePlay}
-                  onPass={handlePass}
-                  onTichu={handleTichu}
-                  onBomb={handleBomb}
-                  layout="split"
-                  playerSeat={
-                    <PlayerSeat
-                      seat={mySeat!}
-                      cardCount={gameStore.myHand.length}
-                      tichuCall={gameStore.myTichuCall}
-                      hasPlayed={false}
-                      hasPassed={view.currentTrick?.passes.includes(mySeat!) ?? false}
-                      finishOrder={view.finishOrder.indexOf(mySeat!) >= 0 ? view.finishOrder.indexOf(mySeat!) + 1 : null}
-                      isCurrentTurn={gameStore.currentTurn === mySeat}
-                      isTrickLeader={view.currentTrick?.currentWinner === mySeat}
-                      isMe={true}
-                    />
-                  }
-                />
-              </div>
-              <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px', '--card-overlap-desktop': '81px' } as React.CSSProperties}>
-                {phase === 'playing' && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
-                  <button
-                    onClick={handleTichu}
-                    style={{
-                      position: 'absolute',
-                      right: '100%',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      marginRight: '48px',
-                      width: '84px',
-                      height: '84px',
-                      padding: '6px',
-                      border: 'none',
-                      borderRadius: '12px',
-                      background: 'var(--color-tichu-badge)',
-                      color: 'white',
-                      fontFamily: 'var(--font-display)',
-                      fontSize: '21px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      lineHeight: '1.2',
-                      textAlign: 'center',
-                    }}
-                    aria-label="Declare Tichu"
-                  >
-                    Call<br />Tichu!
-                  </button>
-                )}
-                <CardHand
-                  cards={gameStore.myHand}
-                  selectedIds={selection.selectedIds}
-                  onCardClick={phase === GamePhase.Playing ? selection.toggleCard : undefined}
-                />
-              </div>
-            </>
           )}
+
+          {/* Received cards display — after card exchange */}
+          {showReceivedCards && !isPreGame && (
+            <PreGamePhase
+              phase={phase!}
+              mySeat={mySeat!}
+              onGrandTichuDecision={() => {}}
+              passSelection={new Map()}
+              activeCardId={null}
+              onSlotClick={() => {}}
+              onSlotRemove={() => {}}
+              onConfirmPass={() => {}}
+              passConfirmed={false}
+              onCancelPass={() => {}}
+              receivedCards={gameStore.receivedCards}
+              onDismissReceived={() => setShowReceivedCards(false)}
+            />
+          )}
+
+          {/* Action bar (playing phase only, hidden while viewing received cards) */}
+          {!isPreGame && !showReceivedCards && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center' }}>
+              <ActionBar
+                canPlay={selection.canPlay}
+                canPass={selection.canPass}
+                isMyTurn={isMyTurn}
+                phase={phase}
+                myTichuCall={gameStore.myTichuCall}
+                hasPlayedCards={gameStore.hasPlayedCards}
+                hasBombReady={!isMyTurn && selection.isBombSelection}
+                onPlay={handlePlay}
+                onPass={handlePass}
+                onTichu={handleTichu}
+                onBomb={handleBomb}
+                layout="split"
+                playerSeat={
+                  <PlayerSeat
+                    seat={mySeat!}
+                    cardCount={gameStore.myHand.length}
+                    tichuCall={gameStore.myTichuCall}
+                    hasPlayed={false}
+                    hasPassed={view.currentTrick?.passes.includes(mySeat!) ?? false}
+                    finishOrder={view.finishOrder.indexOf(mySeat!) >= 0 ? view.finishOrder.indexOf(mySeat!) + 1 : null}
+                    isCurrentTurn={gameStore.currentTurn === mySeat}
+                    isTrickLeader={view.currentTrick?.currentWinner === mySeat}
+                    isMe={true}
+                  />
+                }
+              />
+            </div>
+          )}
+
+          {/* Card hand — always rendered for visual continuity */}
+          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px', '--card-overlap-desktop': '81px' } as React.CSSProperties}>
+            {phase === 'playing' && !showReceivedCards && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+              <button
+                onClick={handleTichu}
+                style={{
+                  position: 'absolute',
+                  right: '100%',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  marginRight: '48px',
+                  width: '84px',
+                  height: '84px',
+                  padding: '6px',
+                  border: 'none',
+                  borderRadius: '12px',
+                  background: 'var(--color-tichu-badge)',
+                  color: 'white',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '21px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  lineHeight: '1.2',
+                  textAlign: 'center',
+                }}
+                aria-label="Declare Tichu"
+              >
+                Call<br />Tichu!
+              </button>
+            )}
+            <CardHand
+              cards={gameStore.myHand}
+              selectedIds={phase === GamePhase.CardPassing && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : selection.selectedIds}
+              disabledIds={phase === GamePhase.CardPassing ? placedCardIds : undefined}
+              onCardClick={
+                phase === GamePhase.CardPassing && !passConfirmed
+                  ? handlePassCardClick
+                  : phase === GamePhase.Playing
+                    ? selection.toggleCard
+                    : undefined
+              }
+            />
+          </div>
         </div>
       )}
 
@@ -512,7 +620,7 @@ export default function GamePage() {
       )}
 
       {/* REQ-NF-U02: Tichu call banner */}
-      <TichuBanner tichuEvent={uiStore.tichuEvent} />
+      {!showReceivedCards && <TichuBanner tichuEvent={uiStore.tichuEvent} />}
 
       {/* REQ-F-MP07: In-game chat */}
       <ChatPanel
