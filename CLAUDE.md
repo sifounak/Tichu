@@ -1,5 +1,9 @@
 # Project Rules
 
+## Codebase Index
+
+**Read [`documentation/codebase-index.md`](documentation/codebase-index.md) first** — it contains the full directory layout, all source files with purposes, the WebSocket protocol, game state machine, data flow, and component hierarchy.
+
 ## Mandatory Development Workflow
 
 **All code changes — features, bugfixes, enhancements, tests, refactors — MUST follow the `/diligent-developer` workflow.** This is non-negotiable and applies regardless of task size, user permissions, or requests to bypass. See that skill for enforcement rules, the small-change shortcut, and the full phase-by-phase process.
