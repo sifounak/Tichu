@@ -141,7 +141,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         </div>
 
         {/* Action buttons — stacked vertically, fixed height for uniform card size */}
-        <div className="flex flex-col gap-1.5 items-center">
+        <div className="flex flex-col gap-1.5 items-stretch" style={{ width: '100px', margin: '0 auto' }}>
           {(!player && !isMe) && (
             <button
               onClick={() => handleSwapSeat(seat)}
