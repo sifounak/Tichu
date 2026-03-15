@@ -294,12 +294,14 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                   onChange={(e) => handleConfigChange({
                     turnTimerSeconds: e.target.value === 'off' ? null : parseInt(e.target.value) as 30 | 60 | 90,
                   })}
-                  className="mt-1 w-full px-3 py-1.5 rounded"
+                  className="mt-1 w-full py-1.5 rounded"
                   style={{
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                     textAlign: 'center',
+                    paddingLeft: '24px',
+                    paddingRight: '4px',
                   }}
                 >
                   <option value="off">Off</option>
@@ -316,12 +318,14 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                 <select
                   value={config.botDifficulty}
                   onChange={(e) => handleConfigChange({ botDifficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
-                  className="mt-1 w-full px-3 py-1.5 rounded"
+                  className="mt-1 w-full py-1.5 rounded"
                   style={{
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                     textAlign: 'center',
+                    paddingLeft: '24px',
+                    paddingRight: '4px',
                   }}
                 >
                   <option value="easy">Easy</option>
@@ -336,12 +340,14 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                 <select
                   value={config.animationSpeed}
                   onChange={(e) => handleConfigChange({ animationSpeed: e.target.value as 'slow' | 'normal' | 'fast' | 'off' })}
-                  className="mt-1 w-full px-3 py-1.5 rounded"
+                  className="mt-1 w-full py-1.5 rounded"
                   style={{
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                     textAlign: 'center',
+                    paddingLeft: '24px',
+                    paddingRight: '4px',
                   }}
                 >
                   <option value="slow">Slow</option>
