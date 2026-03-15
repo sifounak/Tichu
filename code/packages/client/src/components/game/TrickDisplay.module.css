@@ -102,12 +102,13 @@
 .passLabel.left { left: 4px; top: 50%; transform: translateY(-50%); }
 .passLabel.right { right: 4px; top: 50%; transform: translateY(-50%); }
 
-/* Phoenix single value overlay — between card name and bottom edge */
+/* Phoenix single value overlay — centered between card name and bottom edge */
 .phoenixValue {
   position: absolute;
-  bottom: 18%;
+  top: 75%;
   left: 0;
   right: 0;
+  transform: translateY(-50%);
   text-align: center;
   font-size: 21px;
   font-weight: 700;
