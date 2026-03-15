@@ -102,10 +102,10 @@
 .passLabel.left { left: 4px; top: 50%; transform: translateY(-50%); }
 .passLabel.right { right: 4px; top: 50%; transform: translateY(-50%); }
 
-/* Phoenix single value overlay — shows effective rank at 25% card height */
+/* Phoenix single value overlay — between card name and bottom edge */
 .phoenixValue {
   position: absolute;
-  top: 25%;
+  bottom: 18%;
   left: 0;
   right: 0;
   text-align: center;
