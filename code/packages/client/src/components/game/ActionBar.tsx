@@ -29,6 +29,8 @@ export interface ActionBarProps {
   onPass: () => void;
   onTichu: () => void;
   onBomb: () => void;
+  /** REQ-F-BW01: Whether a play is queued during bomb window */
+  playQueued?: boolean;
   /** Layout mode: 'default' stacks vertically, 'split' puts Pass | playerSeat | Play in a row */
   layout?: 'default' | 'split';
   /** Player seat element to render between Pass and Play in split layout */
@@ -47,6 +49,7 @@ export const ActionBar = memo(function ActionBar({
   onPass,
   onTichu,
   onBomb,
+  playQueued,
   layout = 'default',
   playerSeat,
 }: ActionBarProps) {
@@ -79,12 +82,12 @@ export const ActionBar = memo(function ActionBar({
 
   const playButton = showActions && (
     <button
-      className={`${styles.button} ${styles.playButton}`}
+      className={`${styles.button} ${styles.playButton} ${playQueued ? styles.queued : ''}`}
       onClick={handlePlay}
       disabled={!canPlay}
-      aria-label="Play selected cards"
+      aria-label={playQueued ? 'Play queued' : 'Play selected cards'}
     >
-      Play
+      {playQueued ? 'Queued' : 'Play'}
     </button>
   );
 
