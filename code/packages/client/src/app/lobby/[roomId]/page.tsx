@@ -402,7 +402,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               border: '1px solid var(--color-border)',
             }}
           >
-            Cancel
+            {isHost ? 'Cancel' : 'Leave Room'}
           </button>
           {isHost && (
             <button
