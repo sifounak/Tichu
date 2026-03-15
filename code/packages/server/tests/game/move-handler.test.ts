@@ -313,6 +313,61 @@ describe('MoveHandler', () => {
         }
       }
     });
+
+    // Verifies: REQ-F-WV01 — Wish rank validation (defense-in-depth)
+    describe('rank validation', () => {
+      /** Play Mahjong to set up a valid wish declaration context */
+      function playMahjongLead(): Seat {
+        advanceToPlaying(actor);
+        const turn = getCurrentTurn(actor);
+        const hand = getHand(actor, turn);
+        // The Mahjong holder always gets first turn
+        const mahjong = hand.find(gc => isMahjong(gc.card));
+        expect(mahjong).toBeDefined();
+        actor.send({ type: 'PLAY_CARDS', seat: turn, cards: [mahjong!] });
+        return turn;
+      }
+
+      it('should reject rank 1 (Mahjong value)', () => {
+        const seat = playMahjongLead();
+        const result = handler.handleDeclareWish(seat, 1 as Rank);
+        expect(result.ok).toBe(false);
+        expect(result.ok === false && result.error).toContain('Wish rank must be');
+      });
+
+      it('should reject rank 0', () => {
+        const seat = playMahjongLead();
+        const result = handler.handleDeclareWish(seat, 0 as Rank);
+        expect(result.ok).toBe(false);
+        expect(result.ok === false && result.error).toContain('Wish rank must be');
+      });
+
+      it('should reject rank 15', () => {
+        const seat = playMahjongLead();
+        const result = handler.handleDeclareWish(seat, 15 as Rank);
+        expect(result.ok).toBe(false);
+        expect(result.ok === false && result.error).toContain('Wish rank must be');
+      });
+
+      it('should reject non-integer rank 7.5', () => {
+        const seat = playMahjongLead();
+        const result = handler.handleDeclareWish(seat, 7.5 as Rank);
+        expect(result.ok).toBe(false);
+        expect(result.ok === false && result.error).toContain('Wish rank must be');
+      });
+
+      it('should accept rank null (no wish)', () => {
+        const seat = playMahjongLead();
+        const result = handler.handleDeclareWish(seat, null);
+        expect(result.ok).toBe(true);
+      });
+
+      it('should accept valid rank 7', () => {
+        const seat = playMahjongLead();
+        const result = handler.handleDeclareWish(seat, 7 as Rank);
+        expect(result.ok).toBe(true);
+      });
+    });
   });
 
   describe('handleGiftDragon', () => {
