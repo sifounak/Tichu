@@ -44,14 +44,14 @@ export class RoomManager {
     }
   }
 
-  /** Create a new room. Host is seated at north. */
+  /** Create a new room. Host is seated at south (bottom of table). */
   createRoom(userId: string, playerName: string): Room {
     if (this.userToRoom.has(userId)) {
       throw new Error('Already in a room. Leave first.');
     }
 
     const roomCode = this.generateUniqueCode();
-    const hostSeat: Seat = 'north';
+    const hostSeat: Seat = 'south';
 
     const room: Room = {
       roomCode,
