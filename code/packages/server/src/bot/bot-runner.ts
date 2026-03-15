@@ -126,8 +126,15 @@ export class BotRunner {
     return activePlayers.length > 0 && activePlayers.every((s) => this.bots.has(s));
   }
 
+  /** Check if a new trick is about to start (previous trick just ended) */
+  private isNewTrickLead(): boolean {
+    const snapshot = this.actor.getSnapshot();
+    const round = snapshot.context.currentRound;
+    return !!round && round.currentTrick === null && round.currentTurn !== null;
+  }
+
   /** Schedule a bot action with artificial delay */
-  private scheduleAction(action: () => void): void {
+  private scheduleAction(action: () => void, extraDelayMs = 0): void {
     if (this.disposed) return;
 
     const { minDelayMs, maxDelayMs } = this.config;
@@ -146,7 +153,7 @@ export class BotRunner {
     const min = fast ? 50 : minDelayMs;
     const max = fast ? 150 : maxDelayMs;
 
-    const delay = min + Math.random() * (max - min);
+    const delay = min + Math.random() * (max - min) + extraDelayMs;
     const timer = setTimeout(() => {
       this.pendingTimers.delete(timer);
       if (!this.disposed) action();
@@ -236,6 +243,9 @@ export class BotRunner {
       seat,
     };
 
+    // Pause longer after a trick ends so the sweep animation is visible
+    const trickSweepPause = this.isNewTrickLead() && this.onlyBotsRemain() ? 800 : 0;
+
     this.scheduleAction(() => {
       const decision = bot.choosePlay(playContext);
 
@@ -249,7 +259,7 @@ export class BotRunner {
 
       // If Mahjong was played, declare a wish
       this.handleMahjongWishAfterPlay(seat, bot, decision.cards, player.hand);
-    });
+    }, trickSweepPause);
   }
 
   private handleDragonGift(context: GameMachineContext): void {

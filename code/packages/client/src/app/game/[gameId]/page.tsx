@@ -293,6 +293,16 @@ export default function GamePage() {
     }
   }, [phase, send]);
 
+  // Delay round end overlay so the last trick sweep animation is visible
+  const [showRoundEnd, setShowRoundEnd] = useState(false);
+  useEffect(() => {
+    if (phase === GamePhase.RoundScoring) {
+      const timer = setTimeout(() => setShowRoundEnd(true), 1000);
+      return () => clearTimeout(timer);
+    }
+    setShowRoundEnd(false);
+  }, [phase]);
+
   // --- Loading state ---
   if (!gameStore.gameId || !gameStore.phase) {
     return (
@@ -611,7 +621,7 @@ export default function GamePage() {
       )}
 
       {/* REQ-F-SC01: Round end overlay */}
-      {phase === GamePhase.RoundScoring && gameStore.latestRoundScore && gameStore.scores && (
+      {showRoundEnd && phase === GamePhase.RoundScoring && gameStore.latestRoundScore && gameStore.scores && (
         <RoundEndPhase
           roundScore={gameStore.latestRoundScore}
           cumulativeScores={gameStore.scores}
