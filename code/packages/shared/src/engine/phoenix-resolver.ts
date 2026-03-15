@@ -10,6 +10,9 @@
 import type { GameCard, Rank } from '../types/card.js';
 import { isPhoenix, isStandard, isDragon, isDog, isMahjong } from '../types/card.js';
 import type { TrickState } from '../types/game.js';
+import type { Combination } from '../types/combination.js';
+import { CombinationType } from '../types/combination.js';
+import { canBeat } from './combination-validator.js';
 import { PHOENIX_SINGLE_VALUE, MAHJONG_RANK, DRAGON_RANK } from '../constants.js';
 
 /** Result of resolving Phoenix values for a card selection */
@@ -74,8 +77,18 @@ export function resolvePhoenixValues(
   // --- 5 cards with Phoenix (full house or straight) ---
   if (selectedCards.length === 5 && nonPhoenix.length === 4) {
     const fh = resolveFullHousePhoenix(nonPhoenix);
+    if (fh.status === 'choose') {
+      return filterChoicesByTrick(fh.validValues, CombinationType.FullHouse, 1, 0, currentTrick);
+    }
     if (fh.status !== 'invalid') return fh;
-    return resolveStraightPhoenix(nonPhoenix, selectedCards.length);
+    const straightResult = resolveStraightPhoenix(nonPhoenix, selectedCards.length);
+    if (straightResult.status === 'choose') {
+      const maxRank = Math.max(...nonPhoenix.map((gc) =>
+        isMahjong(gc.card) ? MAHJONG_RANK : (gc.card as { rank: number }).rank,
+      ));
+      return filterChoicesByTrick(straightResult.validValues, CombinationType.Straight, selectedCards.length, maxRank, currentTrick);
+    }
+    return straightResult;
   }
 
   // --- 6+ cards with Phoenix (pair sequence or straight) ---
@@ -84,7 +97,14 @@ export function resolvePhoenixValues(
       const pairSeq = resolvePairSequencePhoenix(nonPhoenix, selectedCards.length);
       if (pairSeq.status !== 'invalid') return pairSeq;
     }
-    return resolveStraightPhoenix(nonPhoenix, selectedCards.length);
+    const straightResult = resolveStraightPhoenix(nonPhoenix, selectedCards.length);
+    if (straightResult.status === 'choose') {
+      const maxRank = Math.max(...nonPhoenix.map((gc) =>
+        isMahjong(gc.card) ? MAHJONG_RANK : (gc.card as { rank: number }).rank,
+      ));
+      return filterChoicesByTrick(straightResult.validValues, CombinationType.Straight, selectedCards.length, maxRank, currentTrick);
+    }
+    return straightResult;
   }
 
   return { status: 'invalid' };
@@ -327,4 +347,44 @@ function resolveStraightPhoenix(
 
   // REQ-F-PH07: Present only valid options
   return { status: 'choose', validValues: candidates.sort((a, b) => a - b) };
+}
+
+/**
+ * Filter Phoenix 'choose' candidates against the current trick top.
+ * If only one candidate produces a combination that beats the trick, auto-resolve.
+ * When leading (no trick), all candidates remain valid.
+ */
+function filterChoicesByTrick(
+  validValues: number[],
+  comboType: CombinationType,
+  comboLength: number,
+  nonPhoenixMaxRank: number,
+  currentTrick: TrickState | null,
+): PhoenixResolution {
+  if (!currentTrick || currentTrick.plays.length === 0) {
+    // Leading — all choices valid
+    return { status: 'choose', validValues };
+  }
+  const trickTop = currentTrick.plays[currentTrick.plays.length - 1].combination;
+
+  const surviving = validValues.filter((value) => {
+    let comboRank: number;
+    if (comboType === CombinationType.FullHouse) {
+      comboRank = value; // FH rank = triple rank = phoenix value
+    } else {
+      comboRank = Math.max(nonPhoenixMaxRank, value); // Straight rank = highest card
+    }
+    const mock: Combination = {
+      type: comboType,
+      cards: [],
+      rank: comboRank,
+      length: comboLength,
+      isBomb: false,
+    };
+    return canBeat(mock, trickTop);
+  });
+
+  if (surviving.length === 0) return { status: 'invalid' };
+  if (surviving.length === 1) return { status: 'auto', value: surviving[0] };
+  return { status: 'choose', validValues: surviving };
 }
