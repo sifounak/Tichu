@@ -3,7 +3,7 @@
 // REQ-F-BOT05: Artificial thinking delay
 // REQ-F-MP01: Any combination 0-4 humans + bots
 
-import type { Seat, GameCard } from '@tichu/shared';
+import type { Seat } from '@tichu/shared';
 import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext } from './bot-interface.js';
 import type { GameActor, GameMachineContext, GameEvent } from '../game/game-state-machine.js';
@@ -256,13 +256,11 @@ export class BotRunner {
 
       // REQ-F-WR01: Include wish inline with PLAY_CARDS to avoid race condition
       const mahjongPlayed = decision.cards.some((gc) => isMahjong(gc.card));
-      let wish: number | null | undefined;
-      if (mahjongPlayed) {
-        const remainingHand = player.hand.filter(
-          (gc) => !decision.cards.some((pc) => pc.id === gc.id),
-        );
-        wish = bot.chooseMahjongWish(remainingHand);
-      }
+      const wish = mahjongPlayed
+        ? (bot.chooseMahjongWish(
+            player.hand.filter((gc) => !decision.cards.some((pc) => pc.id === gc.id)),
+          ) ?? undefined)
+        : undefined;
 
       this.send({ type: 'PLAY_CARDS', seat, cards: decision.cards, wish });
     }, trickSweepPause);

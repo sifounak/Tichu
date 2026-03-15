@@ -54,6 +54,11 @@ export interface UiStore {
   tichuEvent: { seat: Seat; level: TichuCall } | null;
   setTichuEvent: (event: { seat: Seat; level: TichuCall } | null) => void;
 
+  /* --- Dog Animation (REQ-F-DA01) --- */
+  dogAnimation: { fromSeat: Seat; toSeat: Seat } | null;
+  startDogAnimation: (fromSeat: Seat, toSeat: Seat) => void;
+  clearDogAnimation: () => void;
+
   /* --- Error Toast --- */
   errorToast: string | null;
   showErrorToast: (message: string) => void;
@@ -134,6 +139,11 @@ export const useUiStore = create<UiStore>()((set) => ({
   /* --- Tichu Banner --- */
   tichuEvent: null,
   setTichuEvent: (event) => set({ tichuEvent: event }),
+
+  /* --- Dog Animation --- */
+  dogAnimation: null,
+  startDogAnimation: (fromSeat, toSeat) => set({ dogAnimation: { fromSeat, toSeat } }),
+  clearDogAnimation: () => set({ dogAnimation: null }),
 
   /* --- Error Toast --- */
   errorToast: null,

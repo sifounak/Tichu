@@ -3,6 +3,7 @@
 
 import { memo } from 'react';
 import type { ClientGameView, Seat } from '@tichu/shared';
+import { useUiStore } from '@/stores/uiStore';
 import { PlayerSeat } from './PlayerSeat';
 import { TrickDisplay } from './TrickDisplay';
 import styles from './GameTable.module.css';
@@ -25,6 +26,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
 
 export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
+  const dogAnimation = useUiStore((s) => s.dogAnimation);
   const trickLeader = currentTrick?.currentWinner ?? null;
 
   // Determine layout: player (me) is always at the bottom
@@ -90,6 +92,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
             wishFulfilled={wishFulfilled}
             mySeat={mySeat}
             hideEmptyPlaceholder={hideEmptyTrick}
+            dogAnimation={dogAnimation}
           />
         </div>
       )}

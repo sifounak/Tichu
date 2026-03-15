@@ -131,6 +131,7 @@ function createRoundState(roundNumber: number): RoundState {
     wishFulfilled: false,
     finishOrder: [],
     dragonGiftPending: null,
+    lastDogPlay: null,
   };
 }
 
@@ -521,6 +522,7 @@ export const gameMachine = setup({
     playCards: assign(({ context, event }) => {
       if (event.type !== 'PLAY_CARDS' || !context.currentRound) return {};
       const round = structuredClone(context.currentRound) as RoundState;
+      round.lastDogPlay = null; // Clear previous Dog play marker
       const seat = event.seat;
       const cards = event.cards;
 
@@ -572,6 +574,8 @@ export const gameMachine = setup({
         }
         round.currentTurn = nextLead;
         round.currentTrick = null; // Dog doesn't create a trick
+        // REQ-F-DA01: Mark Dog play for client animation
+        round.lastDogPlay = { fromSeat: seat, toSeat: nextLead };
         return { currentRound: round };
       }
 
