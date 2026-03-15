@@ -34,12 +34,12 @@ function seatPosition(seat: Seat, mySeat: Seat): 'bottom' | 'top' | 'left' | 'ri
   return (['bottom', 'right', 'top', 'left'] as const)[rel];
 }
 
-/** Entry direction offsets per seat position — start near the player boxes */
-const ENTRY_OFFSETS: Record<string, { x: number; y: number }> = {
-  bottom: { x: 0, y: 250 },
-  top: { x: 0, y: -250 },
-  left: { x: -300, y: 0 },
-  right: { x: 300, y: 0 },
+/** Entry direction offsets per seat position — start at the nearest edge of the play area */
+const ENTRY_OFFSETS: Record<string, { x: number | string; y: number | string }> = {
+  bottom: { x: 0, y: '50%' },
+  top: { x: 0, y: '-50%' },
+  left: { x: '-50%', y: 0 },
+  right: { x: '50%', y: 0 },
 };
 
 export const TrickDisplay = memo(function TrickDisplay({
@@ -92,44 +92,48 @@ export const TrickDisplay = memo(function TrickDisplay({
               transition: { duration: durations.trickSweep },
             } : undefined}
           >
-            {/* Show only the latest play, centered */}
-            {(() => {
-              const latestPlay = trick.plays[trick.plays.length - 1];
-              if (!latestPlay) return null;
-              const pos = seatPosition(latestPlay.seat, mySeat);
-              const isWinner = latestPlay.seat === trick.currentWinner;
-              const offset = ENTRY_OFFSETS[pos];
-              return (
-                <motion.div
-                  key={`${latestPlay.seat}-${trick.plays.length}`}
-                  className={`${styles.playGroup} ${styles.center} ${isWinner ? styles.winner : ''}`}
-                  data-seat={latestPlay.seat}
-                  aria-label={`${latestPlay.seat} played ${latestPlay.combination.type}`}
-                  initial={enabled ? { x: offset.x, y: offset.y, opacity: 0 } : false}
-                  animate={{ x: 0, y: 0, opacity: 1 }}
-                  transition={{
-                    duration: durations.cardPlay,
-                    type: 'spring',
-                    stiffness: 200,
-                    damping: 20,
-                  }}
-                >
-                  <div className={styles.cards} style={{ '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px' } as React.CSSProperties}>
-                    {latestPlay.combination.cards.map((gc, cardIdx) => (
-                      <motion.div
-                        key={gc.id}
-                        className={styles.trickCard}
-                        initial={enabled && isBombPlay ? { scale: 1.3, rotate: (cardIdx - 1) * 15 } : false}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ duration: durations.bombEffect, delay: cardIdx * 0.05 }}
-                      >
-                        <Card gameCard={gc} state="normal" />
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              );
-            })()}
+            {/* Previous play fades out while new play slides in */}
+            <AnimatePresence>
+              {(() => {
+                const latestPlay = trick.plays[trick.plays.length - 1];
+                if (!latestPlay) return null;
+                const pos = seatPosition(latestPlay.seat, mySeat);
+                const isWinner = latestPlay.seat === trick.currentWinner;
+                const offset = ENTRY_OFFSETS[pos];
+                return (
+                  <motion.div
+                    key={`${latestPlay.seat}-${trick.plays.length}`}
+                    className={`${styles.playGroup} ${styles.center} ${isWinner ? styles.winner : ''}`}
+                    data-seat={latestPlay.seat}
+                    aria-label={`${latestPlay.seat} played ${latestPlay.combination.type}`}
+                    style={{ zIndex: 2 }}
+                    initial={enabled ? { x: offset.x, y: offset.y, opacity: 0, zIndex: 2 } : false}
+                    animate={{ x: 0, y: 0, opacity: 1, zIndex: 2 }}
+                    exit={enabled ? { zIndex: 1, opacity: 1, transition: { duration: durations.cardPlay } } : undefined}
+                    transition={{
+                      duration: durations.cardPlay,
+                      type: 'spring',
+                      stiffness: 200,
+                      damping: 20,
+                    }}
+                  >
+                    <div className={styles.cards} style={{ '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px' } as React.CSSProperties}>
+                      {latestPlay.combination.cards.map((gc, cardIdx) => (
+                        <motion.div
+                          key={gc.id}
+                          className={styles.trickCard}
+                          initial={enabled && isBombPlay ? { scale: 1.3, rotate: (cardIdx - 1) * 15 } : false}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ duration: durations.bombEffect, delay: cardIdx * 0.05 }}
+                        >
+                          <Card gameCard={gc} state="normal" />
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                );
+              })()}
+            </AnimatePresence>
 
             {/* Pass indicators moved to PlayerSeat boxes */}
           </motion.div>

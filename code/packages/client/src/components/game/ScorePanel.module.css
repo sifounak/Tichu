@@ -12,20 +12,25 @@
   grid-template-columns: 1fr 1fr;
   gap: 2px 24px;
   align-items: center;
+  justify-items: center;
 }
 
 .playerName {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 160px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .score {
-  font-size: 33px;
+  font-size: 40px;
   font-weight: 700;
   min-width: 60px;
   text-align: center;
@@ -33,23 +38,17 @@
 }
 
 .target {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--color-text-muted);
   margin-top: 4px;
 }
 
-.tichuCalls {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  margin-top: 8px;
-}
-
 .tichuBadge {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .tichu {
@@ -67,7 +66,7 @@
   background: none;
   border: none;
   color: var(--color-text-muted);
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   padding: 6px 12px;
   min-height: 36px;
@@ -88,7 +87,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: 16px;
   padding: 3px 0;
 }
 
@@ -127,10 +126,6 @@
 
   .target {
     display: none;
-  }
-
-  .tichuCalls {
-    margin-top: 4px;
   }
 
   .history {

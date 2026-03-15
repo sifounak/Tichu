@@ -135,16 +135,17 @@
 
 .tichuBanner {
   position: absolute;
-  top: -36px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: -44px;
+  left: 0;
+  right: 0;
   font-size: 16px;
   font-weight: 800;
-  padding: 3px 16px;
+  padding: 3px 0;
   border-radius: 4px;
   text-transform: uppercase;
   letter-spacing: 1px;
   white-space: nowrap;
+  text-align: center;
   z-index: 1;
 }
 

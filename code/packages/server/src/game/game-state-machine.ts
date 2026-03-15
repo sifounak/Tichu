@@ -170,7 +170,11 @@ export function isTrickComplete(trick: TrickState, round: RoundState): boolean {
   // If all remaining active players (except the current winner) have passed
   const activePlayers = SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null);
   const nonWinnerActive = activePlayers.filter((s) => s !== trick.currentWinner);
-  return nonWinnerActive.length > 0 && nonWinnerActive.every((s) => trick.passes.includes(s));
+
+  // No non-winner active players left (everyone went out) — trick is complete
+  if (nonWinnerActive.length === 0) return true;
+
+  return nonWinnerActive.every((s) => trick.passes.includes(s));
 }
 
 /** Collect all cards from a completed trick */
