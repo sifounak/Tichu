@@ -39,6 +39,8 @@ export interface TrickDisplayProps {
   hideEmptyPlaceholder?: boolean;
   /** REQ-F-DA01: Dog play animation state */
   dogAnimation?: { fromSeat: Seat; toSeat: Seat } | null;
+  /** REQ-F-DR01: Show Dragon gift notification */
+  dragonGiftPending?: boolean;
 }
 
 /** Map seat to position relative to player */
@@ -73,6 +75,7 @@ export const TrickDisplay = memo(function TrickDisplay({
   mySeat,
   hideEmptyPlaceholder,
   dogAnimation,
+  dragonGiftPending,
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
 
@@ -114,6 +117,13 @@ export const TrickDisplay = memo(function TrickDisplay({
 
   return (
     <div className={`${styles.trickDisplay} ${showBomb ? styles.bombFlash : ''}`} aria-label="Trick area">
+      {/* REQ-F-DR01: Dragon gift notification */}
+      {dragonGiftPending && (
+        <div className={styles.dragonNotification}>
+          You must give the Dragon trick to one of your opponents
+        </div>
+      )}
+
       {/* REQ-F-DI07: Wish indicator */}
       <AnimatePresence>
         {mahjongWish !== null && !wishFulfilled && (

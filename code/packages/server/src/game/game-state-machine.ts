@@ -224,12 +224,26 @@ function needsDragonGift(trick: TrickState): boolean {
   return true;
 }
 
-/** Check if there's only one eligible opponent for Dragon gift */
+/**
+ * Check if there's only one eligible opponent for Dragon gift, or if
+ * auto-gift applies:
+ * - Only one active opponent remains
+ * - An opponent went out first (finishOrder === 1) — they receive the
+ *   Dragon regardless since their team benefits most from the points
+ */
 function getAutoGiftRecipient(trickWinner: Seat, round: RoundState): Seat | null {
   const opponentSeats = SEATS_IN_ORDER.filter(
     (s) => getTeam(s) !== getTeam(trickWinner) && round.players[s].finishOrder === null,
   );
+  // Only one active opponent — must go to them
   if (opponentSeats.length === 1) return opponentSeats[0];
+
+  // An opponent went out first — auto-give to them
+  const firstOut = SEATS_IN_ORDER.find(
+    (s) => getTeam(s) !== getTeam(trickWinner) && round.players[s].finishOrder === 1,
+  );
+  if (firstOut) return firstOut;
+
   return null;
 }
 

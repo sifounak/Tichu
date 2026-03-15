@@ -102,6 +102,25 @@
 .passLabel.left { left: 4px; top: 50%; transform: translateY(-50%); }
 .passLabel.right { right: 4px; top: 50%; transform: translateY(-50%); }
 
+/* REQ-F-DR01: Dragon gift notification overlay */
+.dragonNotification {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #e0c0f0;
+  background: rgba(30, 10, 40, 0.85);
+  border-radius: 12px;
+  border: 2px solid #9b59b6;
+  z-index: 10;
+  line-height: 1.4;
+}
+
 /* Phoenix single value overlay — centered between card name and bottom edge */
 .phoenixValue {
   position: absolute;
