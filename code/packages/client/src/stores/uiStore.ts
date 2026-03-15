@@ -54,6 +54,15 @@ export interface UiStore {
   tichuEvent: { seat: Seat; level: TichuCall } | null;
   setTichuEvent: (event: { seat: Seat; level: TichuCall } | null) => void;
 
+  /* --- Bomb Window (REQ-F-BW01) --- */
+  bombWindowActive: boolean;
+  bombWindowEndTime: number | null;
+  queuedPlay: { cardIds: number[]; phoenixAs?: Rank; wish?: Rank | null } | null;
+  startBombWindow: (durationMs: number) => void;
+  clearBombWindow: () => void;
+  setQueuedPlay: (play: { cardIds: number[]; phoenixAs?: Rank; wish?: Rank | null }) => void;
+  clearQueuedPlay: () => void;
+
   /* --- Dog Animation (REQ-F-DA01) --- */
   dogAnimation: { fromSeat: Seat; toSeat: Seat } | null;
   startDogAnimation: (fromSeat: Seat, toSeat: Seat) => void;
@@ -139,6 +148,16 @@ export const useUiStore = create<UiStore>()((set) => ({
   /* --- Tichu Banner --- */
   tichuEvent: null,
   setTichuEvent: (event) => set({ tichuEvent: event }),
+
+  /* --- Bomb Window --- */
+  bombWindowActive: false,
+  bombWindowEndTime: null,
+  queuedPlay: null,
+  startBombWindow: (durationMs) =>
+    set({ bombWindowActive: true, bombWindowEndTime: Date.now() + durationMs }),
+  clearBombWindow: () => set({ bombWindowActive: false, bombWindowEndTime: null }),
+  setQueuedPlay: (play) => set({ queuedPlay: play }),
+  clearQueuedPlay: () => set({ queuedPlay: null }),
 
   /* --- Dog Animation --- */
   dogAnimation: null,

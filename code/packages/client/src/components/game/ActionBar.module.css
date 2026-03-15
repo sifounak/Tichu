@@ -39,6 +39,23 @@
   color: var(--color-felt-green-dark);
 }
 
+/* REQ-F-BW01: Queued play visual feedback */
+.queued {
+  background: var(--color-bg-panel);
+  color: var(--color-gold-accent);
+  border: 2px solid var(--color-gold-accent);
+  animation: queuedPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes queuedPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .queued { animation: none; }
+}
+
 .passButton {
   background: var(--color-bg-panel);
   color: var(--color-text-primary);

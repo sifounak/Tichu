@@ -12,6 +12,7 @@ import { GamePhase } from '@tichu/shared';
 import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
+import { useBombWindow } from '@/hooks/useBombWindow';
 import { useCardSelection } from '@/hooks/useCardSelection';
 import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
@@ -117,6 +118,23 @@ export default function GamePage() {
     onStatusChange: uiStore.setConnectionStatus,
   });
 
+  // REQ-F-BW01: Bomb window — 2s delay after each play while humans are active
+  const bombWindow = useBombWindow({
+    send: send as (msg: Record<string, unknown>) => boolean,
+    roomPlayers,
+    finishOrder: gameStore.finishOrder,
+  });
+
+  // REQ-F-BW01: Start bomb window when a new play appears in the trick
+  const trickPlayCount = gameStore.currentTrick?.plays.length ?? 0;
+  const prevTrickPlayCountRef = useRef(0);
+  useEffect(() => {
+    if (trickPlayCount > prevTrickPlayCountRef.current && trickPlayCount > 0) {
+      bombWindow.startWindow();
+    }
+    prevTrickPlayCountRef.current = trickPlayCount;
+  }, [trickPlayCount, bombWindow.startWindow]);
+
   // REQ-F-BI01: Compute isMyTurn early so useCardSelection can use it for bomb filtering
   const isMyTurnForSelection = gameStore.currentTurn === gameStore.mySeat;
 
@@ -160,12 +178,18 @@ export default function GamePage() {
       return;
     }
 
+    // REQ-F-BW01: Queue non-bomb plays during bomb window
+    if (bombWindow.bombWindowActive && !selection.isBombSelection) {
+      uiStore.setQueuedPlay({ cardIds, phoenixAs });
+      return;
+    }
+
     if (!send({ type: 'PLAY_CARDS', cardIds, phoenixAs })) {
       uiStore.showErrorToast('Not connected to server');
       return;
     }
     uiStore.clearSelection();
-  }, [selection, send, uiStore, hasMahjongInSelection]);
+  }, [selection, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive]);
 
   // REQ-F-BI09: Handle out-of-turn bomb play
   const handleBomb = useCallback(() => {
@@ -189,10 +213,15 @@ export default function GamePage() {
         return;
       }
 
-      send({ type: 'PLAY_CARDS', cardIds, phoenixAs: value });
+      // REQ-F-BW01: Queue during bomb window
+      if (bombWindow.bombWindowActive) {
+        uiStore.setQueuedPlay({ cardIds, phoenixAs: value });
+      } else {
+        send({ type: 'PLAY_CARDS', cardIds, phoenixAs: value });
+      }
       uiStore.clearSelection();
     },
-    [selection.selectedIds, send, uiStore, hasMahjongInSelection],
+    [selection.selectedIds, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive],
   );
 
   // REQ-F-WP01: Handle wish choice from WishPicker
@@ -200,11 +229,16 @@ export default function GamePage() {
     (wish: Rank | null) => {
       const pending = uiStore.pendingWishPlay;
       if (!pending) return;
-      send({ type: 'PLAY_CARDS', ...pending, wish });
       uiStore.hideWishPicker();
+      // REQ-F-BW01: Queue during bomb window
+      if (bombWindow.bombWindowActive) {
+        uiStore.setQueuedPlay({ ...pending, wish });
+      } else {
+        send({ type: 'PLAY_CARDS', ...pending, wish });
+      }
       uiStore.clearSelection();
     },
-    [send, uiStore],
+    [send, uiStore, bombWindow.bombWindowActive],
   );
 
   const handlePass = useCallback(() => {
@@ -587,6 +621,7 @@ export default function GamePage() {
                 myTichuCall={gameStore.myTichuCall}
                 hasPlayedCards={gameStore.hasPlayedCards}
                 hasBombReady={!isMyTurn && selection.isBombSelection}
+                playQueued={bombWindow.queuedPlay !== null}
                 onPlay={handlePlay}
                 onPass={handlePass}
                 onTichu={handleTichu}
