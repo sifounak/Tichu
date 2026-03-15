@@ -99,8 +99,13 @@ export const PlayerSeat = memo(function PlayerSeat({
         </span>
       )}
 
+      {/* Turn indicator */}
+      {isCurrentTurn && (
+        <span className={styles.turnLabel}>{isMe ? 'Your Turn' : 'Their Turn'}</span>
+      )}
+
       {/* Trick leader label */}
-      {isTrickLeader && !hasPassed && (
+      {isTrickLeader && !isCurrentTurn && !hasPassed && (
         <span className={styles.leaderLabel}>Leading Trick</span>
       )}
     </div>
