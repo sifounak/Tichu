@@ -17,6 +17,7 @@ export interface ChatPanelProps {
   isOpen: boolean;
   onToggle: () => void;
   unreadCount: number;
+  seatNames?: Record<Seat, string>;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -32,6 +33,7 @@ export const ChatPanel = memo(function ChatPanel({
   isOpen,
   onToggle,
   unreadCount,
+  seatNames,
 }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -89,7 +91,7 @@ export const ChatPanel = memo(function ChatPanel({
             )}
             {messages.map((msg, i) => (
               <div key={i} className={styles.message}>
-                <span className={styles.sender}>{SEAT_LABELS[msg.from]}</span>
+                <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}</span>
                 <span className={styles.messageText}>{msg.text}</span>
               </div>
             ))}

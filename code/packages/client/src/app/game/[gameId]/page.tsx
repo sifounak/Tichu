@@ -607,7 +607,7 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} />
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {phase !== GamePhase.WaitingForPlayers && (
@@ -625,6 +625,7 @@ export default function GamePage() {
               onConfirmPass={handleConfirmPass}
               passConfirmed={passConfirmed}
               onCancelPass={handleCancelPass}
+              seatNames={seatNames}
             />
           )}
 
@@ -643,6 +644,7 @@ export default function GamePage() {
               onCancelPass={() => {}}
               receivedCards={gameStore.receivedCards}
               onDismissReceived={() => setShowReceivedCards(false)}
+              seatNames={seatNames}
             />
           )}
 
@@ -666,6 +668,7 @@ export default function GamePage() {
                 playerSeat={
                   <PlayerSeat
                     seat={mySeat!}
+                    displayName={seatNames[mySeat!]}
                     cardCount={gameStore.myHand.length}
                     tichuCall={gameStore.myTichuCall}
                     hasPlayed={false}
@@ -764,6 +767,7 @@ export default function GamePage() {
         isOpen={uiStore.chatOpen}
         onToggle={uiStore.toggleChat}
         unreadCount={uiStore.chatUnread}
+        seatNames={seatNames}
       />
 
       {/* REQ-F-MP08: Disconnect handling */}
@@ -773,6 +777,7 @@ export default function GamePage() {
         onVote={handleDisconnectVote}
         countdownSeconds={uiStore.disconnectCountdown}
         reconnectedSeat={uiStore.reconnectedSeat}
+        seatNames={seatNames}
       />
 
       <ConnectionStatus status={status} />

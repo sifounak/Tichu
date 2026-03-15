@@ -18,6 +18,8 @@ export interface GameTableProps {
   dragonGiftTargets?: Set<Seat>;
   /** Callback when a Dragon gift target is clicked */
   onDragonGift?: (seat: Seat) => void;
+  /** Display names keyed by seat */
+  seatNames?: Record<Seat, string>;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -28,7 +30,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const trickLeader = currentTrick?.currentWinner ?? null;
@@ -43,6 +45,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
       return (
         <PlayerSeat
           seat={seat}
+          displayName={seatNames?.[seat]}
           cardCount={view.myHand.length}
           tichuCall={view.myTichuCall}
           hasPlayed={false}
@@ -59,6 +62,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
     return (
       <PlayerSeat
         seat={seat}
+        displayName={seatNames?.[seat]}
         cardCount={other.cardCount}
         tichuCall={other.tichuCall}
         hasPlayed={other.hasPlayed}
