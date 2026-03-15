@@ -385,7 +385,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         )}
 
         {/* Action buttons */}
-        <div className="flex gap-4 justify-center">
+        <div className="flex gap-4 justify-center mt-8">
           <button
             onClick={handleLeave}
             className="px-5 py-2.5 rounded-lg font-semibold transition-opacity hover:opacity-80"
