@@ -11,10 +11,10 @@ import type { ServerMessage, Seat, GameConfig } from '@tichu/shared';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 const SEAT_LABELS: Record<Seat, string> = {
-  north: 'North',
-  east: 'East',
-  south: 'South',
-  west: 'West',
+  north: 'Top',
+  east: 'Right',
+  south: 'Bottom',
+  west: 'Left',
 };
 function getGuestId(): string {
   let id = sessionStorage.getItem('tichu_user_id');
