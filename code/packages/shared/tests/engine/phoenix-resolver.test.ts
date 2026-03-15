@@ -366,6 +366,96 @@ describe('resolvePhoenixValues', () => {
     });
   });
 
+  // --- Context-aware filtering (trick top eliminates invalid choices) ---
+
+  describe('context-aware filtering against trick', () => {
+    it('FH 2+2 where only higher triple beats trick → auto-resolves', () => {
+      // Trick top: FH rank 4 (triple of 4s)
+      const trick: TrickState = {
+        plays: [{
+          seat: 'north',
+          combination: {
+            type: CombinationType.FullHouse, cards: [], rank: 4, length: 1, isBomb: false,
+          },
+        }],
+        passes: [],
+        leadSeat: 'north',
+        currentWinner: 'north',
+      };
+      // Player plays [3,3,9,9,Phoenix] → choose [3, 9]
+      // FH rank 3 < trick rank 4 → invalid; FH rank 9 > 4 → valid
+      const result = resolvePhoenixValues([j(3), p(3), j(9), p(9), phoenix()], trick);
+      expect(result).toEqual({ status: 'auto', value: 9 });
+    });
+
+    it('FH 2+2 where neither beats trick → invalid', () => {
+      const trick: TrickState = {
+        plays: [{
+          seat: 'north',
+          combination: {
+            type: CombinationType.FullHouse, cards: [], rank: 14, length: 1, isBomb: false,
+          },
+        }],
+        passes: [],
+        leadSeat: 'north',
+        currentWinner: 'north',
+      };
+      // Player plays [3,3,9,9,Phoenix] → choose [3, 9], both < 14
+      const result = resolvePhoenixValues([j(3), p(3), j(9), p(9), phoenix()], trick);
+      expect(result.status).toBe('invalid');
+    });
+
+    it('FH 2+2 when leading → still returns choose (both valid)', () => {
+      const result = resolvePhoenixValues([j(3), p(3), j(9), p(9), phoenix()], null);
+      expect(result.status).toBe('choose');
+      expect((result as { validValues: number[] }).validValues).toEqual([3, 9]);
+    });
+
+    it('straight extension where only top-extend beats trick → auto-resolves', () => {
+      // Trick top: straight rank 8 (highest card = 8), length 5
+      const trick: TrickState = {
+        plays: [{
+          seat: 'north',
+          combination: {
+            type: CombinationType.Straight, cards: [], rank: 8, length: 5, isBomb: false,
+          },
+        }],
+        passes: [],
+        leadSeat: 'north',
+        currentWinner: 'north',
+      };
+      // Player plays [5,6,7,8,Phoenix] → choose [4, 9]
+      // Phoenix=4 → straight 4-8, rank 8 (can't beat rank 8, same rank)
+      // Phoenix=9 → straight 5-9, rank 9 (beats rank 8)
+      const result = resolvePhoenixValues([j(5), p(6), s(7), j(8), phoenix()], trick);
+      expect(result).toEqual({ status: 'auto', value: 9 });
+    });
+
+    it('straight extension when leading → still returns choose', () => {
+      const result = resolvePhoenixValues([j(5), p(6), s(7), j(8), phoenix()], null);
+      expect(result.status).toBe('choose');
+      expect((result as { validValues: number[] }).validValues).toEqual([4, 9]);
+    });
+
+    it('straight extension where neither beats trick → invalid', () => {
+      // Trick top: straight rank 14, length 5
+      const trick: TrickState = {
+        plays: [{
+          seat: 'north',
+          combination: {
+            type: CombinationType.Straight, cards: [], rank: 14, length: 5, isBomb: false,
+          },
+        }],
+        passes: [],
+        leadSeat: 'north',
+        currentWinner: 'north',
+      };
+      // Player plays [5,6,7,8,Phoenix] → choose [4, 9], both < 14
+      const result = resolvePhoenixValues([j(5), p(6), s(7), j(8), phoenix()], trick);
+      expect(result.status).toBe('invalid');
+    });
+  });
+
   // --- Edge cases ---
 
   describe('edge cases', () => {
