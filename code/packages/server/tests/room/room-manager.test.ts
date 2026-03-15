@@ -20,10 +20,10 @@ describe('RoomManager', () => {
     it('should create a room with a 6-char code', () => {
       const room = manager.createRoom('user1', 'Alice');
       expect(room.roomCode).toHaveLength(6);
-      expect(room.hostSeat).toBe('north');
+      expect(room.hostSeat).toBe('south');
       expect(room.players).toHaveLength(1);
       expect(room.players[0]).toMatchObject({
-        seat: 'north',
+        seat: 'south',
         name: 'Alice',
         isBot: false,
         isConnected: true,
@@ -60,7 +60,7 @@ describe('RoomManager', () => {
     it('should assign next free seat', () => {
       const room = manager.createRoom('user1', 'Alice');
       const { seat } = manager.joinRoom('user2', room.roomCode, 'Bob');
-      expect(seat).toBe('east');
+      expect(seat).toBe('north');
       expect(room.players).toHaveLength(2);
     });
 
@@ -92,7 +92,7 @@ describe('RoomManager', () => {
     it('should reject joining room with game in progress', () => {
       const room = manager.createRoom('u1', 'P1');
       manager.joinRoom('u2', room.roomCode, 'P2');
-      manager.addBot(room.roomCode, 'south');
+      manager.addBot(room.roomCode, 'east');
       manager.addBot(room.roomCode, 'west');
       manager.startGame(room.roomCode);
       expect(() => manager.joinRoom('u5', room.roomCode, 'P5')).toThrow('Game already in progress');
@@ -121,7 +121,7 @@ describe('RoomManager', () => {
       const room = manager.createRoom('u1', 'P1');
       manager.joinRoom('u2', room.roomCode, 'P2');
       const result = manager.leaveRoom('u1');
-      expect(result.room!.hostSeat).toBe('east');
+      expect(result.room!.hostSeat).toBe('north');
     });
 
     it('should reject leaving if not in a room', () => {
@@ -134,10 +134,10 @@ describe('RoomManager', () => {
   describe('addBot / removeBot', () => {
     it('should add bot to a specific seat', () => {
       const room = manager.createRoom('u1', 'P1');
-      manager.addBot(room.roomCode, 'south');
+      manager.addBot(room.roomCode, 'north');
       expect(room.players).toHaveLength(2);
       expect(room.players[1]).toMatchObject({
-        seat: 'south',
+        seat: 'north',
         isBot: true,
         isConnected: true,
       });
@@ -145,24 +145,24 @@ describe('RoomManager', () => {
 
     it('should reject adding bot to occupied seat', () => {
       const room = manager.createRoom('u1', 'P1');
-      expect(() => manager.addBot(room.roomCode, 'north')).toThrow('already occupied');
+      expect(() => manager.addBot(room.roomCode, 'south')).toThrow('already occupied');
     });
 
     it('should remove bot from seat', () => {
       const room = manager.createRoom('u1', 'P1');
-      manager.addBot(room.roomCode, 'south');
-      manager.removeBot(room.roomCode, 'south');
+      manager.addBot(room.roomCode, 'north');
+      manager.removeBot(room.roomCode, 'north');
       expect(room.players).toHaveLength(1);
     });
 
     it('should reject removing non-bot', () => {
       const room = manager.createRoom('u1', 'P1');
-      expect(() => manager.removeBot(room.roomCode, 'north')).toThrow('not a bot');
+      expect(() => manager.removeBot(room.roomCode, 'south')).toThrow('not a bot');
     });
 
     it('should use custom bot difficulty', () => {
       const room = manager.createRoom('u1', 'P1');
-      manager.addBot(room.roomCode, 'south', 'hard');
+      manager.addBot(room.roomCode, 'north', 'hard');
       expect(room.players[1].name).toContain('hard');
     });
   });
@@ -185,8 +185,8 @@ describe('RoomManager', () => {
 
     it('should reject config change during game', () => {
       const room = manager.createRoom('u1', 'P1');
+      manager.addBot(room.roomCode, 'north');
       manager.addBot(room.roomCode, 'east');
-      manager.addBot(room.roomCode, 'south');
       manager.addBot(room.roomCode, 'west');
       manager.startGame(room.roomCode);
       expect(() => manager.configureRoom(room.roomCode, { targetScore: 500 })).toThrow('Game already in progress');
@@ -199,7 +199,7 @@ describe('RoomManager', () => {
     it('should mark game in progress when 4 players', () => {
       const room = manager.createRoom('u1', 'P1');
       manager.joinRoom('u2', room.roomCode, 'P2');
-      manager.addBot(room.roomCode, 'south');
+      manager.addBot(room.roomCode, 'east');
       manager.addBot(room.roomCode, 'west');
       manager.startGame(room.roomCode);
       expect(room.gameInProgress).toBe(true);
@@ -212,8 +212,8 @@ describe('RoomManager', () => {
 
     it('should reject double start', () => {
       const room = manager.createRoom('u1', 'P1');
+      manager.addBot(room.roomCode, 'north');
       manager.addBot(room.roomCode, 'east');
-      manager.addBot(room.roomCode, 'south');
       manager.addBot(room.roomCode, 'west');
       manager.startGame(room.roomCode);
       expect(() => manager.startGame(room.roomCode)).toThrow('Game already in progress');
@@ -254,12 +254,12 @@ describe('RoomManager', () => {
     it('should track user room and seat', () => {
       const room = manager.createRoom('u1', 'Alice');
       expect(manager.getUserRoom('u1')).toBe(room.roomCode);
-      expect(manager.getUserSeat('u1')).toBe('north');
+      expect(manager.getUserSeat('u1')).toBe('south');
     });
 
     it('should track userId at seat', () => {
       const room = manager.createRoom('u1', 'Alice');
-      expect(manager.getUserIdAtSeat(room.roomCode, 'north')).toBe('u1');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'south')).toBe('u1');
     });
 
     it('should identify host', () => {
@@ -283,7 +283,7 @@ describe('RoomManager', () => {
     it('should mark player as disconnected', () => {
       const room = manager.createRoom('u1', 'Alice');
       const result = manager.markDisconnected('u1');
-      expect(result).toMatchObject({ roomCode: room.roomCode, seat: 'north' });
+      expect(result).toMatchObject({ roomCode: room.roomCode, seat: 'south' });
       expect(room.players[0].isConnected).toBe(false);
     });
 
@@ -324,8 +324,8 @@ describe('RoomManager', () => {
   describe('endGame', () => {
     it('should mark game as not in progress', () => {
       const room = manager.createRoom('u1', 'P1');
+      manager.addBot(room.roomCode, 'north');
       manager.addBot(room.roomCode, 'east');
-      manager.addBot(room.roomCode, 'south');
       manager.addBot(room.roomCode, 'west');
       manager.startGame(room.roomCode);
       manager.endGame(room.roomCode);
@@ -341,7 +341,7 @@ describe('RoomManager', () => {
       const { seat: s2 } = manager.joinRoom('u2', room.roomCode, 'P2');
       const { seat: s3 } = manager.joinRoom('u3', room.roomCode, 'P3');
       const { seat: s4 } = manager.joinRoom('u4', room.roomCode, 'P4');
-      expect([room.hostSeat, s2, s3, s4]).toEqual(['north', 'east', 'south', 'west']);
+      expect([room.hostSeat, s2, s3, s4]).toEqual(['south', 'north', 'east', 'west']);
     });
   });
 
@@ -351,20 +351,20 @@ describe('RoomManager', () => {
   describe('swapSeat', () => {
     it('should move player to an empty seat', () => {
       const room = manager.createRoom('u1', 'Alice');
-      const { affectedUserIds } = manager.swapSeat('u1', 'south');
+      const { affectedUserIds } = manager.swapSeat('u1', 'north');
       expect(affectedUserIds).toEqual(['u1']);
-      expect(manager.getUserSeat('u1')).toBe('south');
-      expect(room.players[0].seat).toBe('south');
-      expect(manager.getUserIdAtSeat(room.roomCode, 'south')).toBe('u1');
-      expect(manager.getUserIdAtSeat(room.roomCode, 'north')).toBeUndefined();
+      expect(manager.getUserSeat('u1')).toBe('north');
+      expect(room.players[0].seat).toBe('north');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'north')).toBe('u1');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'south')).toBeUndefined();
     });
 
     it('should move host designation when host swaps to empty seat', () => {
       const room = manager.createRoom('u1', 'Alice');
       manager.joinRoom('u2', room.roomCode, 'Bob');
-      expect(room.hostSeat).toBe('north');
-      manager.swapSeat('u1', 'south');
       expect(room.hostSeat).toBe('south');
+      manager.swapSeat('u1', 'east');
+      expect(room.hostSeat).toBe('east');
     });
 
     it('should replace a bot when swapping to bot seat', () => {
@@ -382,30 +382,30 @@ describe('RoomManager', () => {
     it('should swap two human players', () => {
       const room = manager.createRoom('u1', 'Alice');
       manager.joinRoom('u2', room.roomCode, 'Bob');
-      expect(manager.getUserSeat('u1')).toBe('north');
-      expect(manager.getUserSeat('u2')).toBe('east');
+      expect(manager.getUserSeat('u1')).toBe('south');
+      expect(manager.getUserSeat('u2')).toBe('north');
 
-      const { affectedUserIds } = manager.swapSeat('u1', 'east');
+      const { affectedUserIds } = manager.swapSeat('u1', 'north');
       expect(affectedUserIds).toContain('u1');
       expect(affectedUserIds).toContain('u2');
-      expect(manager.getUserSeat('u1')).toBe('east');
-      expect(manager.getUserSeat('u2')).toBe('north');
-      expect(manager.getUserIdAtSeat(room.roomCode, 'east')).toBe('u1');
-      expect(manager.getUserIdAtSeat(room.roomCode, 'north')).toBe('u2');
+      expect(manager.getUserSeat('u1')).toBe('north');
+      expect(manager.getUserSeat('u2')).toBe('south');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'north')).toBe('u1');
+      expect(manager.getUserIdAtSeat(room.roomCode, 'south')).toBe('u2');
     });
 
     it('should swap host designation when host swaps with another human', () => {
       const room = manager.createRoom('u1', 'Alice');
       manager.joinRoom('u2', room.roomCode, 'Bob');
-      expect(room.hostSeat).toBe('north');
-      manager.swapSeat('u1', 'east');
-      expect(room.hostSeat).toBe('east'); // host follows u1
+      expect(room.hostSeat).toBe('south');
+      manager.swapSeat('u1', 'north');
+      expect(room.hostSeat).toBe('north'); // host follows u1
     });
 
     it('should reject swap during game in progress', () => {
       const room = manager.createRoom('u1', 'Alice');
+      manager.addBot(room.roomCode, 'north');
       manager.addBot(room.roomCode, 'east');
-      manager.addBot(room.roomCode, 'south');
       manager.addBot(room.roomCode, 'west');
       manager.startGame(room.roomCode);
       expect(() => manager.swapSeat('u1', 'east')).toThrow('Cannot swap seats during a game');
@@ -413,11 +413,11 @@ describe('RoomManager', () => {
 
     it('should reject swap to same seat', () => {
       manager.createRoom('u1', 'Alice');
-      expect(() => manager.swapSeat('u1', 'north')).toThrow('Already in that seat');
+      expect(() => manager.swapSeat('u1', 'south')).toThrow('Already in that seat');
     });
 
     it('should reject swap if not in a room', () => {
-      expect(() => manager.swapSeat('unknown', 'north')).toThrow('Not in a room');
+      expect(() => manager.swapSeat('unknown', 'south')).toThrow('Not in a room');
     });
   });
 });

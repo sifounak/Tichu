@@ -53,10 +53,10 @@ export class RoomHandler {
 
     try {
       const room = this.roomManager.createRoom(info.userId, msg.playerName);
-      this.connections.assignToRoom(ws, room.roomCode, 'north');
+      this.connections.assignToRoom(ws, room.roomCode, room.hostSeat);
 
       this.broadcaster.send(ws, { type: 'ROOM_CREATED', roomCode: room.roomCode });
-      this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: room.roomCode, seat: 'north' });
+      this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: room.roomCode, seat: room.hostSeat });
       this.broadcastRoomUpdate(room.roomCode);
     } catch (err) {
       this.broadcaster.sendError(ws, 'CREATE_ROOM_FAILED', (err as Error).message);

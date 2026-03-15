@@ -129,7 +129,7 @@ describe('RoomHandler', () => {
       expect(broadcaster.send).toHaveBeenCalledWith(ws1, expect.objectContaining({ type: 'ROOM_CREATED' }));
       expect(broadcaster.send).toHaveBeenCalledWith(ws1, expect.objectContaining({
         type: 'ROOM_JOINED',
-        seat: 'north',
+        seat: 'south',
       }));
       expect(connections.assignToRoom).toHaveBeenCalled();
     });
@@ -162,7 +162,7 @@ describe('RoomHandler', () => {
 
       expect(broadcaster.send).toHaveBeenCalledWith(ws2, expect.objectContaining({
         type: 'ROOM_JOINED',
-        seat: 'east',
+        seat: 'north',
       }));
     });
 
@@ -233,7 +233,7 @@ describe('RoomHandler', () => {
   describe('ADD_BOT / REMOVE_BOT', () => {
     it('should add bot to specified seat', async () => {
       await router.handleMessage(ws1, JSON.stringify({ type: 'CREATE_ROOM', playerName: 'Alice' }));
-      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'south' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'north' }));
 
       const room = handler.roomManager.getRoom(handler.roomManager.getUserRoom('user1')!);
       expect(room!.players).toHaveLength(2);
@@ -242,8 +242,8 @@ describe('RoomHandler', () => {
 
     it('should remove bot from seat', async () => {
       await router.handleMessage(ws1, JSON.stringify({ type: 'CREATE_ROOM', playerName: 'Alice' }));
-      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'south' }));
-      await router.handleMessage(ws1, JSON.stringify({ type: 'REMOVE_BOT', seat: 'south' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'north' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'REMOVE_BOT', seat: 'north' }));
 
       const room = handler.roomManager.getRoom(handler.roomManager.getUserRoom('user1')!);
       expect(room!.players).toHaveLength(1);
@@ -259,7 +259,7 @@ describe('RoomHandler', () => {
         type: 'JOIN_ROOM', roomCode, playerName: 'Bob',
       }));
 
-      await router.handleMessage(ws2, JSON.stringify({ type: 'ADD_BOT', seat: 'south' }));
+      await router.handleMessage(ws2, JSON.stringify({ type: 'ADD_BOT', seat: 'north' }));
       expect(broadcaster.sendError).toHaveBeenCalledWith(ws2, 'NOT_HOST', expect.any(String));
     });
   });
@@ -281,8 +281,8 @@ describe('RoomHandler', () => {
   describe('START_GAME', () => {
     it('should start game when 4 players are seated', async () => {
       await router.handleMessage(ws1, JSON.stringify({ type: 'CREATE_ROOM', playerName: 'Alice' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'north' }));
       await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'east' }));
-      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'south' }));
       await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'west' }));
 
       await router.handleMessage(ws1, JSON.stringify({ type: 'START_GAME' }));
@@ -292,8 +292,8 @@ describe('RoomHandler', () => {
 
     it('should reject start from non-host', async () => {
       await router.handleMessage(ws1, JSON.stringify({ type: 'CREATE_ROOM', playerName: 'Alice' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'north' }));
       await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'east' }));
-      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'south' }));
       await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'west' }));
 
       const ws2 = createMockWs();
@@ -314,7 +314,7 @@ describe('RoomHandler', () => {
         type: 'JOIN_ROOM', roomCode, playerName: 'Bob',
       }));
 
-      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'south' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'east' }));
       await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'west' }));
 
       await router.handleMessage(ws1, JSON.stringify({ type: 'START_GAME' }));
@@ -323,7 +323,7 @@ describe('RoomHandler', () => {
       // seatPlayer called for all 4 players (2 humans + 2 bots)
       expect(game.seatPlayer).toHaveBeenCalledTimes(4);
       expect(game.handleMessage).toHaveBeenCalledWith(
-        ws1, 'north', { type: 'START_GAME' },
+        ws1, 'south', { type: 'START_GAME' },
       );
     });
   });
