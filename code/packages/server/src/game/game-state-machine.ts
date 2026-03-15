@@ -679,9 +679,11 @@ export const gameMachine = setup({
         return scoreAndFinishRound(round, context);
       }
 
-      // Continue with next trick — winner leads
+      // Continue with next trick — winner leads (or next active if winner finished)
       round.currentTrick = null;
-      // The trick winner already had their turn advance handled
+      if (round.players[round.currentTurn!].finishOrder !== null) {
+        round.currentTurn = getNextActiveSeat(round.currentTurn!, round);
+      }
       return { currentRound: round };
     }),
   },
