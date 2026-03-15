@@ -24,6 +24,16 @@ export default function LobbyPage() {
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
+  const [kickedMessage, setKickedMessage] = useState<string | null>(null);
+
+  // Check for kicked message on mount
+  useEffect(() => {
+    const msg = sessionStorage.getItem('tichu_kicked_message');
+    if (msg) {
+      setKickedMessage(msg);
+      sessionStorage.removeItem('tichu_kicked_message');
+    }
+  }, []);
   const { lobbyRooms, setLobbyRooms, setRoom } = useRoomStore();
 
   const onMessage = useCallback((msg: ServerMessage) => {
@@ -91,6 +101,22 @@ export default function LobbyPage() {
             {status === 'connected' ? 'Connected' : status === 'connecting' ? 'Connecting...' : 'Disconnected'}
           </p>
         </div>
+
+        {/* Kicked notification */}
+        {kickedMessage && (
+          <div className="mb-4 text-center py-3 px-4 rounded-lg"
+            style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--color-error)' }}
+            role="alert"
+          >
+            {kickedMessage}
+            <button
+              onClick={() => setKickedMessage(null)}
+              className="ml-3 text-xs underline opacity-70 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Player name */}
         <div className="mb-6 flex justify-center">

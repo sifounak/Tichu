@@ -42,6 +42,7 @@ export class RoomHandler {
     router.on('GET_LOBBY', (ws) => this.handleGetLobby(ws));
     router.on('START_GAME', (ws) => this.handleStartGame(ws));
     router.on('SWAP_SEATS', (ws, msg) => this.handleSwapSeats(ws, msg as ClientMessage & { type: 'SWAP_SEATS' }));
+    router.on('KICK_PLAYER', (ws, msg) => this.handleKickPlayer(ws, msg as ClientMessage & { type: 'KICK_PLAYER' }));
   }
 
   private handleCreateRoom(ws: WebSocket, msg: ClientMessage & { type: 'CREATE_ROOM' }): void {
@@ -99,6 +100,36 @@ export class RoomHandler {
       }
     } catch (err) {
       this.broadcaster.sendError(ws, 'LEAVE_ROOM_FAILED', (err as Error).message);
+    }
+  }
+
+  private handleKickPlayer(ws: WebSocket, msg: ClientMessage & { type: 'KICK_PLAYER' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info) {
+      this.broadcaster.sendError(ws, 'NOT_AUTHENTICATED', 'Not authenticated');
+      return;
+    }
+
+    try {
+      // Find the kicked player's WebSocket before removing them
+      const kickedClient = this.connections.getClientsInRoom(info.roomCode!)
+        .find(c => c.info.seat === msg.seat);
+
+      const { roomCode } = this.roomManager.kickPlayer(info.userId, msg.seat);
+
+      // Notify the kicked player
+      if (kickedClient) {
+        this.connections.removeFromRoom(kickedClient.ws);
+        this.broadcaster.send(kickedClient.ws, {
+          type: 'KICKED',
+          message: 'The host has removed you from the room.',
+        });
+      }
+
+      // Update remaining players
+      this.broadcastRoomUpdate(roomCode);
+    } catch (err) {
+      this.broadcaster.sendError(ws, 'KICK_FAILED', (err as Error).message);
     }
   }
 
