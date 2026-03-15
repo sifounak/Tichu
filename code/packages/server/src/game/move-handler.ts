@@ -235,6 +235,11 @@ export class MoveHandler {
       return { ok: false, error: 'Can only declare wish after playing Mahjong' };
     }
 
+    // REQ-F-WV01: Validate wish rank is an integer between 2 and 14
+    if (rank !== null && (typeof rank !== 'number' || rank < 2 || rank > 14 || !Number.isInteger(rank))) {
+      return { ok: false, error: 'Wish rank must be an integer between 2 and 14' };
+    }
+
     this.actor.send({ type: 'DECLARE_WISH', seat, rank });
     return { ok: true };
   }
