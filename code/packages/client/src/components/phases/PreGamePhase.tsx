@@ -23,6 +23,7 @@ export interface PreGamePhaseProps {
   // Received cards display (after exchange)
   receivedCards?: Record<Seat, GameCard | null>;
   onDismissReceived?: () => void;
+  seatNames?: Record<Seat, string>;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -42,6 +43,7 @@ export const PreGamePhase = memo(function PreGamePhase({
   onCancelPass,
   receivedCards,
   onDismissReceived,
+  seatNames,
 }: PreGamePhaseProps) {
   const partner = getPartner(mySeat);
   const leftOpponent = getNextSeat(getNextSeat(getNextSeat(mySeat)));
@@ -79,12 +81,12 @@ export const PreGamePhase = memo(function PreGamePhase({
       const placed = passSelection.get(seat);
       return (
         <div className={styles.slotWrapper}>
-          <span className={styles.slotLabel}>{SEAT_LABELS[seat]}</span>
+          <span className={styles.slotLabel}>{seatNames?.[seat] ?? SEAT_LABELS[seat]}</span>
           <div
             className={`${styles.slot} ${placed ? styles.slotFilled : ''} ${!placed && activeCardId !== null ? styles.slotReady : ''}`}
             onClick={() => (placed && activeCardId === null) ? onSlotRemove(seat) : onSlotClick(seat)}
             role="button"
-            aria-label={placed ? `Remove card from ${SEAT_LABELS[seat]} slot` : `Pass card to ${SEAT_LABELS[seat]}`}
+            aria-label={placed ? `Remove card from ${seatNames?.[seat] ?? SEAT_LABELS[seat]} slot` : `Pass card to ${seatNames?.[seat] ?? SEAT_LABELS[seat]}`}
           >
             {placed ? (
               <Card gameCard={placed} state="normal" />
@@ -152,7 +154,7 @@ export const PreGamePhase = memo(function PreGamePhase({
       if (!card) return null;
       return (
         <div className={styles.slotWrapper}>
-          <span className={styles.slotLabel}>{SEAT_LABELS[seat]}</span>
+          <span className={styles.slotLabel}>{seatNames?.[seat] ?? SEAT_LABELS[seat]}</span>
           <div className={`${styles.slot} ${styles.slotFilled}`}>
             <Card gameCard={card} state="normal" />
           </div>

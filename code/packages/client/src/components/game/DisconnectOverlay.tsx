@@ -18,6 +18,7 @@ export interface DisconnectOverlayProps {
   countdownSeconds: number;
   /** Reconnection notification */
   reconnectedSeat: Seat | null;
+  seatNames?: Record<Seat, string>;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -33,6 +34,7 @@ export const DisconnectOverlay = memo(function DisconnectOverlay({
   onVote,
   countdownSeconds,
   reconnectedSeat,
+  seatNames,
 }: DisconnectOverlayProps) {
   const { durations, enabled } = useAnimationSettings();
   const [showReconnected, setShowReconnected] = useState(false);
@@ -61,7 +63,7 @@ export const DisconnectOverlay = memo(function DisconnectOverlay({
             <div className={styles.panel} role="alertdialog" aria-label="Player disconnected">
               <h3 className={styles.title}>Player Disconnected</h3>
               <p className={styles.message}>
-                {SEAT_LABELS[disconnectedSeat]} has lost connection.
+                {seatNames?.[disconnectedSeat] ?? SEAT_LABELS[disconnectedSeat]} has lost connection.
               </p>
 
               {countdownSeconds > 0 && (
@@ -112,7 +114,7 @@ export const DisconnectOverlay = memo(function DisconnectOverlay({
             role="status"
             aria-live="polite"
           >
-            {SEAT_LABELS[reconnectedSeat]} reconnected
+            {seatNames?.[reconnectedSeat] ?? SEAT_LABELS[reconnectedSeat]} reconnected
           </motion.div>
         )}
       </AnimatePresence>
