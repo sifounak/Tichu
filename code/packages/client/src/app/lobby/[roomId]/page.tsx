@@ -406,7 +406,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
               <span>Bots: {config.botDifficulty}</span>
               <span>Speed: {config.animationSpeed}</span>
-              <span>{config.isPrivate ? 'Private' : 'Public'}</span>
+              <span>{config.isPrivate ? 'Private Room' : 'Public Room'}</span>
               <span>Spectators: {config.spectatorsAllowed ? 'Yes' : 'No'}</span>
             </div>
           </div>
