@@ -125,8 +125,9 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         style={{
           background: isMe ? 'rgba(201, 168, 76, 0.15)' : 'rgba(255, 255, 255, 0.05)',
           border: isMe ? '1px solid var(--color-gold-accent)' : '1px solid var(--color-border)',
-          width: '200px',
+          width: '180px',
           height: '90px',
+          padding: '12px 16px',
           textAlign: 'center',
           display: 'flex',
           flexDirection: 'column' as const,
@@ -221,7 +222,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           </h2>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '200px 200px 200px',
+            gridTemplateColumns: '180px 180px 180px',
             gridTemplateRows: 'auto auto auto',
             gap: '12px',
             justifyItems: 'center',
