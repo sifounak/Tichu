@@ -294,19 +294,12 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                   onChange={(e) => handleConfigChange({
                     turnTimerSeconds: e.target.value === 'off' ? null : parseInt(e.target.value) as 30 | 60 | 90,
                   })}
-                  className="mt-1 w-full py-1.5 rounded"
+                  className="mt-1 w-full px-3 py-1.5 rounded"
                   style={{
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                     textAlign: 'center',
-                    WebkitAppearance: 'none',
-                    appearance: 'none',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 8px center',
-                    paddingLeft: '12px',
-                    paddingRight: '28px',
                   }}
                 >
                   <option value="off">Off</option>
@@ -323,19 +316,12 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                 <select
                   value={config.botDifficulty}
                   onChange={(e) => handleConfigChange({ botDifficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
-                  className="mt-1 w-full py-1.5 rounded"
+                  className="mt-1 w-full px-3 py-1.5 rounded"
                   style={{
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                     textAlign: 'center',
-                    WebkitAppearance: 'none',
-                    appearance: 'none',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 8px center',
-                    paddingLeft: '12px',
-                    paddingRight: '28px',
                   }}
                 >
                   <option value="easy">Easy</option>
@@ -350,19 +336,12 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                 <select
                   value={config.animationSpeed}
                   onChange={(e) => handleConfigChange({ animationSpeed: e.target.value as 'slow' | 'normal' | 'fast' | 'off' })}
-                  className="mt-1 w-full py-1.5 rounded"
+                  className="mt-1 w-full px-3 py-1.5 rounded"
                   style={{
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                     textAlign: 'center',
-                    WebkitAppearance: 'none',
-                    appearance: 'none',
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M1 1l5 5 5-5'/%3E%3C/svg%3E")`,
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right 8px center',
-                    paddingLeft: '12px',
-                    paddingRight: '28px',
                   }}
                 >
                   <option value="slow">Slow</option>
