@@ -6,7 +6,7 @@
 // REQ-NF-U02: Tichu banner animation
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GamePhase } from '@tichu/shared';
 import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId } from '@tichu/shared';
@@ -62,21 +62,35 @@ export default function GamePage() {
   const { enabled: animEnabled, multiplier: animMultiplier } = useAnimationSettings();
   const dogAnimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Check if any human player still has cards (used for Dog animation & bomb window)
+  const anyHumanActive = useMemo(() => {
+    if (roomPlayers.length === 0) return true;
+    const botSeats = new Set(roomPlayers.filter((p) => p.isBot).map((p) => p.seat));
+    const finishedSeats = new Set(gameStore.finishOrder);
+    return (['north', 'east', 'south', 'west'] as const).some(
+      (seat) => !botSeats.has(seat) && !finishedSeats.has(seat),
+    );
+  }, [roomPlayers, gameStore.finishOrder]);
+
   const handleMessage = useCallback(
     (msg: ServerMessage) => {
       if (msg.type === 'GAME_STATE') {
         const view = msg.state as ClientGameView;
 
         // REQ-F-DA01: Detect Dog play and trigger animation
-        if (view.lastDogPlay && animEnabled) {
+        // Skip entirely when only bots remain (no human needs to see it)
+        if (view.lastDogPlay && animEnabled && anyHumanActive) {
           // Clear any previous Dog animation timer
           if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
           uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
-          // Auto-clear after animation completes: 2s pause + 0.4s sweep, scaled by animation speed
+          // 1s pause + 0.4s sweep, scaled by animation speed
+          const dogTotalMs = (1.0 + 0.4) * animMultiplier * 1000;
           dogAnimTimerRef.current = setTimeout(
             () => uiStore.clearDogAnimation(),
-            (2.0 + 0.4) * animMultiplier * 1000,
+            dogTotalMs,
           );
+          // Block plays during Dog animation (reuse bomb window mechanism)
+          uiStore.startBombWindow(dogTotalMs);
         }
 
         gameStore.applyGameState(view);
@@ -108,7 +122,7 @@ export default function GamePage() {
         gameStore.applyServerMessage(msg);
       }
     },
-    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier],
+    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive],
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
@@ -121,8 +135,7 @@ export default function GamePage() {
   // REQ-F-BW01: Bomb window — 2s delay after each play while humans are active
   const bombWindow = useBombWindow({
     send: send as (msg: Record<string, unknown>) => boolean,
-    roomPlayers,
-    finishOrder: gameStore.finishOrder,
+    anyHumanActive,
   });
 
   // REQ-F-BW01: Start bomb window when a new play appears in the trick

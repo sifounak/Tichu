@@ -141,6 +141,11 @@ export const TrickDisplay = memo(function TrickDisplay({
             exit={{
               ...EXIT_OFFSETS[seatPosition(dogAnimation.toSeat, mySeat)],
               opacity: 0,
+              transition: {
+                duration: durations.trickSweep,
+                ease: 'easeIn' as const,
+                delay: 1.0 * (enabled ? 1 : 0),
+              },
             }}
             transition={{
               type: 'spring',
