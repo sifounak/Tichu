@@ -217,11 +217,11 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           </h2>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr auto 1fr',
+            gridTemplateColumns: '200px 200px 200px',
             gridTemplateRows: 'auto auto auto',
             gap: '12px',
             justifyItems: 'center',
-            maxWidth: '500px',
+            justifyContent: 'center',
             margin: '0 auto',
           }}>
             {/* North — row 1, col 2 */}
