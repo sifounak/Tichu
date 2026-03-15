@@ -246,7 +246,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
             <div style={{
               gridColumn: 2, gridRow: 2,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--color-text-muted)', fontSize: '26px', fontWeight: 600,
+              color: 'var(--color-text-muted)', fontSize: '52px', fontWeight: 600,
             }}>
               vs
             </div>
