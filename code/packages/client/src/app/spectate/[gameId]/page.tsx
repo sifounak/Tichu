@@ -3,9 +3,10 @@
 
 import { useCallback } from 'react';
 import { GamePhase } from '@tichu/shared';
-import type { ClientGameView, ServerMessage } from '@tichu/shared';
+import type { ClientGameView, ServerMessage, Seat } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useGameStore } from '@/stores/gameStore';
+import { useRoomStore } from '@/stores/roomStore';
 import { useUiStore } from '@/stores/uiStore';
 import { GameTable } from '@/components/game/GameTable';
 import { ScorePanel } from '@/components/game/ScorePanel';
@@ -86,6 +87,18 @@ export default function SpectatePage() {
 
   const tichuCalls = gameStore.otherPlayers.map((p) => ({ seat: p.seat, call: p.tichuCall }));
 
+  // Build seat→name mapping from room store players
+  const roomPlayers = useRoomStore((s) => s.players);
+  const SEAT_LABELS: Record<string, string> = { north: 'North', east: 'East', south: 'South', west: 'West' };
+  const seatNames = {
+    north: roomPlayers.find((p) => p.seat === 'north')?.name ?? SEAT_LABELS.north,
+    east: roomPlayers.find((p) => p.seat === 'east')?.name ?? SEAT_LABELS.east,
+    south: roomPlayers.find((p) => p.seat === 'south')?.name ?? SEAT_LABELS.south,
+    west: roomPlayers.find((p) => p.seat === 'west')?.name ?? SEAT_LABELS.west,
+  } as Record<Seat, string>;
+  // Spectators default to viewing from north's perspective
+  const spectatorSeat: Seat = gameStore.mySeat ?? 'north';
+
   return (
     <>
       {/* Spectator badge */}
@@ -101,6 +114,8 @@ export default function SpectatePage() {
             roundHistory={gameStore.roundHistory}
             tichuCalls={tichuCalls}
             targetScore={gameStore.config?.targetScore ?? 1000}
+            seatNames={seatNames}
+            mySeat={spectatorSeat}
           />
         </div>
       )}

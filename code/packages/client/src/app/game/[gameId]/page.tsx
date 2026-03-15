@@ -7,11 +7,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { GamePhase } from '@tichu/shared';
 import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useCardSelection } from '@/hooks/useCardSelection';
 import { useGameStore } from '@/stores/gameStore';
+import { useRoomStore } from '@/stores/roomStore';
 import { useUiStore } from '@/stores/uiStore';
 import { GameTable } from '@/components/game/GameTable';
 import { PlayerSeat } from '@/components/game/PlayerSeat';
@@ -40,8 +42,12 @@ function getGuestId(): string {
 }
 
 export default function GamePage() {
+  const router = useRouter();
   const gameStore = useGameStore();
   const uiStore = useUiStore();
+  const roomPlayers = useRoomStore((s) => s.players);
+  const leaveRoom = useRoomStore((s) => s.leaveRoom);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
   // REQ-F-SG01: Include userId and playerName in WebSocket URL
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
@@ -71,13 +77,17 @@ export default function GamePage() {
         // REQ-NF-U02: Show Tichu banner
         uiStore.setTichuEvent({ seat: msg.seat as Seat, level: msg.level as TichuCall });
         gameStore.applyServerMessage(msg);
+      } else if (msg.type === 'ROOM_LEFT') {
+        leaveRoom();
+        gameStore.reset();
+        router.push('/lobby');
       } else if (msg.type === 'ERROR') {
         uiStore.showErrorToast(msg.message);
       } else {
         gameStore.applyServerMessage(msg);
       }
     },
-    [gameStore, uiStore],
+    [gameStore, uiStore, leaveRoom, router],
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
@@ -270,8 +280,111 @@ export default function GamePage() {
     ...gameStore.otherPlayers.map((p) => ({ seat: p.seat, call: p.tichuCall })),
   ];
 
+  // Build seat→name mapping from room store players
+  const SEAT_LABELS: Record<string, string> = { north: 'North', east: 'East', south: 'South', west: 'West' };
+  const seatNames = {
+    north: roomPlayers.find((p) => p.seat === 'north')?.name ?? SEAT_LABELS.north,
+    east: roomPlayers.find((p) => p.seat === 'east')?.name ?? SEAT_LABELS.east,
+    south: roomPlayers.find((p) => p.seat === 'south')?.name ?? SEAT_LABELS.south,
+    west: roomPlayers.find((p) => p.seat === 'west')?.name ?? SEAT_LABELS.west,
+  } as Record<Seat, string>;
+
+  const handleLeaveGame = () => {
+    send({ type: 'LEAVE_ROOM' });
+    setShowLeaveConfirm(false);
+  };
+
   return (
     <>
+      {/* Leave game button */}
+      <button
+        onClick={() => setShowLeaveConfirm(true)}
+        style={{
+          position: 'fixed',
+          top: 12,
+          left: 16,
+          zIndex: 30,
+          background: 'rgba(255,255,255,0.1)',
+          border: '1px solid var(--color-border)',
+          borderRadius: '8px',
+          color: 'var(--color-text-secondary)',
+          padding: '6px 14px',
+          fontSize: '13px',
+          fontWeight: 600,
+          cursor: 'pointer',
+        }}
+        aria-label="Leave game"
+      >
+        Leave
+      </button>
+
+      {/* Leave confirmation dialog */}
+      {showLeaveConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.6)',
+          }}
+          onClick={() => setShowLeaveConfirm(false)}
+        >
+          <div
+            style={{
+              background: 'var(--color-bg-panel)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              padding: '24px 32px',
+              textAlign: 'center',
+              maxWidth: '360px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+              Leave Game?
+            </p>
+            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '20px' }}>
+              You will forfeit this game and return to the lobby.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowLeaveConfirm(false)}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--color-border)',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Stay
+              </button>
+              <button
+                onClick={handleLeaveGame}
+                style={{
+                  padding: '8px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#dc2626',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* REQ-F-DI05: Score panel */}
       {gameStore.scores && (
         <div style={{ position: 'fixed', top: 8, right: 16, zIndex: 30 }}>
@@ -280,6 +393,8 @@ export default function GamePage() {
             roundHistory={gameStore.roundHistory}
             tichuCalls={tichuCalls}
             targetScore={gameStore.config?.targetScore ?? 1000}
+            seatNames={seatNames}
+            mySeat={mySeat!}
           />
         </div>
       )}
