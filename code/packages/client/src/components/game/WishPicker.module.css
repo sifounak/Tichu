@@ -1,0 +1,111 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.picker {
+  background: var(--color-felt-green-light);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 24px;
+  min-width: 240px;
+  max-width: 320px;
+  box-shadow: var(--shadow-panel);
+  text-align: center;
+}
+
+.title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-special-mahjong, #e6c619);
+}
+
+.subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.option {
+  width: 48px;
+  height: 48px;
+  border: 2px solid var(--color-special-mahjong, #e6c619);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-card);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--easing-smooth);
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.option:hover {
+  background: var(--color-special-mahjong, #e6c619);
+  color: white;
+}
+
+.noWishButton {
+  display: block;
+  width: 100%;
+  padding: 10px 20px;
+  margin-bottom: 8px;
+  border: 2px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.noWishButton:hover {
+  border-color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cancelButton {
+  padding: 8px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.cancelButton:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-secondary);
+}
+
+@media (max-width: 640px) {
+  .overlay {
+    align-items: flex-end;
+  }
+
+  .picker {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  }
+}
