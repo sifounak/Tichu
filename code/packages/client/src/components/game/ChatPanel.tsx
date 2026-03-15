@@ -60,9 +60,9 @@ export const ChatPanel = memo(function ChatPanel({
           onClick={onToggle}
           aria-label={`Open chat${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
         >
-          <span className={styles.chatIcon} aria-hidden="true">
-            &#x1F4AC;
-          </span>
+          <svg className={styles.chatIcon} aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 5.92 2 10.66c0 2.72 1.52 5.16 3.92 6.76-.2 1.56-.88 2.9-1.84 3.88a.5.5 0 00.36.84c2.44 0 4.36-1.08 5.56-2.16.64.08 1.3.12 2 .12 5.52 0 10-3.92 10-8.66S17.52 2 12 2z" />
+          </svg>
           {unreadCount > 0 && (
             <span className={styles.unreadBadge}>{unreadCount}</span>
           )}

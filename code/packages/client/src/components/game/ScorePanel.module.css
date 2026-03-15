@@ -2,53 +2,53 @@
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
   border-radius: 10px;
-  padding: 10px 16px;
-  min-width: 200px;
+  padding: 15px 24px;
+  min-width: 300px;
   text-align: center;
 }
 
-.scoreRow {
-  display: flex;
+.teamGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 24px;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
 }
 
-.teamLabel {
-  font-size: 12px;
+.playerName {
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 .score {
-  font-size: 22px;
+  font-size: 33px;
   font-weight: 700;
-  min-width: 40px;
+  min-width: 60px;
   text-align: center;
-}
-
-.separator {
-  font-size: 16px;
-  color: var(--color-text-muted);
+  padding-top: 2px;
 }
 
 .target {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 
 .tichuCalls {
   display: flex;
   gap: 6px;
   justify-content: center;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
 .tichuBadge {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
 }
 
@@ -63,14 +63,14 @@
 }
 
 .historyToggle {
-  margin-top: 6px;
+  margin-top: 8px;
   background: none;
   border: none;
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 14px;
   cursor: pointer;
-  padding: 4px 8px;
-  min-height: 30px;
+  padding: 6px 12px;
+  min-height: 36px;
 }
 
 .historyToggle:hover {
@@ -78,28 +78,28 @@
 }
 
 .history {
-  margin-top: 6px;
+  margin-top: 8px;
   border-top: 1px solid var(--color-border);
-  padding-top: 6px;
+  padding-top: 8px;
 }
 
 .historyRow {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: 12px;
-  padding: 2px 0;
+  gap: 8px;
+  font-size: 14px;
+  padding: 3px 0;
 }
 
 .roundNum {
   color: var(--color-text-muted);
-  min-width: 28px;
+  min-width: 32px;
   text-align: right;
 }
 
 .historyScore {
-  min-width: 30px;
+  min-width: 36px;
   text-align: center;
 }
 
@@ -110,14 +110,19 @@
 /* REQ-NF-U01: Mobile — collapsed score, expandable overlay */
 @media (max-width: 640px) {
   .panel {
-    padding: 6px 12px;
+    padding: 8px 16px;
     min-width: 0;
     border-radius: 8px;
   }
 
+  .playerName {
+    font-size: 11px;
+    max-width: 80px;
+  }
+
   .score {
-    font-size: 18px;
-    min-width: 32px;
+    font-size: 24px;
+    min-width: 40px;
   }
 
   .target {
