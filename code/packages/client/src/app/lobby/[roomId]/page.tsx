@@ -109,12 +109,13 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
     const isMe = seat === mySeat;
     const isHostSeat = seat === hostSeat;
 
-    // Determine display name
+    // Determine display name and subtitle
     let displayName: string;
+    let subtitle: string | null = null;
     if (player) {
       displayName = player.name;
-      if (isHostSeat) displayName += ' (Host)';
-      else if (isMe) displayName += ' (you)';
+      if (isHostSeat) subtitle = '(Host)';
+      else if (isMe) subtitle = '(you)';
     } else {
       displayName = `${SEAT_LABELS[seat]} — Empty`;
     }
@@ -126,8 +127,8 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           background: isMe ? 'rgba(201, 168, 76, 0.15)' : 'rgba(255, 255, 255, 0.05)',
           border: isMe ? '1px solid var(--color-gold-accent)' : '1px solid var(--color-border)',
           width: '180px',
-          height: '120px',
-          padding: '20px 16px',
+          height: '130px',
+          padding: '20px 16px 28px',
           gap: '6px',
           textAlign: 'center',
           display: 'flex',
@@ -136,8 +137,11 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         }}
       >
         {/* Player name */}
-        <div className="font-semibold text-sm" style={{ color: player ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
-          {displayName}
+        <div style={{ color: player ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
+          <div className="font-semibold text-sm">{displayName}</div>
+          {subtitle && (
+            <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{subtitle}</div>
+          )}
         </div>
 
         {/* Action buttons — stacked vertically, fixed height for uniform card size */}
