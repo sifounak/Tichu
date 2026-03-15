@@ -156,6 +156,16 @@ export function getNextActiveSeat(currentSeat: Seat, round: RoundState): Seat {
   return next;
 }
 
+/** Remove played cards from a player's hand and mark them finished if hand is empty */
+function removeCardsAndCheckFinish(round: RoundState, seat: Seat, cardIds: Set<number>): void {
+  round.players[seat].hand = round.players[seat].hand.filter((gc) => !cardIds.has(gc.id));
+  round.players[seat].hasPlayed = true;
+  if (round.players[seat].hand.length === 0 && round.players[seat].finishOrder === null) {
+    round.finishOrder.push(seat);
+    round.players[seat].finishOrder = round.finishOrder.length;
+  }
+}
+
 /** REQ-F-GF06: Count how many players still have cards */
 export function countActivePlayers(round: RoundState): number {
   return SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null).length;
@@ -545,10 +555,8 @@ export const gameMachine = setup({
       // Handle Dog play — passes lead to partner
       if (isDogPlay(combination)) {
         const partner = getPartner(seat);
-        // Remove Dog from hand
-        const cardIds = new Set(cards.map((c) => c.id));
-        round.players[seat].hand = round.players[seat].hand.filter((gc) => !cardIds.has(gc.id));
-        round.players[seat].hasPlayed = true;
+        // Remove Dog from hand and check if player finished
+        removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
         // Dog goes to the partner (or next active if partner is out)
         let nextLead = partner;
@@ -575,16 +583,8 @@ export const gameMachine = setup({
       round.currentTrick.passes = []; // Reset passes after a play
       round.currentTrick.currentWinner = seat;
 
-      // Remove cards from hand
-      const cardIds = new Set(cards.map((c) => c.id));
-      round.players[seat].hand = round.players[seat].hand.filter((gc) => !cardIds.has(gc.id));
-      round.players[seat].hasPlayed = true;
-
-      // Check if player finished (hand empty)
-      if (round.players[seat].hand.length === 0) {
-        round.finishOrder.push(seat);
-        round.players[seat].finishOrder = round.finishOrder.length;
-      }
+      // Remove cards from hand and check if player finished
+      removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
       // Check if trick is complete (e.g., bomb after all others passed)
       if (isTrickComplete(round.currentTrick, round)) {

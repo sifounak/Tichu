@@ -4,7 +4,7 @@
 // REQ-NF-U02: Framer Motion card play, trick sweep, bomb effect animations
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TrickState, Seat, Rank } from '@tichu/shared';
 import { Card } from '../cards/Card';
@@ -61,22 +61,11 @@ export const TrickDisplay = memo(function TrickDisplay({
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
 
-  // Track last trick to animate the sweep toward the winner
-  const prevTrickRef = useRef<TrickState | null>(null);
-  const [sweepTarget, setSweepTarget] = useState<'bottom' | 'top' | 'left' | 'right' | null>(null);
-
-  useEffect(() => {
-    const prev = prevTrickRef.current;
-    if (prev && prev.plays.length > 0 && !trick) {
-      // Trick just cleared — animate sweep toward the winner's position
-      const winnerPos = seatPosition(prev.currentWinner, mySeat);
-      setSweepTarget(winnerPos);
-      const timer = setTimeout(() => setSweepTarget(null), (durations.trickSweep + 0.1) * 1000);
-      prevTrickRef.current = trick;
-      return () => clearTimeout(timer);
-    }
-    prevTrickRef.current = trick;
-  }, [trick, mySeat, durations.trickSweep]);
+  // Compute sweep direction from the current trick winner while trick is active,
+  // so the exit prop is already set correctly before AnimatePresence unmounts it
+  const sweepTarget = trick?.currentWinner
+    ? seatPosition(trick.currentWinner, mySeat)
+    : null;
 
   // Detect bomb plays for special effect
   const [showBomb, setShowBomb] = useState(false);
@@ -92,16 +81,20 @@ export const TrickDisplay = memo(function TrickDisplay({
   }, [isBombPlay, enabled, durations.bombEffect, lastPlay]);
 
   // Compute exit animation based on sweep target
+  // Slide toward the winner at full size, fade out near the end
   const exitAnim = enabled && sweepTarget
     ? {
         x: EXIT_OFFSETS[sweepTarget].x,
         y: EXIT_OFFSETS[sweepTarget].y,
         opacity: 0,
-        scale: 0.7,
-        transition: { duration: durations.trickSweep, ease: 'easeIn' as const },
+        transition: {
+          duration: durations.trickSweep,
+          ease: 'easeIn' as const,
+          opacity: { duration: durations.trickSweep * 0.4, delay: durations.trickSweep * 0.6 },
+        },
       }
     : enabled
-      ? { opacity: 0, scale: 0.8, transition: { duration: durations.trickSweep } }
+      ? { opacity: 0, transition: { duration: durations.trickSweep } }
       : undefined;
 
   return (

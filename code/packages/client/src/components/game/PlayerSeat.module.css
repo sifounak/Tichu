@@ -6,10 +6,15 @@
   padding: 12px 24px 16px;
   border-radius: 12px;
   background: var(--color-bg-panel);
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-border);
   position: relative;
-  transition: border-color var(--duration-fast) var(--easing-smooth);
+  transition:
+    border-color var(--duration-fast) var(--easing-smooth),
+    box-shadow var(--duration-fast) var(--easing-smooth);
+  box-shadow: 0 0 0 transparent;
   min-width: 240px;
+  will-change: box-shadow, border-color;
+  transform: translateZ(0);
 }
 
 .seatRow {
