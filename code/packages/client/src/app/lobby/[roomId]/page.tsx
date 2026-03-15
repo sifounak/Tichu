@@ -138,7 +138,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
       >
         {/* Player name */}
         <div style={{ color: player ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
-          <div className="font-semibold text-sm">{displayName}</div>
+          <div className="font-semibold text-base">{displayName}</div>
           {subtitle && (
             <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{subtitle}</div>
           )}
@@ -246,7 +246,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
             <div style={{
               gridColumn: 2, gridRow: 2,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--color-text-muted)', fontSize: '13px', fontWeight: 600,
+              color: 'var(--color-text-muted)', fontSize: '26px', fontWeight: 600,
             }}>
               vs
             </div>
