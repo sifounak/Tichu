@@ -263,3 +263,67 @@ describe('canPlayerPass', () => {
     expect(canPlayerPass(hand, trick, 7 as Rank)).toBe(true);
   });
 });
+
+// --- Out-of-turn bomb / wish interaction ---
+
+describe('Out-of-turn bomb wish bypass', () => {
+  it('validatePlay with wish=null (out-of-turn bomb scenario): bomb without wished rank is valid', () => {
+    const trick = makeTrick([{ seat: 'north', cards: [findStandard(7)] }]);
+    const bomb = [findStandard(5), findStandard(5, 1), findStandard(5, 2), findStandard(5, 3)];
+    const hand = [...bomb, findStandard(8)];
+
+    // Out-of-turn: state machine passes wish=null, so bomb is valid even without wished rank
+    const result = validatePlay(bomb, hand, trick, null);
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.combination.isBomb).toBe(true);
+  });
+
+  it('validatePlay with wish active (in-turn): bomb without wished rank rejected when player can fulfill wish', () => {
+    const trick = makeTrick([{ seat: 'north', cards: [findStandard(3)] }]);
+    const bomb = [findStandard(5), findStandard(5, 1), findStandard(5, 2), findStandard(5, 3)];
+    // Player has wished rank 8 and can play it as single to beat 3
+    const hand = [...bomb, findStandard(8)];
+
+    // In-turn: wish is enforced — bomb of 5s doesn't contain wished rank 8
+    const result = validatePlay(bomb, hand, trick, 8 as Rank);
+    expect(result.valid).toBe(false);
+    if (!result.valid) expect(result.reason).toContain('wished rank');
+  });
+
+  it('validatePlay with wish active (in-turn): bomb WITH wished rank is valid', () => {
+    const trick = makeTrick([{ seat: 'north', cards: [findStandard(3)] }]);
+    const bomb = [findStandard(8), findStandard(8, 1), findStandard(8, 2), findStandard(8, 3)];
+    const hand = [...bomb, findStandard(5)];
+
+    // In-turn: bomb of 8s fulfills the wish for 8
+    const result = validatePlay(bomb, hand, trick, 8 as Rank);
+    expect(result.valid).toBe(true);
+    if (result.valid) expect(result.combination.isBomb).toBe(true);
+  });
+
+  it('getValidPlays: in-turn filters to wish-fulfilling plays only (no non-wish bombs)', () => {
+    const trick = makeTrick([{ seat: 'north', cards: [findStandard(3)] }]);
+    const hand = [
+      findStandard(5), findStandard(5, 1), findStandard(5, 2), findStandard(5, 3), // bomb of 5s
+      findStandard(8), // wished rank
+    ];
+
+    const plays = getValidPlays(hand, trick, 8 as Rank);
+
+    // Only plays containing rank 8 should be returned (wish enforced in-turn)
+    for (const play of plays) {
+      const has8 = play.cards.some(
+        (gc) => gc.card.kind === 'standard' && gc.card.rank === 8,
+      );
+      expect(has8).toBe(true);
+    }
+  });
+
+  it('canPlayerPass: still false when wish fulfillable (no regression)', () => {
+    const trick = makeTrick([{ seat: 'north', cards: [findStandard(3)] }]);
+    const hand = [findStandard(8), findStandard(5)];
+
+    // Wish for 8, player has 8 that beats 3 → cannot pass
+    expect(canPlayerPass(hand, trick, 8 as Rank)).toBe(false);
+  });
+});

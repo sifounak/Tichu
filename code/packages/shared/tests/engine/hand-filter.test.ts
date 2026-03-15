@@ -324,6 +324,32 @@ describe('getSelectableCards', () => {
       // j(14) is 7 ranks away from 7 — too far for any straight
       expect(result.has(j(14).id)).toBe(false);
     });
+
+    it('wish active: straight flush bomb cards selectable', () => {
+      // Hand has j(3)-j(4)-j(5)-j(6)-j(7) (SF bomb) + wished rank 10
+      const hand = [j(3), j(4), j(5), j(6), j(7), j(10)];
+      const result = getSelectableCards(hand, [], null, 10);
+
+      // j(10) fulfills wish
+      expect(result.has(j(10).id)).toBe(true);
+      // All jade 3-7 can form a straight flush bomb → selectable
+      expect(result.has(j(3).id)).toBe(true);
+      expect(result.has(j(4).id)).toBe(true);
+      expect(result.has(j(5).id)).toBe(true);
+      expect(result.has(j(6).id)).toBe(true);
+      expect(result.has(j(7).id)).toBe(true);
+    });
+
+    it('wish active: non-bomb cards far from wish stay disabled', () => {
+      // Hand: 3 of jade (not enough for bomb), wished rank 10
+      const hand = [j(3), j(10)];
+      const result = getSelectableCards(hand, [], null, 10);
+
+      // j(10) fulfills wish
+      expect(result.has(j(10).id)).toBe(true);
+      // j(3) is far from 10, can't form bomb → disabled
+      expect(result.has(j(3).id)).toBe(false);
+    });
   });
 });
 
