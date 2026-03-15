@@ -109,42 +109,37 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
     const isMe = seat === mySeat;
     const isHostSeat = seat === hostSeat;
 
+    // Determine display name
+    let displayName: string;
+    if (player) {
+      displayName = player.name;
+      if (isHostSeat) displayName += ' (Host)';
+      else if (isMe) displayName += ' (you)';
+    } else {
+      displayName = `${SEAT_LABELS[seat]} — Empty`;
+    }
+
     return (
       <div
-        className="p-3 rounded-lg flex items-center justify-between"
+        className="p-3 rounded-lg"
         style={{
           background: isMe ? 'rgba(201, 168, 76, 0.15)' : 'rgba(255, 255, 255, 0.05)',
           border: isMe ? '1px solid var(--color-gold-accent)' : '1px solid var(--color-border)',
-          minWidth: '160px',
+          width: '200px',
+          textAlign: 'center',
         }}
       >
-        <div>
-          <span className="text-xs uppercase tracking-wider"
-            style={{ color: 'var(--color-text-muted)' }}>
-            {SEAT_LABELS[seat]}
-          </span>
-          {player ? (
-            <div className="font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              {player.name}
-              {isHostSeat && (
-                <span className="ml-2 text-xs px-1.5 py-0.5 rounded"
-                  style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}>
-                  Host
-                </span>
-              )}
-              {isMe && !isHostSeat && (
-                <span className="ml-2 text-xs" style={{ color: 'var(--color-text-muted)' }}>(you)</span>
-              )}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--color-text-muted)' }}>Empty</div>
-          )}
+        {/* Player name */}
+        <div className="font-semibold text-sm mb-2" style={{ color: player ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
+          {displayName}
         </div>
-        <div className="flex gap-1">
+
+        {/* Action buttons */}
+        <div className="flex gap-2 justify-center">
           {!player && !isMe && (
             <button
               onClick={() => handleSwapSeat(seat)}
-              className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+              className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
               style={{
                 background: 'var(--color-gold-accent)',
                 color: 'var(--color-felt-green-dark)',
@@ -156,20 +151,20 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           {!player && isHost && (
             <button
               onClick={() => handleAddBot(seat)}
-              className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+              className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
               style={{
                 background: 'var(--color-felt-green-light)',
                 color: 'var(--color-text-primary)',
                 border: '1px solid var(--color-border)',
               }}
             >
-              + Bot
+              Add Bot
             </button>
           )}
           {player?.isBot && !isMe && (
             <button
               onClick={() => handleSwapSeat(seat)}
-              className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
+              className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
               style={{
                 background: 'var(--color-gold-accent)',
                 color: 'var(--color-felt-green-dark)',
@@ -181,8 +176,8 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           {player?.isBot && isHost && (
             <button
               onClick={() => handleRemoveBot(seat)}
-              className="text-xs px-2 py-1 rounded transition-opacity hover:opacity-80"
-              style={{ color: 'var(--color-error)' }}
+              className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
+              style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)', borderRadius: '4px' }}
             >
               Remove
             </button>
@@ -254,20 +249,17 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               {renderSeatCard('south')}
             </div>
           </div>
-          <p className="mt-2 text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
-            Teams: North + South vs East + West
-          </p>
         </div>
 
         {/* Room config (host only) */}
         {isHost && config && (
           <div className="mb-6 p-4 rounded-xl" style={{ background: 'var(--color-bg-panel)' }}>
-            <h2 className="text-lg font-semibold mb-3" style={{ color: 'var(--color-text-primary)' }}>
+            <h2 className="text-lg font-semibold mb-3 text-center" style={{ color: 'var(--color-text-primary)' }}>
               Settings
             </h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4" style={{ maxWidth: '360px', margin: '0 auto' }}>
               {/* Target score */}
-              <label className="block">
+              <label className="block text-center">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Target Score</span>
                 <input
                   type="number"
@@ -276,7 +268,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                   min={100} max={10000} step={100}
                   className="mt-1 w-full px-3 py-1.5 rounded"
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                   }}
@@ -284,7 +276,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               </label>
 
               {/* Turn timer */}
-              <label className="block">
+              <label className="block text-center">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Turn Timer</span>
                 <select
                   value={config.turnTimerSeconds ?? 'off'}
@@ -293,7 +285,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                   })}
                   className="mt-1 w-full px-3 py-1.5 rounded"
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                   }}
@@ -306,14 +298,14 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               </label>
 
               {/* Bot difficulty */}
-              <label className="block">
+              <label className="block text-center">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Bot Difficulty</span>
                 <select
                   value={config.botDifficulty}
                   onChange={(e) => handleConfigChange({ botDifficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
                   className="mt-1 w-full px-3 py-1.5 rounded"
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                   }}
@@ -325,14 +317,14 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               </label>
 
               {/* Animation speed */}
-              <label className="block">
+              <label className="block text-center">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Animation Speed</span>
                 <select
                   value={config.animationSpeed}
                   onChange={(e) => handleConfigChange({ animationSpeed: e.target.value as 'slow' | 'normal' | 'fast' | 'off' })}
                   className="mt-1 w-full px-3 py-1.5 rounded"
                   style={{
-                    background: 'rgba(255,255,255,0.1)',
+                    background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
                   }}
@@ -345,7 +337,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               </label>
 
               {/* Private/Public toggle */}
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center justify-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={config.isPrivate}
@@ -356,7 +348,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               </label>
 
               {/* Spectators toggle */}
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center justify-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={config.spectatorsAllowed}
@@ -372,8 +364,8 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         {/* Settings summary (non-host) */}
         {!isHost && config && (
           <div className="mb-6 p-4 rounded-xl" style={{ background: 'var(--color-bg-panel)' }}>
-            <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--color-text-primary)' }}>Settings</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            <h2 className="text-lg font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>Settings</h2>
+            <div className="grid grid-cols-2 gap-2 text-sm text-center" style={{ color: 'var(--color-text-secondary)', maxWidth: '360px', margin: '0 auto' }}>
               <span>Target: {config.targetScore} pts</span>
               <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
               <span>Bots: {config.botDifficulty}</span>
