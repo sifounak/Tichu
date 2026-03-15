@@ -117,7 +117,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
       if (isHostSeat) subtitle = '(Host)';
       else if (isMe) subtitle = '(you)';
     } else {
-      displayName = `${SEAT_LABELS[seat]} — Empty`;
+      displayName = 'Empty';
     }
 
     return (
