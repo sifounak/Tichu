@@ -101,6 +101,17 @@
 .passLabel.left { left: 4px; top: 50%; transform: translateY(-50%); }
 .passLabel.right { right: 4px; top: 50%; transform: translateY(-50%); }
 
+/* REQ-F-DA01: Dog play animation card */
+.dogCard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
 .playArea {
   display: flex;
   align-items: center;

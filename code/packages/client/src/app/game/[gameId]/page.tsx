@@ -6,11 +6,12 @@
 // REQ-NF-U02: Tichu banner animation
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GamePhase } from '@tichu/shared';
 import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import { useCardSelection } from '@/hooks/useCardSelection';
 import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
@@ -56,10 +57,28 @@ export default function GamePage() {
     ? (sessionStorage.getItem('tichu_player_name') ?? 'Guest')
     : 'Guest';
 
+  // REQ-F-DA01: Dog animation detection and timing
+  const { enabled: animEnabled, multiplier: animMultiplier } = useAnimationSettings();
+  const dogAnimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleMessage = useCallback(
     (msg: ServerMessage) => {
       if (msg.type === 'GAME_STATE') {
-        gameStore.applyGameState(msg.state as ClientGameView);
+        const view = msg.state as ClientGameView;
+
+        // REQ-F-DA01: Detect Dog play and trigger animation
+        if (view.lastDogPlay && animEnabled) {
+          // Clear any previous Dog animation timer
+          if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
+          uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
+          // Auto-clear after animation completes: 2s pause + 0.4s sweep, scaled by animation speed
+          dogAnimTimerRef.current = setTimeout(
+            () => uiStore.clearDogAnimation(),
+            (2.0 + 0.4) * animMultiplier * 1000,
+          );
+        }
+
+        gameStore.applyGameState(view);
       } else if (msg.type === 'CHAT_RECEIVED') {
         // REQ-F-MP07: Chat message received
         uiStore.addChatMessage({
@@ -88,7 +107,7 @@ export default function GamePage() {
         gameStore.applyServerMessage(msg);
       }
     },
-    [gameStore, uiStore, leaveRoom, router],
+    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier],
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
@@ -383,6 +402,7 @@ export default function GamePage() {
     finishOrder: gameStore.finishOrder,
     dragonGiftPending: gameStore.dragonGiftPending,
     receivedCards: gameStore.receivedCards,
+    lastDogPlay: null, // Animation handled via uiStore, not view
   };
 
   const isMyTurn = gameStore.currentTurn === mySeat;

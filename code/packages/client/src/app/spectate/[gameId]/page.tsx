@@ -85,6 +85,7 @@ export default function SpectatePage() {
     finishOrder: gameStore.finishOrder,
     dragonGiftPending: false,
     receivedCards: { north: null, east: null, south: null, west: null },
+    lastDogPlay: null,
   };
 
   const tichuCalls = gameStore.otherPlayers.map((p) => ({ seat: p.seat, call: p.tichuCall }));

@@ -25,6 +25,8 @@ export interface TrickDisplayProps {
   mySeat: Seat;
   /** Hide the empty "Play Area" placeholder but still show active trick cards */
   hideEmptyPlaceholder?: boolean;
+  /** REQ-F-DA01: Dog play animation state */
+  dogAnimation?: { fromSeat: Seat; toSeat: Seat } | null;
 }
 
 /** Map seat to position relative to player */
@@ -58,6 +60,7 @@ export const TrickDisplay = memo(function TrickDisplay({
   wishFulfilled,
   mySeat,
   hideEmptyPlaceholder,
+  dogAnimation,
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
 
@@ -111,6 +114,31 @@ export const TrickDisplay = memo(function TrickDisplay({
             transition={{ duration: durations.cardLift }}
           >
             Wish: {RANK_LABELS[mahjongWish]}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* REQ-F-DA01: Dog play animation overlay */}
+      <AnimatePresence>
+        {dogAnimation && enabled && (
+          <motion.div
+            key="dog-play"
+            className={styles.dogCard}
+            initial={ENTRY_OFFSETS[seatPosition(dogAnimation.fromSeat, mySeat)]}
+            animate={{ x: 0, y: 0, opacity: 1 }}
+            exit={{
+              ...EXIT_OFFSETS[seatPosition(dogAnimation.toSeat, mySeat)],
+              opacity: 0,
+            }}
+            transition={{
+              type: 'spring',
+              stiffness: 200,
+              damping: 20,
+            }}
+          >
+            <div style={{ '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px' } as React.CSSProperties}>
+              <Card gameCard={{ id: -1, card: { kind: 'dog' } }} state="normal" />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
