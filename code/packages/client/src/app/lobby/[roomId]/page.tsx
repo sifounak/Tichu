@@ -126,8 +126,8 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           background: isMe ? 'rgba(201, 168, 76, 0.15)' : 'rgba(255, 255, 255, 0.05)',
           border: isMe ? '1px solid var(--color-gold-accent)' : '1px solid var(--color-border)',
           width: '180px',
-          height: '90px',
-          padding: '12px 16px',
+          height: '110px',
+          padding: '16px 16px',
           textAlign: 'center',
           display: 'flex',
           flexDirection: 'column' as const,
@@ -144,7 +144,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           {(!player && !isMe) && (
             <button
               onClick={() => handleSwapSeat(seat)}
-              className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
+              className="text-sm px-4 py-1.5 rounded transition-opacity hover:opacity-80"
               style={{
                 background: 'var(--color-gold-accent)',
                 color: 'var(--color-felt-green-dark)',
@@ -156,7 +156,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           {(!player && isHost) && (
             <button
               onClick={() => handleAddBot(seat)}
-              className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
+              className="text-sm px-4 py-1.5 rounded transition-opacity hover:opacity-80"
               style={{
                 background: 'var(--color-felt-green-light)',
                 color: 'var(--color-text-primary)',
@@ -169,7 +169,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           {(player?.isBot && !isMe) && (
             <button
               onClick={() => handleSwapSeat(seat)}
-              className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
+              className="text-sm px-4 py-1.5 rounded transition-opacity hover:opacity-80"
               style={{
                 background: 'var(--color-gold-accent)',
                 color: 'var(--color-felt-green-dark)',
@@ -181,7 +181,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           {(player?.isBot && isHost) && (
             <button
               onClick={() => handleRemoveBot(seat)}
-              className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
+              className="text-sm px-4 py-1.5 rounded transition-opacity hover:opacity-80"
               style={{ color: 'var(--color-error)', border: '1px solid var(--color-error)', borderRadius: '4px' }}
             >
               Remove
