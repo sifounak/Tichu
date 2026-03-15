@@ -137,9 +137,9 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           {displayName}
         </div>
 
-        {/* Action buttons — fixed height for uniform card size */}
-        <div className="flex gap-2 justify-center" style={{ minHeight: '26px' }}>
-          {!player && !isMe && (
+        {/* Action buttons — stacked vertically, fixed height for uniform card size */}
+        <div className="flex flex-col gap-1 items-center" style={{ minHeight: '52px' }}>
+          {(!player && !isMe) && (
             <button
               onClick={() => handleSwapSeat(seat)}
               className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
@@ -151,7 +151,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               Sit Here
             </button>
           )}
-          {!player && isHost && (
+          {(!player && isHost) && (
             <button
               onClick={() => handleAddBot(seat)}
               className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
@@ -164,7 +164,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               Add Bot
             </button>
           )}
-          {player?.isBot && !isMe && (
+          {(player?.isBot && !isMe) && (
             <button
               onClick={() => handleSwapSeat(seat)}
               className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
@@ -176,7 +176,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
               Sit Here
             </button>
           )}
-          {player?.isBot && isHost && (
+          {(player?.isBot && isHost) && (
             <button
               onClick={() => handleRemoveBot(seat)}
               className="text-xs px-3 py-1 rounded transition-opacity hover:opacity-80"
