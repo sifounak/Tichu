@@ -381,10 +381,10 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           <div className="mb-6 p-4 rounded-xl" style={{ background: 'var(--color-bg-panel)', maxWidth: '400px', margin: '0 auto' }}>
             <h2 className="text-lg font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>Settings</h2>
             <div className="grid grid-cols-2 gap-2 text-sm text-center" style={{ color: 'var(--color-text-secondary)' }}>
-              <span>Target: {config.targetScore} pts</span>
+              <span>Target: {config.targetScore} Pts</span>
               <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
-              <span>Bots: {config.botDifficulty}</span>
-              <span>Speed: {config.animationSpeed}</span>
+              <span>Bots: {config.botDifficulty.charAt(0).toUpperCase() + config.botDifficulty.slice(1)}</span>
+              <span>Speed: {config.animationSpeed.charAt(0).toUpperCase() + config.animationSpeed.slice(1)}</span>
               <span>{config.isPrivate ? 'Private Room' : 'Public Room'}</span>
               <span>Spectators: {config.spectatorsAllowed ? 'Yes' : 'No'}</span>
             </div>
