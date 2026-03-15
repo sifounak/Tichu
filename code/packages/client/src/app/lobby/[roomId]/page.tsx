@@ -127,6 +127,9 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           border: isMe ? '1px solid var(--color-gold-accent)' : '1px solid var(--color-border)',
           width: '200px',
           textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column' as const,
+          justifyContent: 'center',
         }}
       >
         {/* Player name */}
