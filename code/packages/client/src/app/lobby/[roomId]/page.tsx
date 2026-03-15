@@ -253,11 +253,11 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
 
         {/* Room config (host only) */}
         {isHost && config && (
-          <div className="mb-6 p-4 rounded-xl" style={{ background: 'var(--color-bg-panel)' }}>
+          <div className="mb-6 p-4 rounded-xl" style={{ background: 'var(--color-bg-panel)', maxWidth: '400px', margin: '0 auto' }}>
             <h2 className="text-lg font-semibold mb-3 text-center" style={{ color: 'var(--color-text-primary)' }}>
               Settings
             </h2>
-            <div className="grid grid-cols-2 gap-4" style={{ maxWidth: '360px', margin: '0 auto' }}>
+            <div className="grid grid-cols-2 gap-4" style={{ margin: '0 auto' }}>
               {/* Target score */}
               <label className="block text-center">
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Target Score</span>
@@ -271,6 +271,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
+                    textAlign: 'center',
                   }}
                 />
               </label>
@@ -288,12 +289,14 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
+                    textAlign: 'center',
                   }}
                 >
                   <option value="off">Off</option>
                   <option value="30">30s</option>
                   <option value="60">60s</option>
                   <option value="90">90s</option>
+                  <option value="120">120s</option>
                 </select>
               </label>
 
@@ -308,6 +311,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
+                    textAlign: 'center',
                   }}
                 >
                   <option value="easy">Easy</option>
@@ -327,6 +331,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                     background: 'var(--color-felt-green-dark)',
                     color: 'var(--color-text-primary)',
                     border: '1px solid var(--color-border)',
+                    textAlign: 'center',
                   }}
                 >
                   <option value="slow">Slow</option>
@@ -363,9 +368,9 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
 
         {/* Settings summary (non-host) */}
         {!isHost && config && (
-          <div className="mb-6 p-4 rounded-xl" style={{ background: 'var(--color-bg-panel)' }}>
+          <div className="mb-6 p-4 rounded-xl" style={{ background: 'var(--color-bg-panel)', maxWidth: '400px', margin: '0 auto' }}>
             <h2 className="text-lg font-semibold mb-2 text-center" style={{ color: 'var(--color-text-primary)' }}>Settings</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm text-center" style={{ color: 'var(--color-text-secondary)', maxWidth: '360px', margin: '0 auto' }}>
+            <div className="grid grid-cols-2 gap-2 text-sm text-center" style={{ color: 'var(--color-text-secondary)' }}>
               <span>Target: {config.targetScore} pts</span>
               <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
               <span>Bots: {config.botDifficulty}</span>
