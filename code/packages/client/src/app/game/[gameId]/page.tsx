@@ -508,9 +508,9 @@ export default function GamePage() {
       {/* Room code + Leave Room */}
       <div style={{
         position: 'fixed',
-        top: 40,
+        top: 80,
         left: 148,
-        transform: 'translateX(-50%)',
+        transform: 'translate(-50%, -50%)',
         zIndex: 30,
         display: 'flex',
         flexDirection: 'column',
