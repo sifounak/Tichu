@@ -121,7 +121,7 @@ export interface GameConfig {
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   targetScore: 1000,
   turnTimerSeconds: null,
-  botDifficulty: 'easy',
+  botDifficulty: 'hard',
   animationSpeed: 'normal',
   spectatorsAllowed: true,
   isPrivate: false,

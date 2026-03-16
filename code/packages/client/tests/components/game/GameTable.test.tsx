@@ -11,7 +11,7 @@ function makeView(overrides: Partial<ClientGameView> = {}): ClientGameView {
     config: {
       targetScore: 1000,
       turnTimerSeconds: null,
-      botDifficulty: 'easy',
+      botDifficulty: 'hard',
       animationSpeed: 'normal',
       spectatorsAllowed: true,
       isPrivate: false,
