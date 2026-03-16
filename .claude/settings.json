@@ -21,7 +21,8 @@
       "Bash(taskkill //F //IM node.exe)",
       "Bash(grep -r ScorePanel /c/MATLAB/Claude/Tichu/code/packages/client/src --include=*.tsx --include=*.ts --include=*.jsx --include=*.js)",
       "Bash(bash dev-start.sh)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(pnpm --filter server test)"
     ],
     "additionalDirectories": [
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\matlab-test-generator\\references",
