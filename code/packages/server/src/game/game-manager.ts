@@ -238,11 +238,23 @@ export class GameManager {
         const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
         const validPlays = getValidPlays(hand, round.currentTrick, wish);
         if (validPlays.length === 0) {
-          this.autoPassTimer = setTimeout(() => {
-            if (this.destroyed) return;
-            this.actor.send({ type: 'PASS_TURN', seat });
-            this.broadcastState();
-          }, 500);
+          // Don't auto-pass against Dragon or Ace+0.5 Phoenix if player has 4+ cards
+          // (they need time to check if they have a bomb)
+          const lastPlay = round.currentTrick.plays[round.currentTrick.plays.length - 1];
+          const topIsDragon = lastPlay?.combination.cards.some(
+            (gc) => gc.card.kind === 'dragon',
+          );
+          const topIsMaxPhoenix = lastPlay?.combination.type === 'single' &&
+            lastPlay.combination.rank === 14.5;
+          if ((topIsDragon || topIsMaxPhoenix) && hand.length >= 4) {
+            // Let the player decide manually
+          } else {
+            this.autoPassTimer = setTimeout(() => {
+              if (this.destroyed) return;
+              this.actor.send({ type: 'PASS_TURN', seat });
+              this.broadcastState();
+            }, 500);
+          }
         }
       }
     } else {
