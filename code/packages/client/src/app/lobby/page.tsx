@@ -77,7 +77,7 @@ export default function LobbyPage() {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
     setError('');
     sessionStorage.setItem('tichu_player_name', playerName.trim());
-    send({ type: 'CREATE_ROOM', playerName: playerName.trim() });
+    send({ type: 'CREATE_ROOM', playerName: playerName.trim(), roomName: roomName.trim() || undefined });
   };
 
   const handleJoinByCode = () => {
@@ -227,7 +227,7 @@ export default function LobbyPage() {
                 >
                   <div>
                     <span className="font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                      {room.hostName}&apos;s Room
+                      {(room as any).roomName ?? `${room.hostName}'s Room`}
                     </span>
                     <span className="ml-2" style={{ color: 'var(--color-text-secondary)' }}>
                       hosted by {room.hostName}

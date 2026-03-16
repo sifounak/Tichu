@@ -45,7 +45,7 @@ export class RoomManager {
   }
 
   /** Create a new room. Host is seated at south (bottom of table). */
-  createRoom(userId: string, playerName: string): Room {
+  createRoom(userId: string, playerName: string, roomName?: string): Room {
     if (this.userToRoom.has(userId)) {
       throw new Error('Already in a room. Leave first.');
     }
@@ -55,6 +55,7 @@ export class RoomManager {
 
     const room: Room = {
       roomCode,
+      roomName: roomName?.trim() || `${playerName}'s Room`,
       hostSeat,
       players: [{
         seat: hostSeat,
@@ -263,6 +264,7 @@ export class RoomManager {
       const hostPlayer = room.players.find(p => p.seat === room.hostSeat);
       entries.push({
         roomCode: room.roomCode,
+        roomName: room.roomName,
         hostName: hostPlayer?.name ?? 'Unknown',
         playerCount: room.players.length,
         spectatorCount: 0,

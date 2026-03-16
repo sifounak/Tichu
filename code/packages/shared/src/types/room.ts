@@ -18,6 +18,7 @@ export interface RoomConfig extends GameConfig {
 /** A game room */
 export interface Room {
   roomCode: string;
+  roomName: string;
   hostSeat: Seat;
   players: RoomPlayer[];
   config: RoomConfig;
@@ -28,6 +29,7 @@ export interface Room {
 /** REQ-F-MP03: Public lobby entry (minimal room info for browsing) */
 export interface LobbyEntry {
   roomCode: string;
+  roomName: string;
   hostName: string;
   playerCount: number;
   spectatorCount: number;
