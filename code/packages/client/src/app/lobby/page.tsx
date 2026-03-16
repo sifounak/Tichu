@@ -201,7 +201,7 @@ export default function LobbyPage() {
               style={{
                 background: 'var(--color-bg-panel)',
                 color: 'var(--color-text-primary)',
-                border: roomNameError ? '2px solid var(--color-error)' : '1px solid var(--color-border)',
+                border: roomNameError ? '1px solid var(--color-error)' : '1px solid var(--color-border)',
               }}
               aria-label="Room name"
             />
