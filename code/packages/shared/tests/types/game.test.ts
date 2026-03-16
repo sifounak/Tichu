@@ -65,7 +65,7 @@ describe('DEFAULT_GAME_CONFIG', () => {
   it('has correct defaults', () => {
     expect(DEFAULT_GAME_CONFIG.targetScore).toBe(1000);
     expect(DEFAULT_GAME_CONFIG.turnTimerSeconds).toBeNull();
-    expect(DEFAULT_GAME_CONFIG.botDifficulty).toBe('easy');
+    expect(DEFAULT_GAME_CONFIG.botDifficulty).toBe('hard');
     expect(DEFAULT_GAME_CONFIG.animationSpeed).toBe('normal');
     expect(DEFAULT_GAME_CONFIG.spectatorsAllowed).toBe(true);
     expect(DEFAULT_GAME_CONFIG.isPrivate).toBe(false);

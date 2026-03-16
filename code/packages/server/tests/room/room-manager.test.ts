@@ -49,7 +49,7 @@ describe('RoomManager', () => {
       const room = manager.createRoom('user1', 'Alice');
       expect(room.config.targetScore).toBe(1000);
       expect(room.config.turnTimerSeconds).toBeNull();
-      expect(room.config.botDifficulty).toBe('easy');
+      expect(room.config.botDifficulty).toBe('hard');
       expect(room.config.isPrivate).toBe(false);
     });
   });
