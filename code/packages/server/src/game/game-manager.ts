@@ -25,6 +25,7 @@ import { projectGameState } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
 import { RegularBot } from '../bot/regular-bot.js';
 import { HardBot } from '../bot/hard-bot.js';
+import { ExpertBot } from '../bot/expert-bot.js';
 import type { BotStrategy } from '../bot/bot-interface.js';
 
 /**
@@ -197,8 +198,7 @@ export class GameManager {
         strategy = new HardBot();
         break;
       case 'expert':
-        // ExpertBot will be added in Milestone 4
-        strategy = new RegularBot();
+        strategy = new ExpertBot();
         break;
       case 'regular':
       default:

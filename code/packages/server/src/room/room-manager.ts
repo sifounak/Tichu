@@ -163,7 +163,7 @@ export class RoomManager {
   }
 
   /** Add a bot to a seat. */
-  addBot(roomCode: string, seat: Seat, difficulty?: 'regular' | 'hard'): Room {
+  addBot(roomCode: string, seat: Seat, difficulty?: 'regular' | 'hard' | 'expert'): Room {
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error('Room not found.');
     if (room.gameInProgress) throw new Error('Game already in progress.');
