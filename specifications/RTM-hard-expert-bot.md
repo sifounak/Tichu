@@ -2,9 +2,9 @@
 
 | Req ID | Description | Source File:Line | Test File:Line | Status |
 |---|---|---|---|---|
-| REQ-F-BUG01 | Round-ending edge cases (game gets stuck) | — | — | Not Started |
-| REQ-F-BUG02 | Dog animation timing (1s pause + 1s sweep) | — | — | Not Started |
-| REQ-F-BUG03 | Phoenix singleton display contextual value | — | — | Not Started |
+| REQ-F-BUG01 | Round-ending edge cases (game gets stuck) | game-state-machine.ts:293-301 (isRoundComplete guard), game-state-machine.ts:958 (isRoundOver helper) | round-ending-edge-cases.test.ts:125-180 | Passed |
+| REQ-F-BUG02 | Dog animation timing (1s pause + 1s sweep) | TrickDisplay.tsx:163 (1.0s sweep), page.tsx:92-94 (2.0s total) | — (manual verification) | Passed |
+| REQ-F-BUG03 | Phoenix singleton display contextual value | game-state-machine.ts:563-571 (contextual rank update) | round-ending-edge-cases.test.ts:213-256 | Passed |
 | REQ-F-INFO01 | Bots use only human-available information | — | — | Not Started |
 | REQ-F-INFO02 | Expert bot top-10 card tracking + bomb detection | — | — | Not Started |
 | REQ-F-CALL01 | Grand Tichu hand evaluation | — | — | Not Started |
