@@ -56,32 +56,11 @@ export const PreGamePhase = memo(function PreGamePhase({
   const rightOpponent = getNextSeat(mySeat);
 
   if (phase === 'grandTichuDecision') {
-    const decided = new Set(grandTichuDecided ?? []);
-    const otherSeats = [partner, leftOpponent, rightOpponent];
     return (
       <div className={styles.phaseContainer}>
         <div className={styles.prompt}>
           <h2 className={styles.title}>Grand Tichu?</h2>
           <p className={styles.subtitle}>You have seen 8 cards. Declare Grand Tichu (+/- 200)?</p>
-
-          {/* Other players' decisions */}
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginBottom: '12px', fontSize: '14px' }}>
-            {otherSeats.map((seat) => {
-              const name = seatNames?.[seat] ?? seat;
-              const call = otherPlayerCalls?.find((p) => p.seat === seat)?.tichuCall;
-              const hasDecided = decided.has(seat);
-              const calledGrand = call === 'grandTichu';
-              return (
-                <span key={seat} style={{
-                  color: calledGrand ? 'var(--color-error)' : hasDecided ? 'var(--color-success)' : 'var(--color-text-muted)',
-                  fontWeight: calledGrand ? 700 : 400,
-                }}>
-                  {name}: {calledGrand ? 'Grand Tichu!' : hasDecided ? 'Passed' : 'Deciding...'}
-                </span>
-              );
-            })}
-          </div>
-
           <div className={styles.buttonRow}>
             <button
               className={`${styles.button} ${styles.callButton}`}
