@@ -88,14 +88,16 @@ export default function GamePage() {
           // Clear any previous Dog animation timer
           if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
           uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
-          // 1s pause + 0.4s sweep, scaled by animation speed
-          const dogTotalMs = (1.0 + 0.4) * animMultiplier * 1000;
+          // 1s pause + 0.4s sweep: clear the animation after the sweep
+          const dogAnimMs = (1.0 + 0.4) * animMultiplier * 1000;
+          // 1s pause + 0.4s sweep + 1s post-sweep pause: block plays for full duration
+          const dogBlockMs = (1.0 + 0.4 + 1.0) * animMultiplier * 1000;
           dogAnimTimerRef.current = setTimeout(
             () => uiStore.clearDogAnimation(),
-            dogTotalMs,
+            dogAnimMs,
           );
-          // Block plays during Dog animation (reuse bomb window mechanism)
-          uiStore.startBombWindow(dogTotalMs);
+          // Block plays during entire Dog sequence (entry + pause + sweep + post-pause)
+          uiStore.startBombWindow(dogBlockMs);
         }
 
         gameStore.applyGameState(view);
