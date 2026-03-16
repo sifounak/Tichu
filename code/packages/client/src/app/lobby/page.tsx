@@ -148,59 +148,63 @@ export default function LobbyPage() {
           </div>
         )}
 
-        {/* Create room */}
-        <div className="flex gap-2 justify-center mb-4" style={{ maxWidth: '500px', margin: '0 auto 16px' }}>
-          <input
-            type="text"
-            placeholder="ROOM NAME"
-            value={roomName}
-            onChange={(e) => setRoomName(e.target.value)}
-            maxLength={30}
-            className="px-4 py-2 rounded-lg text-center font-semibold flex-1"
-            style={{
-              background: 'var(--color-bg-panel)',
-              color: 'var(--color-text-primary)',
-              border: '1px solid var(--color-border)',
-            }}
-            aria-label="Room name"
-          />
-          <button
-            onClick={handleCreate}
-            className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 whitespace-nowrap"
-            style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}
-          >
-            Create Room
-          </button>
-        </div>
+        {/* Create room + Join by code — right-aligned buttons */}
+        <div className="mb-8" style={{ maxWidth: '500px', margin: '0 auto 32px' }}>
+          {/* Create room row */}
+          <div className="flex gap-2 mb-3" style={{ justifyContent: 'flex-end' }}>
+            <input
+              type="text"
+              placeholder="ROOM NAME"
+              value={roomName}
+              onChange={(e) => setRoomName(e.target.value)}
+              maxLength={30}
+              className="px-4 py-2 rounded-lg text-center font-semibold flex-1"
+              style={{
+                background: 'var(--color-bg-panel)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+              }}
+              aria-label="Room name"
+            />
+            <button
+              onClick={handleCreate}
+              className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 whitespace-nowrap"
+              style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)', minWidth: '180px' }}
+            >
+              Create Room
+            </button>
+          </div>
 
-        {/* Join by code */}
-        <div className="flex gap-2 mb-8" style={{ maxWidth: '500px', margin: '0 auto 32px' }}>
-          <input
-            type="text"
-            placeholder="ROOM CODE"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
-            maxLength={6}
-            className="px-4 py-2 rounded-lg text-center uppercase tracking-widest font-mono"
-            style={{
-              background: 'var(--color-bg-panel)',
-              color: 'var(--color-text-primary)',
-              border: '1px solid var(--color-border)',
-              width: '200px',
-            }}
-            aria-label="Room code"
-          />
-          <button
-            onClick={handleJoinByCode}
-            className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 whitespace-nowrap"
-            style={{
-              background: 'var(--color-felt-green-light)',
-              color: 'var(--color-text-primary)',
-              border: '1px solid var(--color-border)',
-            }}
-          >
-            Join Private Room
-          </button>
+          {/* Join by code row — right-aligned with button */}
+          <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+            <input
+              type="text"
+              placeholder="ROOM CODE"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+              maxLength={6}
+              className="px-4 py-2 rounded-lg text-center uppercase tracking-widest font-mono"
+              style={{
+                background: 'var(--color-bg-panel)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+                width: '140px',
+              }}
+              aria-label="Room code"
+            />
+            <button
+              onClick={handleJoinByCode}
+              className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 whitespace-nowrap"
+              style={{
+                background: 'var(--color-felt-green-light)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+                minWidth: '180px',
+              }}
+            >
+              Join Private Room
+            </button>
+          </div>
         </div>
 
         {/* Public room list */}
