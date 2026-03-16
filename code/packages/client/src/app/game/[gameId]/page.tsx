@@ -526,7 +526,7 @@ export default function GamePage() {
             }}
             style={{
               fontFamily: 'monospace',
-              fontSize: '26px',
+              fontSize: '30px',
               fontWeight: 900,
               letterSpacing: '0.2em',
               color: 'var(--color-gold-accent)',
@@ -555,7 +555,7 @@ export default function GamePage() {
             borderRadius: '6px',
             color: 'var(--color-text-secondary)',
             padding: '6px 12px',
-            fontSize: '26px',
+            fontSize: '16px',
             fontWeight: 600,
             cursor: 'pointer',
           }}
