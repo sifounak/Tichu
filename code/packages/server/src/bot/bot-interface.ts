@@ -42,7 +42,7 @@ export type BotPlayDecision =
  */
 export interface BotStrategy {
   /** Bot difficulty level */
-  readonly difficulty: 'easy' | 'medium' | 'hard';
+  readonly difficulty: 'regular' | 'hard';
 
   /** Decide whether to call Grand Tichu (first 8 cards seen) */
   chooseGrandTichu(hand8: GameCard[]): boolean;

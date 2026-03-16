@@ -111,7 +111,7 @@ export interface RoundState {
 export interface GameConfig {
   targetScore: number;
   turnTimerSeconds: number | null;
-  botDifficulty: 'easy' | 'medium' | 'hard';
+  botDifficulty: 'regular' | 'hard';
   animationSpeed: 'slow' | 'normal' | 'fast' | 'off';
   spectatorsAllowed: boolean;
   isPrivate: boolean;
@@ -121,7 +121,7 @@ export interface GameConfig {
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   targetScore: 1000,
   turnTimerSeconds: null,
-  botDifficulty: 'hard',
+  botDifficulty: 'regular',
   animationSpeed: 'normal',
   spectatorsAllowed: true,
   isPrivate: false,

@@ -1,4 +1,4 @@
-// REQ-F-BOT02: EasyBot implementation — random valid moves
+// REQ-F-BOT02: RegularBot implementation — random valid moves
 
 import type { GameCard, Seat, Rank } from '@tichu/shared';
 import { SEATS_IN_ORDER, isPhoenix } from '@tichu/shared';
@@ -9,7 +9,7 @@ import type {
 } from './bot-interface.js';
 
 /**
- * REQ-F-BOT02: EasyBot — plays randomly from valid moves.
+ * REQ-F-BOT02: RegularBot — plays randomly from valid moves.
  *
  * - Grand Tichu: always pass
  * - Regular Tichu: always pass
@@ -18,8 +18,8 @@ import type {
  * - Dragon gift: random opponent
  * - Mahjong wish: null (no wish)
  */
-export class EasyBot implements BotStrategy {
-  readonly difficulty = 'easy' as const;
+export class RegularBot implements BotStrategy {
+  readonly difficulty = 'regular' as const;
 
   chooseGrandTichu(_hand8: GameCard[]): boolean {
     return false;

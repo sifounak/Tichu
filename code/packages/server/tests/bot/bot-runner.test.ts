@@ -2,7 +2,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BotRunner, INSTANT_CONFIG } from '../../src/bot/bot-runner.js';
-import { EasyBot } from '../../src/bot/easy-bot.js';
+import { RegularBot } from '../../src/bot/regular-bot.js';
 import {
   createGameActor,
   type GameActor,
@@ -64,7 +64,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      const bot = new EasyBot();
+      const bot = new RegularBot();
       runner.addBot('north', bot);
       runner.addBot('east', bot);
 
@@ -78,8 +78,8 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      runner.addBot('south', new EasyBot());
-      runner.addBot('west', new EasyBot());
+      runner.addBot('south', new RegularBot());
+      runner.addBot('west', new RegularBot());
 
       const seats = runner.getBotSeats();
       expect(seats).toContain('south');
@@ -91,7 +91,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      runner.addBot('north', new EasyBot());
+      runner.addBot('north', new RegularBot());
       expect(runner.isBot('north')).toBe(true);
 
       runner.removeBot('north');
@@ -106,7 +106,7 @@ describe('BotRunner', () => {
 
       // Add bots to all seats
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new EasyBot());
+        runner.addBot(seat, new RegularBot());
       }
 
       // Seat all and start game
@@ -118,7 +118,7 @@ describe('BotRunner', () => {
       runner.onStateChange();
       await flushTimers();
 
-      // All bots should have made their Grand Tichu decision (EasyBot always passes)
+      // All bots should have made their Grand Tichu decision (RegularBot always passes)
       const ctx = getContext(actor);
       expect(ctx.grandTichuDecisions.size).toBe(4);
     });
@@ -130,7 +130,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new EasyBot());
+        runner.addBot(seat, new RegularBot());
       }
 
       // Advance to Regular Tichu
@@ -155,7 +155,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new EasyBot());
+        runner.addBot(seat, new RegularBot());
       }
 
       // Advance to card passing
@@ -183,7 +183,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new EasyBot());
+        runner.addBot(seat, new RegularBot());
       }
 
       // Advance to playing
@@ -226,8 +226,8 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       // Only south and west are bots
-      runner.addBot('south', new EasyBot());
-      runner.addBot('west', new EasyBot());
+      runner.addBot('south', new RegularBot());
+      runner.addBot('west', new RegularBot());
 
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });
@@ -278,7 +278,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, { minDelayMs: 500, maxDelayMs: 1000 });
 
-      runner.addBot('north', new EasyBot());
+      runner.addBot('north', new RegularBot());
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });
       expect(getState(actor)).toBe('grandTichuDecision');
@@ -299,7 +299,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      runner.addBot('north', new EasyBot());
+      runner.addBot('north', new RegularBot());
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });
 
@@ -316,7 +316,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, { minDelayMs: 5000, maxDelayMs: 10000 });
 
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new EasyBot());
+        runner.addBot(seat, new RegularBot());
       }
 
       seatAllPlayers(actor);
@@ -335,7 +335,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      runner.addBot('north', new EasyBot());
+      runner.addBot('north', new RegularBot());
       runner.dispose();
 
       seatAllPlayers(actor);
@@ -353,7 +353,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       const customBot: BotStrategy = {
-        difficulty: 'medium',
+        difficulty: 'regular',
         chooseGrandTichu: vi.fn().mockReturnValue(false),
         chooseRegularTichu: vi.fn().mockReturnValue(false),
         chooseCardsToPass: vi.fn(),
@@ -388,7 +388,7 @@ describe('BotRunner full game smoke test', () => {
     const runner = new BotRunner(actor, INSTANT_CONFIG);
 
     for (const seat of SEATS_IN_ORDER) {
-      runner.addBot(seat, new EasyBot());
+      runner.addBot(seat, new RegularBot());
     }
 
     seatAllPlayers(actor);

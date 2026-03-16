@@ -1,5 +1,5 @@
 // REQ-F-BOT01: Bot strategy interface
-// REQ-F-BOT02: EasyBot implementation
+// REQ-F-BOT02: Bot runner implementation
 // REQ-F-BOT05: Artificial thinking delay
 // REQ-F-MP01: Any combination 0-4 humans + bots
 

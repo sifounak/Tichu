@@ -1,7 +1,7 @@
 // Verifies: REQ-F-BOT02
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EasyBot } from '../../src/bot/easy-bot.js';
+import { RegularBot } from '../../src/bot/regular-bot.js';
 import type { GameCard, Seat, Rank, TrickState, RoundState, Combination } from '@tichu/shared';
 import { Suit } from '@tichu/shared';
 import type { BotPlayContext } from '../../src/bot/bot-interface.js';
@@ -72,16 +72,16 @@ function makeMinimalRoundState(): RoundState {
 
 // ─── Tests ─────────────────────────────────────────────────────────────────
 
-describe('EasyBot', () => {
-  let bot: EasyBot;
+describe('RegularBot', () => {
+  let bot: RegularBot;
 
   beforeEach(() => {
-    bot = new EasyBot();
+    bot = new RegularBot();
   });
 
   describe('difficulty', () => {
-    it('should report easy difficulty', () => {
-      expect(bot.difficulty).toBe('easy');
+    it('should report regular difficulty', () => {
+      expect(bot.difficulty).toBe('regular');
     });
   });
 
