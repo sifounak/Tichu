@@ -239,12 +239,12 @@ export class GameManager {
         const validPlays = getValidPlays(hand, round.currentTrick, wish);
         if (validPlays.length === 0) {
           const trickCardCount = round.currentTrick.plays[0].combination.cards.length;
-          // Auto-pass only when:
-          // - Trick has 4+ cards and player has 3 or fewer (can't bomb either)
-          // - Trick has <4 cards and player still can't play (no valid hand)
+          // Auto-pass only when player has fewer cards than the trick requires:
+          // - Trick has N cards (N < 4): auto-pass if player has < N cards
+          // - Trick has N cards (N >= 4): auto-pass if player has <= 3 cards (can't bomb)
           const shouldAutoPass = trickCardCount >= 4
             ? hand.length <= 3
-            : true; // getValidPlays already confirmed no valid plays
+            : hand.length < trickCardCount;
           if (shouldAutoPass) {
             this.autoPassTimer = setTimeout(() => {
               if (this.destroyed) return;
