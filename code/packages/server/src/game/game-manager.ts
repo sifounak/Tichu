@@ -24,6 +24,7 @@ import { DisconnectHandler } from './disconnect-handler.js';
 import { projectGameState } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
 import { RegularBot } from '../bot/regular-bot.js';
+import { HardBot } from '../bot/hard-bot.js';
 import type { BotStrategy } from '../bot/bot-interface.js';
 
 /**
@@ -193,8 +194,7 @@ export class GameManager {
     let strategy: BotStrategy;
     switch (difficulty) {
       case 'hard':
-        // HardBot will be added in Milestone 3
-        strategy = new RegularBot();
+        strategy = new HardBot();
         break;
       case 'expert':
         // ExpertBot will be added in Milestone 4
