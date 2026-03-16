@@ -160,10 +160,10 @@ export const TrickDisplay = memo(function TrickDisplay({
               ...EXIT_OFFSETS[seatPosition(dogAnimation.toSeat, mySeat)],
               opacity: 0,
               transition: {
-                // REQ-F-BUG02: 1s pause + 1s sweep (was 0.4s trickSweep)
-                duration: 1.0,
+                // 0.5s pause + 0.5s sweep
+                duration: 0.5,
                 ease: 'easeIn' as const,
-                delay: 1.0 * (enabled ? 1 : 0),
+                delay: 0.5 * (enabled ? 1 : 0),
               },
             }}
             transition={{

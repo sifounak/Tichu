@@ -88,10 +88,10 @@ export default function GamePage() {
           // Clear any previous Dog animation timer
           if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
           uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
-          // REQ-F-BUG02: 1s pause + 1s sweep = 2s total
-          const dogAnimMs = (1.0 + 1.0) * animMultiplier * 1000;
+          // 0.5s pause + 0.5s sweep = 1s total
+          const dogAnimMs = (0.5 + 0.5) * animMultiplier * 1000;
           // Block plays during entire Dog animation
-          const dogBlockMs = (1.0 + 1.0) * animMultiplier * 1000;
+          const dogBlockMs = (0.5 + 0.5) * animMultiplier * 1000;
           dogAnimTimerRef.current = setTimeout(
             () => uiStore.clearDogAnimation(),
             dogAnimMs,
@@ -160,10 +160,11 @@ export default function GamePage() {
 
   // REQ-F-HV06, REQ-F-HV07: Card selection with progressive filtering
   // REQ-F-BI10: Off-turn bomb selection enabled via isMyTurn param
+  const activeWish = gameStore.mahjongWish && !gameStore.wishFulfilled ? gameStore.mahjongWish : null;
   const selection = useCardSelection(
     gameStore.myHand,
     gameStore.currentTrick,
-    gameStore.mahjongWish,
+    activeWish,
     uiStore.selectedCardIds,
     uiStore.toggleCard,
     uiStore.clearSelection,

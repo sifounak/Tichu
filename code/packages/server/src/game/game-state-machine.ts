@@ -957,12 +957,12 @@ function scoreAndFinishRound(
   round: RoundState,
   context: GameMachineContext,
 ): Partial<GameMachineContext> {
-  // Handle last player — give remaining hand points to opponents, tricks to first-out
+  // Add all remaining active players to finishOrder so scoring covers everyone
+  // (e.g. 1-2 finish leaves 2 opponents unfinished — their Tichu calls must still be scored)
   const activePlayers = SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null);
-  if (activePlayers.length === 1) {
-    const lastSeat = activePlayers[0];
-    round.finishOrder.push(lastSeat);
-    round.players[lastSeat].finishOrder = round.finishOrder.length;
+  for (const seat of activePlayers) {
+    round.finishOrder.push(seat);
+    round.players[seat].finishOrder = round.finishOrder.length;
   }
 
   round.phase = GamePhase.RoundScoring;

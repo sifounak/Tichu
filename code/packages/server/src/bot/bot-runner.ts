@@ -230,8 +230,9 @@ export class BotRunner {
     if (!bot) return;
 
     const player = round.players[seat];
-    const validPlays = getValidPlays(player.hand, round.currentTrick, round.mahjongWish);
-    const canPass = canPlayerPass(player.hand, round.currentTrick, round.mahjongWish);
+    const activeWish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
+    const validPlays = getValidPlays(player.hand, round.currentTrick, activeWish);
+    const canPass = canPlayerPass(player.hand, round.currentTrick, activeWish);
 
     const playContext: BotPlayContext = {
       hand: player.hand,
