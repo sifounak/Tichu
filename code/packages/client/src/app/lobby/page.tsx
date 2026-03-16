@@ -78,9 +78,10 @@ export default function LobbyPage() {
   // REQ-F-003: Persist playerName across page navigation
   const handleCreate = () => {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
+    if (!roomName.trim()) { setError('Please enter a room name'); return; }
     setError('');
     sessionStorage.setItem('tichu_player_name', playerName.trim());
-    send({ type: 'CREATE_ROOM', playerName: playerName.trim(), roomName: roomName.trim() || undefined });
+    send({ type: 'CREATE_ROOM', playerName: playerName.trim(), roomName: roomName.trim() });
   };
 
   const handleJoinByCode = () => {
@@ -106,15 +107,15 @@ export default function LobbyPage() {
   const filteredRooms = useMemo(() => {
     const q = search.toLowerCase();
     let rooms = lobbyRooms.filter((r) => {
-      const rName = ((r as any).roomName ?? `${r.hostName}'s Room`).toLowerCase();
+      const rName = ((r as any).roomName ?? '').toLowerCase();
       return rName.includes(q) || r.hostName.toLowerCase().includes(q);
     });
     rooms = [...rooms].sort((a, b) => {
       let cmp = 0;
       switch (sortCol) {
         case 'roomName': {
-          const aName = (a as any).roomName ?? `${a.hostName}'s Room`;
-          const bName = (b as any).roomName ?? `${b.hostName}'s Room`;
+          const aName = (a as any).roomName ?? '';
+          const bName = (b as any).roomName ?? '';
           cmp = aName.localeCompare(bName);
           break;
         }
@@ -320,7 +321,7 @@ export default function LobbyPage() {
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                     >
                       <td style={{ padding: '12px', color: 'var(--color-text-primary)', fontWeight: 700 }}>
-                        {(room as any).roomName ?? `${room.hostName}'s Room`}
+                        {(room as any).roomName}
                       </td>
                       <td style={{ padding: '12px', color: 'var(--color-text-secondary)' }}>
                         {room.hostName}
