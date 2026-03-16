@@ -135,7 +135,7 @@ export const TrickDisplay = memo(function TrickDisplay({
             exit={enabled ? { opacity: 0, scale: 0.7 } : undefined}
             transition={{ duration: durations.cardLift }}
           >
-            Wish: {RANK_LABELS[mahjongWish]}
+            {RANK_LABELS[mahjongWish]} wish in effect
           </motion.div>
         )}
       </AnimatePresence>
