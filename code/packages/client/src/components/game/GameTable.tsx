@@ -20,6 +20,8 @@ export interface GameTableProps {
   onDragonGift?: (seat: Seat) => void;
   /** Display names keyed by seat */
   seatNames?: Record<Seat, string>;
+  /** Whether the current player must satisfy an active wish */
+  mustSatisfyWish?: boolean;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -30,7 +32,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const trickLeader = currentTrick?.currentWinner ?? null;
@@ -105,6 +107,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
             hideEmptyPlaceholder={hideEmptyTrick}
             dogAnimation={dogAnimation}
             dragonGiftPending={dragonGiftTargets && dragonGiftTargets.size > 0}
+            mustSatisfyWish={mustSatisfyWish}
           />
         </div>
       )}

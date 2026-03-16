@@ -481,6 +481,14 @@ export default function GamePage() {
 
   const isMyTurn = gameStore.currentTurn === mySeat;
 
+  // Must satisfy wish: active wish, my turn, not leading (trick exists), and I can't pass
+  const mustSatisfyWish = isMyTurn &&
+    gameStore.mahjongWish !== null &&
+    !gameStore.wishFulfilled &&
+    gameStore.currentTrick !== null &&
+    gameStore.currentTrick.plays.length > 0 &&
+    !selection.canPass;
+
   const isPreGame =
     phase === GamePhase.GrandTichuDecision ||
     phase === GamePhase.TichuDecision ||
@@ -663,7 +671,7 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} mustSatisfyWish={mustSatisfyWish} />
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {phase !== GamePhase.WaitingForPlayers && (
