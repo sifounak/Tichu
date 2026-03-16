@@ -289,11 +289,17 @@ export const gameMachine = setup({
       return isTrickComplete(round.currentTrick, round);
     },
 
-    /** REQ-F-GF06: Round is complete (≤1 player has cards) */
+    /** REQ-F-GF06: Round is complete (≤1 player has cards, or 1-2 finish) */
+    // REQ-F-BUG01: Also detect 1-2 finish (teammates go out 1st and 2nd)
     isRoundComplete: ({ context }) => {
       const round = context.currentRound;
       if (!round) return false;
-      return countActivePlayers(round) <= 1;
+      if (countActivePlayers(round) <= 1) return true;
+      // 1-2 finish: first two finishers are teammates — round ends immediately
+      if (round.finishOrder.length >= 2) {
+        return getTeam(round.finishOrder[0]) === getTeam(round.finishOrder[1]);
+      }
+      return false;
     },
 
     /** REQ-F-GF10: Game over — a team reached target score */
@@ -559,6 +565,17 @@ export const gameMachine = setup({
 
       const combination = validation.combination;
 
+      // REQ-F-BUG03: Phoenix single played onto a trick gets contextual rank (topRank + 0.5)
+      if (
+        combination.cards.length === 1 &&
+        combination.cards[0].card.kind === 'phoenix' &&
+        round.currentTrick &&
+        round.currentTrick.plays.length > 0
+      ) {
+        const trickTop = round.currentTrick.plays[round.currentTrick.plays.length - 1].combination;
+        combination.rank = trickTop.rank + 0.5;
+      }
+
       // REQ-F-GF03: Handle Mahjong wish
       if (event.wish !== undefined && cards.some((gc) => isMahjong(gc.card))) {
         round.mahjongWish = event.wish;
@@ -581,18 +598,11 @@ export const gameMachine = setup({
         // Remove Dog from hand and check if player finished
         removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
-        // Check for 1-2 finish
-        if (round.finishOrder.length >= 2) {
-          const first = round.finishOrder[0];
-          const second = round.finishOrder[1];
-          if (getTeam(first) === getTeam(second)) {
-            return scoreAndFinishRound(round, context);
-          }
-        }
-
-        // Check if round is over (only 1 or 0 active players remain)
-        if (countActivePlayers(round) <= 1) {
-          return scoreAndFinishRound(round, context);
+        // REQ-F-BUG01: Let always transitions handle round-end scoring
+        // (1-2 finish and countActivePlayers <= 1 both detected by isRoundComplete guard)
+        if (isRoundOver(round)) {
+          round.currentTrick = null;
+          return { currentRound: round };
         }
 
         // Dog goes to the partner (or next active if partner is out)
@@ -625,24 +635,15 @@ export const gameMachine = setup({
       // Remove cards from hand and check if player finished
       removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
-      // Check for 1-2 finish (teammates go out first and second) — round ends immediately
-      if (round.finishOrder.length >= 2) {
-        const first = round.finishOrder[0];
-        const second = round.finishOrder[1];
-        if (getTeam(first) === getTeam(second)) {
-          return scoreAndFinishRound(round, context);
-        }
+      // REQ-F-BUG01: Let always transitions handle round-end scoring centrally
+      // (1-2 finish and countActivePlayers <= 1 both detected by isRoundComplete guard)
+      if (isRoundOver(round)) {
+        return { currentRound: round };
       }
 
       // Check if trick is complete (e.g., bomb after all others passed, or player finished)
       if (isTrickComplete(round.currentTrick, round)) {
         return completeTrickAndAdvance(round, context);
-      }
-
-      // Check if round is over (only 1 or 0 active players remain)
-      // This handles the case where a player finishes mid-trick
-      if (countActivePlayers(round) <= 1) {
-        return scoreAndFinishRound(round, context);
       }
 
       // Advance turn
@@ -717,12 +718,8 @@ export const gameMachine = setup({
       round.players[event.recipient].tricksWon.push(round.dragonGiftPending.trickCards);
       round.dragonGiftPending = null;
 
-      // Check if round is over
-      if (countActivePlayers(round) <= 1) {
-        return scoreAndFinishRound(round, context);
-      }
-
-      // Continue with next trick — winner leads (or next active if winner finished)
+      // REQ-F-BUG01: Let always transitions handle round-end scoring centrally
+      // (after returning to 'playing', isRoundComplete guard detects completion)
       round.currentTrick = null;
       if (round.players[round.currentTurn!].finishOrder !== null) {
         round.currentTurn = getNextActiveSeat(round.currentTurn!, round);
@@ -932,9 +929,9 @@ function completeTrickAndAdvance(
 
   round.currentTrick = null;
 
-  // Check if round is over
-  if (countActivePlayers(round) <= 1) {
-    return scoreAndFinishRound(round, context);
+  // REQ-F-BUG01: Let always transitions handle round-end scoring centrally
+  if (isRoundOver(round)) {
+    return { currentRound: round };
   }
 
   // Winner leads next trick (or next active if winner is out)
@@ -945,6 +942,15 @@ function completeTrickAndAdvance(
   }
 
   return { currentRound: round };
+}
+
+/** REQ-F-BUG01: Check if round should end (1-2 finish or ≤1 active players) */
+function isRoundOver(round: RoundState): boolean {
+  if (countActivePlayers(round) <= 1) return true;
+  if (round.finishOrder.length >= 2) {
+    return getTeam(round.finishOrder[0]) === getTeam(round.finishOrder[1]);
+  }
+  return false;
 }
 
 function scoreAndFinishRound(
