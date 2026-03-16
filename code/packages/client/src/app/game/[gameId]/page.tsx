@@ -526,14 +526,10 @@ export default function GamePage() {
               setTimeout(() => setCodeCopied(false), 1000);
             }}
             style={{
-              fontFamily: 'monospace',
-              fontSize: '30px',
-              fontWeight: 900,
-              letterSpacing: '0.2em',
-              textIndent: '0.2em',
-              color: 'var(--color-gold-accent)',
+              fontSize: '16px',
+              fontWeight: 600,
+              color: 'var(--color-text-secondary)',
               textAlign: 'center' as const,
-              width: '100%',
               background: 'transparent',
               border: '1px solid transparent',
               borderRadius: '6px',
@@ -545,7 +541,7 @@ export default function GamePage() {
             onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
             aria-label="Copy room code"
           >
-            {roomCode}
+            Room Code: <span style={{ fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.15em', color: 'var(--color-gold-accent)' }}>{roomCode}</span>
           </button>
         )}
 
