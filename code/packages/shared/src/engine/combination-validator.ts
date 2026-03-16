@@ -4,6 +4,7 @@
 
 import type { Combination } from '../types/combination.js';
 import { CombinationType } from '../types/combination.js';
+import { PHOENIX_SINGLE_VALUE, DRAGON_RANK } from '../constants.js';
 
 /**
  * REQ-F-CB02: Determine if a play can beat the current top of the trick.
@@ -37,6 +38,16 @@ export function canBeat(play: Combination, currentTop: Combination | null): bool
   // Neither is a bomb: must be same type and same length
   if (play.type !== currentTop.type) return false;
   if (play.length !== currentTop.length) return false;
+
+  // REQ-F-PH05: Phoenix single beats any single except Dragon
+  // The combination detector assigns rank 1.5 (PHOENIX_SINGLE_VALUE) to Phoenix singles,
+  // but Phoenix on an existing trick actually beats the current card (rank + 0.5).
+  if (
+    play.type === CombinationType.Single &&
+    play.rank === PHOENIX_SINGLE_VALUE
+  ) {
+    return currentTop.rank < DRAGON_RANK;
+  }
 
   // Higher rank wins
   return play.rank > currentTop.rank;

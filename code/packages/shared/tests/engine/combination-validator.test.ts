@@ -4,6 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { canBeat, getRankOrder, isBomb } from '../../src/engine/combination-validator.js';
 import { CombinationType } from '../../src/types/combination.js';
 import type { Combination } from '../../src/types/combination.js';
+import { PHOENIX_SINGLE_VALUE, DRAGON_RANK } from '../../src/constants.js';
 
 // --- Helpers ---
 
@@ -140,6 +141,27 @@ describe('canBeat', () => {
     it('same-length straight-flush: higher rank wins', () => {
       expect(canBeat(makeSFBomb(10, 5), makeSFBomb(8, 5))).toBe(true);
       expect(canBeat(makeSFBomb(8, 5), makeSFBomb(10, 5))).toBe(false);
+    });
+  });
+
+  // REQ-F-PH05: Phoenix single beats any single except Dragon
+  describe('Phoenix single', () => {
+    it('Phoenix single (rank 1.5) beats any standard single', () => {
+      expect(canBeat(makeSingle(PHOENIX_SINGLE_VALUE), makeSingle(2))).toBe(true);
+      expect(canBeat(makeSingle(PHOENIX_SINGLE_VALUE), makeSingle(7))).toBe(true);
+      expect(canBeat(makeSingle(PHOENIX_SINGLE_VALUE), makeSingle(14))).toBe(true); // beats Ace
+    });
+
+    it('Phoenix single beats Mahjong (rank 1)', () => {
+      expect(canBeat(makeSingle(PHOENIX_SINGLE_VALUE), makeSingle(1))).toBe(true);
+    });
+
+    it('Phoenix single cannot beat Dragon', () => {
+      expect(canBeat(makeSingle(PHOENIX_SINGLE_VALUE), makeSingle(DRAGON_RANK))).toBe(false);
+    });
+
+    it('Phoenix single can lead (currentTop is null)', () => {
+      expect(canBeat(makeSingle(PHOENIX_SINGLE_VALUE), null)).toBe(true);
     });
   });
 
