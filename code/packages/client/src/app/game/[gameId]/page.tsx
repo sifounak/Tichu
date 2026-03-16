@@ -404,6 +404,25 @@ export default function GamePage() {
     setShowRoundEnd(false);
   }, [phase]);
 
+  // REQ-F-DR01: Compute Dragon gift targets — opponents the player can give the trick to
+  // NOTE: Must be above early returns to respect Rules of Hooks
+  const mySeat = gameStore.mySeat;
+  const dragonGiftTargets = useMemo(() => {
+    if (!gameStore.dragonGiftPending || !mySeat) return undefined;
+    if (gameStore.currentTurn !== mySeat) return undefined;
+    const targets = new Set<Seat>();
+    for (const p of gameStore.otherPlayers) {
+      if (p.seat !== mySeat && p.finishOrder === null) {
+        const myTeam = mySeat === 'north' || mySeat === 'south' ? 'ns' : 'ew';
+        const theirTeam = p.seat === 'north' || p.seat === 'south' ? 'ns' : 'ew';
+        if (myTeam !== theirTeam) {
+          targets.add(p.seat);
+        }
+      }
+    }
+    return targets.size > 0 ? targets : undefined;
+  }, [gameStore.dragonGiftPending, gameStore.currentTurn, mySeat, gameStore.otherPlayers]);
+
   // --- Loading state ---
   if (!gameStore.gameId || !gameStore.phase) {
     return (
@@ -416,7 +435,7 @@ export default function GamePage() {
     );
   }
 
-  const { mySeat } = gameStore;
+
 
   // --- Game over ---
   if (phase === GamePhase.GameOver && gameStore.gameOverInfo) {
@@ -456,26 +475,6 @@ export default function GamePage() {
   };
 
   const isMyTurn = gameStore.currentTurn === mySeat;
-
-  // REQ-F-DR01: Compute Dragon gift targets — opponents the player can give the trick to
-  const dragonGiftTargets = useMemo(() => {
-    if (!gameStore.dragonGiftPending) return undefined;
-    // Only the player who won the trick (currentTurn during awaitingDragonGift) picks
-    if (gameStore.currentTurn !== mySeat) return undefined;
-    const targets = new Set<Seat>();
-    for (const p of gameStore.otherPlayers) {
-      // Opponents (not teammates) who haven't finished
-      if (p.seat !== mySeat && p.finishOrder === null) {
-        // Check if opponent (not same team as me)
-        const myTeam = mySeat === 'north' || mySeat === 'south' ? 'ns' : 'ew';
-        const theirTeam = p.seat === 'north' || p.seat === 'south' ? 'ns' : 'ew';
-        if (myTeam !== theirTeam) {
-          targets.add(p.seat);
-        }
-      }
-    }
-    return targets.size > 0 ? targets : undefined;
-  }, [gameStore.dragonGiftPending, gameStore.currentTurn, mySeat, gameStore.otherPlayers]);
 
   const isPreGame =
     phase === GamePhase.GrandTichuDecision ||
