@@ -188,15 +188,22 @@ export class GameManager {
     return result.ok;
   }
 
-  /** REQ-F-MP01: Register a bot at the given seat */
-  registerBot(seat: Seat, difficulty: 'regular' | 'hard' = 'regular'): void {
+  /** REQ-F-MP01, REQ-F-TIER02: Register a bot at the given seat */
+  registerBot(seat: Seat, difficulty: 'regular' | 'hard' | 'expert' = 'regular'): void {
     let strategy: BotStrategy;
     switch (difficulty) {
+      case 'hard':
+        // HardBot will be added in Milestone 3
+        strategy = new RegularBot();
+        break;
+      case 'expert':
+        // ExpertBot will be added in Milestone 4
+        strategy = new RegularBot();
+        break;
       case 'regular':
       default:
         strategy = new RegularBot();
         break;
-      // Hard bot can be added here when implemented
     }
     this.botRunner.addBot(seat, strategy);
   }

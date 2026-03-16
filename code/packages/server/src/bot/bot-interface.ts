@@ -42,7 +42,8 @@ export type BotPlayDecision =
  */
 export interface BotStrategy {
   /** Bot difficulty level */
-  readonly difficulty: 'regular' | 'hard';
+  // REQ-F-TIER01: Three bot difficulty tiers
+  readonly difficulty: 'regular' | 'hard' | 'expert';
 
   /** Decide whether to call Grand Tichu (first 8 cards seen) */
   chooseGrandTichu(hand8: GameCard[]): boolean;
