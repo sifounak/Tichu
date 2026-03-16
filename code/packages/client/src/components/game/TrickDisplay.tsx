@@ -46,6 +46,8 @@ export interface TrickDisplayProps {
   dogAnimation?: { fromSeat: Seat; toSeat: Seat } | null;
   /** REQ-F-DR01: Show Dragon gift notification */
   dragonGiftPending?: boolean;
+  /** Show "must satisfy wish" banner */
+  mustSatisfyWish?: boolean;
 }
 
 /** Map seat to position relative to player */
@@ -81,6 +83,7 @@ export const TrickDisplay = memo(function TrickDisplay({
   hideEmptyPlaceholder,
   dogAnimation,
   dragonGiftPending,
+  mustSatisfyWish,
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
 
@@ -243,6 +246,13 @@ export const TrickDisplay = memo(function TrickDisplay({
           </div>
         ) : null}
       </AnimatePresence>
+
+      {/* Must satisfy wish banner */}
+      {mustSatisfyWish && (
+        <div className={styles.mustSatisfyWish}>
+          You must satisfy the wish
+        </div>
+      )}
     </div>
   );
 });

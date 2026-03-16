@@ -62,7 +62,7 @@ describe('TrickDisplay', () => {
   it('REQ-F-DI07: shows wish indicator when wish is active', () => {
     render(<TrickDisplay trick={null} mahjongWish={10 as Rank} wishFulfilled={false} mySeat="south" />);
     expect(screen.getByLabelText(/wish for 10/i)).toBeInTheDocument();
-    expect(screen.getByText('Wish: 10')).toBeInTheDocument();
+    expect(screen.getByText('10 wish in effect')).toBeInTheDocument();
   });
 
   it('hides wish indicator when wish is fulfilled', () => {
