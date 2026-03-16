@@ -30,7 +30,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
   const router = useRouter();
   const [error, setError] = useState('');
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
-  const { roomCode, mySeat, players, hostSeat, config, gameInProgress, setRoom, updateRoom, leaveRoom } = useRoomStore();
+  const { roomCode, roomName: storedRoomName, mySeat, players, hostSeat, config, gameInProgress, setRoom, updateRoom, leaveRoom } = useRoomStore();
 
   const onMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
@@ -38,7 +38,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         setRoom(msg.roomCode, msg.seat);
         break;
       case 'ROOM_UPDATE':
-        updateRoom(msg.players, msg.hostSeat, msg.config as GameConfig, msg.gameInProgress);
+        updateRoom(msg.roomName, msg.players, msg.hostSeat, msg.config as GameConfig, msg.gameInProgress);
         break;
       case 'ROOM_LEFT':
         leaveRoom();
@@ -220,7 +220,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>Room</h1>
+          <h1 className="text-3xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>{storedRoomName ?? 'Room'}</h1>
           <p className="mt-1 font-mono text-2xl tracking-[0.3em] font-bold"
             style={{ color: 'var(--color-text-primary)' }}>
             {roomCode ?? roomId}

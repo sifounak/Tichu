@@ -8,6 +8,7 @@ import type { LobbyEntry, RoomPlayer } from '@tichu/shared';
 export interface RoomStore {
   /* --- Room state --- */
   roomCode: string | null;
+  roomName: string | null;
   mySeat: Seat | null;
   players: RoomPlayer[];
   hostSeat: Seat | null;
@@ -19,7 +20,7 @@ export interface RoomStore {
 
   /* --- Actions --- */
   setRoom: (roomCode: string, seat: Seat) => void;
-  updateRoom: (players: RoomPlayer[], hostSeat: Seat, config: GameConfig, gameInProgress: boolean) => void;
+  updateRoom: (roomName: string, players: RoomPlayer[], hostSeat: Seat, config: GameConfig, gameInProgress: boolean) => void;
   setLobbyRooms: (rooms: LobbyEntry[]) => void;
   leaveRoom: () => void;
   reset: () => void;
@@ -27,6 +28,7 @@ export interface RoomStore {
 
 const INITIAL_STATE = {
   roomCode: null,
+  roomName: null,
   mySeat: null,
   players: [],
   hostSeat: null,
@@ -40,13 +42,14 @@ export const useRoomStore = create<RoomStore>()((set) => ({
 
   setRoom: (roomCode, seat) => set({ roomCode, mySeat: seat }),
 
-  updateRoom: (players, hostSeat, config, gameInProgress) =>
-    set({ players, hostSeat, config, gameInProgress }),
+  updateRoom: (roomName, players, hostSeat, config, gameInProgress) =>
+    set({ roomName, players, hostSeat, config, gameInProgress }),
 
   setLobbyRooms: (rooms) => set({ lobbyRooms: rooms }),
 
   leaveRoom: () => set({
     roomCode: null,
+    roomName: null,
     mySeat: null,
     players: [],
     hostSeat: null,
