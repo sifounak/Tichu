@@ -63,16 +63,16 @@ export const PreGamePhase = memo(function PreGamePhase({
           <p className={styles.subtitle}>You have seen 8 cards. Declare Grand Tichu (+/- 200)?</p>
           <div className={styles.buttonRow}>
             <button
-              className={`${styles.button} ${styles.callButton}`}
-              onClick={() => onGrandTichuDecision(true)}
-            >
-              Grand Tichu!
-            </button>
-            <button
               className={`${styles.button} ${styles.skipButton}`}
               onClick={() => onGrandTichuDecision(false)}
             >
               Pass
+            </button>
+            <button
+              className={`${styles.button} ${styles.callButton}`}
+              onClick={() => onGrandTichuDecision(true)}
+            >
+              Grand Tichu!
             </button>
           </div>
         </div>
