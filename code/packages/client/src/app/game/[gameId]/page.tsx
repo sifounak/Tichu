@@ -517,6 +517,7 @@ export default function GamePage() {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: '6px',
       }}>
         {/* Room code — button border appears on hover */}
