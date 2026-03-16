@@ -516,39 +516,33 @@ export default function GamePage() {
         alignItems: 'flex-start',
         gap: '6px',
       }}>
-        {/* Room code with copy on hover */}
+        {/* Room code — button border appears on hover */}
         {roomCode && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: 'pointer',
-            }}
+          <button
             onClick={() => {
               navigator.clipboard.writeText(roomCode);
               setCodeCopied(true);
-              setTimeout(() => setCodeCopied(false), 2000);
+              setTimeout(() => setCodeCopied(false), 1000);
             }}
-            title="Click to copy room code"
-          >
-            <span style={{
+            style={{
               fontFamily: 'monospace',
-              fontSize: '18px',
+              fontSize: '26px',
               fontWeight: 700,
               letterSpacing: '0.2em',
               color: 'var(--color-gold-accent)',
-            }}>
-              {roomCode}
-            </span>
-            <span style={{
-              fontSize: '13px',
-              color: codeCopied ? 'var(--color-success)' : 'var(--color-text-muted)',
-              transition: 'color 0.2s',
-            }}>
-              {codeCopied ? 'Copied!' : '📋'}
-            </span>
-          </div>
+              background: 'transparent',
+              border: '1px solid transparent',
+              borderRadius: '6px',
+              padding: '6px 12px',
+              cursor: 'pointer',
+              transition: 'border-color 0.2s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+            aria-label="Copy room code"
+          >
+            {roomCode}
+          </button>
         )}
 
         {/* Leave Room button */}
@@ -559,8 +553,8 @@ export default function GamePage() {
             border: '1px solid var(--color-border)',
             borderRadius: '6px',
             color: 'var(--color-text-secondary)',
-            padding: '6px 16px',
-            fontSize: '14px',
+            padding: '6px 12px',
+            fontSize: '26px',
             fontWeight: 600,
             cursor: 'pointer',
           }}
@@ -568,6 +562,21 @@ export default function GamePage() {
         >
           Leave Room
         </button>
+
+        {/* Copy toast */}
+        {codeCopied && (
+          <div style={{
+            background: 'var(--color-bg-panel)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '6px',
+            padding: '6px 12px',
+            fontSize: '14px',
+            color: 'var(--color-text-primary)',
+            whiteSpace: 'nowrap',
+          }}>
+            Room code copied to clipboard
+          </div>
+        )}
       </div>
 
       {/* Leave confirmation dialog */}
