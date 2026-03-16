@@ -23,8 +23,8 @@
 | REQ-F-DRAG01 | Dragon gift to opponent most likely to go out last | hard-bot.ts:157-159, expert-bot.ts:215-217 | hard-bot.test.ts:591-618, expert-bot.test.ts:545-570 | Passed |
 | REQ-F-WISH01 | Strategic Mahjong wish | hard-bot.ts:169-171, expert-bot.ts:222-224 | hard-bot.test.ts:620-646, expert-bot.test.ts:575-595 | Passed |
 | REQ-F-TIER01 | Difficulty type regular/hard/expert across stack | game.ts:114, protocol.ts:37+42, bot-interface.ts:45, game-manager.ts:192, lobby/page.tsx:336+346 | — (type system verified by compilation) | Passed |
-| REQ-F-TIER02 | GameManager factory for all 3 bot classes | game-manager.ts:195-199 (case 'hard': HardBot, case 'expert': ExpertBot) | bot-runner.test.ts (full game smoke) | Passed |
+| REQ-F-TIER02 | GameManager factory for all 3 bot classes | game-manager.ts:195-199 (case 'hard': HardBot, case 'expert': ExpertBot) | bot-runner.test.ts (full game smoke), bot-integration.test.ts:132 | Passed |
 | REQ-F-DEF01 | Opponent Tichu defense (save bombs for caller) | hard-bot.ts:133-141, expert-bot.ts:196-202 | hard-bot.test.ts:544-587, expert-bot.test.ts:382-398 | Passed |
-| REQ-NF-PERF01 | Bot decision time < 100ms | — | — | Not Started |
+| REQ-NF-PERF01 | Bot decision time < 100ms | hard-bot.ts, expert-bot.ts (all decision methods) | bot-integration.test.ts:300-398 (performance tests: 100-iteration avg < 100ms per method + real-game choosePlay timing) | Passed |
 | REQ-NF-MAINT01 | Shared bot-strategy-utils.ts module | bot-strategy-utils.ts (30+ functions) | bot-strategy-utils.test.ts (27 tests) | Passed |
-| REQ-NF-TEST01 | 80%+ statement coverage for new code | card-tracker.ts: 100%, expert-bot.ts: 93.38%, hard-bot.ts: 92.59% | — | Passed |
+| REQ-NF-TEST01 | 80%+ statement coverage for new code | card-tracker.ts: 100%, expert-bot.ts: 97.05%, hard-bot.ts: 92.59%, bot-strategy-utils.ts: 96.62%, bot-runner.ts: 100%, regular-bot.ts: 100% | bot-integration.test.ts (17 integration tests) | Passed |

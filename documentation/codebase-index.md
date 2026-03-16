@@ -53,7 +53,7 @@ Pure game engine and type definitions. Only runtime dependency is Zod.
 |------|-------------|
 | `card.ts` | `Suit`, `Rank`, `SpecialCardType`, `Card` (discriminated union: StandardCard, DragonCard, PhoenixCard, MahjongCard, DogCard), `GameCard` {id, card}, type guards (`isStandard`, `isDragon`, etc.) |
 | `combination.ts` | `CombinationType` (Single, Pair, Triple, FullHouse, Straight, PairSequence, FourBomb, StraightFlushBomb), `Combination` {type, cards, rank, length, phoenixUsedAs?, isBomb} |
-| `game.ts` | `Seat` (north/east/south/west), `Team` (northSouth/eastWest), `GamePhase` enum, `TichuCall`, `PlayerState` {seat, hand, tricksWon, tichuCall, hasPlayed, finishOrder, passedCards}, `TrickState` {plays, passes, leadSeat, currentWinner}, `RoundState` {roundNumber, phase, players, currentTrick, currentTurn, mahjongWish, wishFulfilled, finishOrder, dragonGiftPending, lastDogPlay}, `GameState`, `ClientGameView` (projected per-player), `GameConfig` {targetScore, turnTimerSeconds, botDifficulty: `'regular' \| 'hard'`, animationSpeed, spectatorsAllowed, isPrivate}, `RoundScore`, helpers (`getTeam`, `getPartner`, `getNextSeat`, `SEATS_IN_ORDER`) |
+| `game.ts` | `Seat` (north/east/south/west), `Team` (northSouth/eastWest), `GamePhase` enum, `TichuCall`, `PlayerState` {seat, hand, tricksWon, tichuCall, hasPlayed, finishOrder, passedCards}, `TrickState` {plays, passes, leadSeat, currentWinner}, `RoundState` {roundNumber, phase, players, currentTrick, currentTurn, mahjongWish, wishFulfilled, finishOrder, dragonGiftPending, lastDogPlay}, `GameState`, `ClientGameView` (projected per-player), `GameConfig` {targetScore, turnTimerSeconds, botDifficulty: `'regular' \| 'hard' \| 'expert'`, animationSpeed, spectatorsAllowed, isPrivate}, `RoundScore`, helpers (`getTeam`, `getPartner`, `getNextSeat`, `SEATS_IN_ORDER`) |
 | `protocol.ts` | `ClientMessage` (22 types), `ServerMessage` (20+ types), Zod schemas for all messages |
 | `room.ts` | `RoomPlayer`, `RoomConfig`, `Room`, `LobbyEntry` |
 
@@ -120,9 +120,26 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 
 | File | Key Class | Purpose |
 |------|----------|---------|
-| `bot-interface.ts` | `BotStrategy` interface | Methods: `chooseGrandTichu`, `chooseRegularTichu`, `chooseCardsToPass`, `choosePlay`, `chooseDragonGiftRecipient`, `chooseMahjongWish`. `BotPlayContext` provides hand, current trick, wish, valid plays, canPass, roundState, seat. Difficulty: `'regular' \| 'hard'`. |
+| `bot-interface.ts` | `BotStrategy` interface | Methods: `chooseGrandTichu`, `chooseRegularTichu`, `chooseCardsToPass`, `choosePlay`, `chooseDragonGiftRecipient`, `chooseMahjongWish`. `BotPlayContext` provides hand, current trick, wish, valid plays, canPass, roundState, seat. Difficulty: `'regular' \| 'hard' \| 'expert'`. |
 | `regular-bot.ts` | `RegularBot` | Random-move bot. Always passes tichu. Random card passing. Picks random valid play (30% pass chance). Random Dragon gift. No Mahjong wish. |
+| `hard-bot.ts` | `HardBot` | Heuristic strategy bot. Per-trick evaluation, lead low/win high, strategic passing, bomb timing, partner support, opponent Tichu defense. 10-15% randomness via injectable random source. |
+| `expert-bot.ts` | `ExpertBot` | Near-expert bot. Full hand planning at round start, always optimal play, score-aware Tichu calls, anti-bomb passing, one-two prevention, opponent Tichu defense. Uses CardTracker for card counting. |
+| `card-tracker.ts` | `CardTracker` | Tracks top-10 cards (4 Aces, 4 Kings, Dragon, Phoenix) — which played, which unaccounted. Flags absent ranks as potential bombs. Used by ExpertBot. |
+| `bot-strategy-utils.ts` | (pure functions) | Shared strategy utilities: hand evaluation (`evaluateHandStrength`, `countTopCards`, `countLeadGetters`), card sorting, passing logic (`selectPassCards`), play selection (`selectLeadPlay`, `selectFollowPlay`, `shouldPlayBomb`), state analysis (`isPartnerWinning`, `getOpponentTichuCallers`, `isEndgame`). Used by all three bots. |
 | `bot-runner.ts` | `BotRunner` | Manages bot instances per game. Triggers auto-play on state changes with artificial delay (800-1500ms human+bot, 50-150ms bot-only). Handles all phases: grandTichuDecision, regularTichuDecision, cardPassing, playing, awaitingDragonGift. |
+
+#### Bot Capability Matrix
+
+| Capability | RegularBot | HardBot | ExpertBot |
+|-----------|-----------|---------|-----------|
+| Tichu calls | Never | Heuristic thresholds | Refined eval + score-aware |
+| Card passing | Random | Strategic (hand-strength-based) | Strategic + anti-bomb conventions |
+| Play evaluation | Random from valid plays | Per-trick heuristic ("lead low, win high") | Full hand planning at round start |
+| Special card usage | Random | Purposeful (strategy-guided) | Planned (decided during hand planning) |
+| Bomb timing | Random | Save for critical moments | Save for critical moments |
+| Partner support | None | Don't overplay partner | Don't overplay + sacrifice for partner Tichu |
+| Card counting | None | None | Top 10 + absent rank detection |
+| Randomness | 30% random pass | 10-15% suboptimal plays | Always optimal |
 
 ### Auth (`auth/`)
 
