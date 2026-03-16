@@ -111,7 +111,8 @@ export interface RoundState {
 export interface GameConfig {
   targetScore: number;
   turnTimerSeconds: number | null;
-  botDifficulty: 'regular' | 'hard';
+  // REQ-F-TIER01: Three bot difficulty tiers
+  botDifficulty: 'regular' | 'hard' | 'expert';
   animationSpeed: 'slow' | 'normal' | 'fast' | 'off';
   spectatorsAllowed: boolean;
   isPrivate: boolean;

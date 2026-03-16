@@ -5,7 +5,7 @@
 | REQ-F-BUG01 | Round-ending edge cases (game gets stuck) | game-state-machine.ts:293-301 (isRoundComplete guard), game-state-machine.ts:958 (isRoundOver helper) | round-ending-edge-cases.test.ts:125-180 | Passed |
 | REQ-F-BUG02 | Dog animation timing (1s pause + 1s sweep) | TrickDisplay.tsx:163 (1.0s sweep), page.tsx:92-94 (2.0s total) | — (manual verification) | Passed |
 | REQ-F-BUG03 | Phoenix singleton display contextual value | game-state-machine.ts:563-571 (contextual rank update) | round-ending-edge-cases.test.ts:213-256 | Passed |
-| REQ-F-INFO01 | Bots use only human-available information | — | — | Not Started |
+| REQ-F-INFO01 | Bots use only human-available information | bot-strategy-utils.ts (all functions) | bot-strategy-utils.test.ts | Passed |
 | REQ-F-INFO02 | Expert bot top-10 card tracking + bomb detection | — | — | Not Started |
 | REQ-F-CALL01 | Grand Tichu hand evaluation | — | — | Not Started |
 | REQ-F-CALL02 | Regular Tichu hand evaluation | — | — | Not Started |
@@ -22,9 +22,9 @@
 | REQ-F-PLAY07 | Expert full hand planning at round start | — | — | Not Started |
 | REQ-F-DRAG01 | Dragon gift to opponent most likely to go out last | — | — | Not Started |
 | REQ-F-WISH01 | Strategic Mahjong wish | — | — | Not Started |
-| REQ-F-TIER01 | Difficulty type regular/hard/expert across stack | — | — | Not Started |
-| REQ-F-TIER02 | GameManager factory for all 3 bot classes | — | — | Not Started |
+| REQ-F-TIER01 | Difficulty type regular/hard/expert across stack | game.ts:114, protocol.ts:37+42, bot-interface.ts:45, game-manager.ts:192, lobby/page.tsx:336+346 | — (type system verified by compilation) | Passed |
+| REQ-F-TIER02 | GameManager factory for all 3 bot classes | game-manager.ts:192-205 | — (placeholder until M3/M4 add real bots) | In Progress |
 | REQ-F-DEF01 | Opponent Tichu defense (save bombs for caller) | — | — | Not Started |
 | REQ-NF-PERF01 | Bot decision time < 100ms | — | — | Not Started |
-| REQ-NF-MAINT01 | Shared bot-strategy-utils.ts module | — | — | Not Started |
+| REQ-NF-MAINT01 | Shared bot-strategy-utils.ts module | bot-strategy-utils.ts (30+ functions) | bot-strategy-utils.test.ts (27 tests) | Passed |
 | REQ-NF-TEST01 | 80%+ statement coverage for new code | — | — | Not Started |
