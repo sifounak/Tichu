@@ -508,7 +508,7 @@ export default function GamePage() {
       {/* Room code + Leave Room */}
       <div style={{
         position: 'fixed',
-        top: 110,
+        top: 120,
         left: 148,
         transform: 'translate(-50%, -50%)',
         zIndex: 30,
@@ -557,6 +557,7 @@ export default function GamePage() {
             fontSize: '16px',
             fontWeight: 600,
             cursor: 'pointer',
+            width: '100%',
           }}
           aria-label="Leave room"
         >
