@@ -590,6 +590,11 @@ export const gameMachine = setup({
           }
         }
 
+        // Check if round is over (only 1 or 0 active players remain)
+        if (countActivePlayers(round) <= 1) {
+          return scoreAndFinishRound(round, context);
+        }
+
         // Dog goes to the partner (or next active if partner is out)
         let nextLead = partner;
         if (round.players[partner].finishOrder !== null) {
@@ -629,9 +634,15 @@ export const gameMachine = setup({
         }
       }
 
-      // Check if trick is complete (e.g., bomb after all others passed)
+      // Check if trick is complete (e.g., bomb after all others passed, or player finished)
       if (isTrickComplete(round.currentTrick, round)) {
         return completeTrickAndAdvance(round, context);
+      }
+
+      // Check if round is over (only 1 or 0 active players remain)
+      // This handles the case where a player finishes mid-trick
+      if (countActivePlayers(round) <= 1) {
+        return scoreAndFinishRound(round, context);
       }
 
       // Advance turn
