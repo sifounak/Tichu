@@ -284,9 +284,9 @@ export default function LobbyPage() {
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
                     {([
-                      ['roomName', 'Room Name', 'center'],
+                      ['roomName', 'Room Name', 'left'],
                       ['hostName', 'Host', 'left'],
-                      ['goal', 'Goal', 'center'],
+                      ['goal', 'Goal', 'right'],
                       ['players', 'Players', 'center'],
                     ] as const).map(([col, label, align]) => (
                       <th
