@@ -273,21 +273,28 @@ export default function LobbyPage() {
             </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col style={{ width: '40%' }} />
+                  <col />
+                  <col style={{ width: '80px' }} />
+                  <col style={{ width: '85px' }} />
+                  <col style={{ width: '80px' }} />
+                </colgroup>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
                     {([
-                      ['roomName', 'Room Name'],
-                      ['hostName', 'Host'],
-                      ['goal', 'Goal'],
-                      ['players', 'Players'],
-                    ] as const).map(([col, label]) => (
+                      ['roomName', 'Room Name', 'center'],
+                      ['hostName', 'Host', 'left'],
+                      ['goal', 'Goal', 'center'],
+                      ['players', 'Players', 'center'],
+                    ] as const).map(([col, label, align]) => (
                       <th
                         key={col}
                         onClick={() => handleSort(col)}
                         style={{
                           padding: '10px 12px',
-                          textAlign: 'center',
+                          textAlign: align as 'center' | 'left',
                           color: 'var(--color-text-muted)',
                           fontWeight: 600,
                           fontSize: '13px',
