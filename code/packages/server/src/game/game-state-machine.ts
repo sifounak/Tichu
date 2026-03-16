@@ -581,6 +581,15 @@ export const gameMachine = setup({
         // Remove Dog from hand and check if player finished
         removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
+        // Check for 1-2 finish
+        if (round.finishOrder.length >= 2) {
+          const first = round.finishOrder[0];
+          const second = round.finishOrder[1];
+          if (getTeam(first) === getTeam(second)) {
+            return scoreAndFinishRound(round, context);
+          }
+        }
+
         // Dog goes to the partner (or next active if partner is out)
         let nextLead = partner;
         if (round.players[partner].finishOrder !== null) {
@@ -610,6 +619,15 @@ export const gameMachine = setup({
 
       // Remove cards from hand and check if player finished
       removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
+
+      // Check for 1-2 finish (teammates go out first and second) — round ends immediately
+      if (round.finishOrder.length >= 2) {
+        const first = round.finishOrder[0];
+        const second = round.finishOrder[1];
+        if (getTeam(first) === getTeam(second)) {
+          return scoreAndFinishRound(round, context);
+        }
+      }
 
       // Check if trick is complete (e.g., bomb after all others passed)
       if (isTrickComplete(round.currentTrick, round)) {
