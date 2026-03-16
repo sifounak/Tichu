@@ -509,7 +509,7 @@ export default function GamePage() {
       <div style={{
         position: 'fixed',
         top: 40,
-        left: '50%',
+        left: 148,
         transform: 'translateX(-50%)',
         zIndex: 30,
         display: 'flex',
