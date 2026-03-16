@@ -22,7 +22,8 @@
       "Bash(grep -r ScorePanel /c/MATLAB/Claude/Tichu/code/packages/client/src --include=*.tsx --include=*.ts --include=*.jsx --include=*.js)",
       "Bash(bash dev-start.sh)",
       "Bash(npx tsc:*)",
-      "Bash(pnpm --filter server test)"
+      "Bash(pnpm --filter server test)",
+      "Bash(grep -l \"Milestone 3\\\\|M3\\\\|M-3\" /c/Users/asifouna/.claude/plans/*.md)"
     ],
     "additionalDirectories": [
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\matlab-test-generator\\references",
@@ -30,7 +31,8 @@
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\diligent-developer\\conversations",
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\diligent-developer",
       "C:\\MATLAB\\Claude\\Tichu\\code\\packages\\shared\\src\\types",
-      "C:\\MATLAB\\Claude\\Tichu\\code\\packages\\server\\src"
+      "C:\\MATLAB\\Claude\\Tichu\\code\\packages\\server\\src",
+      "C:\\Users\\asifouna\\.claude\\plans"
     ]
   }
 }

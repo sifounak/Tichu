@@ -1,51 +1,46 @@
 #!/usr/bin/env bash
-# Reliable dev startup: kill old processes, clean cache, start server + client
+# dev-start.sh — Kill any existing dev processes, clean cache, start server + client
+# Works for both fresh starts and restarts.
+# Usage: bash dev-start.sh
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SERVER_DIR="$SCRIPT_DIR/packages/server"
 CLIENT_DIR="$SCRIPT_DIR/packages/client"
 
-# Kill process on a given port, retrying with PowerShell if needed
-kill_port() {
-  local port=$1
-  local pid
-  pid=$(netstat -ano 2>/dev/null | grep ":$port.*LISTENING" | awk '{print $5}' | head -1)
-  if [ -z "$pid" ] || [ "$pid" = "0" ]; then
-    return 0
-  fi
-  echo "Killing PID $pid on port $port"
-  # Try taskkill with tree flag first (kills children too)
-  taskkill //F //T //PID "$pid" 2>/dev/null || true
-  sleep 1
-  # If still alive, use PowerShell
-  if netstat -ano 2>/dev/null | grep -q ":$port.*LISTENING"; then
-    echo "  Retrying with PowerShell..."
-    powershell -Command "Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue" 2>/dev/null || true
-    sleep 2
-  fi
-  # Final check
-  if netstat -ano 2>/dev/null | grep -q ":$port.*LISTENING"; then
-    echo "  ERROR: Port $port still in use!"
-    return 1
-  fi
-  echo "  Port $port freed"
-}
-
+# --- Stop existing processes ---
 echo "=== Stopping existing processes ==="
-for port in 3001 3000; do
-  kill_port "$port"
+# Kill all node/turbo processes (covers tsx watch, next dev, etc.)
+powershell -Command "Get-Process -Name node,turbo -ErrorAction SilentlyContinue | Stop-Process -Force" 2>/dev/null || true
+
+# Wait for ports to be released
+echo "Waiting for ports to free up..."
+for i in $(seq 1 15); do
+  if netstat -ano 2>/dev/null | grep -E ':(3000|3001)\s' | grep -q LISTENING; then
+    sleep 1
+  else
+    echo "Ports are free."
+    break
+  fi
 done
 
+# Final check
+if netstat -ano 2>/dev/null | grep -E ':(3000|3001)\s' | grep -q LISTENING; then
+  echo "ERROR: Ports 3000/3001 still in use after 15s. Aborting."
+  netstat -ano | grep -E ':(3000|3001)\s' | grep LISTENING
+  exit 1
+fi
+
+# --- Clean cache ---
 echo "=== Cleaning .next cache ==="
 rm -rf "$CLIENT_DIR/.next" 2>/dev/null || true
 
-echo "=== Starting server ==="
+# --- Start server ---
+echo "=== Starting server (tsx watch — live reload) ==="
 cd "$SERVER_DIR"
-node dist/index.js &
+npx tsx watch src/index.ts &
 SERVER_PID=$!
 
-# Wait for server to be ready
 for i in $(seq 1 10); do
   if netstat -ano 2>/dev/null | grep -q ":3001.*LISTENING"; then
     echo "Server ready on port 3001 (PID $SERVER_PID)"
@@ -57,12 +52,12 @@ for i in $(seq 1 10); do
   sleep 1
 done
 
-echo "=== Starting client ==="
+# --- Start client ---
+echo "=== Starting client (next dev) ==="
 cd "$CLIENT_DIR"
 npx next dev --port 3000 &
 CLIENT_PID=$!
 
-# Wait for client to be ready
 for i in $(seq 1 15); do
   if netstat -ano 2>/dev/null | grep -q ":3000.*LISTENING"; then
     echo "Client ready on port 3000 (PID $CLIENT_PID)"
@@ -74,10 +69,11 @@ for i in $(seq 1 15); do
   sleep 1
 done
 
+# --- Ready ---
+echo ""
 echo "=== Both servers running ==="
 echo "  Server: http://localhost:3001 (PID $SERVER_PID)"
 echo "  Client: http://localhost:3000 (PID $CLIENT_PID)"
 echo "  Press Ctrl+C to stop both"
 
-# Wait for either to exit
 wait
