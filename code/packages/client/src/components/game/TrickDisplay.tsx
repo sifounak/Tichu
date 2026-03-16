@@ -16,6 +16,11 @@ const RANK_LABELS: Record<number, string> = {
   8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K', 14: 'A',
 };
 
+const RANK_FULL_NAMES: Record<number, string> = {
+  2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7',
+  8: '8', 9: '9', 10: '10', 11: 'Jack', 12: 'Queen', 13: 'King', 14: 'Ace',
+};
+
 /** Format the effective value of a Phoenix single for display */
 function formatPhoenixValue(rank: number): string {
   const baseRank = Math.floor(rank);
@@ -135,7 +140,7 @@ export const TrickDisplay = memo(function TrickDisplay({
             exit={enabled ? { opacity: 0, scale: 0.7 } : undefined}
             transition={{ duration: durations.cardLift }}
           >
-            {RANK_LABELS[mahjongWish]} wish in effect
+            {RANK_FULL_NAMES[mahjongWish]} wish in effect
           </motion.div>
         )}
       </AnimatePresence>
