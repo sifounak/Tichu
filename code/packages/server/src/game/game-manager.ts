@@ -11,6 +11,7 @@ import type {
   GameConfig,
   Seat,
 } from '@tichu/shared';
+import { getValidPlays } from '@tichu/shared';
 import type { Broadcaster } from '../ws/broadcaster.js';
 import {
   createGameActor,
@@ -43,6 +44,7 @@ export class GameManager {
   private readonly disconnectHandler: DisconnectHandler;
   private readonly botRunner: BotRunner;
   private destroyed = false;
+  private autoPassTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     gameId: string,
@@ -219,9 +221,30 @@ export class GameManager {
     const state = this.stateValue;
     const round = this.context.currentRound;
 
+    // Clear any pending auto-pass
+    if (this.autoPassTimer) {
+      clearTimeout(this.autoPassTimer);
+      this.autoPassTimer = null;
+    }
+
     // Manage turn timer
     if (state === 'playing' && round?.currentTurn) {
       this.timer.start(round.currentTurn);
+
+      // Auto-pass for human players who have no valid plays
+      const seat = round.currentTurn;
+      if (!this.botRunner.isBot(seat) && round.currentTrick) {
+        const hand = round.players[seat].hand;
+        const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
+        const validPlays = getValidPlays(hand, round.currentTrick, wish);
+        if (validPlays.length === 0) {
+          this.autoPassTimer = setTimeout(() => {
+            if (this.destroyed) return;
+            this.actor.send({ type: 'PASS_TURN', seat });
+            this.broadcastState();
+          }, 500);
+        }
+      }
     } else {
       this.timer.stop();
     }
@@ -234,6 +257,7 @@ export class GameManager {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    if (this.autoPassTimer) clearTimeout(this.autoPassTimer);
     this.timer.dispose();
     this.botRunner.dispose();
     this.actor.stop();
