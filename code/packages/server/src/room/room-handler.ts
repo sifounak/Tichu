@@ -53,7 +53,7 @@ export class RoomHandler {
     }
 
     try {
-      const room = this.roomManager.createRoom(info.userId, msg.playerName);
+      const room = this.roomManager.createRoom(info.userId, msg.playerName, (msg as any).roomName);
       this.connections.assignToRoom(ws, room.roomCode, room.hostSeat);
 
       this.broadcaster.send(ws, { type: 'ROOM_CREATED', roomCode: room.roomCode });

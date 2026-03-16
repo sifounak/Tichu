@@ -27,7 +27,7 @@ const seatSchema = z.enum(['north', 'east', 'south', 'west']);
 
 export const clientMessageSchema = z.discriminatedUnion('type', [
   // Room actions
-  z.object({ type: z.literal('CREATE_ROOM'), playerName: z.string().min(1).max(30) }),
+  z.object({ type: z.literal('CREATE_ROOM'), playerName: z.string().min(1).max(30), roomName: z.string().max(30).optional() }),
   z.object({ type: z.literal('JOIN_ROOM'), roomCode: z.string().length(6), playerName: z.string().min(1).max(30) }),
   z.object({ type: z.literal('LEAVE_ROOM') }),
   // REQ-F-MP04: Room configuration
