@@ -508,7 +508,7 @@ export default function GamePage() {
       {/* Room code + Leave Room */}
       <div style={{
         position: 'fixed',
-        top: 24,
+        top: 40,
         left: 28,
         zIndex: 30,
         display: 'flex',
@@ -649,7 +649,7 @@ export default function GamePage() {
 
       {/* REQ-F-DI05: Score panel */}
       {gameStore.scores && (
-        <div style={{ position: 'fixed', top: 24, right: 28, zIndex: 30 }}>
+        <div style={{ position: 'fixed', top: 40, right: 28, zIndex: 30 }}>
           <ScorePanel
             scores={gameStore.scores}
             roundHistory={gameStore.roundHistory}
