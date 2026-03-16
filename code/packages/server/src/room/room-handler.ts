@@ -286,6 +286,7 @@ export class RoomHandler {
 
     this.broadcaster.broadcastToRoom(roomCode, {
       type: 'ROOM_UPDATE',
+      roomName: room.roomName,
       players: room.players.map(p => ({
         seat: p.seat,
         name: p.name,

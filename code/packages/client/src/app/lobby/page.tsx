@@ -238,7 +238,7 @@ export default function LobbyPage() {
                 minWidth: '180px',
               }}
             >
-              Join Private Room
+              Join Room
             </button>
           </div>
         </div>
