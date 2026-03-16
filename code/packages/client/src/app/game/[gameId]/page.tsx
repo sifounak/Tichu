@@ -531,6 +531,7 @@ export default function GamePage() {
               letterSpacing: '0.2em',
               color: 'var(--color-gold-accent)',
               textAlign: 'center' as const,
+              width: '100%',
               background: 'transparent',
               border: '1px solid transparent',
               borderRadius: '6px',
