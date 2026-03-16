@@ -238,15 +238,13 @@ export class GameManager {
         const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
         const validPlays = getValidPlays(hand, round.currentTrick, wish);
         if (validPlays.length === 0) {
-          // Don't auto-pass against Dragon or Ace+0.5 Phoenix if player has 4+ cards
-          // (they need time to check if they have a bomb)
+          // Don't auto-pass against Dragon if player has 3+ cards
+          // (4 cards needed for a bomb, but let them look with 3+ to be safe)
           const lastPlay = round.currentTrick.plays[round.currentTrick.plays.length - 1];
           const topIsDragon = lastPlay?.combination.cards.some(
             (gc) => gc.card.kind === 'dragon',
           );
-          const topIsMaxPhoenix = lastPlay?.combination.type === 'single' &&
-            lastPlay.combination.rank === 14.5;
-          if ((topIsDragon || topIsMaxPhoenix) && hand.length >= 4) {
+          if (topIsDragon && hand.length >= 3) {
             // Let the player decide manually
           } else {
             this.autoPassTimer = setTimeout(() => {
