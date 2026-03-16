@@ -208,7 +208,7 @@ export default function LobbyPage() {
             <button
               onClick={handleCreate}
               className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 whitespace-nowrap"
-              style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)', minWidth: '135px' }}
+              style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)', width: '135px' }}
             >
               Create Room
             </button>
@@ -238,7 +238,7 @@ export default function LobbyPage() {
                 background: 'var(--color-felt-green-light)',
                 color: 'var(--color-text-primary)',
                 border: '1px solid var(--color-border)',
-                minWidth: '135px',
+                width: '135px',
               }}
             >
               Join Room
