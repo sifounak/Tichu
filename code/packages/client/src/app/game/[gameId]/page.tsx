@@ -537,7 +537,7 @@ export default function GamePage() {
               setTimeout(() => setCodeCopied(false), 1000);
             }}
             style={{
-              fontSize: '16px',
+              fontSize: '20px',
               fontWeight: 600,
               color: 'var(--color-text-secondary)',
               textAlign: 'center' as const,
@@ -565,7 +565,7 @@ export default function GamePage() {
             borderRadius: '6px',
             color: 'var(--color-text-secondary)',
             padding: '6px 12px',
-            fontSize: '16px',
+            fontSize: '20px',
             fontWeight: 600,
             cursor: 'pointer',
           }}
