@@ -557,7 +557,6 @@ export default function GamePage() {
             fontSize: '16px',
             fontWeight: 600,
             cursor: 'pointer',
-            width: '100%',
           }}
           aria-label="Leave room"
         >
