@@ -245,7 +245,7 @@ export default function LobbyPage() {
 
         {/* Public room list */}
         <div className="rounded-xl p-4" style={{ background: 'var(--color-bg-panel)' }}>
-          <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
+          <h2 className="text-xl font-bold mb-4 text-center" style={{ color: 'var(--color-text-primary)' }}>
             Public Rooms
           </h2>
 
@@ -287,7 +287,7 @@ export default function LobbyPage() {
                         onClick={() => handleSort(col)}
                         style={{
                           padding: '10px 12px',
-                          textAlign: col === 'goal' || col === 'players' ? 'center' : 'left',
+                          textAlign: 'center',
                           color: 'var(--color-text-muted)',
                           fontWeight: 600,
                           fontSize: '13px',
@@ -326,7 +326,7 @@ export default function LobbyPage() {
                       <td style={{ padding: '12px', color: 'var(--color-text-secondary)' }}>
                         {room.hostName}
                       </td>
-                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
+                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'right' }}>
                         {room.config.targetScore}
                       </td>
                       <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
