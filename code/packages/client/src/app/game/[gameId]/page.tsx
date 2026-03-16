@@ -505,11 +505,12 @@ export default function GamePage() {
 
   return (
     <>
-      {/* Room code + Leave Room — invisible box aligned with top player × left player */}
+      {/* Room code + Leave Room — centered on top player center × left player center */}
       <div style={{
         position: 'fixed',
-        top: 24,
-        left: 28,
+        top: 70,
+        left: 148,
+        transform: 'translate(-50%, -50%)',
         zIndex: 30,
         padding: '12px 24px 16px',
         borderRadius: '12px',
