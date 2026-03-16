@@ -107,15 +107,15 @@ export default function LobbyPage() {
   const filteredRooms = useMemo(() => {
     const q = search.toLowerCase();
     let rooms = lobbyRooms.filter((r) => {
-      const rName = ((r as any).roomName ?? '').toLowerCase();
+      const rName = (r.roomName ?? '').toLowerCase();
       return rName.includes(q) || r.hostName.toLowerCase().includes(q);
     });
     rooms = [...rooms].sort((a, b) => {
       let cmp = 0;
       switch (sortCol) {
         case 'roomName': {
-          const aName = (a as any).roomName ?? '';
-          const bName = (b as any).roomName ?? '';
+          const aName = a.roomName ?? '';
+          const bName = b.roomName ?? '';
           cmp = aName.localeCompare(bName);
           break;
         }
@@ -328,7 +328,7 @@ export default function LobbyPage() {
                       style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                     >
                       <td style={{ padding: '12px', color: 'var(--color-text-primary)', fontWeight: 700 }}>
-                        {(room as any).roomName}
+                        {room.roomName}
                       </td>
                       <td style={{ padding: '12px', color: 'var(--color-text-secondary)' }}>
                         {room.hostName}
