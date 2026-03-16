@@ -169,4 +169,6 @@ export interface ClientGameView {
   receivedCards: Record<Seat, GameCard | null>;
   /** REQ-F-DA01: Last Dog play info for animation (null when no recent Dog play) */
   lastDogPlay: { fromSeat: Seat; toSeat: Seat } | null;
+  /** Seats that have made their Grand Tichu decision (call or pass) */
+  grandTichuDecided: Seat[];
 }

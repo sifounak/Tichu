@@ -35,6 +35,7 @@ function makeView(overrides: Partial<ClientGameView> = {}): ClientGameView {
     dragonGiftPending: false,
     receivedCards: { north: null, east: null, south: null, west: null } as Record<Seat, import('@tichu/shared').GameCard | null>,
     lastDogPlay: null,
+    grandTichuDecided: [],
     myHasPlayed: false,
     ...overrides,
   };

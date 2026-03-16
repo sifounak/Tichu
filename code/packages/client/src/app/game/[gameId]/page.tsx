@@ -474,6 +474,7 @@ export default function GamePage() {
     dragonGiftPending: gameStore.dragonGiftPending,
     receivedCards: gameStore.receivedCards,
     lastDogPlay: null, // Animation handled via uiStore, not view
+    grandTichuDecided: [],
   };
 
   const isMyTurn = gameStore.currentTurn === mySeat;
@@ -679,6 +680,8 @@ export default function GamePage() {
               passConfirmed={passConfirmed}
               onCancelPass={handleCancelPass}
               seatNames={seatNames}
+              grandTichuDecided={view.grandTichuDecided}
+              otherPlayerCalls={gameStore.otherPlayers.map((p) => ({ seat: p.seat, tichuCall: p.tichuCall }))}
             />
           )}
 
