@@ -529,6 +529,7 @@ export default function GamePage() {
               fontSize: '30px',
               fontWeight: 900,
               letterSpacing: '0.2em',
+              textIndent: '0.2em',
               color: 'var(--color-gold-accent)',
               textAlign: 'center' as const,
               width: '100%',
