@@ -282,7 +282,7 @@ export default function LobbyPage() {
                   <col />
                   <col style={{ width: '80px' }} />
                   <col style={{ width: '85px' }} />
-                  <col style={{ width: '150px' }} />
+                  <col style={{ width: '135px' }} />
                 </colgroup>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
