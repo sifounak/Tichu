@@ -505,11 +505,11 @@ export default function GamePage() {
 
   return (
     <>
-      {/* Room code + Leave Room */}
+      {/* Room code + Leave Room — aligned with top-left of game table */}
       <div style={{
         position: 'fixed',
-        top: 12,
-        left: 16,
+        top: 24,
+        left: 28,
         zIndex: 30,
         display: 'flex',
         flexDirection: 'column',
@@ -639,7 +639,7 @@ export default function GamePage() {
 
       {/* REQ-F-DI05: Score panel */}
       {gameStore.scores && (
-        <div style={{ position: 'fixed', top: 8, right: 16, zIndex: 30 }}>
+        <div style={{ position: 'fixed', top: 24, right: 28, zIndex: 30 }}>
           <ScorePanel
             scores={gameStore.scores}
             roundHistory={gameStore.roundHistory}
