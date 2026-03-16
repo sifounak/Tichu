@@ -233,20 +233,19 @@ export class GameManager {
 
       // Auto-pass for human players who have no valid plays
       const seat = round.currentTurn;
-      if (!this.botRunner.isBot(seat) && round.currentTrick) {
+      if (!this.botRunner.isBot(seat) && round.currentTrick && round.currentTrick.plays.length > 0) {
         const hand = round.players[seat].hand;
         const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
         const validPlays = getValidPlays(hand, round.currentTrick, wish);
         if (validPlays.length === 0) {
-          // Don't auto-pass against Dragon if player has 3+ cards
-          // (4 cards needed for a bomb, but let them look with 3+ to be safe)
-          const lastPlay = round.currentTrick.plays[round.currentTrick.plays.length - 1];
-          const topIsDragon = lastPlay?.combination.cards.some(
-            (gc) => gc.card.kind === 'dragon',
-          );
-          if (topIsDragon && hand.length >= 3) {
-            // Let the player decide manually
-          } else {
+          const trickCardCount = round.currentTrick.plays[0].combination.cards.length;
+          // Auto-pass only when:
+          // - Trick has 4+ cards and player has 3 or fewer (can't bomb either)
+          // - Trick has <4 cards and player still can't play (no valid hand)
+          const shouldAutoPass = trickCardCount >= 4
+            ? hand.length <= 3
+            : true; // getValidPlays already confirmed no valid plays
+          if (shouldAutoPass) {
             this.autoPassTimer = setTimeout(() => {
               if (this.destroyed) return;
               this.actor.send({ type: 'PASS_TURN', seat });
