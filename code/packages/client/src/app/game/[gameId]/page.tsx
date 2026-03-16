@@ -47,9 +47,11 @@ export default function GamePage() {
   const router = useRouter();
   const gameStore = useGameStore();
   const uiStore = useUiStore();
+  const roomCode = useRoomStore((s) => s.roomCode);
   const roomPlayers = useRoomStore((s) => s.players);
   const leaveRoom = useRoomStore((s) => s.leaveRoom);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
 
   // REQ-F-SG01: Include userId and playerName in WebSocket URL
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
@@ -503,27 +505,70 @@ export default function GamePage() {
 
   return (
     <>
-      {/* Leave game button */}
-      <button
-        onClick={() => setShowLeaveConfirm(true)}
-        style={{
-          position: 'fixed',
-          top: 12,
-          left: 16,
-          zIndex: 30,
-          background: 'rgba(255,255,255,0.1)',
-          border: '1px solid var(--color-border)',
-          borderRadius: '8px',
-          color: 'var(--color-text-secondary)',
-          padding: '10px 24px',
-          fontSize: '23px',
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
-        aria-label="Leave game"
-      >
-        Leave
-      </button>
+      {/* Room code + Leave Room */}
+      <div style={{
+        position: 'fixed',
+        top: 12,
+        left: 16,
+        zIndex: 30,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: '6px',
+      }}>
+        {/* Room code with copy on hover */}
+        {roomCode && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+            }}
+            onClick={() => {
+              navigator.clipboard.writeText(roomCode);
+              setCodeCopied(true);
+              setTimeout(() => setCodeCopied(false), 2000);
+            }}
+            title="Click to copy room code"
+          >
+            <span style={{
+              fontFamily: 'monospace',
+              fontSize: '18px',
+              fontWeight: 700,
+              letterSpacing: '0.2em',
+              color: 'var(--color-gold-accent)',
+            }}>
+              {roomCode}
+            </span>
+            <span style={{
+              fontSize: '13px',
+              color: codeCopied ? 'var(--color-success)' : 'var(--color-text-muted)',
+              transition: 'color 0.2s',
+            }}>
+              {codeCopied ? 'Copied!' : '📋'}
+            </span>
+          </div>
+        )}
+
+        {/* Leave Room button */}
+        <button
+          onClick={() => setShowLeaveConfirm(true)}
+          style={{
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid var(--color-border)',
+            borderRadius: '6px',
+            color: 'var(--color-text-secondary)',
+            padding: '6px 16px',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+          aria-label="Leave room"
+        >
+          Leave Room
+        </button>
+      </div>
 
       {/* Leave confirmation dialog */}
       {showLeaveConfirm && (
