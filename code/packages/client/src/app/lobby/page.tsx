@@ -23,6 +23,7 @@ export default function LobbyPage() {
   const [playerName, setPlayerName] = useState(() =>
     typeof window !== 'undefined' ? (sessionStorage.getItem('tichu_player_name') ?? '') : '',
   );
+  const [roomName, setRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
@@ -147,43 +148,60 @@ export default function LobbyPage() {
           </div>
         )}
 
-        {/* Create + Join by code */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+        {/* Create room */}
+        <div className="flex gap-2 justify-center mb-4">
+          <input
+            type="text"
+            placeholder="ROOM NAME"
+            value={roomName}
+            onChange={(e) => setRoomName(e.target.value)}
+            maxLength={30}
+            className="px-4 py-2 rounded-lg text-center font-semibold"
+            style={{
+              background: 'var(--color-bg-panel)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+              width: '200px',
+            }}
+            aria-label="Room name"
+          />
           <button
             onClick={handleCreate}
-            className="px-6 py-3 rounded-lg font-semibold transition-opacity hover:opacity-80"
+            className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80"
             style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}
           >
             Create Room
           </button>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Room code"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
-              maxLength={6}
-              className="px-4 py-2 rounded-lg text-center uppercase tracking-widest font-mono"
-              style={{
-                background: 'var(--color-bg-panel)',
-                color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border)',
-                width: '140px',
-              }}
-              aria-label="Room code"
-            />
-            <button
-              onClick={handleJoinByCode}
-              className="px-4 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80"
-              style={{
-                background: 'var(--color-felt-green-light)',
-                color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
-              Join
-            </button>
-          </div>
+        </div>
+
+        {/* Join by code */}
+        <div className="flex gap-2 justify-center mb-8">
+          <input
+            type="text"
+            placeholder="ROOM CODE"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+            maxLength={6}
+            className="px-4 py-2 rounded-lg text-center uppercase tracking-widest font-mono"
+            style={{
+              background: 'var(--color-bg-panel)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+              width: '200px',
+            }}
+            aria-label="Room code"
+          />
+          <button
+            onClick={handleJoinByCode}
+            className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80"
+            style={{
+              background: 'var(--color-felt-green-light)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            Join
+          </button>
         </div>
 
         {/* Public room list */}
