@@ -217,45 +217,41 @@ export default function LobbyPage() {
               No public rooms available. Create one!
             </p>
           ) : (
-            <div className="space-y-2" role="list" aria-label="Public rooms">
+            <div className="space-y-3" role="list" aria-label="Public rooms">
               {lobbyRooms.map((room) => (
                 <div
                   key={room.roomCode}
                   role="listitem"
-                  className="flex items-center justify-between p-3 rounded-lg"
-                  style={{ background: 'rgba(255, 255, 255, 0.05)' }}
+                  className="flex items-center justify-between p-4 rounded-lg"
+                  style={{ background: 'rgba(255, 255, 255, 0.05)', fontSize: '16px' }}
                 >
                   <div>
-                    <span className="font-mono font-bold tracking-wider"
-                      style={{ color: 'var(--color-gold-accent)' }}>
-                      {room.roomCode}
+                    <span className="font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                      {room.hostName}&apos;s Room
                     </span>
-                    <span className="ml-3" style={{ color: 'var(--color-text-secondary)' }}>
+                    <span className="ml-2" style={{ color: 'var(--color-text-secondary)' }}>
                       hosted by {room.hostName}
                     </span>
+                    <span className="ml-3" style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
+                      {room.playerCount}/4 &middot; {room.config.targetScore} pts
+                    </span>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span style={{ color: 'var(--color-text-muted)' }}>
-                      {room.playerCount}/4
-                    </span>
-                    <span style={{ color: 'var(--color-text-muted)' }}>
-                      {room.config.targetScore} pts
-                    </span>
+                  <div className="flex items-center gap-3">
                     {room.gameInProgress ? (
-                      <span className="px-3 py-1 rounded text-xs font-semibold"
+                      <span className="px-4 py-1.5 rounded text-sm font-semibold"
                         style={{ background: 'var(--color-warning)', color: '#000' }}>
                         In Game
                       </span>
                     ) : room.playerCount < 4 ? (
                       <button
                         onClick={() => handleJoinRoom(room.roomCode)}
-                        className="px-3 py-1 rounded text-xs font-semibold transition-opacity hover:opacity-80"
+                        className="px-5 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
                         style={{ background: 'var(--color-success)', color: '#000' }}
                       >
                         Join
                       </button>
                     ) : (
-                      <span className="px-3 py-1 rounded text-xs font-semibold"
+                      <span className="px-4 py-1.5 rounded text-sm font-semibold"
                         style={{ background: 'var(--color-text-muted)', color: '#000' }}>
                         Full
                       </span>
