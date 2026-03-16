@@ -333,7 +333,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                 <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Bot Difficulty</span>
                 <select
                   value={config.botDifficulty}
-                  onChange={(e) => handleConfigChange({ botDifficulty: e.target.value as 'easy' | 'medium' | 'hard' })}
+                  onChange={(e) => handleConfigChange({ botDifficulty: e.target.value as 'regular' | 'hard' })}
                   className="mt-1 w-full px-3 py-1.5 rounded"
                   style={{
                     background: 'var(--color-felt-green-dark)',
@@ -342,8 +342,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                     textAlign: 'center',
                   }}
                 >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
+                  <option value="regular">Regular</option>
                   <option value="hard">Hard</option>
                 </select>
               </label>

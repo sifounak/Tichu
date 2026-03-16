@@ -23,7 +23,7 @@ import { MoveHandler } from './move-handler.js';
 import { DisconnectHandler } from './disconnect-handler.js';
 import { projectGameState } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
-import { EasyBot } from '../bot/easy-bot.js';
+import { RegularBot } from '../bot/regular-bot.js';
 import type { BotStrategy } from '../bot/bot-interface.js';
 
 /**
@@ -189,14 +189,14 @@ export class GameManager {
   }
 
   /** REQ-F-MP01: Register a bot at the given seat */
-  registerBot(seat: Seat, difficulty: 'easy' | 'medium' | 'hard' = 'easy'): void {
+  registerBot(seat: Seat, difficulty: 'regular' | 'hard' = 'regular'): void {
     let strategy: BotStrategy;
     switch (difficulty) {
-      case 'easy':
+      case 'regular':
       default:
-        strategy = new EasyBot();
+        strategy = new RegularBot();
         break;
-      // Medium/hard bots can be added here when implemented
+      // Hard bot can be added here when implemented
     }
     this.botRunner.addBot(seat, strategy);
   }
