@@ -505,15 +505,16 @@ export default function GamePage() {
 
   return (
     <>
-      {/* Room code + Leave Room — aligned with top-left of game table */}
+      {/* Room code + Leave Room — centered on top player row × left player column */}
       <div style={{
         position: 'fixed',
         top: 24,
         left: 28,
+        width: '240px',
         zIndex: 30,
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'stretch',
+        alignItems: 'center',
         gap: '6px',
       }}>
         {/* Room code — button border appears on hover */}
