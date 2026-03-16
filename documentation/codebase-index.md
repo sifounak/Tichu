@@ -53,7 +53,7 @@ Pure game engine and type definitions. Only runtime dependency is Zod.
 |------|-------------|
 | `card.ts` | `Suit`, `Rank`, `SpecialCardType`, `Card` (discriminated union: StandardCard, DragonCard, PhoenixCard, MahjongCard, DogCard), `GameCard` {id, card}, type guards (`isStandard`, `isDragon`, etc.) |
 | `combination.ts` | `CombinationType` (Single, Pair, Triple, FullHouse, Straight, PairSequence, FourBomb, StraightFlushBomb), `Combination` {type, cards, rank, length, phoenixUsedAs?, isBomb} |
-| `game.ts` | `Seat` (north/east/south/west), `Team` (northSouth/eastWest), `GamePhase` enum, `TichuCall`, `PlayerState`, `TrickState`, `RoundState`, `GameState`, `ClientGameView` (projected per-player), `GameConfig`, `RoundScore`, helpers (`getTeam`, `getPartner`, `getNextSeat`) |
+| `game.ts` | `Seat` (north/east/south/west), `Team` (northSouth/eastWest), `GamePhase` enum, `TichuCall`, `PlayerState` {seat, hand, tricksWon, tichuCall, hasPlayed, finishOrder, passedCards}, `TrickState` {plays, passes, leadSeat, currentWinner}, `RoundState` {roundNumber, phase, players, currentTrick, currentTurn, mahjongWish, wishFulfilled, finishOrder, dragonGiftPending, lastDogPlay}, `GameState`, `ClientGameView` (projected per-player), `GameConfig` {targetScore, turnTimerSeconds, botDifficulty: `'regular' \| 'hard'`, animationSpeed, spectatorsAllowed, isPrivate}, `RoundScore`, helpers (`getTeam`, `getPartner`, `getNextSeat`, `SEATS_IN_ORDER`) |
 | `protocol.ts` | `ClientMessage` (22 types), `ServerMessage` (20+ types), Zod schemas for all messages |
 | `room.ts` | `RoomPlayer`, `RoomConfig`, `Room`, `LobbyEntry` |
 
@@ -62,13 +62,13 @@ Pure game engine and type definitions. Only runtime dependency is Zod.
 | File | Key Exports | Purpose |
 |------|-------------|---------|
 | `deck.ts` | `createDeck()`, `shuffleDeck()`, `dealCards()` | 56-card deck creation, Fisher-Yates shuffle, deal 8+6 per seat |
-| `combination-detector.ts` | `detectCombination(cards)` | Identify combination type from card set |
-| `combination-validator.ts` | `canBeat(play, trick)` | Validate play beats current trick |
-| `combination-utils.ts` | Various combo helpers | Comparison, ranking utilities |
-| `hand-filter.ts` | `getSelectableCards()`, `canPlayerPass()` | Filter playable cards for UI |
-| `phoenix-resolver.ts` | Phoenix substitution logic | Resolve Phoenix rank in combinations |
-| `scoring.ts` | `scoreRound()`, `checkGameOver()`, `getCardsPoints()` | Round scoring (card points + tichu bonuses + 1-2 bonus) |
-| `rules.ts` | Play validation rules | Turn legality, wish fulfillment |
+| `combination-detector.ts` | `detectCombination(cards)` | Identify combination type from card set. Returns `Combination` or null. Handles Phoenix as wild (never forms bombs). |
+| `combination-validator.ts` | `canBeat(play, trick)` | Validate play beats current trick. Bomb > non-bomb. Among bombs: straight flush > four-of-a-kind, then by length/rank. Non-bomb: same type + same length + higher rank. |
+| `combination-utils.ts` | `getValidPlays(hand, trick, wish)`, candidate generation | Generates all valid subsets from hand, detects combinations, checks if they beat current trick, filters for wish fulfillment. Also `canPlayerPass(hand, trick, wish)`. |
+| `hand-filter.ts` | `getSelectableCards()`, `canPlayerPass()` | Filter playable cards for UI highlighting |
+| `phoenix-resolver.ts` | Phoenix substitution logic | Resolve Phoenix rank in combinations. Phoenix single = 1.5 (beats anything except Dragon). |
+| `scoring.ts` | `scoreRound()`, `checkGameOver()`, `getCardsPoints()` | Round scoring: card points (K/10=10, 5=5, Dragon=25, Phoenix=-25) + tichu bonuses (±100/±200) + 1-2 bonus (all 100 pts to winning team). |
+| `rules.ts` | `getValidPlays()`, `canPlayerPass()` | Turn legality, wish fulfillment. Re-exports from combination-utils. |
 | `wish.ts` | Mahjong wish logic | Declaration and fulfillment tracking |
 
 ### Constants (`constants.ts`)
@@ -120,9 +120,9 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 
 | File | Key Class | Purpose |
 |------|----------|---------|
-| `bot-interface.ts` | `BotStrategy` interface | Methods: `chooseGrandTichu`, `chooseRegularTichu`, `chooseCardsToPass`, `choosePlay`, `chooseDragonGiftRecipient`, `chooseMahjongWish`. Difficulty: easy/medium/hard. |
-| `easy-bot.ts` | `EasyBot` | Random-move bot. Always passes tichu. 30% pass chance. |
-| `bot-runner.ts` | `BotRunner` | Manages bot instances per game. Triggers auto-play on state changes with artificial delay (800-1500ms). |
+| `bot-interface.ts` | `BotStrategy` interface | Methods: `chooseGrandTichu`, `chooseRegularTichu`, `chooseCardsToPass`, `choosePlay`, `chooseDragonGiftRecipient`, `chooseMahjongWish`. `BotPlayContext` provides hand, current trick, wish, valid plays, canPass, roundState, seat. Difficulty: `'regular' \| 'hard'`. |
+| `regular-bot.ts` | `RegularBot` | Random-move bot. Always passes tichu. Random card passing. Picks random valid play (30% pass chance). Random Dragon gift. No Mahjong wish. |
+| `bot-runner.ts` | `BotRunner` | Manages bot instances per game. Triggers auto-play on state changes with artificial delay (800-1500ms human+bot, 50-150ms bot-only). Handles all phases: grandTichuDecision, regularTichuDecision, cardPassing, playing, awaitingDragonGift. |
 
 ### Auth (`auth/`)
 
