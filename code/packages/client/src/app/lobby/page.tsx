@@ -196,6 +196,7 @@ export default function LobbyPage() {
               placeholder="ROOM NAME"
               value={roomName}
               onChange={(e) => { setRoomName(e.target.value); setRoomNameError(false); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
               maxLength={30}
               className="px-4 py-2 rounded-lg text-center font-semibold flex-1"
               style={{
@@ -221,6 +222,7 @@ export default function LobbyPage() {
               placeholder="ROOM CODE"
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleJoinByCode(); }}
               maxLength={6}
               className="px-4 py-2 rounded-lg text-center uppercase tracking-widest font-mono"
               style={{
