@@ -1,7 +1,7 @@
 // REQ-F-MP03: Public lobby — browse rooms, create, join by code
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRoomStore } from '@/stores/roomStore';
@@ -25,6 +25,9 @@ export default function LobbyPage() {
   );
   const [roomName, setRoomName] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortCol, setSortCol] = useState<'roomName' | 'hostName' | 'goal' | 'players'>('roomName');
+  const [sortAsc, setSortAsc] = useState(true);
   const [error, setError] = useState('');
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
@@ -94,6 +97,38 @@ export default function LobbyPage() {
     sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'JOIN_ROOM', roomCode, playerName: playerName.trim() });
   };
+
+  const handleSort = (col: typeof sortCol) => {
+    if (sortCol === col) setSortAsc(!sortAsc);
+    else { setSortCol(col); setSortAsc(true); }
+  };
+
+  const filteredRooms = useMemo(() => {
+    const q = search.toLowerCase();
+    let rooms = lobbyRooms.filter((r) => {
+      const rName = ((r as any).roomName ?? `${r.hostName}'s Room`).toLowerCase();
+      return rName.includes(q) || r.hostName.toLowerCase().includes(q);
+    });
+    rooms = [...rooms].sort((a, b) => {
+      let cmp = 0;
+      switch (sortCol) {
+        case 'roomName': {
+          const aName = (a as any).roomName ?? `${a.hostName}'s Room`;
+          const bName = (b as any).roomName ?? `${b.hostName}'s Room`;
+          cmp = aName.localeCompare(bName);
+          break;
+        }
+        case 'hostName': cmp = a.hostName.localeCompare(b.hostName); break;
+        case 'goal': cmp = a.config.targetScore - b.config.targetScore; break;
+        case 'players': cmp = a.playerCount - b.playerCount; break;
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+    return rooms;
+  }, [lobbyRooms, search, sortCol, sortAsc]);
+
+  const sortIndicator = (col: typeof sortCol) =>
+    sortCol === col ? (sortAsc ? ' \u25B2' : ' \u25BC') : '';
 
   return (
     <main className="p-6" style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
@@ -212,53 +247,115 @@ export default function LobbyPage() {
           <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--color-text-primary)' }}>
             Public Rooms
           </h2>
-          {lobbyRooms.length === 0 ? (
+
+          {/* Search */}
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search by room name or host..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full px-4 py-2 rounded-lg"
+              style={{
+                background: 'var(--color-felt-green-dark)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+                fontSize: '15px',
+              }}
+              aria-label="Search rooms"
+            />
+          </div>
+
+          {filteredRooms.length === 0 ? (
             <p className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
-              No public rooms available. Create one!
+              {lobbyRooms.length === 0 ? 'No public rooms available. Create one!' : 'No rooms match your search.'}
             </p>
           ) : (
-            <div className="space-y-3" role="list" aria-label="Public rooms">
-              {lobbyRooms.map((room) => (
-                <div
-                  key={room.roomCode}
-                  role="listitem"
-                  className="flex items-center justify-between p-4 rounded-lg"
-                  style={{ background: 'rgba(255, 255, 255, 0.05)', fontSize: '16px' }}
-                >
-                  <div>
-                    <span className="font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                      {(room as any).roomName ?? `${room.hostName}'s Room`}
-                    </span>
-                    <span className="ml-2" style={{ color: 'var(--color-text-secondary)' }}>
-                      hosted by {room.hostName}
-                    </span>
-                    <span className="ml-3" style={{ color: 'var(--color-text-muted)', fontSize: '14px' }}>
-                      {room.playerCount}/4 &middot; {room.config.targetScore} pts
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {room.gameInProgress ? (
-                      <span className="px-4 py-1.5 rounded text-sm font-semibold"
-                        style={{ background: 'var(--color-warning)', color: '#000' }}>
-                        In Game
-                      </span>
-                    ) : room.playerCount < 4 ? (
-                      <button
-                        onClick={() => handleJoinRoom(room.roomCode)}
-                        className="px-5 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
-                        style={{ background: 'var(--color-success)', color: '#000' }}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                    {([
+                      ['roomName', 'Room Name'],
+                      ['hostName', 'Host'],
+                      ['goal', 'Goal'],
+                      ['players', 'Players'],
+                    ] as const).map(([col, label]) => (
+                      <th
+                        key={col}
+                        onClick={() => handleSort(col)}
+                        style={{
+                          padding: '10px 12px',
+                          textAlign: col === 'goal' || col === 'players' ? 'center' : 'left',
+                          color: 'var(--color-text-muted)',
+                          fontWeight: 600,
+                          fontSize: '13px',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          whiteSpace: 'nowrap',
+                        }}
                       >
-                        Join
-                      </button>
-                    ) : (
-                      <span className="px-4 py-1.5 rounded text-sm font-semibold"
-                        style={{ background: 'var(--color-text-muted)', color: '#000' }}>
-                        Full
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                        {label}{sortIndicator(col)}
+                      </th>
+                    ))}
+                    <th style={{
+                      padding: '10px 12px',
+                      textAlign: 'center',
+                      color: 'var(--color-text-muted)',
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                    }}>
+                      Join
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRooms.map((room) => (
+                    <tr
+                      key={room.roomCode}
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                    >
+                      <td style={{ padding: '12px', color: 'var(--color-text-primary)', fontWeight: 700 }}>
+                        {(room as any).roomName ?? `${room.hostName}'s Room`}
+                      </td>
+                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)' }}>
+                        {room.hostName}
+                      </td>
+                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
+                        {room.config.targetScore}
+                      </td>
+                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
+                        {room.playerCount}/4
+                      </td>
+                      <td style={{ padding: '12px', textAlign: 'center' }}>
+                        {room.gameInProgress ? (
+                          <span className="px-4 py-1.5 rounded text-sm font-semibold inline-block"
+                            style={{ background: 'var(--color-warning)', color: '#000' }}>
+                            In Game
+                          </span>
+                        ) : room.playerCount < 4 ? (
+                          <button
+                            onClick={() => handleJoinRoom(room.roomCode)}
+                            className="px-5 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
+                            style={{ background: 'var(--color-success)', color: '#000' }}
+                          >
+                            Join
+                          </button>
+                        ) : (
+                          <span className="px-4 py-1.5 rounded text-sm font-semibold inline-block"
+                            style={{ background: 'var(--color-text-muted)', color: '#000' }}>
+                            Full
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
