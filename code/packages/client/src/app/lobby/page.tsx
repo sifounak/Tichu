@@ -76,9 +76,12 @@ export default function LobbyPage() {
   }, [status, send]);
 
   // REQ-F-003: Persist playerName across page navigation
+  const [roomNameError, setRoomNameError] = useState(false);
+
   const handleCreate = () => {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
-    if (!roomName.trim()) { setError('Please enter a room name'); return; }
+    if (!roomName.trim()) { setRoomNameError(true); return; }
+    setRoomNameError(false);
     setError('');
     sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'CREATE_ROOM', playerName: playerName.trim(), roomName: roomName.trim() });
@@ -192,20 +195,20 @@ export default function LobbyPage() {
               type="text"
               placeholder="ROOM NAME"
               value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
+              onChange={(e) => { setRoomName(e.target.value); setRoomNameError(false); }}
               maxLength={30}
               className="px-4 py-2 rounded-lg text-center font-semibold flex-1"
               style={{
                 background: 'var(--color-bg-panel)',
                 color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border)',
+                border: roomNameError ? '2px solid var(--color-error)' : '1px solid var(--color-border)',
               }}
               aria-label="Room name"
             />
             <button
               onClick={handleCreate}
               className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 whitespace-nowrap"
-              style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)', minWidth: '180px' }}
+              style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)', minWidth: '135px' }}
             >
               Create Room
             </button>
@@ -235,7 +238,7 @@ export default function LobbyPage() {
                 background: 'var(--color-felt-green-light)',
                 color: 'var(--color-text-primary)',
                 border: '1px solid var(--color-border)',
-                minWidth: '180px',
+                minWidth: '135px',
               }}
             >
               Join Room
