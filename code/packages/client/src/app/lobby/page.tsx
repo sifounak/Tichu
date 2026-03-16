@@ -20,7 +20,9 @@ function getGuestId(): string {
 
 export default function LobbyPage() {
   const router = useRouter();
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(() =>
+    typeof window !== 'undefined' ? (sessionStorage.getItem('tichu_player_name') ?? '') : '',
+  );
   const [joinCode, setJoinCode] = useState('');
   const [error, setError] = useState('');
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
