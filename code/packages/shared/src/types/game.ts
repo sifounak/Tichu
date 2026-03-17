@@ -184,4 +184,6 @@ export interface ClientGameView {
   lastDogPlay: { fromSeat: Seat; toSeat: Seat } | null;
   /** Seats that have made their Grand Tichu decision (call or pass) */
   grandTichuDecided: Seat[];
+  /** Winning team when phase is GameOver, null otherwise */
+  winner: Team | null;
 }

@@ -102,7 +102,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       dragonGiftOptions: [],
       hasPlayedCards: view.myHasPlayed,
       latestRoundScore: null,
-      gameOverInfo: null,
+      gameOverInfo: view.winner !== null ? { winner: view.winner, finalScores: view.scores } : null,
       grandTichuDecided: view.grandTichuDecided,
     }),
 

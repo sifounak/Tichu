@@ -58,6 +58,7 @@ export function projectGameState(
       receivedCards: { north: null, east: null, south: null, west: null },
       lastDogPlay: null,
       grandTichuDecided: [],
+      winner: context.winner,
     };
   }
 
@@ -93,6 +94,7 @@ export function projectGameState(
     dragonGiftPending: round.dragonGiftPending !== null,
     lastDogPlay: round.lastDogPlay,
     grandTichuDecided: [...context.grandTichuDecisions],
+    winner: context.winner,
     receivedCards: myPlayer.passedCards.received
       ? SEATS_IN_ORDER.reduce((acc, fromSeat) => {
           acc[fromSeat] = fromSeat === forSeat
