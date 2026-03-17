@@ -1,4 +1,4 @@
-// Verifies: REQ-F-HV06, REQ-F-HV07, REQ-F-HV09
+// Verifies: REQ-F-HV06, REQ-F-HV07, REQ-F-HV09, REQ-F-PH10, REQ-F-PH12
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useCardSelection } from '../../src/hooks/useCardSelection';
@@ -65,8 +65,10 @@ describe('useCardSelection', () => {
     expect(result.current.canPlay).toBe(true); // pair of 5s
   });
 
-  it('canPlay is false when Phoenix needs choice', () => {
-    // 2+2 full house scenario: two pairs, Phoenix makes one triple
+  it('REQ-F-PH10: canPlay is true when Phoenix needs choice (2+2+Phoenix full house)', () => {
+    // 2+2 full house scenario: two pairs + Phoenix where Phoenix could be either triple.
+    // Previously blocked canPlay, making it impossible to open the Phoenix picker.
+    // Fix: canPlay must be true so the Play button is enabled and the picker can launch.
     const hand = [
       makeCard(0, 5), makeCard(1, 5),
       makeCard(2, 8), makeCard(3, 8),
@@ -80,6 +82,52 @@ describe('useCardSelection', () => {
 
     // Phoenix resolution should be 'choose' (which rank to make triple)
     expect(result.current.phoenixResolution.status).toBe('choose');
+    // canPlay must be true — the Play button click is what triggers the picker
+    expect(result.current.canPlay).toBe(true);
+  });
+
+  it('REQ-F-PH10: canPlay is true for JJ+AA+Phoenix over an active full-house trick', () => {
+    // Regression test for the reported bug: couldn't play JJ+AA+Phoenix over 7s/9s FH
+    const trick: TrickState = {
+      plays: [{
+        seat: 'north',
+        combination: {
+          type: CombinationType.FullHouse,
+          cards: [],
+          rank: 7,  // triple 7s
+          length: 1,
+          isBomb: false,
+        },
+      }],
+      passes: [],
+      leadSeat: 'north',
+      currentWinner: 'north',
+    };
+    const hand = [
+      makeCard(0, 11), makeCard(1, 11),  // two Jacks
+      makeCard(2, 14), makeCard(3, 14),  // two Aces
+      makePhoenix(),
+    ];
+    const selected = new Set([0, 1, 2, 3, 52] as CardId[]);
+
+    const { result } = renderHook(() =>
+      useCardSelection(hand, trick, null, selected, noopToggle, noopClear, true),
+    );
+
+    expect(result.current.phoenixResolution.status).toBe('choose');
+    expect(result.current.canPlay).toBe(true);
+  });
+
+  it('REQ-F-PH12: canPlay is false when phoenixResolution is invalid', () => {
+    // Phoenix + Dragon → invalid
+    const hand = [makePhoenix(), makeDragon()];
+    const selected = new Set([52, 53] as CardId[]);
+
+    const { result } = renderHook(() =>
+      useCardSelection(hand, null, null, selected, noopToggle, noopClear, true),
+    );
+
+    expect(result.current.phoenixResolution.status).toBe('invalid');
     expect(result.current.canPlay).toBe(false);
   });
 
