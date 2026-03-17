@@ -97,9 +97,10 @@ export function useCardSelection(
 
   // REQ-F-HV06: canPlay — selection forms a valid combination
   // REQ-F-BI11: Off-turn, only bombs are playable
+  // REQ-F-PH10: 'choose' status is still playable — handlePlay in page.tsx intercepts
+  // it to show the Phoenix picker before sending. Do NOT block on 'choose' here.
   const canPlay = useMemo(() => {
     if (selectedCards.length === 0) return false;
-    if (phoenixResolution.status === 'choose') return false;
     if (phoenixResolution.status === 'invalid') return false;
     const combo = detectCombination(selectedCards);
     if (combo === null) return false;
