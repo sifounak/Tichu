@@ -59,7 +59,9 @@ export default function SpectatePage() {
           winner={gameStore.gameOverInfo.winner as 'northSouth' | 'eastWest'}
           finalScores={gameStore.gameOverInfo.finalScores}
           roundHistory={gameStore.roundHistory}
+          mySeat={mySeat ?? 'south'}
           onNewGame={() => {}}
+          onLeaveRoom={() => {}}
         />
         <ConnectionStatus status={status} />
       </>

@@ -1,4 +1,4 @@
-// Verifies: REQ-F-SC01, REQ-F-SC02, REQ-F-SC03, REQ-F-GF08, REQ-F-GF09, REQ-F-GF10
+// Verifies: REQ-F-SC01, REQ-F-SC02, REQ-F-SC03, REQ-F-GF08, REQ-F-GF09, REQ-F-GF10, REQ-F-GS11, REQ-F-GS12, REQ-F-GS15
 
 import { describe, it, expect } from 'vitest';
 import { getCardsPoints, getTrickPoints, scoreRound, checkGameOver } from '../../src/engine/scoring.js';
@@ -279,6 +279,88 @@ describe('scoreRound', () => {
     const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
     const result = scoreRound(5, finishOrder, emptyTricks(), emptyHands(), noCall());
     expect(result.roundNumber).toBe(5);
+  });
+});
+
+// --- scoreRound: tichuResults and bombsPerTeam ---
+
+describe('scoreRound tichuResults', () => {
+  // Verifies: REQ-F-GS11, REQ-F-GS15
+
+  it('returns null tichuResults for all seats when no calls made', () => {
+    const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), noCall());
+    expect(result.tichuResults.north).toBeNull();
+    expect(result.tichuResults.east).toBeNull();
+    expect(result.tichuResults.south).toBeNull();
+    expect(result.tichuResults.west).toBeNull();
+  });
+
+  it('records won tichu when caller finishes first', () => {
+    const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
+    const calls: Record<Seat, TichuCall> = { ...noCall(), north: 'tichu' };
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), calls);
+    expect(result.tichuResults.north).toEqual({ call: 'tichu', won: true });
+    expect(result.tichuResults.east).toBeNull();
+  });
+
+  it('records broken tichu when caller does not finish first', () => {
+    const finishOrder: Seat[] = ['east', 'north', 'south', 'west'];
+    const calls: Record<Seat, TichuCall> = { ...noCall(), north: 'tichu' };
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), calls);
+    expect(result.tichuResults.north).toEqual({ call: 'tichu', won: false });
+  });
+
+  it('records won grandTichu when caller finishes first', () => {
+    const finishOrder: Seat[] = ['east', 'north', 'south', 'west'];
+    const calls: Record<Seat, TichuCall> = { ...noCall(), east: 'grandTichu' };
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), calls);
+    expect(result.tichuResults.east).toEqual({ call: 'grandTichu', won: true });
+  });
+
+  it('records broken grandTichu when caller does not finish first', () => {
+    const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
+    const calls: Record<Seat, TichuCall> = { ...noCall(), south: 'grandTichu' };
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), calls);
+    expect(result.tichuResults.south).toEqual({ call: 'grandTichu', won: false });
+  });
+
+  it('handles multiple callers in same round', () => {
+    const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
+    const calls: Record<Seat, TichuCall> = {
+      north: 'tichu',      // won
+      east: 'grandTichu',  // broken (east is 2nd, not 1st)
+      south: 'none',
+      west: 'none',
+    };
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), calls);
+    expect(result.tichuResults.north).toEqual({ call: 'tichu', won: true });
+    expect(result.tichuResults.east).toEqual({ call: 'grandTichu', won: false });
+    expect(result.tichuResults.south).toBeNull();
+    expect(result.tichuResults.west).toBeNull();
+  });
+});
+
+describe('scoreRound bombsPerTeam', () => {
+  // Verifies: REQ-F-GS12, REQ-F-GS15
+
+  it('defaults to zero bombs when parameter omitted', () => {
+    const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), noCall());
+    expect(result.bombsPerTeam).toEqual({ northSouth: 0, eastWest: 0 });
+  });
+
+  it('includes provided bombsPerTeam in the returned score', () => {
+    const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
+    const bombs = { northSouth: 2, eastWest: 1 };
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), noCall(), bombs);
+    expect(result.bombsPerTeam).toEqual({ northSouth: 2, eastWest: 1 });
+  });
+
+  it('handles zero bombs for both teams explicitly', () => {
+    const finishOrder: Seat[] = ['east', 'west', 'north', 'south'];
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), noCall(), { northSouth: 0, eastWest: 0 });
+    expect(result.bombsPerTeam).toEqual({ northSouth: 0, eastWest: 0 });
   });
 });
 

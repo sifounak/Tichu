@@ -132,6 +132,7 @@ function createRoundState(roundNumber: number): RoundState {
     finishOrder: [],
     dragonGiftPending: null,
     lastDogPlay: null,
+    bombsPerTeam: { northSouth: 0, eastWest: 0 }, // REQ-F-GS13
   };
 }
 
@@ -565,6 +566,11 @@ export const gameMachine = setup({
 
       const combination = validation.combination;
 
+      // REQ-F-GS14: Track bombs played per team
+      if (combination.isBomb) {
+        round.bombsPerTeam[getTeam(seat)] += 1;
+      }
+
       // REQ-F-BUG03: Phoenix single played onto a trick gets contextual rank (topRank + 0.5)
       if (
         combination.cards.length === 1 &&
@@ -995,6 +1001,7 @@ function scoreAndFinishRound(
     tricksWon,
     handsRemaining,
     tichuCalls,
+    round.bombsPerTeam, // REQ-F-GS15
   );
 
   const newScores = {
