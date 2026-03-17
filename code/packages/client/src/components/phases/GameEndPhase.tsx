@@ -30,6 +30,23 @@ interface TeamStats {
   bombs: number;
 }
 
+function TichuStat({ won, broken }: { won: number; broken: number }) {
+  const called = won + broken;
+  if (called === 0) {
+    return <span>{won} / {called}</span>;
+  }
+  if (won === called) {
+    return <span className={styles.statColorGreen}>{won} / {called}</span>;
+  }
+  const wonClass = won < 0.5 * called ? styles.statColorRed : styles.statColorOrange;
+  return (
+    <>
+      <span className={wonClass}>{won}</span>
+      {` / ${called}`}
+    </>
+  );
+}
+
 function computeStats(roundHistory: RoundScore[], team: Team): TeamStats {
   const stats: TeamStats = {
     grandTichuWon: 0,
@@ -112,14 +129,14 @@ export const GameEndPhase = memo(function GameEndPhase({
           {/* REQ-F-GS04: Grand Tichu */}
           <div className={styles.statLabel}>Grand Tichu</div>
           <div className={styles.statLabel}>Grand Tichu</div>
-          <div className={styles.statValue}>{myStats.grandTichuWon} / {myStats.grandTichuBroken}</div>
-          <div className={styles.statValue}>{theirStats.grandTichuWon} / {theirStats.grandTichuBroken}</div>
+          <div className={styles.statValue}><TichuStat won={myStats.grandTichuWon} broken={myStats.grandTichuBroken} /></div>
+          <div className={styles.statValue}><TichuStat won={theirStats.grandTichuWon} broken={theirStats.grandTichuBroken} /></div>
 
           {/* REQ-F-GS05: Tichu */}
           <div className={styles.statLabel}>Tichu</div>
           <div className={styles.statLabel}>Tichu</div>
-          <div className={styles.statValue}>{myStats.tichuWon} / {myStats.tichuBroken}</div>
-          <div className={styles.statValue}>{theirStats.tichuWon} / {theirStats.tichuBroken}</div>
+          <div className={styles.statValue}><TichuStat won={myStats.tichuWon} broken={myStats.tichuBroken} /></div>
+          <div className={styles.statValue}><TichuStat won={theirStats.tichuWon} broken={theirStats.tichuBroken} /></div>
 
           {/* REQ-F-GS06: 1-2 Victories */}
           <div className={styles.statLabel}>1-2 Victories</div>

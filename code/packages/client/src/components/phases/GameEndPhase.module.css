@@ -112,6 +112,19 @@
   padding: 0 0 4px;
 }
 
+/* Tichu/Grand Tichu stat color coding */
+.statColorGreen {
+  color: var(--color-success, #4caf50);
+}
+
+.statColorOrange {
+  color: #ff9800;
+}
+
+.statColorRed {
+  color: var(--color-error, #f44336);
+}
+
 /* REQ-F-GS09, REQ-F-GS10: Action buttons */
 .buttons {
   display: flex;
