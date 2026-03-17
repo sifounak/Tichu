@@ -42,6 +42,8 @@ export interface GameStore {
   latestRoundScore: RoundScore | null;
   /** Game over info */
   gameOverInfo: { winner: string; finalScores: Record<Team, number> } | null;
+  // REQ-F-GT02: Seats that have made their Grand Tichu decision (call or pass)
+  grandTichuDecided: Seat[];
 
   /* --- Actions --- */
   /** Apply a full GAME_STATE sync from the server */
@@ -73,6 +75,7 @@ const initialState = {
   hasPlayedCards: false,
   latestRoundScore: null as RoundScore | null,
   gameOverInfo: null as { winner: string; finalScores: Record<Team, number> } | null,
+  grandTichuDecided: [] as Seat[],
 };
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -100,6 +103,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       hasPlayedCards: view.myHasPlayed,
       latestRoundScore: null,
       gameOverInfo: null,
+      grandTichuDecided: view.grandTichuDecided,
     }),
 
   applyServerMessage: (msg: ServerMessage) =>

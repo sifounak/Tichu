@@ -502,7 +502,7 @@ export default function GamePage() {
     dragonGiftPending: gameStore.dragonGiftPending,
     receivedCards: gameStore.receivedCards,
     lastDogPlay: null, // Animation handled via uiStore, not view
-    grandTichuDecided: [],
+    grandTichuDecided: gameStore.grandTichuDecided, // REQ-F-GT02
   };
 
   const isMyTurn = gameStore.currentTurn === mySeat;
