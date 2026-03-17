@@ -80,6 +80,12 @@ export interface TrickState {
   currentWinner: Seat;
 }
 
+/** REQ-F-GS11: Per-seat tichu result for one round */
+export interface TichuResult {
+  call: TichuCall;
+  won: boolean;
+}
+
 /** Score record for one round */
 export interface RoundScore {
   roundNumber: number;
@@ -87,6 +93,10 @@ export interface RoundScore {
   tichuBonuses: Record<Team, number>;
   oneTwoBonus: Team | null;
   total: Record<Team, number>;
+  /** REQ-F-GS11: Tichu/Grand Tichu result per seat; null if no call was made */
+  tichuResults: Record<Seat, TichuResult | null>;
+  /** REQ-F-GS12: Bombs played per team this round */
+  bombsPerTeam: Record<Team, number>;
 }
 
 /** Full state for one round of play */
@@ -105,6 +115,8 @@ export interface RoundState {
   } | null;
   /** REQ-F-DA01: Ephemeral marker for Dog play animation (set on Dog play, cleared on next play) */
   lastDogPlay: { fromSeat: Seat; toSeat: Seat } | null;
+  /** REQ-F-GS13: Bombs played per team this round, initialized to zero each round */
+  bombsPerTeam: Record<Team, number>;
 }
 
 /** REQ-F-GF10: Customizable game configuration */

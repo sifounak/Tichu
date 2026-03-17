@@ -454,7 +454,9 @@ export default function GamePage() {
           winner={gameStore.gameOverInfo.winner as 'northSouth' | 'eastWest'}
           finalScores={gameStore.gameOverInfo.finalScores}
           roundHistory={gameStore.roundHistory}
+          mySeat={gameStore.mySeat!}
           onNewGame={() => send({ type: 'START_GAME' })}
+          onLeaveRoom={() => router.push('/')}
         />
         <ConnectionStatus status={status} />
       </>
