@@ -89,6 +89,7 @@ export default function SpectatePage() {
     receivedCards: { north: null, east: null, south: null, west: null },
     lastDogPlay: null,
     grandTichuDecided: [],
+    winner: null,
   };
 
   const tichuCalls = gameStore.otherPlayers.map((p) => ({ seat: p.seat, call: p.tichuCall }));
