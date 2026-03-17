@@ -32,6 +32,9 @@ function makeView(overrides: Partial<ClientGameView> = {}): ClientGameView {
     wishFulfilled: false,
     finishOrder: [],
     dragonGiftPending: false,
+    receivedCards: { north: null, east: null, south: null, west: null },
+    lastDogPlay: null,
+    grandTichuDecided: [],
     ...overrides,
   };
 }
@@ -51,6 +54,22 @@ describe('gameStore', () => {
       expect(state.phase).toBe(GamePhase.CardPassing);
       expect(state.mySeat).toBe('south');
       expect(state.otherPlayers).toHaveLength(3);
+    });
+
+    // REQ-F-GT02: grandTichuDecided is stored from the view
+    it('stores grandTichuDecided from view', () => {
+      const view = makeView({ grandTichuDecided: ['north', 'east'] as Seat[] });
+      useGameStore.getState().applyGameState(view);
+      expect(useGameStore.getState().grandTichuDecided).toEqual(['north', 'east']);
+    });
+
+    it('resets grandTichuDecided to empty array when view has empty array (new round)', () => {
+      // First apply a view with decisions
+      useGameStore.getState().applyGameState(makeView({ grandTichuDecided: ['north', 'east'] as Seat[] }));
+      expect(useGameStore.getState().grandTichuDecided).toHaveLength(2);
+      // Then apply a new-round view with empty array
+      useGameStore.getState().applyGameState(makeView({ grandTichuDecided: [] }));
+      expect(useGameStore.getState().grandTichuDecided).toEqual([]);
     });
   });
 
@@ -145,6 +164,13 @@ describe('gameStore', () => {
       useGameStore.getState().reset();
       expect(useGameStore.getState().gameId).toBeNull();
       expect(useGameStore.getState().myHand).toEqual([]);
+    });
+
+    // REQ-F-GT02: reset clears grandTichuDecided
+    it('clears grandTichuDecided on reset', () => {
+      useGameStore.getState().applyGameState(makeView({ grandTichuDecided: ['south', 'west'] as Seat[] }));
+      useGameStore.getState().reset();
+      expect(useGameStore.getState().grandTichuDecided).toEqual([]);
     });
   });
 });
