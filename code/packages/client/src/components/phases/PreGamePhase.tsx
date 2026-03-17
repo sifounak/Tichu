@@ -1,10 +1,13 @@
 // REQ-F-GF09: Grand Tichu decision UI
 // REQ-F-GF02: Card passing UI
+// REQ-F-GT03: Per-player status row when undecided
+// REQ-F-GT04: Waiting screen when decided
+// REQ-F-GT05: Visual distinction for Grand Tichu callers
 'use client';
 
 import { memo } from 'react';
 import type { GameCard, Seat, GamePhase, CardId } from '@tichu/shared';
-import { getPartner, getNextSeat } from '@tichu/shared';
+import { getPartner, getNextSeat, SEATS_IN_ORDER } from '@tichu/shared';
 import { Card } from '../cards/Card';
 import styles from './PreGamePhase.module.css';
 
@@ -28,6 +31,8 @@ export interface PreGamePhaseProps {
   grandTichuDecided?: Seat[];
   /** Other players' tichu calls (to show Grand Tichu calls) */
   otherPlayerCalls?: Array<{ seat: Seat; tichuCall: string }>;
+  /** Current player's tichu call — used to show decision in waiting screen (REQ-F-GT04) */
+  myTichuCall?: string;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -50,17 +55,68 @@ export const PreGamePhase = memo(function PreGamePhase({
   seatNames,
   grandTichuDecided,
   otherPlayerCalls,
+  myTichuCall,
 }: PreGamePhaseProps) {
   const partner = getPartner(mySeat);
   const leftOpponent = getNextSeat(getNextSeat(getNextSeat(mySeat)));
   const rightOpponent = getNextSeat(mySeat);
 
   if (phase === 'grandTichuDecision') {
+    const decidedSet = new Set(grandTichuDecided ?? []);
+    const hasDecided = decidedSet.has(mySeat);
+
+    // Build a seat→tichuCall map for all players
+    const callMap = new Map<Seat, string>();
+    otherPlayerCalls?.forEach(({ seat, tichuCall }) => callMap.set(seat, tichuCall));
+    if (myTichuCall !== undefined) callMap.set(mySeat, myTichuCall);
+
+    // REQ-F-GT03 / REQ-F-GT05: status row showing all 4 players' decisions
+    const statusRow = (
+      <div className={styles.statusRow} aria-label="Grand Tichu decisions">
+        {SEATS_IN_ORDER.map((seat) => {
+          const decided = decidedSet.has(seat);
+          const calledGT = decided && callMap.get(seat) === 'grandTichu';
+          const passed = decided && !calledGT;
+          const name = seatNames?.[seat] ?? SEAT_LABELS[seat];
+          const label = seat === mySeat ? `${name} (you)` : name;
+          return (
+            <div key={seat} className={styles.statusItem}>
+              <span className={styles.statusName}>{label}</span>
+              <span
+                className={`${styles.statusBadge} ${calledGT ? styles.badgeGrandTichu : passed ? styles.badgePassed : styles.badgeWaiting}`}
+                aria-label={calledGT ? 'Grand Tichu' : passed ? 'Pass' : 'Waiting'}
+              >
+                {calledGT ? 'Grand Tichu!' : passed ? 'Pass' : '…'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    );
+
+    // REQ-F-GT04: waiting screen once this player has decided
+    if (hasDecided) {
+      const myCalledGT = myTichuCall === 'grandTichu';
+      return (
+        <div className={styles.phaseContainer}>
+          <div className={styles.prompt}>
+            <h2 className={`${styles.title} ${myCalledGT ? styles.titleGrandTichu : ''}`}>
+              {myCalledGT ? 'Grand Tichu Called!' : 'You passed.'}
+            </h2>
+            <p className={styles.subtitle}>Waiting for other players…</p>
+            {statusRow}
+          </div>
+        </div>
+      );
+    }
+
+    // REQ-F-GT03: undecided — show buttons + status row
     return (
       <div className={styles.phaseContainer}>
         <div className={styles.prompt}>
           <h2 className={styles.title}>Grand Tichu?</h2>
           <p className={styles.subtitle}>You have seen 8 cards. Declare Grand Tichu (+/- 200)?</p>
+          {statusRow}
           <div className={styles.buttonRow}>
             <button
               className={`${styles.button} ${styles.skipButton}`}
