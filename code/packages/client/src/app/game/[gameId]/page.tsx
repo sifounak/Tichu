@@ -89,14 +89,15 @@ export default function GamePage() {
           if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
           uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
           // REQ-F-DA03: Entry (0.25s base) + pause (1.00s base) before exit begins
-          // REQ-F-DA06: Total = (0.25 + 1.00 + 0.40) × multiplier = 1.65s at normal speed
           const BASE_CARD_PLAY = 0.25;
           const DOG_PAUSE = 1.00;
           const BASE_TRICK_SWEEP = 0.40;
+          const DOG_RESUME_DELAY = 0.50; // Extra pause after sweep before play resumes
           // clearDogAnimation fires after entry + pause; triggers the TrickDisplay exit animation
           const dogAnimMs = (BASE_CARD_PLAY + DOG_PAUSE) * animMultiplier * 1000;
-          // REQ-F-DA05: Block plays until after sweep completes
-          const dogBlockMs = (BASE_CARD_PLAY + DOG_PAUSE + BASE_TRICK_SWEEP) * animMultiplier * 1000;
+          // REQ-F-DA05: Block plays until after sweep completes + resume delay
+          // REQ-F-DA06: Total = (0.25 + 1.00 + 0.40 + 0.50) × multiplier = 2.15s at normal speed
+          const dogBlockMs = (BASE_CARD_PLAY + DOG_PAUSE + BASE_TRICK_SWEEP + DOG_RESUME_DELAY) * animMultiplier * 1000;
           dogAnimTimerRef.current = setTimeout(
             () => uiStore.clearDogAnimation(),
             dogAnimMs,
