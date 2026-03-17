@@ -718,6 +718,7 @@ export default function GamePage() {
               seatNames={seatNames}
               grandTichuDecided={view.grandTichuDecided}
               otherPlayerCalls={gameStore.otherPlayers.map((p) => ({ seat: p.seat, tichuCall: p.tichuCall }))}
+              myTichuCall={gameStore.myTichuCall}
             />
           )}
 
