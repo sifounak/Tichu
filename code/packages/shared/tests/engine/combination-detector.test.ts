@@ -1,7 +1,8 @@
 // Verifies: REQ-F-CB01, REQ-F-CB03, REQ-F-CB04, REQ-F-CB05
+// Verifies: REQ-F-BB01, REQ-F-BB07, REQ-F-BB08
 
 import { describe, it, expect } from 'vitest';
-import { detectCombination } from '../../src/engine/combination-detector.js';
+import { detectCombination, detectAllBombs } from '../../src/engine/combination-detector.js';
 import { CombinationType } from '../../src/types/combination.js';
 import type { GameCard, Rank } from '../../src/types/card.js';
 import { Suit } from '../../src/types/card.js';
@@ -443,5 +444,96 @@ describe('detectCombination', () => {
         CombinationType.PairSequence,
       );
     });
+  });
+});
+
+// --- detectAllBombs ---
+
+describe('detectAllBombs', () => {
+  // Verifies: REQ-F-BB01
+  it('returns empty array for empty hand', () => {
+    expect(detectAllBombs([])).toEqual([]);
+  });
+
+  // Verifies: REQ-F-BB01
+  it('returns empty array for hand with no bombs', () => {
+    const hand = [j(3), p(4), s(5), j(6), sw(7)];
+    expect(detectAllBombs(hand)).toHaveLength(0);
+  });
+
+  // Verifies: REQ-F-BB01
+  it('ignores special cards (Dragon, Phoenix, Dog, Mahjong)', () => {
+    const hand = [dragon(), phoenix(), dog(), mahjong()];
+    expect(detectAllBombs(hand)).toHaveLength(0);
+  });
+
+  // Verifies: REQ-F-BB08
+  it('detects a four-of-a-kind bomb (exactly 4 cards)', () => {
+    const hand = [j(9), p(9), s(9), sw(9)];
+    const bombs = detectAllBombs(hand);
+    expect(bombs).toHaveLength(1);
+    expect(bombs[0].type).toBe(CombinationType.FourBomb);
+    expect(bombs[0].rank).toBe(9);
+    expect(bombs[0].cards).toHaveLength(4);
+    expect(bombs[0].isBomb).toBe(true);
+  });
+
+  // Verifies: REQ-F-BB08
+  it('uses exactly 4 cards for four-of-a-kind even if only 4 available', () => {
+    const hand = [j(7), p(7), s(7), sw(7), j(8)];
+    const bombs = detectAllBombs(hand);
+    const fourBombs = bombs.filter((b) => b.type === CombinationType.FourBomb);
+    expect(fourBombs).toHaveLength(1);
+    expect(fourBombs[0].cards).toHaveLength(4);
+  });
+
+  // Verifies: REQ-F-BB01
+  it('detects a straight-flush bomb (5 cards, same suit, consecutive)', () => {
+    const hand = [j(5), j(6), j(7), j(8), j(9)];
+    const bombs = detectAllBombs(hand);
+    expect(bombs).toHaveLength(1);
+    expect(bombs[0].type).toBe(CombinationType.StraightFlushBomb);
+    expect(bombs[0].rank).toBe(9);
+    expect(bombs[0].isBomb).toBe(true);
+  });
+
+  // Verifies: REQ-F-BB07
+  it('enumerates sub-sequences of a 6-card straight flush', () => {
+    // j(5)–j(10): contains [5-9], [6-10], [5-10] = 3 bombs
+    const hand = [j(5), j(6), j(7), j(8), j(9), j(10)];
+    const bombs = detectAllBombs(hand);
+    expect(bombs).toHaveLength(3);
+    expect(bombs.every((b) => b.type === CombinationType.StraightFlushBomb)).toBe(true);
+  });
+
+  // Verifies: REQ-F-BB07
+  it('enumerates sub-sequences of a 7-card straight flush', () => {
+    // 5..11: sub-sequences of length 5 = [5-9,6-10,7-11], length 6 = [5-10,6-11], length 7 = [5-11] → 6 bombs
+    const hand = [j(5), j(6), j(7), j(8), j(9), j(10), j(11)];
+    const bombs = detectAllBombs(hand);
+    expect(bombs).toHaveLength(6);
+  });
+
+  // Verifies: REQ-F-BB01
+  it('does not produce straight-flush bombs from mixed suits', () => {
+    const hand = [j(5), p(6), s(7), sw(8), j(9)];
+    expect(detectAllBombs(hand)).toHaveLength(0);
+  });
+
+  // Verifies: REQ-F-BB01
+  it('detects both a four-bomb and a straight-flush bomb in the same hand', () => {
+    const hand = [j(5), j(6), j(7), j(8), j(9), p(9), s(9), sw(9)];
+    const bombs = detectAllBombs(hand);
+    const fourBombs = bombs.filter((b) => b.type === CombinationType.FourBomb);
+    const sfBombs = bombs.filter((b) => b.type === CombinationType.StraightFlushBomb);
+    expect(fourBombs).toHaveLength(1);
+    expect(sfBombs).toHaveLength(1);
+  });
+
+  // Verifies: REQ-F-BB07
+  it('does not report a straight flush bomb for non-consecutive same-suit cards', () => {
+    // j(5), j(7), j(8), j(9), j(10) — gap at 6
+    const hand = [j(5), j(7), j(8), j(9), j(10)];
+    expect(detectAllBombs(hand)).toHaveLength(0);
   });
 });
