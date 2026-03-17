@@ -1,7 +1,7 @@
-// Verifies: REQ-F-BOT01, REQ-F-BOT02, REQ-F-BOT05, REQ-F-MP01
+// Verifies: REQ-F-BOT01, REQ-F-BOT02, REQ-F-BOT05, REQ-F-MP01, REQ-F-GT06, REQ-F-GT07
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BotRunner, INSTANT_CONFIG } from '../../src/bot/bot-runner.js';
+import { BotRunner, INSTANT_CONFIG, type BotRunnerConfig } from '../../src/bot/bot-runner.js';
 import { RegularBot } from '../../src/bot/regular-bot.js';
 import {
   createGameActor,
@@ -121,6 +121,50 @@ describe('BotRunner', () => {
       // All bots should have made their Grand Tichu decision (RegularBot always passes)
       const ctx = getContext(actor);
       expect(ctx.grandTichuDecisions.size).toBe(4);
+    });
+
+    // REQ-F-GT06: Grand Tichu decision fires at exactly 1000 ms in production config
+    it('should fire Grand Tichu decision at exactly 1000 ms (not random)', () => {
+      const productionConfig: BotRunnerConfig = { minDelayMs: 800, maxDelayMs: 1500 };
+      actor = createTestActor();
+      runner = new BotRunner(actor, productionConfig);
+
+      runner.addBot('north', new RegularBot());
+      seatAllPlayers(actor);
+      actor.send({ type: 'HOST_START_GAME' });
+      expect(getState(actor)).toBe('grandTichuDecision');
+
+      runner.onStateChange();
+
+      // At 999 ms — not yet decided
+      vi.advanceTimersByTime(999);
+      expect(getContext(actor).grandTichuDecisions.has('north')).toBe(false);
+
+      // At exactly 1000 ms — decided
+      vi.advanceTimersByTime(1);
+      expect(getContext(actor).grandTichuDecisions.has('north')).toBe(true);
+    });
+
+    // REQ-F-GT07: calling onStateChange again before the timer fires must not add a second timer
+    it('should not schedule a second timer if onStateChange is called again before timer fires', () => {
+      const productionConfig: BotRunnerConfig = { minDelayMs: 800, maxDelayMs: 1500 };
+      actor = createTestActor();
+      runner = new BotRunner(actor, productionConfig);
+
+      const callSpy = vi.fn().mockReturnValue(false);
+      runner.addBot('north', { ...new RegularBot(), chooseGrandTichu: callSpy });
+      seatAllPlayers(actor);
+      actor.send({ type: 'HOST_START_GAME' });
+
+      // Two onStateChange calls before the timer fires
+      runner.onStateChange();
+      runner.onStateChange();
+
+      // Let all timers fire
+      vi.advanceTimersByTime(2000);
+
+      // chooseGrandTichu should have been called exactly once (no duplicate timer)
+      expect(callSpy).toHaveBeenCalledTimes(1);
     });
   });
 

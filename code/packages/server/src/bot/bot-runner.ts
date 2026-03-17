@@ -2,6 +2,8 @@
 // REQ-F-BOT02: Bot runner implementation
 // REQ-F-BOT05: Artificial thinking delay
 // REQ-F-MP01: Any combination 0-4 humans + bots
+// REQ-F-GT06: Bot Grand Tichu decision at exactly 1000 ms
+// REQ-F-GT07: No duplicate Grand Tichu timers per bot per round
 
 import type { Seat } from '@tichu/shared';
 import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong } from '@tichu/shared';
@@ -42,6 +44,9 @@ export class BotRunner {
 
   /** Pending delay timers (for cleanup) */
   private readonly pendingTimers = new Set<ReturnType<typeof setTimeout>>();
+
+  /** Tracks bots that already have a Grand Tichu timer scheduled (REQ-F-GT07) */
+  private readonly grandTichuTimers = new Set<Seat>();
 
   /** Whether the runner has been disposed */
   private disposed = false;
@@ -114,6 +119,7 @@ export class BotRunner {
       clearTimeout(timer);
     }
     this.pendingTimers.clear();
+    this.grandTichuTimers.clear();
     this.bots.clear();
   }
 
@@ -161,6 +167,28 @@ export class BotRunner {
     this.pendingTimers.add(timer);
   }
 
+  /**
+   * REQ-F-GT06: Schedule a Grand Tichu action at exactly 1000 ms (or immediately
+   * in INSTANT_CONFIG). REQ-F-GT07: Skips scheduling if a timer is already pending
+   * for this seat.
+   */
+  private scheduleGrandTichuAction(seat: Seat, action: () => void): void {
+    if (this.disposed) return;
+    if (this.grandTichuTimers.has(seat)) return; // REQ-F-GT07: deduplicate
+
+    this.grandTichuTimers.add(seat);
+
+    const { minDelayMs, maxDelayMs } = this.config;
+    const delayMs = (minDelayMs === 0 && maxDelayMs === 0) ? 0 : 1000; // REQ-F-GT06
+
+    const timer = setTimeout(() => {
+      this.pendingTimers.delete(timer);
+      this.grandTichuTimers.delete(seat);
+      if (!this.disposed) action();
+    }, delayMs);
+    this.pendingTimers.add(timer);
+  }
+
   /** Send an event to the game actor, then broadcast updated state */
   private send(event: GameEvent): void {
     if (this.disposed) return;
@@ -178,7 +206,7 @@ export class BotRunner {
       if (!round) continue;
       const hand8 = round.players[seat].hand;
 
-      this.scheduleAction(() => {
+      this.scheduleGrandTichuAction(seat, () => {
         const call = bot.chooseGrandTichu(hand8);
         this.send(call
           ? { type: 'GRAND_TICHU_CALL', seat }

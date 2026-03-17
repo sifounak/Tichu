@@ -167,3 +167,56 @@
   color: var(--color-text-muted);
   font-weight: 300;
 }
+
+/* === Grand Tichu real-time status row (REQ-F-GT03, REQ-F-GT04, REQ-F-GT05) === */
+.statusRow {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+
+.statusItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 72px;
+}
+
+.statusName {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statusBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+/* REQ-F-GT05: visual distinction */
+.badgeWaiting {
+  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.badgePassed {
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.badgeGrandTichu {
+  color: white;
+  background: var(--color-tichu-badge);
+}
+
+.titleGrandTichu {
+  color: var(--color-tichu-badge);
+}
