@@ -8,8 +8,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { GamePhase } from '@tichu/shared';
-import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId } from '@tichu/shared';
+import { GamePhase, detectAllBombs, CombinationType } from '@tichu/shared';
+import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId, Combination } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import { useBombWindow } from '@/hooks/useBombWindow';
@@ -88,15 +88,19 @@ export default function GamePage() {
           // Clear any previous Dog animation timer
           if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
           uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
-          // 0.5s pause + 0.5s sweep = 1s total
-          const dogAnimMs = (0.5 + 0.5) * animMultiplier * 1000;
-          // Block plays during entire Dog animation
-          const dogBlockMs = (0.5 + 0.5) * animMultiplier * 1000;
+          // REQ-F-DA03: Entry (0.25s base) + pause (1.00s base) before exit begins
+          // REQ-F-DA06: Total = (0.25 + 1.00 + 0.40) × multiplier = 1.65s at normal speed
+          const BASE_CARD_PLAY = 0.25;
+          const DOG_PAUSE = 1.00;
+          const BASE_TRICK_SWEEP = 0.40;
+          // clearDogAnimation fires after entry + pause; triggers the TrickDisplay exit animation
+          const dogAnimMs = (BASE_CARD_PLAY + DOG_PAUSE) * animMultiplier * 1000;
+          // REQ-F-DA05: Block plays until after sweep completes
+          const dogBlockMs = (BASE_CARD_PLAY + DOG_PAUSE + BASE_TRICK_SWEEP) * animMultiplier * 1000;
           dogAnimTimerRef.current = setTimeout(
             () => uiStore.clearDogAnimation(),
             dogAnimMs,
           );
-          // Block plays during entire Dog sequence (entry + pause + sweep + post-pause)
           uiStore.startBombWindow(dogBlockMs);
         }
 
@@ -212,7 +216,7 @@ export default function GamePage() {
     uiStore.clearSelection();
   }, [selection, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive]);
 
-  // REQ-F-BI09: Handle out-of-turn bomb play
+  // REQ-F-BI09: Handle out-of-turn bomb play (selection-based)
   const handleBomb = useCallback(() => {
     if (!selection.isBombSelection) return;
     const cardIds = [...selection.selectedIds];
@@ -222,6 +226,25 @@ export default function GamePage() {
     }
     uiStore.clearSelection();
   }, [selection, send, uiStore]);
+
+  // REQ-F-BB01: Auto-detect all bombs in hand for the Bomb button
+  const handBombs = useMemo(
+    () => detectAllBombs(gameStore.myHand),
+    [gameStore.myHand],
+  );
+
+  // REQ-F-BB04/BB06: Play a specific bomb directly without manual card selection
+  const handleBombPlay = useCallback(
+    (bomb: Combination) => {
+      const cardIds = bomb.cards.map((gc) => gc.id);
+      if (!send({ type: 'PLAY_CARDS', cardIds })) {
+        uiStore.showErrorToast('Not connected to server');
+      }
+    },
+    [send, uiStore],
+  );
+
+  const [bombPopupOpen, setBombPopupOpen] = useState(false);
 
   const handlePhoenixChoice = useCallback(
     (value: Rank) => {
@@ -450,7 +473,9 @@ export default function GamePage() {
           winner={gameStore.gameOverInfo.winner as 'northSouth' | 'eastWest'}
           finalScores={gameStore.gameOverInfo.finalScores}
           roundHistory={gameStore.roundHistory}
+          mySeat={gameStore.mySeat!}
           onNewGame={() => send({ type: 'START_GAME' })}
+          onLeaveRoom={() => router.push('/')}
         />
         <ConnectionStatus status={status} />
       </>
@@ -792,6 +817,82 @@ export default function GamePage() {
                     : undefined
               }
             />
+            {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
+            {phase === 'playing' && !showReceivedCards && handBombs.length > 0 && (
+              <div
+                style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: '48px', zIndex: 10 }}
+                onMouseEnter={() => handBombs.length > 1 && setBombPopupOpen(true)}
+                onMouseLeave={() => setBombPopupOpen(false)}
+              >
+                {/* REQ-F-BB04: Single bomb plays immediately on click */}
+                {/* REQ-F-BB05: Multiple bombs show popup on hover */}
+                <button
+                  onClick={() => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined}
+                  style={{
+                    width: '84px',
+                    height: '84px',
+                    padding: '6px',
+                    border: 'none',
+                    borderRadius: '12px',
+                    background: 'var(--color-tichu-badge)',
+                    color: 'white',
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '21px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    lineHeight: '1.2',
+                    textAlign: 'center',
+                  }}
+                  aria-label="Play bomb"
+                >
+                  Bomb!
+                </button>
+                {/* REQ-F-BB05/BB06: Multi-bomb popup */}
+                {bombPopupOpen && handBombs.length > 1 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '100%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      marginBottom: '8px',
+                      background: 'var(--color-bg-panel)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: '12px',
+                      padding: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      minWidth: '120px',
+                      zIndex: 50,
+                    }}
+                  >
+                    {handBombs.map((bomb, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { handleBombPlay(bomb); setBombPopupOpen(false); }}
+                        style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '8px',
+                          color: 'var(--color-text-primary)',
+                          cursor: 'pointer',
+                          padding: '6px 10px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          textAlign: 'left',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {bomb.type === CombinationType.FourBomb
+                          ? `4× ${bomb.rank}`
+                          : `SF ${bomb.cards.length}: ${(bomb.cards[0].card as { rank: number }).rank}–${bomb.rank}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

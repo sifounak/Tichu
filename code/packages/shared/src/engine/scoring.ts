@@ -6,8 +6,8 @@
 // REQ-F-GF10: Customizable target score (checkGameOver)
 
 import type { GameCard } from '../types/card.js';
-import type { Seat, Team, TichuCall, RoundScore } from '../types/game.js';
-import { getTeam } from '../types/game.js';
+import type { Seat, Team, TichuCall, RoundScore, TichuResult } from '../types/game.js';
+import { getTeam, SEATS_IN_ORDER } from '../types/game.js';
 import { getCardPoints } from '../constants.js';
 
 /**
@@ -37,6 +37,7 @@ export function getTrickPoints(tricks: GameCard[][]): number {
  * @param tricksByPlayer - Cards won in tricks by each player
  * @param handsByPlayer - Cards remaining in each player's hand at round end
  * @param tichuCalls - Tichu/Grand Tichu call status per player
+ * @param bombsPerTeam - Bombs played per team this round (REQ-F-GS15)
  * @returns RoundScore with detailed breakdown
  */
 export function scoreRound(
@@ -45,6 +46,7 @@ export function scoreRound(
   tricksByPlayer: Record<Seat, GameCard[][]>,
   handsByPlayer: Record<Seat, GameCard[]>,
   tichuCalls: Record<Seat, TichuCall>,
+  bombsPerTeam: Record<Team, number> = { northSouth: 0, eastWest: 0 },
 ): RoundScore {
   const firstOut = finishOrder[0];
   const secondOut = finishOrder[1];
@@ -115,8 +117,19 @@ export function scoreRound(
     tichuBonuses[team] += isFirstOut ? bonus : -bonus;
   }
 
-  // Also process tichu calls for players who didn't finish (though all 4 should be in finishOrder)
-  // The finishOrder should contain all 4 players, but handle edge cases
+  // REQ-F-GS15: Compute per-seat tichu results for the game summary dialog
+  const tichuResults: Record<Seat, TichuResult | null> = {
+    north: null,
+    east: null,
+    south: null,
+    west: null,
+  };
+  for (const seat of SEATS_IN_ORDER) {
+    const call = tichuCalls[seat];
+    if (call === 'none') continue;
+    const won = seat === firstOut;
+    tichuResults[seat] = { call, won };
+  }
 
   return {
     roundNumber,
@@ -127,6 +140,8 @@ export function scoreRound(
       northSouth: cardPoints.northSouth + tichuBonuses.northSouth,
       eastWest: cardPoints.eastWest + tichuBonuses.eastWest,
     },
+    tichuResults,
+    bombsPerTeam,
   };
 }
 

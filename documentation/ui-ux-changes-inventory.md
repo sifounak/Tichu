@@ -95,3 +95,9 @@ Complete inventory of all in-game UI/UX improvements found across the commit his
 
 61. **Bomb interrupt UI** — Bomb! button available even when not your turn
 62. **Red pulsing Bomb! button** styling
+
+## Game Summary Dialog & Dog Animation Fix (feature/game-summary-bomb-button-dog-anim)
+
+63. **Game Summary Dialog** — Full redesign of `GameEndPhase`: "You won!" / "You lost!" headline (green/red), 2-column "Your Team" / "Their Team" stat grid (Grand Tichu won/broken, Tichu won/broken, 1-2 Victories, Bombs), final scores, Leave Room + Start New Game buttons
+64. **Dog animation timing fix** — Entry (0.25s spring) → 1.0s pause → sweep (0.40s trickSweep); gameplay unblocks only after sweep completes; all timings scale with animation speed setting
+65. **Auto-detect Bomb button** — "Bomb!" button appears to the right of the card hand whenever the player holds ≥1 bomb; single bomb plays immediately on click; multiple bombs open a hover popup listing each option (four-of-a-kind or straight-flush with rank range); button disappears when no bombs remain in hand
