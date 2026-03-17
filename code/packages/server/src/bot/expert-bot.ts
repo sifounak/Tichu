@@ -28,6 +28,7 @@ import {
   countLeadGetters,
   evaluateHandStrength,
   selectPassCards,
+  sortByStrength,
   selectLeadPlay,
   selectFollowPlay,
   isPartnerWinning,
@@ -179,12 +180,17 @@ export class ExpertBot implements BotStrategy {
         opp1Card.card.kind === 'standard' && opp2Card.card.kind === 'standard' &&
         opp1Card.card.rank === opp2Card.card.rank
       ) {
-        // Swap one opponent card with partner card to break the pair
-        // Give the lower card to partner, keep higher for opponent
-        const partnerCard = basePass[partner];
-        if (partnerCard) {
-          basePass[opponents[1]] = partnerCard;
-          basePass[partner] = opp2Card;
+        // Find an alternative weak card for the second opponent (different rank,
+        // not a special card, and not already being passed)
+        const usedIds = new Set([opp1Card.id, opp2Card.id, basePass[partner]?.id]);
+        const altCard = sortByStrength(hand).find(
+          (gc) =>
+            !usedIds.has(gc.id) &&
+            !isDragon(gc.card) && !isDog(gc.card) && !isPhoenix(gc.card) &&
+            !(gc.card.kind === 'standard' && gc.card.rank === opp1Card.card.rank),
+        );
+        if (altCard) {
+          basePass[opponents[1]] = altCard;
         }
       }
     }
