@@ -475,7 +475,7 @@ export default function GamePage() {
           roundHistory={gameStore.roundHistory}
           mySeat={gameStore.mySeat!}
           onNewGame={() => send({ type: 'START_GAME' })}
-          onLeaveRoom={() => router.push('/')}
+          onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
         />
         <ConnectionStatus status={status} />
       </>
