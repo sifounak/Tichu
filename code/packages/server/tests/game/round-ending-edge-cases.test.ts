@@ -221,6 +221,7 @@ describe('REQ-F-BUG01: Round-ending edge cases', () => {
       wishFulfilled: false,
       finishOrder: ['north', 'south'] as Seat[],
       dragonGiftPending: null,
+      dragonGiftedTo: null,
       lastDogPlay: null,
     };
 

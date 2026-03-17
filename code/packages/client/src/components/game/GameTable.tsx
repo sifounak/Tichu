@@ -35,6 +35,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
 export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
+  const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
   const trickLeader = currentTrick?.currentWinner ?? null;
 
   // Determine layout: player (me) is always at the bottom
@@ -111,6 +112,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
             hideEmptyPlaceholder={hideEmptyTrick}
             dogAnimation={dogAnimation}
             dragonGiftPending={dragonGiftTargets && dragonGiftTargets.size > 0}
+            dragonGiftAnimation={dragonGiftAnimation}
             mustSatisfyWish={mustSatisfyWish}
           />
         </div>

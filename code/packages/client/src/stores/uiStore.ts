@@ -2,7 +2,7 @@
 'use client';
 
 import { create } from 'zustand';
-import type { CardId, Rank, Seat, TichuCall } from '@tichu/shared';
+import type { CardId, Rank, Seat, TichuCall, TrickState } from '@tichu/shared';
 import type { ConnectionStatus } from '@/hooks/useWebSocket';
 import type { ChatMessage } from '@/components/game/ChatPanel';
 
@@ -67,6 +67,11 @@ export interface UiStore {
   dogAnimation: { fromSeat: Seat; toSeat: Seat } | null;
   startDogAnimation: (fromSeat: Seat, toSeat: Seat) => void;
   clearDogAnimation: () => void;
+
+  /* --- Dragon Gift Animation (REQ-F-DRA02) --- */
+  dragonGiftAnimation: { recipient: Seat; trick: TrickState } | null;
+  startDragonGiftAnimation: (recipient: Seat, trick: TrickState) => void;
+  clearDragonGiftAnimation: () => void;
 
   /* --- Error Toast --- */
   errorToast: string | null;
@@ -163,6 +168,12 @@ export const useUiStore = create<UiStore>()((set) => ({
   dogAnimation: null,
   startDogAnimation: (fromSeat, toSeat) => set({ dogAnimation: { fromSeat, toSeat } }),
   clearDogAnimation: () => set({ dogAnimation: null }),
+
+  /* --- Dragon Gift Animation --- */
+  dragonGiftAnimation: null,
+  startDragonGiftAnimation: (recipient, trick) =>
+    set({ dragonGiftAnimation: { recipient, trick } }),
+  clearDragonGiftAnimation: () => set({ dragonGiftAnimation: null }),
 
   /* --- Error Toast --- */
   errorToast: null,

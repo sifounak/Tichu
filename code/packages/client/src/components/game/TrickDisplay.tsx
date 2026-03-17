@@ -46,6 +46,8 @@ export interface TrickDisplayProps {
   dogAnimation?: { fromSeat: Seat; toSeat: Seat } | null;
   /** REQ-F-DR01: Show Dragon gift notification */
   dragonGiftPending?: boolean;
+  /** REQ-F-DRA02: Dragon gift animation — keeps trick visible during sweep */
+  dragonGiftAnimation?: { recipient: Seat; trick: TrickState } | null;
   /** Show "must satisfy wish" banner */
   mustSatisfyWish?: boolean;
 }
@@ -83,19 +85,24 @@ export const TrickDisplay = memo(function TrickDisplay({
   hideEmptyPlaceholder,
   dogAnimation,
   dragonGiftPending,
+  dragonGiftAnimation,
   mustSatisfyWish,
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
 
-  // Compute sweep direction from the current trick winner while trick is active,
-  // so the exit prop is already set correctly before AnimatePresence unmounts it
-  const sweepTarget = trick?.currentWinner
-    ? seatPosition(trick.currentWinner, mySeat)
-    : null;
+  // REQ-F-DRA02: Use the animation trick when the store trick is gone (dragon gift sweep)
+  const displayTrick = trick ?? dragonGiftAnimation?.trick ?? null;
+
+  // REQ-F-DRA02: Override sweep direction toward the gift recipient
+  const displaySweepTarget = dragonGiftAnimation
+    ? seatPosition(dragonGiftAnimation.recipient, mySeat)
+    : displayTrick?.currentWinner
+      ? seatPosition(displayTrick.currentWinner, mySeat)
+      : null;
 
   // Detect bomb plays for special effect
   const [showBomb, setShowBomb] = useState(false);
-  const lastPlay = trick?.plays[trick.plays.length - 1];
+  const lastPlay = displayTrick?.plays[displayTrick.plays.length - 1];
   const isBombPlay = lastPlay?.combination.type === 'fourBomb' || lastPlay?.combination.type === 'straightFlushBomb';
 
   useEffect(() => {
@@ -106,12 +113,12 @@ export const TrickDisplay = memo(function TrickDisplay({
     }
   }, [isBombPlay, enabled, durations.bombEffect, lastPlay]);
 
-  // Compute exit animation based on sweep target
+  // Compute exit animation based on sweep target (or dragon gift recipient)
   // Slide toward the winner at full size, fade out near the end
-  const exitAnim = enabled && sweepTarget
+  const exitAnim = enabled && displaySweepTarget
     ? {
-        x: EXIT_OFFSETS[sweepTarget].x,
-        y: EXIT_OFFSETS[sweepTarget].y,
+        x: EXIT_OFFSETS[displaySweepTarget].x,
+        y: EXIT_OFFSETS[displaySweepTarget].y,
         opacity: 0,
         transition: {
           duration: durations.trickSweep,
@@ -183,7 +190,7 @@ export const TrickDisplay = memo(function TrickDisplay({
       </AnimatePresence>
 
       <AnimatePresence mode="wait">
-        {trick && trick.plays.length > 0 ? (
+        {displayTrick && displayTrick.plays.length > 0 ? (
           <motion.div
             key="trick-active"
             className={styles.trickContent}
@@ -192,14 +199,14 @@ export const TrickDisplay = memo(function TrickDisplay({
             {/* Previous play fades out while new play slides in */}
             <AnimatePresence>
               {(() => {
-                const latestPlay = trick.plays[trick.plays.length - 1];
+                const latestPlay = displayTrick.plays[displayTrick.plays.length - 1];
                 if (!latestPlay) return null;
                 const pos = seatPosition(latestPlay.seat, mySeat);
-                const isWinner = latestPlay.seat === trick.currentWinner;
+                const isWinner = latestPlay.seat === displayTrick.currentWinner;
                 const offset = ENTRY_OFFSETS[pos];
                 return (
                   <motion.div
-                    key={`${latestPlay.seat}-${trick.plays.length}`}
+                    key={`${latestPlay.seat}-${displayTrick.plays.length}`}
                     className={`${styles.playGroup} ${styles.center} ${isWinner ? styles.winner : ''}`}
                     data-seat={latestPlay.seat}
                     aria-label={`${latestPlay.seat} played ${latestPlay.combination.type}`}

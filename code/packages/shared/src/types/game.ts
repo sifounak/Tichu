@@ -113,6 +113,8 @@ export interface RoundState {
     trickCards: GameCard[];
     from: Seat;
   } | null;
+  /** REQ-F-DRA03: Ephemeral signal — set when dragon gift resolves, cleared on next play/pass */
+  dragonGiftedTo: Seat | null;
   /** REQ-F-DA01: Ephemeral marker for Dog play animation (set on Dog play, cleared on next play) */
   lastDogPlay: { fromSeat: Seat; toSeat: Seat } | null;
   /** REQ-F-GS13: Bombs played per team this round, initialized to zero each round */
@@ -178,6 +180,8 @@ export interface ClientGameView {
   wishFulfilled: boolean;
   finishOrder: Seat[];
   dragonGiftPending: boolean;
+  /** REQ-F-DRA03: Ephemeral — set when dragon gift resolves, cleared on next play/pass */
+  dragonGiftedTo: Seat | null;
   /** Cards received during card passing, keyed by the seat that sent them */
   receivedCards: Record<Seat, GameCard | null>;
   /** REQ-F-DA01: Last Dog play info for animation (null when no recent Dog play) */

@@ -67,6 +67,9 @@ function makeMinimalRoundState(): RoundState {
     wishFulfilled: false,
     finishOrder: [],
     dragonGiftPending: null,
+    dragonGiftedTo: null,
+    lastDogPlay: null,
+    bombsPerTeam: { northSouth: 0, eastWest: 0 },
   };
 }
 
