@@ -7,6 +7,7 @@ import type {
   BotPlayContext,
   BotPlayDecision,
 } from './bot-interface.js';
+import { selectPassCards } from './bot-strategy-utils.js';
 
 /**
  * REQ-F-BOT02: RegularBot — plays randomly from valid moves.
@@ -30,14 +31,7 @@ export class RegularBot implements BotStrategy {
   }
 
   chooseCardsToPass(hand: GameCard[], seat: Seat): Record<Seat, GameCard> {
-    const otherSeats = SEATS_IN_ORDER.filter((s) => s !== seat);
-    // Pick 3 random distinct cards from hand
-    const shuffled = [...hand].sort(() => Math.random() - 0.5);
-    const result = {} as Record<Seat, GameCard>;
-    for (let i = 0; i < otherSeats.length; i++) {
-      result[otherSeats[i]] = shuffled[i];
-    }
-    return result;
+    return selectPassCards(hand, seat);
   }
 
   choosePlay(context: BotPlayContext): BotPlayDecision {
