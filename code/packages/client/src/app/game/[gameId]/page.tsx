@@ -105,6 +105,17 @@ export default function GamePage() {
           uiStore.startBombWindow(dogBlockMs);
         }
 
+        // REQ-F-DRA02/DRA03: Dragon gift animation — sweep trick toward recipient
+        if (view.dragonGiftedTo && animEnabled) {
+          const prevTrick = gameStore.currentTrick;
+          if (prevTrick) {
+            uiStore.startDragonGiftAnimation(view.dragonGiftedTo as Seat, prevTrick);
+            const BASE_TRICK_SWEEP = 0.40;
+            const sweepMs = BASE_TRICK_SWEEP * animMultiplier * 1000;
+            setTimeout(() => uiStore.clearDragonGiftAnimation(), sweepMs + 100);
+          }
+        }
+
         gameStore.applyGameState(view);
       } else if (msg.type === 'CHAT_RECEIVED') {
         // REQ-F-MP07: Chat message received
@@ -501,6 +512,7 @@ export default function GamePage() {
     wishFulfilled: gameStore.wishFulfilled,
     finishOrder: gameStore.finishOrder,
     dragonGiftPending: gameStore.dragonGiftPending,
+    dragonGiftedTo: null, // Animation handled via uiStore, not view
     receivedCards: gameStore.receivedCards,
     lastDogPlay: null, // Animation handled via uiStore, not view
     grandTichuDecided: gameStore.grandTichuDecided, // REQ-F-GT02

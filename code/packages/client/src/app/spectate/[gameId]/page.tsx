@@ -86,6 +86,7 @@ export default function SpectatePage() {
     wishFulfilled: gameStore.wishFulfilled,
     finishOrder: gameStore.finishOrder,
     dragonGiftPending: false,
+    dragonGiftedTo: null,
     receivedCards: { north: null, east: null, south: null, west: null },
     lastDogPlay: null,
     grandTichuDecided: [],

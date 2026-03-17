@@ -131,6 +131,7 @@ function createRoundState(roundNumber: number): RoundState {
     wishFulfilled: false,
     finishOrder: [],
     dragonGiftPending: null,
+    dragonGiftedTo: null, // REQ-F-DRA03
     lastDogPlay: null,
     bombsPerTeam: { northSouth: 0, eastWest: 0 }, // REQ-F-GS13
   };
@@ -544,6 +545,7 @@ export const gameMachine = setup({
       if (event.type !== 'PLAY_CARDS' || !context.currentRound) return {};
       const round = structuredClone(context.currentRound) as RoundState;
       round.lastDogPlay = null; // Clear previous Dog play marker
+      round.dragonGiftedTo = null; // REQ-F-DRA03: Clear ephemeral dragon gift signal
       const seat = event.seat;
       const cards = event.cards;
 
@@ -662,6 +664,7 @@ export const gameMachine = setup({
     passTurn: assign(({ context, event }) => {
       if (event.type !== 'PASS_TURN' || !context.currentRound) return {};
       const round = structuredClone(context.currentRound) as RoundState;
+      round.dragonGiftedTo = null; // REQ-F-DRA03: Clear ephemeral dragon gift signal
       const seat = event.seat;
 
       if (!round.currentTrick) return {}; // Can't pass when leading
@@ -723,6 +726,9 @@ export const gameMachine = setup({
       // Give the trick cards to the chosen opponent
       round.players[event.recipient].tricksWon.push(round.dragonGiftPending.trickCards);
       round.dragonGiftPending = null;
+
+      // REQ-F-DRA02: Signal which seat received the dragon gift (for client animation)
+      round.dragonGiftedTo = event.recipient;
 
       // REQ-F-BUG01: Let always transitions handle round-end scoring centrally
       // (after returning to 'playing', isRoundComplete guard detects completion)
@@ -920,11 +926,13 @@ function completeTrickAndAdvance(
     // Check auto-gift (only 1 opponent remaining)
     const autoRecipient = getAutoGiftRecipient(winner, round);
     if (autoRecipient) {
+      // REQ-F-DRA03: Signal auto-gift recipient for client animation
+      round.dragonGiftedTo = autoRecipient;
       round.players[autoRecipient].tricksWon.push(trickCards);
       round.dragonGiftPending = null;
     } else {
+      // REQ-F-DRA01: Keep currentTrick alive so client can display it during gift choice
       round.dragonGiftPending = { trickCards, from: winner };
-      round.currentTrick = null;
       round.currentTurn = winner; // Winner decides who to give it to
       return { currentRound: round };
     }
