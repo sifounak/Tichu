@@ -61,11 +61,15 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
     }
     const other = getOtherPlayer(view, seat);
     if (!other) return null;
+    // REQ-F-GT05: During Grand Tichu decision, show 14 cards for players who have decided
+    // (reflects them picking up their remaining 6 cards, as in a real game)
+    const decidedInGT =
+      view.phase === 'grandTichuDecision' && (view.grandTichuDecided ?? []).includes(seat);
     return (
       <PlayerSeat
         seat={seat}
         displayName={seatNames?.[seat]}
-        cardCount={other.cardCount}
+        cardCount={decidedInGT ? 14 : other.cardCount}
         tichuCall={other.tichuCall}
         hasPlayed={other.hasPlayed}
         hasPassed={hasPassed(view, seat)}
