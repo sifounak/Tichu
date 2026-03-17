@@ -149,6 +149,7 @@ export const TrickDisplay = memo(function TrickDisplay({
       </AnimatePresence>
 
       {/* REQ-F-DA01: Dog play animation overlay */}
+      {/* REQ-F-DA02: Entry uses durations.cardPlay; REQ-F-DA04: Exit uses durations.trickSweep with no internal delay */}
       <AnimatePresence>
         {dogAnimation && enabled && (
           <motion.div
@@ -160,13 +161,15 @@ export const TrickDisplay = memo(function TrickDisplay({
               ...EXIT_OFFSETS[seatPosition(dogAnimation.toSeat, mySeat)],
               opacity: 0,
               transition: {
-                // 0.5s pause + 0.5s sweep
-                duration: 0.5,
+                // No delay — page.tsx setTimeout controls when exit begins (after entry + pause)
+                duration: durations.trickSweep,
                 ease: 'easeIn' as const,
-                delay: 0.5 * (enabled ? 1 : 0),
+                opacity: { duration: durations.trickSweep * 0.4, delay: durations.trickSweep * 0.6 },
               },
             }}
             transition={{
+              // REQ-F-DA02: Respect animation speed setting
+              duration: durations.cardPlay,
               type: 'spring',
               stiffness: 200,
               damping: 20,
