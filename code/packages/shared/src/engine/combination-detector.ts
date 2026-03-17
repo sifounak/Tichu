@@ -2,6 +2,7 @@
 // REQ-F-CB03: Dragon only as single
 // REQ-F-CB04: Dog only as lead (not a combination to beat)
 // REQ-F-CB05: Mahjong rank 1 in straights
+// REQ-F-BB01: detectAllBombs — enumerate all valid bomb plays in a hand
 
 import type { GameCard, Rank } from '../types/card.js';
 import { isPhoenix, isDragon, isDog, isMahjong, isStandard } from '../types/card.js';
@@ -508,4 +509,65 @@ function detectStraightFlushBomb(cards: GameCard[]): Combination | null {
     length: cards.length,
     isBomb: true,
   };
+}
+
+// --- detectAllBombs ---
+
+/**
+ * REQ-F-BB01: Enumerate every valid bomb playable from a hand.
+ * REQ-F-BB07: Straight-flush sub-sequences of length ≥5 are each reported separately.
+ * REQ-F-BB08: Four-of-a-kind bombs use exactly 4 cards.
+ *
+ * Phoenix never forms a bomb (matches detectFourBomb/detectStraightFlushBomb invariants).
+ */
+export function detectAllBombs(cards: GameCard[]): Combination[] {
+  const bombs: Combination[] = [];
+  const stdCards = cards.filter((gc) => isStandard(gc.card));
+
+  // 1. Four-of-a-kind: group by rank; emit exactly-4-card bomb per rank group ≥4
+  const byRank = new Map<Rank, GameCard[]>();
+  for (const gc of stdCards) {
+    const r = (gc.card as { rank: Rank }).rank;
+    const existing = byRank.get(r) ?? [];
+    existing.push(gc);
+    byRank.set(r, existing);
+  }
+  for (const group of byRank.values()) {
+    if (group.length >= 4) {
+      const bomb = detectFourBomb(group.slice(0, 4));
+      if (bomb) bombs.push(bomb);
+    }
+  }
+
+  // 2. Straight-flush: group by suit; find all consecutive subsequences of length ≥5
+  const bySuit = new Map<string, GameCard[]>();
+  for (const gc of stdCards) {
+    const suit = (gc.card as { suit: string }).suit;
+    const existing = bySuit.get(suit) ?? [];
+    existing.push(gc);
+    bySuit.set(suit, existing);
+  }
+  for (const suitCards of bySuit.values()) {
+    const sorted = [...suitCards].sort(
+      (a, b) => (a.card as { rank: Rank }).rank - (b.card as { rank: Rank }).rank,
+    );
+    const n = sorted.length;
+    for (let start = 0; start < n; start++) {
+      for (let end = start + 4; end < n; end++) {
+        const slice = sorted.slice(start, end + 1);
+        const consecutive = slice.every(
+          (gc, i) =>
+            i === 0 ||
+            (gc.card as { rank: Rank }).rank ===
+              (slice[i - 1].card as { rank: Rank }).rank + 1,
+        );
+        if (consecutive) {
+          const bomb = detectStraightFlushBomb(slice);
+          if (bomb) bombs.push(bomb);
+        }
+      }
+    }
+  }
+
+  return bombs;
 }
