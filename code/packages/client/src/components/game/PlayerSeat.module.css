@@ -4,8 +4,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 24px 16px;
-  border-radius: 12px;
+  padding: var(--space-3) var(--space-6) var(--space-4);
+  border-radius: var(--space-3);
   background: var(--color-bg-panel);
   border: 2px solid var(--color-border);
   position: relative;
@@ -13,8 +13,8 @@
     border-color var(--duration-fast) var(--easing-smooth),
     box-shadow var(--duration-fast) var(--easing-smooth);
   box-shadow: 0 0 0 transparent;
-  min-width: 240px;
-  max-width: 280px;
+  min-width: calc(240px * var(--scale));
+  max-width: calc(280px * var(--scale));
   will-change: box-shadow, border-color;
   transform: translateZ(0);
 }
@@ -23,7 +23,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 /* REQ-F-DI02: Current turn highlight — blue glow */
@@ -56,10 +56,10 @@
 
 .dragonLabel {
   position: absolute;
-  bottom: -40px;
+  bottom: calc(-40px * var(--scale));
   left: 50%;
   transform: translateX(-50%);
-  font-size: 26px;
+  font-size: calc(26px * var(--scale));
   font-weight: 700;
   color: #9b59b6;
   white-space: nowrap;
@@ -74,10 +74,10 @@
 
 .turnLabel {
   position: absolute;
-  bottom: -40px;
+  bottom: calc(-40px * var(--scale));
   left: 50%;
   transform: translateX(-50%);
-  font-size: 26px;
+  font-size: calc(26px * var(--scale));
   font-weight: 700;
   color: #4a9eff;
   white-space: nowrap;
@@ -86,10 +86,10 @@
 
 .leaderLabel {
   position: absolute;
-  bottom: -40px;
+  bottom: calc(-40px * var(--scale));
   left: 50%;
   transform: translateX(-50%);
-  font-size: 26px;
+  font-size: calc(26px * var(--scale));
   font-weight: 700;
   color: #e8a830;
   white-space: nowrap;
@@ -111,13 +111,13 @@
 }
 
 .initial {
-  font-size: 32px;
+  font-size: var(--font-4xl);
   font-weight: 700;
   color: var(--color-text-primary);
 }
 
 .finishBadge {
-  font-size: 28px;
+  font-size: var(--font-3xl);
   font-weight: 700;
   color: var(--color-gold-accent);
 }
@@ -129,19 +129,19 @@
 }
 
 .name {
-  font-size: 26px;
+  font-size: calc(26px * var(--scale));
   font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-1);
   max-width: 100%;
 }
 
 .cardCount {
-  font-size: 22px;
+  font-size: calc(22px * var(--scale));
   color: var(--color-text-secondary);
 }
 
@@ -158,7 +158,7 @@
 }
 
 .stackCard + .stackCard {
-  margin-left: -50px;
+  margin-left: calc(-50px * var(--scale));
 }
 
 .stackCard button {
@@ -171,12 +171,12 @@
   position: absolute;
   top: 50%;
   right: 0;
-  width: 60px;
+  width: calc(60px * var(--scale));
   text-align: center;
   transform: translateY(-50%);
   background: none;
   color: white;
-  font-size: 28px;
+  font-size: var(--font-3xl);
   font-weight: 800;
   z-index: 1;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
@@ -184,13 +184,13 @@
 
 .tichuBanner {
   position: absolute;
-  top: -44px;
+  top: calc(-44px * var(--scale));
   left: 0;
   right: 0;
-  font-size: 16px;
+  font-size: var(--font-base);
   font-weight: 800;
-  padding: 3px 0;
-  border-radius: 4px;
+  padding: calc(3px * var(--scale)) 0;
+  border-radius: var(--space-1);
   text-transform: uppercase;
   letter-spacing: 1px;
   white-space: nowrap;
@@ -217,10 +217,10 @@
 
 .passLabel {
   position: absolute;
-  bottom: -40px;
+  bottom: calc(-40px * var(--scale));
   left: 50%;
   transform: translateX(-50%);
-  font-size: 26px;
+  font-size: calc(26px * var(--scale));
   font-weight: 700;
   color: var(--color-text-muted);
   white-space: nowrap;
@@ -231,8 +231,8 @@
 /* REQ-NF-U01: Mobile compact seats */
 @media (max-width: 640px) {
   .seat {
-    padding: 6px 8px;
-    gap: 6px;
+    padding: var(--space-1) var(--space-2);
+    gap: var(--space-1);
     min-width: 0;
   }
 
@@ -243,16 +243,16 @@
   }
 
   .seat:not(.me) .info .cardCount {
-    font-size: 12px;
+    font-size: var(--font-sm);
     font-weight: 600;
   }
 
   .avatar {
-    width: 32px;
-    height: 32px;
+    width: calc(32px * var(--scale));
+    height: calc(32px * var(--scale));
   }
 
   .initial {
-    font-size: 14px;
+    font-size: var(--font-md);
   }
 }

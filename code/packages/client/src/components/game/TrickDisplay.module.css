@@ -41,9 +41,9 @@
   right: 0;
   background: var(--color-warning);
   color: var(--color-felt-green-dark);
-  padding: 6px 16px;
-  border-radius: 8px 8px 0 0;
-  font-size: 16px;
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--space-2) var(--space-2) 0 0;
+  font-size: var(--font-base);
   font-weight: 700;
   white-space: nowrap;
   text-align: center;
@@ -57,9 +57,9 @@
   right: 0;
   background: var(--color-error, #dc2626);
   color: white;
-  padding: 6px 16px;
-  border-radius: 0 0 8px 8px;
-  font-size: 16px;
+  padding: var(--space-1) var(--space-4);
+  border-radius: 0 0 var(--space-2) var(--space-2);
+  font-size: var(--font-base);
   font-weight: 700;
   text-align: center;
   z-index: 5;
@@ -79,10 +79,10 @@
   align-items: center;
   justify-content: center;
 }
-.playGroup.bottom { bottom: 4px; left: 50%; transform: translateX(-50%); }
-.playGroup.top { top: 4px; left: 50%; transform: translateX(-50%); }
-.playGroup.left { left: 4px; top: 50%; transform: translateY(-50%); }
-.playGroup.right { right: 4px; top: 50%; transform: translateY(-50%); }
+.playGroup.bottom { bottom: var(--space-1); left: 50%; transform: translateX(-50%); }
+.playGroup.top { top: var(--space-1); left: 50%; transform: translateX(-50%); }
+.playGroup.left { left: var(--space-1); top: 50%; transform: translateY(-50%); }
+.playGroup.right { right: var(--space-1); top: 50%; transform: translateY(-50%); }
 
 .winner {
   filter: drop-shadow(0 0 6px var(--color-gold-accent));
@@ -94,7 +94,7 @@
 }
 
 .cards > * + * {
-  margin-left: -81px;
+  margin-left: calc(-81px * var(--scale));
 }
 
 .trickCard {
@@ -105,18 +105,18 @@
 
 .passLabel {
   position: absolute;
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 600;
   color: var(--color-text-muted);
-  padding: 2px 8px;
+  padding: 2px var(--space-2);
   background: var(--color-bg-panel);
-  border-radius: 4px;
+  border-radius: var(--space-1);
 }
 
-.passLabel.bottom { bottom: 4px; left: 50%; transform: translateX(-50%); }
-.passLabel.top { top: 4px; left: 50%; transform: translateX(-50%); }
-.passLabel.left { left: 4px; top: 50%; transform: translateY(-50%); }
-.passLabel.right { right: 4px; top: 50%; transform: translateY(-50%); }
+.passLabel.bottom { bottom: var(--space-1); left: 50%; transform: translateX(-50%); }
+.passLabel.top { top: var(--space-1); left: 50%; transform: translateX(-50%); }
+.passLabel.left { left: var(--space-1); top: 50%; transform: translateY(-50%); }
+.passLabel.right { right: var(--space-1); top: 50%; transform: translateY(-50%); }
 
 /* REQ-F-DR01: Dragon gift notification overlay */
 .dragonNotification {
@@ -126,12 +126,12 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 24px;
-  font-size: 22px;
+  padding: var(--space-6);
+  font-size: calc(22px * var(--scale));
   font-weight: 700;
   color: #e0c0f0;
   background: rgba(30, 10, 40, 0.85);
-  border-radius: 12px;
+  border-radius: var(--space-3);
   border: 2px solid #9b59b6;
   z-index: 10;
   line-height: 1.4;
@@ -145,7 +145,7 @@
   right: 0;
   transform: translateY(-50%);
   text-align: center;
-  font-size: 21px;
+  font-size: calc(21px * var(--scale));
   font-weight: 700;
   color: var(--color-special-phoenix);
   pointer-events: none;
@@ -171,13 +171,13 @@
   width: 100%;
   height: 100%;
   border: 2px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
+  border-radius: var(--space-3);
   background: rgba(255, 255, 255, 0.03);
 }
 
 .playAreaText {
   color: var(--color-text-muted);
-  font-size: 18px;
+  font-size: var(--font-lg);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 2px;

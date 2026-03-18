@@ -12,7 +12,7 @@
   width: 100%;
   height: 100dvh;
   padding: var(--table-padding);
-  gap: 8px;
+  gap: var(--space-2);
   position: relative;
   overflow: hidden;
 }
@@ -23,14 +23,14 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: 24px;
+  padding-top: var(--space-6);
 }
 
 /* Left opponent — vertically aligned with play area center */
 .left {
   position: absolute;
-  left: 28px;
-  top: calc(50vh - 100px);
+  left: calc(28px * var(--scale));
+  top: calc(50vh - calc(100px * var(--scale)));
   transform: translateY(-50%);
   display: flex;
   align-items: center;
@@ -38,14 +38,14 @@
 }
 
 /* Trick area — vertically centered, horizontally spans between side players and main player */
-/* Left player right edge ≈ 268px.  Main player left edge ≈ 50vw - 120px.                  */
+/* Left player right edge ~ 268px.  Main player left edge ~ 50vw - 120px.                  */
 /* Left of play area = midpoint(268px, 50vw - 120px) = 74px + 25vw                         */
 /* Right is symmetric.                                                                       */
 .center {
   position: absolute;
-  top: calc(50vh - 100px);
-  left: calc(74px + 25%);
-  right: calc(74px + 25%);
+  top: calc(50vh - calc(100px * var(--scale)));
+  left: calc(calc(74px * var(--scale)) + 25%);
+  right: calc(calc(74px * var(--scale)) + 25%);
   transform: translateY(-50%);
   display: flex;
   align-items: center;
@@ -56,8 +56,8 @@
 /* Right opponent — vertically aligned with play area center */
 .right {
   position: absolute;
-  right: 28px;
-  top: calc(50vh - 100px);
+  right: calc(28px * var(--scale));
+  top: calc(50vh - calc(100px * var(--scale)));
   transform: translateY(-50%);
   display: flex;
   align-items: center;
@@ -67,35 +67,35 @@
 /* Player at bottom — reserve space for the fixed bottom panel */
 .bottom {
   grid-area: bottom;
-  min-height: 280px;
+  min-height: calc(280px * var(--scale));
 }
 
 /* Phase indicator */
 .phaseIndicator {
   position: absolute;
-  top: 8px;
-  left: 16px;
-  font-size: 11px;
+  top: var(--space-2);
+  left: var(--space-4);
+  font-size: calc(11px * var(--scale));
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: calc(1px * var(--scale));
   color: var(--color-text-muted);
   background: var(--color-bg-panel);
-  padding: 4px 10px;
-  border-radius: 4px;
+  padding: var(--space-1) calc(10px * var(--scale));
+  border-radius: var(--space-1);
 }
 
 /* Click-to-play trick area wrapper */
 .clickableTrick {
   cursor: pointer;
-  border-radius: 12px;
+  border-radius: var(--space-3);
   transition: background var(--duration-fast) var(--easing-smooth),
               box-shadow var(--duration-fast) var(--easing-smooth);
-  box-shadow: 0 0 16px rgba(74, 158, 255, 0.3);
+  box-shadow: 0 0 calc(16px * var(--scale)) rgba(74, 158, 255, 0.3);
 }
 
 .clickableTrick:hover {
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 24px rgba(74, 158, 255, 0.5);
+  box-shadow: 0 0 calc(24px * var(--scale)) rgba(74, 158, 255, 0.5);
 }
 
 /* REQ-NF-U01: Mobile portrait layout */
@@ -108,8 +108,8 @@
       "left"
       "right"
       "bottom";
-    padding: 8px;
-    gap: 4px;
+    padding: var(--space-2);
+    gap: var(--space-1);
   }
 
   .center {
@@ -126,6 +126,6 @@
   }
 
   .bottom {
-    min-height: 200px;
+    min-height: calc(200px * var(--scale));
   }
 }

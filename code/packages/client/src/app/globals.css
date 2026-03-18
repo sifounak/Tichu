@@ -44,20 +44,52 @@
   --color-tichu-badge: #ef4444;
   --color-grand-tichu-badge: #f59e0b;
 
-  /* Card dimensions */
-  --card-width: 70px;
-  --card-height: 100px;
-  --card-overlap-desktop: 45px;
-  --card-overlap-mobile: 16px;
-  --card-lift-selected: -12px;
-  --card-border-radius: 6px;
-  --card-font-size: 16px;
-  --card-suit-size: 20px;
+  /* Scale factor — set by useScaleFactor hook, reference 1200×1200 */
+  --scale: 1;
 
-  /* Layout */
-  --seat-avatar-size: 40px;
-  --trick-area-size: 400px;
-  --table-padding: 16px;
+  /* Card dimensions (scaled) */
+  --card-width: calc(70px * var(--scale));
+  --card-height: calc(100px * var(--scale));
+  --card-overlap-desktop: calc(45px * var(--scale));
+  --card-overlap-mobile: calc(16px * var(--scale));
+  --card-lift-selected: calc(-12px * var(--scale));
+  --card-border-radius: calc(6px * var(--scale));
+  --card-font-size: calc(16px * var(--scale));
+  --card-suit-size: calc(20px * var(--scale));
+
+  /* Large card variants (for hand display, trick display, pre-game) */
+  --card-width-lg: calc(131px * var(--scale));
+  --card-height-lg: calc(188px * var(--scale));
+  --card-font-size-lg: calc(30px * var(--scale));
+  --card-suit-size-lg: calc(38px * var(--scale));
+  --card-border-radius-lg: calc(11px * var(--scale));
+  --card-overlap-desktop-lg: calc(81px * var(--scale));
+
+  /* Layout (scaled) */
+  --seat-avatar-size: calc(40px * var(--scale));
+  --trick-area-size: calc(400px * var(--scale));
+  --table-padding: calc(16px * var(--scale));
+
+  /* Scaled font sizes */
+  --font-xs: calc(10px * var(--scale));
+  --font-sm: calc(12px * var(--scale));
+  --font-md: calc(14px * var(--scale));
+  --font-base: calc(16px * var(--scale));
+  --font-lg: calc(18px * var(--scale));
+  --font-xl: calc(20px * var(--scale));
+  --font-2xl: calc(24px * var(--scale));
+  --font-3xl: calc(28px * var(--scale));
+  --font-4xl: calc(32px * var(--scale));
+  --font-5xl: calc(40px * var(--scale));
+
+  /* Scaled spacing */
+  --space-1: calc(4px * var(--scale));
+  --space-2: calc(8px * var(--scale));
+  --space-3: calc(12px * var(--scale));
+  --space-4: calc(16px * var(--scale));
+  --space-5: calc(20px * var(--scale));
+  --space-6: calc(24px * var(--scale));
+  --space-8: calc(32px * var(--scale));
 
   /* Typography */
   --font-display: 'Inter', system-ui, sans-serif;

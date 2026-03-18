@@ -3,11 +3,11 @@
 /* Toggle button — floating */
 .toggleButton {
   position: fixed;
-  bottom: 92px;
-  right: 112px;
+  bottom: calc(92px * var(--scale));
+  right: calc(112px * var(--scale));
   z-index: 25;
-  width: 72px;
-  height: 72px;
+  width: calc(72px * var(--scale));
+  height: calc(72px * var(--scale));
   border-radius: 50%;
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
@@ -23,8 +23,8 @@
 }
 
 .chatIcon {
-  width: 36px;
-  height: 36px;
+  width: calc(36px * var(--scale));
+  height: calc(36px * var(--scale));
   color: #ffffff;
 }
 
@@ -32,32 +32,32 @@
   position: absolute;
   top: -4px;
   right: -4px;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
+  min-width: calc(18px * var(--scale));
+  height: calc(18px * var(--scale));
+  border-radius: calc(9px * var(--scale));
   background: var(--color-error);
   color: white;
-  font-size: 11px;
+  font-size: var(--font-xs);
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 
 /* Desktop: side panel — spans from below right player to center of bottom hand */
 .panel {
   position: fixed;
-  top: calc(50vh + 100px);
-  left: calc(87.5vw - 171px);
-  right: 16px;
-  bottom: 81px;
+  top: calc(50vh + calc(100px * var(--scale)));
+  left: calc(87.5vw - calc(171px * var(--scale)));
+  right: var(--space-4);
+  bottom: calc(81px * var(--scale));
   z-index: 25;
   display: flex;
   flex-direction: column;
   background: var(--color-felt-green-dark);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--space-3);
   overflow: hidden;
   box-shadow: var(--shadow-panel);
 }
@@ -66,13 +66,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
   background: var(--color-bg-panel);
   border-bottom: 1px solid var(--color-border);
 }
 
 .headerTitle {
-  font-size: 18px;
+  font-size: var(--font-lg);
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -81,10 +81,10 @@
   background: none;
   border: none;
   color: var(--color-text-muted);
-  font-size: 18px;
+  font-size: var(--font-lg);
   cursor: pointer;
-  width: 28px;
-  height: 28px;
+  width: calc(28px * var(--scale));
+  height: calc(28px * var(--scale));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -98,29 +98,29 @@
 .messages {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 12px;
+  padding: var(--space-2) var(--space-3);
 }
 
 .emptyText {
   color: var(--color-text-muted);
-  font-size: 18px;
+  font-size: var(--font-lg);
   text-align: center;
-  margin-top: 16px;
+  margin-top: var(--space-4);
 }
 
 .message {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 
 .sender {
-  font-size: 16px;
+  font-size: var(--font-base);
   font-weight: 700;
   color: var(--color-gold-accent);
-  margin-right: 6px;
+  margin-right: var(--space-1);
 }
 
 .messageText {
-  font-size: 18px;
+  font-size: var(--font-lg);
   color: var(--color-text-primary);
   word-break: break-word;
 }
@@ -128,8 +128,8 @@
 /* Input row */
 .inputRow {
   display: flex;
-  gap: 6px;
-  padding: 8px;
+  gap: var(--space-1);
+  padding: var(--space-2);
   border-top: 1px solid var(--color-border);
 }
 
@@ -137,12 +137,12 @@
   flex: 1;
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 8px 12px;
+  border-radius: var(--card-border-radius);
+  padding: var(--space-2) var(--space-3);
   color: var(--color-text-primary);
-  font-size: 18px;
+  font-size: var(--font-lg);
   font-family: var(--font-display);
-  min-height: 36px;
+  min-height: calc(36px * var(--scale));
 }
 
 .input::placeholder {
@@ -153,13 +153,13 @@
   background: var(--color-gold-accent);
   color: var(--color-felt-green-dark);
   border: none;
-  border-radius: 6px;
-  padding: 8px 14px;
-  font-size: 18px;
+  border-radius: var(--card-border-radius);
+  padding: var(--space-2) calc(14px * var(--scale));
+  font-size: var(--font-lg);
   font-weight: 600;
   cursor: pointer;
-  min-height: 36px;
-  min-width: 44px;
+  min-height: calc(36px * var(--scale));
+  min-width: calc(44px * var(--scale));
 }
 
 .sendButton:disabled {
@@ -180,14 +180,14 @@
   }
 
   .toggleButton {
-    bottom: 80px;
-    right: 12px;
-    width: 56px;
-    height: 56px;
+    bottom: calc(80px * var(--scale));
+    right: var(--space-3);
+    width: calc(56px * var(--scale));
+    height: calc(56px * var(--scale));
   }
 
   .chatIcon {
-    width: 28px;
-    height: 28px;
+    width: calc(28px * var(--scale));
+    height: calc(28px * var(--scale));
   }
 }

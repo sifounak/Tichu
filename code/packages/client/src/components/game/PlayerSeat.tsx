@@ -79,7 +79,7 @@ export const PlayerSeat = memo(function PlayerSeat({
             <div className={styles.cardStack}>
               {Array.from({ length: Math.min(cardCount, 4) }, (_, i) => (
                 <div key={i} className={styles.stackCard}>
-                  <Card state="faceDown" style={{ width: '60px', height: '86px' }} />
+                  <Card state="faceDown" style={{ width: 'calc(60px * var(--scale))', height: 'calc(86px * var(--scale))' }} />
                 </div>
               ))}
               <span className={styles.countBadge}>{cardCount}</span>
