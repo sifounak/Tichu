@@ -559,14 +559,14 @@ export default function GamePage() {
       {/* Room code + Leave Room */}
       <div style={{
         position: 'fixed',
-        top: 120,
-        left: 148,
+        top: 'calc(120px * var(--scale))',
+        left: 'calc(148px * var(--scale))',
         transform: 'translate(-50%, -50%)',
         zIndex: 30,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '6px',
+        gap: 'var(--space-1)',
       }}>
         {/* Room code — button border appears on hover */}
         {roomCode && (
@@ -577,14 +577,14 @@ export default function GamePage() {
               setTimeout(() => setCodeCopied(false), 1000);
             }}
             style={{
-              fontSize: '20px',
+              fontSize: 'var(--font-xl)',
               fontWeight: 600,
               color: 'var(--color-text-secondary)',
               textAlign: 'center' as const,
               background: 'transparent',
               border: '1px solid transparent',
-              borderRadius: '6px',
-              padding: '6px 12px',
+              borderRadius: 'var(--card-border-radius)',
+              padding: 'var(--space-1) var(--space-3)',
               cursor: 'pointer',
               transition: 'border-color 0.2s',
             }}
@@ -602,10 +602,10 @@ export default function GamePage() {
           style={{
             background: 'rgba(255,255,255,0.1)',
             border: '1px solid var(--color-border)',
-            borderRadius: '6px',
+            borderRadius: 'var(--card-border-radius)',
             color: 'var(--color-text-secondary)',
-            padding: '6px 12px',
-            fontSize: '20px',
+            padding: 'var(--space-1) var(--space-3)',
+            fontSize: 'var(--font-xl)',
             fontWeight: 600,
             cursor: 'pointer',
           }}
@@ -619,9 +619,9 @@ export default function GamePage() {
           <div style={{
             background: 'var(--color-bg-panel)',
             border: '1px solid var(--color-border)',
-            borderRadius: '6px',
-            padding: '6px 12px',
-            fontSize: '14px',
+            borderRadius: 'var(--card-border-radius)',
+            padding: 'var(--space-1) var(--space-3)',
+            fontSize: 'var(--font-md)',
             color: 'var(--color-text-primary)',
             whiteSpace: 'nowrap',
           }}>
@@ -648,29 +648,29 @@ export default function GamePage() {
             style={{
               background: 'var(--color-bg-panel)',
               border: '1px solid var(--color-border)',
-              borderRadius: '12px',
-              padding: '24px 32px',
+              borderRadius: 'var(--space-3)',
+              padding: 'var(--space-6) var(--space-8)',
               textAlign: 'center',
-              maxWidth: '360px',
+              maxWidth: 'calc(360px * var(--scale))',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <p style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>
+            <p style={{ fontSize: 'var(--font-base)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>
               Leave Game?
             </p>
-            <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '20px' }}>
+            <p style={{ fontSize: 'calc(13px * var(--scale))', color: 'var(--color-text-muted)', marginBottom: 'var(--space-5)' }}>
               You will forfeit this game and return to the lobby.
             </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <button
                 onClick={() => setShowLeaveConfirm(false)}
                 style={{
-                  padding: '8px 20px',
-                  borderRadius: '8px',
+                  padding: 'var(--space-2) var(--space-5)',
+                  borderRadius: 'var(--space-2)',
                   border: '1px solid var(--color-border)',
                   background: 'rgba(255,255,255,0.1)',
                   color: 'var(--color-text-primary)',
-                  fontSize: '14px',
+                  fontSize: 'var(--font-md)',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
@@ -680,12 +680,12 @@ export default function GamePage() {
               <button
                 onClick={handleLeaveGame}
                 style={{
-                  padding: '8px 20px',
-                  borderRadius: '8px',
+                  padding: 'var(--space-2) var(--space-5)',
+                  borderRadius: 'var(--space-2)',
                   border: 'none',
                   background: '#dc2626',
                   color: 'white',
-                  fontSize: '14px',
+                  fontSize: 'var(--font-md)',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
@@ -699,7 +699,7 @@ export default function GamePage() {
 
       {/* REQ-F-DI05: Score panel */}
       {gameStore.scores && (
-        <div style={{ position: 'fixed', top: 40, right: 28, zIndex: 30 }}>
+        <div style={{ position: 'fixed', top: 'calc(40px * var(--scale))', right: 'calc(28px * var(--scale))', zIndex: 30 }}>
           <ScorePanel
             scores={gameStore.scores}
             roundHistory={gameStore.roundHistory}
@@ -715,7 +715,7 @@ export default function GamePage() {
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {phase !== GamePhase.WaitingForPlayers && (
-        <div style={{ position: 'fixed', bottom: 34, left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '28px' }}>
+        <div style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))' }}>
           {/* Pre-game prompts (no hand — hand is always rendered below) */}
           {isPreGame && (
             <PreGamePhase
@@ -756,7 +756,7 @@ export default function GamePage() {
 
           {/* Action bar (playing phase only, hidden while viewing received cards) */}
           {!isPreGame && !showReceivedCards && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <ActionBar
                 canPlay={selection.canPlay}
                 canPass={selection.canPass}
@@ -790,7 +790,7 @@ export default function GamePage() {
           )}
 
           {/* Card hand — always rendered for visual continuity */}
-          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px', '--card-overlap-desktop': '81px' } as React.CSSProperties}>
+          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
             {phase === 'playing' && !showReceivedCards && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
               <button
                 onClick={handleTichu}
@@ -799,16 +799,16 @@ export default function GamePage() {
                   right: '100%',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  marginRight: '48px',
-                  width: '84px',
-                  height: '84px',
-                  padding: '6px',
+                  marginRight: 'calc(48px * var(--scale))',
+                  width: 'calc(84px * var(--scale))',
+                  height: 'calc(84px * var(--scale))',
+                  padding: 'var(--space-1)',
                   border: 'none',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--space-3)',
                   background: 'var(--color-tichu-badge)',
                   color: 'white',
                   fontFamily: 'var(--font-display)',
-                  fontSize: '21px',
+                  fontSize: 'calc(21px * var(--scale))',
                   fontWeight: 600,
                   cursor: 'pointer',
                   lineHeight: '1.2',
@@ -834,7 +834,7 @@ export default function GamePage() {
             {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
             {phase === 'playing' && !showReceivedCards && handBombs.length > 0 && (
               <div
-                style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: '48px', zIndex: 10 }}
+                style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 'calc(48px * var(--scale))', zIndex: 10 }}
                 onMouseEnter={() => handBombs.length > 1 && setBombPopupOpen(true)}
                 onMouseLeave={() => setBombPopupOpen(false)}
               >
@@ -843,15 +843,15 @@ export default function GamePage() {
                 <button
                   onClick={() => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined}
                   style={{
-                    width: '84px',
-                    height: '84px',
-                    padding: '6px',
+                    width: 'calc(84px * var(--scale))',
+                    height: 'calc(84px * var(--scale))',
+                    padding: 'var(--space-1)',
                     border: 'none',
-                    borderRadius: '12px',
+                    borderRadius: 'var(--space-3)',
                     background: 'var(--color-tichu-badge)',
                     color: 'white',
                     fontFamily: 'var(--font-display)',
-                    fontSize: '21px',
+                    fontSize: 'calc(21px * var(--scale))',
                     fontWeight: 600,
                     cursor: 'pointer',
                     lineHeight: '1.2',
@@ -869,15 +869,15 @@ export default function GamePage() {
                       bottom: '100%',
                       left: '50%',
                       transform: 'translateX(-50%)',
-                      marginBottom: '8px',
+                      marginBottom: 'var(--space-2)',
                       background: 'var(--color-bg-panel)',
                       border: '1px solid var(--color-border)',
-                      borderRadius: '12px',
-                      padding: '10px',
+                      borderRadius: 'var(--space-3)',
+                      padding: 'calc(10px * var(--scale))',
                       display: 'flex',
                       flexDirection: 'column',
-                      gap: '8px',
-                      minWidth: '120px',
+                      gap: 'var(--space-2)',
+                      minWidth: 'calc(120px * var(--scale))',
                       zIndex: 50,
                     }}
                   >
@@ -888,11 +888,11 @@ export default function GamePage() {
                         style={{
                           background: 'rgba(255,255,255,0.1)',
                           border: '1px solid var(--color-border)',
-                          borderRadius: '8px',
+                          borderRadius: 'var(--space-2)',
                           color: 'var(--color-text-primary)',
                           cursor: 'pointer',
-                          padding: '6px 10px',
-                          fontSize: '13px',
+                          padding: 'var(--space-1) calc(10px * var(--scale))',
+                          fontSize: 'calc(13px * var(--scale))',
                           fontWeight: 600,
                           textAlign: 'left',
                           whiteSpace: 'nowrap',

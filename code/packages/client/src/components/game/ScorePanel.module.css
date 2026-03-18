@@ -1,52 +1,52 @@
 .panel {
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
-  padding: 15px 24px;
-  min-width: 300px;
+  border-radius: calc(10px * var(--scale));
+  padding: calc(15px * var(--scale)) var(--space-6);
+  min-width: calc(300px * var(--scale));
   text-align: center;
 }
 
 .teamGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 2px 24px;
+  gap: 2px var(--space-6);
   align-items: center;
   justify-items: center;
 }
 
 .playerName {
-  font-size: 18px;
+  font-size: var(--font-lg);
   font-weight: 600;
   color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 160px;
+  max-width: calc(160px * var(--scale));
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-1);
 }
 
 .score {
-  font-size: 40px;
+  font-size: var(--font-5xl);
   font-weight: 700;
-  min-width: 60px;
+  min-width: calc(60px * var(--scale));
   text-align: center;
   padding-top: 2px;
 }
 
 .target {
-  font-size: 16px;
+  font-size: var(--font-base);
   color: var(--color-text-muted);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 
 .tichuBadge {
-  font-size: 12px;
+  font-size: var(--font-sm);
   font-weight: 700;
-  padding: 1px 5px;
+  padding: 1px calc(5px * var(--scale));
   border-radius: 3px;
   flex-shrink: 0;
 }
@@ -62,14 +62,14 @@
 }
 
 .historyToggle {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   background: none;
   border: none;
   color: var(--color-text-muted);
-  font-size: 16px;
+  font-size: var(--font-base);
   cursor: pointer;
-  padding: 6px 12px;
-  min-height: 36px;
+  padding: var(--space-1) var(--space-3);
+  min-height: calc(36px * var(--scale));
 }
 
 .historyToggle:hover {
@@ -77,28 +77,28 @@
 }
 
 .history {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   border-top: 1px solid var(--color-border);
-  padding-top: 8px;
+  padding-top: var(--space-2);
 }
 
 .historyRow {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 16px;
+  gap: var(--space-2);
+  font-size: var(--font-base);
   padding: 3px 0;
 }
 
 .roundNum {
   color: var(--color-text-muted);
-  min-width: 32px;
+  min-width: calc(32px * var(--scale));
   text-align: right;
 }
 
 .historyScore {
-  min-width: 36px;
+  min-width: calc(36px * var(--scale));
   text-align: center;
 }
 
@@ -109,19 +109,19 @@
 /* REQ-NF-U01: Mobile — collapsed score, expandable overlay */
 @media (max-width: 640px) {
   .panel {
-    padding: 8px 16px;
+    padding: var(--space-2) var(--space-4);
     min-width: 0;
-    border-radius: 8px;
+    border-radius: var(--space-2);
   }
 
   .playerName {
-    font-size: 11px;
-    max-width: 80px;
+    font-size: var(--font-xs);
+    max-width: calc(80px * var(--scale));
   }
 
   .score {
-    font-size: 24px;
-    min-width: 40px;
+    font-size: var(--font-2xl);
+    min-width: calc(40px * var(--scale));
   }
 
   .target {
@@ -135,10 +135,10 @@
     right: 0;
     background: var(--color-felt-green-dark);
     border-top: 1px solid var(--color-border);
-    padding: 12px 16px;
+    padding: var(--space-3) var(--space-4);
     z-index: 40;
     max-height: 40vh;
     overflow-y: auto;
-    border-radius: 12px 12px 0 0;
+    border-radius: var(--space-3) var(--space-3) 0 0;
   }
 }

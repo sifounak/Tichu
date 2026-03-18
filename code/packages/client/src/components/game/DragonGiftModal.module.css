@@ -11,42 +11,42 @@
 .modal {
   background: var(--color-felt-green-light);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 28px 32px;
-  min-width: 280px;
+  border-radius: var(--space-3);
+  padding: calc(28px * var(--scale)) var(--space-8);
+  min-width: calc(280px * var(--scale));
   box-shadow: var(--shadow-panel);
   text-align: center;
 }
 
 .title {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-size: var(--font-xl);
   font-weight: 700;
   color: var(--color-special-dragon);
 }
 
 .subtitle {
-  margin: 0 0 20px;
-  font-size: 13px;
+  margin: 0 0 var(--space-5);
+  font-size: calc(13px * var(--scale));
   color: var(--color-text-secondary);
 }
 
 .options {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   justify-content: center;
 }
 
 .optionButton {
-  padding: 12px 24px;
+  padding: var(--space-3) var(--space-6);
   background: var(--color-special-dragon);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 15px;
+  border-radius: var(--space-2);
+  font-size: calc(15px * var(--scale));
   font-weight: 600;
   cursor: pointer;
-  min-height: 44px;
+  min-height: calc(44px * var(--scale));
   transition: transform var(--duration-fast) var(--easing-smooth),
               opacity var(--duration-fast);
 }

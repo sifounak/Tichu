@@ -182,7 +182,7 @@ export const TrickDisplay = memo(function TrickDisplay({
               damping: 20,
             }}
           >
-            <div style={{ '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px' } as React.CSSProperties}>
+            <div style={{ '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)' } as React.CSSProperties}>
               <Card gameCard={{ id: -1, card: { kind: 'dog' } }} state="normal" />
             </div>
           </motion.div>
@@ -221,7 +221,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                       damping: 20,
                     }}
                   >
-                    <div className={styles.cards} style={{ '--card-width': '131px', '--card-height': '188px', '--card-font-size': '30px', '--card-suit-size': '38px', '--card-border-radius': '11px' } as React.CSSProperties}>
+                    <div className={styles.cards} style={{ '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)' } as React.CSSProperties}>
                       {latestPlay.combination.cards.map((gc, cardIdx) => {
                         const isPhoenixSingle =
                           latestPlay.combination.type === 'single' &&

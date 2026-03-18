@@ -21,10 +21,10 @@
 .panel {
   background: var(--color-felt-green-light);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 28px 32px;
-  min-width: 320px;
-  max-width: 420px;
+  border-radius: var(--space-3);
+  padding: calc(28px * var(--scale)) var(--space-8);
+  min-width: calc(320px * var(--scale));
+  max-width: calc(420px * var(--scale));
   box-shadow: var(--shadow-panel);
   text-align: center;
   animation: slideUp var(--duration-slow) var(--easing-card);
@@ -40,37 +40,37 @@
 }
 
 .title {
-  margin: 0 0 20px;
-  font-size: 22px;
+  margin: 0 0 var(--space-5);
+  font-size: calc(22px * var(--scale));
   font-weight: 700;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 
 .headerCell {
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 700;
   color: var(--color-gold-accent);
-  padding: 6px 12px;
+  padding: var(--space-1) var(--space-3);
   text-align: center;
   border-bottom: 1px solid var(--color-border);
 }
 
 .labelCell {
-  font-size: 13px;
+  font-size: calc(13px * var(--scale));
   color: var(--color-text-secondary);
-  padding: 6px 12px;
+  padding: var(--space-1) var(--space-3);
   text-align: left;
 }
 
 .valueCell {
-  font-size: 14px;
+  font-size: var(--font-md);
   font-weight: 500;
-  padding: 6px 12px;
+  padding: var(--space-1) var(--space-3);
   text-align: center;
 }
 
@@ -82,26 +82,26 @@
 .totalRow .valueCell {
   font-weight: 700;
   color: var(--color-text-primary);
-  padding-top: 10px;
+  padding-top: calc(10px * var(--scale));
 }
 
 .cumulativeRow .labelCell,
 .cumulativeRow .valueCell {
   color: var(--color-gold-accent);
   font-weight: 700;
-  font-size: 16px;
+  font-size: var(--font-base);
 }
 
 .continueButton {
-  padding: 10px 32px;
+  padding: calc(10px * var(--scale)) var(--space-8);
   background: var(--color-gold-accent);
   color: var(--color-felt-green-dark);
   border: none;
-  border-radius: 8px;
-  font-size: 15px;
+  border-radius: var(--space-2);
+  font-size: calc(15px * var(--scale));
   font-weight: 600;
   cursor: pointer;
-  min-height: 44px;
+  min-height: calc(44px * var(--scale));
   transition: transform var(--duration-fast) var(--easing-smooth);
 }
 

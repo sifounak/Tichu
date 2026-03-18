@@ -1,23 +1,23 @@
 .actionBar {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
   justify-content: center;
-  padding: 8px 16px;
+  padding: var(--space-2) var(--space-4);
 }
 
 .button {
-  padding: 14px 32px;
+  padding: calc(14px * var(--scale)) var(--space-8);
   border: none;
-  border-radius: 10px;
+  border-radius: calc(10px * var(--scale));
   font-family: var(--font-display);
-  font-size: 26px;
+  font-size: calc(26px * var(--scale));
   font-weight: 600;
   cursor: pointer;
   transition: opacity var(--duration-fast) var(--easing-smooth),
               transform var(--duration-fast) var(--easing-smooth);
-  min-width: 100px;
-  min-height: 56px;
+  min-width: calc(100px * var(--scale));
+  min-height: calc(56px * var(--scale));
 }
 
 .button:disabled {
@@ -105,15 +105,15 @@
 .splitLayout {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 .splitLeft,
 .splitRight {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
-  min-width: 100px;
+  min-width: calc(100px * var(--scale));
 }
 
 .splitLeft {

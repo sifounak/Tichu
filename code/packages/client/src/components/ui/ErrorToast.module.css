@@ -1,15 +1,15 @@
 .toast {
   position: fixed;
-  bottom: 160px;
+  bottom: calc(160px * var(--scale));
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
   background: rgba(239, 68, 68, 0.2);
   color: var(--color-error);
   border: 1px solid rgba(239, 68, 68, 0.4);
-  border-radius: 8px;
-  padding: 8px 20px;
-  font-size: 14px;
+  border-radius: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--font-md);
   font-weight: 600;
   white-space: nowrap;
   box-shadow: var(--shadow-panel);
