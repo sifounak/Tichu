@@ -293,7 +293,7 @@ export class GameManager {
         if (this.destroyed) return;
         this.actor.send({ type: 'ADVANCE_FROM_SCORING' });
         this.broadcastState();
-      }, 2250); // 2.25s delay: lets clients animate the final card before advancing
+      }, 1500); // 1.5s delay: lets clients animate the final card before advancing
       return;
     }
 

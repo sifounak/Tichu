@@ -728,7 +728,7 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} mustSatisfyWish={mustSatisfyWish} onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} isMyTurn={!isPreGame && !showReceivedCards && isMyTurn} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} mustSatisfyWish={mustSatisfyWish} onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined} />
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {phase !== GamePhase.WaitingForPlayers && (
