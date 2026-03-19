@@ -90,8 +90,13 @@ export class RoomHandler {
     }
 
     try {
-      const { room, roomCode } = this.roomManager.leaveRoom(info.userId);
+      const { room, roomCode, gameWasInProgress } = this.roomManager.leaveRoom(info.userId);
       this.connections.removeFromRoom(ws);
+
+      // Destroy the active game if one was in progress
+      if (gameWasInProgress) {
+        this.gameStore.destroyGameByRoom(roomCode);
+      }
 
       this.broadcaster.send(ws, { type: 'ROOM_LEFT' });
 
