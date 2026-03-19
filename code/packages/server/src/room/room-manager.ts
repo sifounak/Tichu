@@ -107,8 +107,9 @@ export class RoomManager {
     return { room, seat: freeSeat };
   }
 
-  /** Remove a player from their room. Destroys room if empty. */
-  leaveRoom(userId: string): { room: Room | null; roomCode: string; seat: Seat } {
+  /** Remove a player from their room. Destroys room if empty.
+   *  If a game was in progress, ends it and removes bots so the room reopens. */
+  leaveRoom(userId: string): { room: Room | null; roomCode: string; seat: Seat; gameWasInProgress: boolean } {
     const roomCode = this.userToRoom.get(userId);
     const seat = this.userToSeat.get(userId);
     if (!roomCode || !seat) throw new Error('Not in a room.');
@@ -119,14 +120,22 @@ export class RoomManager {
       throw new Error('Room not found.');
     }
 
+    const gameWasInProgress = room.gameInProgress;
+
     this.removeUser(userId);
     room.players = room.players.filter(p => p.seat !== seat);
+
+    // If a game was in progress, end it and remove bots so room reopens for new players
+    if (gameWasInProgress) {
+      room.gameInProgress = false;
+      room.players = room.players.filter(p => !p.isBot);
+    }
 
     // If no human players left, destroy the room
     const humanPlayers = room.players.filter(p => !p.isBot);
     if (humanPlayers.length === 0) {
       this.destroyRoom(roomCode);
-      return { room: null, roomCode, seat };
+      return { room: null, roomCode, seat, gameWasInProgress };
     }
 
     // Reassign host if needed
@@ -134,7 +143,7 @@ export class RoomManager {
       room.hostSeat = humanPlayers[0].seat;
     }
 
-    return { room, roomCode, seat };
+    return { room, roomCode, seat, gameWasInProgress };
   }
 
   /** Kick a player from the room. Only the host can kick. */
