@@ -342,7 +342,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
                     textAlign: 'center',
                   }}
                 >
-                  <option value="hard">Hard</option>
+                  <option value="hard">Normal</option>
                   <option value="expert">Expert</option>
                 </select>
               </label>

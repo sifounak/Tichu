@@ -178,9 +178,10 @@ export class RoomManager {
     if (occupiedSeats.has(seat)) throw new Error(`Seat ${seat} is already occupied.`);
 
     const botDiff = difficulty ?? room.config.botDifficulty;
+    const diffLabel = botDiff === 'hard' ? 'Normal' : botDiff === 'expert' ? 'Expert' : 'Normal';
     room.players.push({
       seat,
-      name: `Bot (${botDiff})`,
+      name: `Bot (${diffLabel})`,
       isBot: true,
       isConnected: true,
     });
