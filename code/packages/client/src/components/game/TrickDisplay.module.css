@@ -8,16 +8,29 @@
   transition: box-shadow var(--duration-slow) var(--easing-smooth);
 }
 
-/* Bomb effect — screen flash */
+/* Bomb effect — explosive screen flash with shake */
 .bombFlash {
-  box-shadow: 0 0 40px 20px rgba(255, 100, 0, 0.5);
-  animation: bombPulse 0.6s ease-out;
+  box-shadow: 0 0 80px 40px rgba(255, 100, 0, 0.7);
+  animation: bombPulse 0.9s ease-out, bombShake 0.5s ease-out;
 }
 
 @keyframes bombPulse {
-  0% { box-shadow: 0 0 80px 40px rgba(255, 100, 0, 0.8); }
-  50% { box-shadow: 0 0 60px 30px rgba(255, 200, 0, 0.4); }
+  0% { box-shadow: 0 0 120px 60px rgba(255, 80, 0, 1), 0 0 200px 80px rgba(255, 200, 0, 0.5); }
+  25% { box-shadow: 0 0 100px 50px rgba(255, 150, 0, 0.8), 0 0 160px 60px rgba(255, 220, 0, 0.3); }
+  50% { box-shadow: 0 0 60px 30px rgba(255, 200, 0, 0.5); }
+  75% { box-shadow: 0 0 40px 20px rgba(255, 100, 0, 0.3); }
   100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes bombShake {
+  0% { transform: translateY(-50%) translate(0, 0); }
+  10% { transform: translateY(-50%) translate(-6px, 4px); }
+  20% { transform: translateY(-50%) translate(5px, -3px); }
+  30% { transform: translateY(-50%) translate(-4px, -2px); }
+  40% { transform: translateY(-50%) translate(3px, 3px); }
+  50% { transform: translateY(-50%) translate(-2px, -1px); }
+  60% { transform: translateY(-50%) translate(1px, 1px); }
+  100% { transform: translateY(-50%) translate(0, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

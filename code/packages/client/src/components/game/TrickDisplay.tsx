@@ -242,9 +242,9 @@ export const TrickDisplay = memo(function TrickDisplay({
                           <motion.div
                             key={gc.id}
                             className={styles.trickCard}
-                            initial={enabled && isBombPlay ? { scale: 1.3, rotate: (cardIdx - 1) * 15 } : false}
-                            animate={{ scale: 1, rotate: 0 }}
-                            transition={{ duration: durations.bombEffect, delay: cardIdx * 0.05 }}
+                            initial={enabled && isBombPlay ? { scale: 1.8, rotate: (cardIdx - 1) * 25, opacity: 0 } : false}
+                            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                            transition={{ duration: durations.bombEffect * 1.2, delay: cardIdx * 0.07, type: 'spring', stiffness: 150, damping: 12 }}
                           >
                             <Card gameCard={gc} state="normal" />
                             {isPhoenixSingle && (
