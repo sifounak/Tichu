@@ -53,7 +53,7 @@
   background: var(--color-warning);
   color: var(--color-felt-green-dark);
   padding: var(--space-1) var(--space-4);
-  border-radius: var(--space-2) var(--space-2) 0 0;
+  border-radius: var(--space-2);
   font-size: var(--font-base);
   font-weight: 700;
   white-space: nowrap;
@@ -69,7 +69,7 @@
   background: var(--color-error, #dc2626);
   color: white;
   padding: var(--space-1) var(--space-4);
-  border-radius: 0 0 var(--space-2) var(--space-2);
+  border-radius: var(--space-2);
   font-size: var(--font-base);
   font-weight: 700;
   text-align: center;
