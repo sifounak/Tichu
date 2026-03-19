@@ -37,6 +37,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
   const trickLeader = currentTrick?.currentWinner ?? null;
+  const vacatedSeats = view.vacatedSeats ?? [];
 
   // Determine layout: player (me) is always at the bottom
   // Partner is at the top, opponents on left and right
@@ -92,6 +93,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         onSeatClick={(isDragonTarget || isDragonHoverTarget) ? () => onDragonGift?.(seat) : undefined}
         hideTrickLabels={isDragonTarget}
         passConfirmed={isPassConfirmed}
+        vacated={vacatedSeats.includes(seat)}
       />
     );
   }

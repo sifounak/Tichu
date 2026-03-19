@@ -77,6 +77,14 @@ export class RoomHandler {
 
       this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: room.roomCode, seat });
       this.broadcastRoomUpdate(room.roomCode);
+
+      // If a game is in progress, seat the new player into the active game
+      if (room.gameInProgress) {
+        const game = this.gameStore.getGameByRoom(room.roomCode);
+        if (game) {
+          game.handleSeatFilled(seat);
+        }
+      }
     } catch (err) {
       this.broadcaster.sendError(ws, 'JOIN_ROOM_FAILED', (err as Error).message);
     }
@@ -90,12 +98,15 @@ export class RoomHandler {
     }
 
     try {
-      const { room, roomCode, gameWasInProgress } = this.roomManager.leaveRoom(info.userId);
+      const { room, roomCode, seat, gameWasInProgress } = this.roomManager.leaveRoom(info.userId);
       this.connections.removeFromRoom(ws);
 
-      // Destroy the active game if one was in progress
+      // If a game was in progress, mark the seat as vacated (game stays alive)
       if (gameWasInProgress) {
-        this.gameStore.destroyGameByRoom(roomCode);
+        const game = this.gameStore.getGameByRoom(roomCode);
+        if (game) {
+          game.handleSeatVacated(seat);
+        }
       }
 
       this.broadcaster.send(ws, { type: 'ROOM_LEFT' });

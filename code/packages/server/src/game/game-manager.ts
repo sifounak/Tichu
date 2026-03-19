@@ -48,6 +48,8 @@ export class GameManager {
   private destroyed = false;
   private autoPassTimer: ReturnType<typeof setTimeout> | null = null;
   private scoringTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Seats that have been vacated (player left mid-game, waiting for replacement) */
+  private readonly vacatedSeats = new Set<Seat>();
 
   constructor(
     gameId: string,
@@ -182,6 +184,25 @@ export class GameManager {
     this.sendStateTo(seat);
   }
 
+  /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
+  handleSeatVacated(seat: Seat): void {
+    this.vacatedSeats.add(seat);
+    this.timer.stop();
+    this.broadcastState();
+  }
+
+  /** Fill a vacated seat with a new player. Resumes game. */
+  handleSeatFilled(seat: Seat): void {
+    this.vacatedSeats.delete(seat);
+    this.sendStateTo(seat);
+    this.broadcastState();
+  }
+
+  /** Get the set of currently vacated seats */
+  getVacatedSeats(): ReadonlySet<Seat> {
+    return this.vacatedSeats;
+  }
+
   /** Seat a player into the game lobby */
   seatPlayer(seat: Seat): boolean {
     const result = this.moveHandler.handlePlayerJoined(seat);
@@ -212,12 +233,12 @@ export class GameManager {
   /** Broadcast current game state to all players in the room */
   broadcastState(): void {
     if (this.destroyed) return;
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats]);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
   private sendStateTo(seat: Seat): void {
-    const view = projectGameState(this.context, this.stateValue, seat);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats]);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,

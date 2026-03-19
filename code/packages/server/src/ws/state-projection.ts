@@ -22,6 +22,7 @@ export function projectGameState(
   context: GameMachineContext,
   machineState: string,
   forSeat: Seat,
+  vacatedSeats: readonly Seat[] = [],
 ): ClientGameView {
   const round = context.currentRound;
 
@@ -60,6 +61,7 @@ export function projectGameState(
       lastDogPlay: null,
       grandTichuDecided: [],
       cardPassConfirmed: [],
+      vacatedSeats: [...vacatedSeats],
       winner: context.winner,
     };
   }
@@ -98,6 +100,7 @@ export function projectGameState(
     lastDogPlay: round.lastDogPlay,
     grandTichuDecided: [...context.grandTichuDecisions],
     cardPassConfirmed: [...context.cardPassDecisions],
+    vacatedSeats: [...vacatedSeats],
     winner: context.winner,
     receivedCards: myPlayer.passedCards.received
       ? SEATS_IN_ORDER.reduce((acc, fromSeat) => {

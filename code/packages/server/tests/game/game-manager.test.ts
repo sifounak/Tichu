@@ -205,6 +205,7 @@ describe('GameManager', () => {
         'ROOM1',
         expect.any(Object),
         'lobby',
+        [],
       );
     });
   });

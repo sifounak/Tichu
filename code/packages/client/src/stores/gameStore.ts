@@ -46,6 +46,8 @@ export interface GameStore {
   grandTichuDecided: Seat[];
   /** Seats that have confirmed their card pass */
   cardPassConfirmed: Seat[];
+  /** Seats vacated by players who left mid-game */
+  vacatedSeats: Seat[];
 
   /* --- Actions --- */
   /** Apply a full GAME_STATE sync from the server */
@@ -79,6 +81,7 @@ const initialState = {
   gameOverInfo: null as { winner: string; finalScores: Record<Team, number> } | null,
   grandTichuDecided: [] as Seat[],
   cardPassConfirmed: [] as Seat[],
+  vacatedSeats: [] as Seat[],
 };
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -111,6 +114,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       gameOverInfo: view.winner !== null ? { winner: view.winner, finalScores: view.scores } : null,
       grandTichuDecided: view.grandTichuDecided,
       cardPassConfirmed: view.cardPassConfirmed,
+      vacatedSeats: view.vacatedSeats ?? [],
     }),
 
   applyServerMessage: (msg: ServerMessage) =>

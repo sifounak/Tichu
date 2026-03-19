@@ -95,7 +95,7 @@ describe('RoomManager', () => {
       manager.addBot(room.roomCode, 'east');
       manager.addBot(room.roomCode, 'west');
       manager.startGame(room.roomCode);
-      expect(() => manager.joinRoom('u5', room.roomCode, 'P5')).toThrow('Game already in progress');
+      expect(() => manager.joinRoom('u5', room.roomCode, 'P5')).toThrow('Room is full.');
     });
   });
 

@@ -82,7 +82,8 @@ export class RoomManager {
     return room;
   }
 
-  /** Join an existing room. Returns assigned seat. */
+  /** Join an existing room. Returns assigned seat.
+   *  Allows joining mid-game if there's an empty seat (player left). */
   joinRoom(userId: string, roomCode: string, playerName: string): { room: Room; seat: Seat } {
     if (this.userToRoom.has(userId)) {
       throw new Error('Already in a room. Leave first.');
@@ -90,7 +91,6 @@ export class RoomManager {
 
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error('Room not found.');
-    if (room.gameInProgress) throw new Error('Game already in progress.');
 
     const occupiedSeats = new Set(room.players.map(p => p.seat));
     const freeSeat = SEATS.find(s => !occupiedSeats.has(s));
@@ -108,7 +108,7 @@ export class RoomManager {
   }
 
   /** Remove a player from their room. Destroys room if empty.
-   *  If a game was in progress, ends it so the room reopens (bots stay). */
+   *  If a game was in progress, keep it alive so a new player can fill the seat. */
   leaveRoom(userId: string): { room: Room | null; roomCode: string; seat: Seat; gameWasInProgress: boolean } {
     const roomCode = this.userToRoom.get(userId);
     const seat = this.userToSeat.get(userId);
@@ -125,11 +125,8 @@ export class RoomManager {
     this.removeUser(userId);
     room.players = room.players.filter(p => p.seat !== seat);
 
-    // If a game was in progress, end it so the room reopens for new players.
+    // Game stays alive (gameInProgress remains true) so a new player can join the empty seat.
     // Bots stay so the lobby shows the correct player count (e.g. 3/4).
-    if (gameWasInProgress) {
-      room.gameInProgress = false;
-    }
 
     // If no human players left, destroy the room
     const humanPlayers = room.players.filter(p => !p.isBot);
