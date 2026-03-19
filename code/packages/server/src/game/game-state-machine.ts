@@ -407,22 +407,35 @@ export const gameMachine = setup({
       };
     }),
 
-    /** REQ-F-GF09: Record Grand Tichu call */
+    /** REQ-F-GF09: Record Grand Tichu call + deal remaining 6 immediately */
     recordGrandTichuCall: assign(({ context, event }) => {
       if (event.type !== 'GRAND_TICHU_CALL' || !context.currentRound) return {};
       const round = structuredClone(context.currentRound) as RoundState;
       round.players[event.seat].tipiCall = 'grandTichu';
+      // Deal remaining 6 cards to this player immediately
+      const player = round.players[event.seat] as PlayerState & { _remaining6?: GameCard[] };
+      if (player._remaining6) {
+        player.hand = [...player.hand, ...player._remaining6];
+        delete player._remaining6;
+      }
       const decisions = new Set(context.grandTichuDecisions);
       decisions.add(event.seat);
       return { currentRound: round, grandTichuDecisions: decisions };
     }),
 
-    /** Record Grand Tichu pass */
+    /** Record Grand Tichu pass + deal remaining 6 immediately */
     recordGrandTichuPass: assign(({ context, event }) => {
-      if (event.type !== 'GRAND_TICHU_PASS') return {};
+      if (event.type !== 'GRAND_TICHU_PASS' || !context.currentRound) return {};
+      const round = structuredClone(context.currentRound) as RoundState;
+      // Deal remaining 6 cards to this player immediately
+      const player = round.players[event.seat] as PlayerState & { _remaining6?: GameCard[] };
+      if (player._remaining6) {
+        player.hand = [...player.hand, ...player._remaining6];
+        delete player._remaining6;
+      }
       const decisions = new Set(context.grandTichuDecisions);
       decisions.add(event.seat);
-      return { grandTichuDecisions: decisions };
+      return { currentRound: round, grandTichuDecisions: decisions };
     }),
 
     /** Deal remaining 6 cards after Grand Tichu decisions */
