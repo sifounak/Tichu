@@ -47,7 +47,11 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const cardPassConfirmed = view.cardPassConfirmed ?? [];
 
   function renderSeat(seat: Seat) {
-    const isDragonTarget = dragonGiftTargets?.has(seat) ?? false;
+    const isDragonCandidate = dragonGiftTargets?.has(seat) ?? false;
+    const other = seat !== mySeat ? getOtherPlayer(view, seat) : null;
+    // Active opponents get always-on dragon highlight; finished opponents get hover-only
+    const isDragonTarget = isDragonCandidate && (other?.finishOrder === null || other?.finishOrder === undefined);
+    const isDragonHoverTarget = isDragonCandidate && !isDragonTarget;
     const isPassConfirmed = isCardPassing && cardPassConfirmed.includes(seat);
     if (seat === mySeat) {
       return (
@@ -66,7 +70,6 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         />
       );
     }
-    const other = getOtherPlayer(view, seat);
     if (!other) return null;
     // REQ-F-GT05: During Grand Tichu decision, show 14 cards for players who have decided
     // (reflects them picking up their remaining 6 cards, as in a real game)
@@ -85,8 +88,9 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         isTrickLeader={trickLeader === seat}
         isMe={false}
         dragonTarget={isDragonTarget}
-        onSeatClick={isDragonTarget ? () => onDragonGift?.(seat) : undefined}
-        hideTrickLabels={dragonGiftTargets !== undefined && dragonGiftTargets.size > 0}
+        dragonHoverTarget={isDragonHoverTarget}
+        onSeatClick={(isDragonTarget || isDragonHoverTarget) ? () => onDragonGift?.(seat) : undefined}
+        hideTrickLabels={isDragonTarget}
         passConfirmed={isPassConfirmed}
       />
     );

@@ -454,7 +454,7 @@ export default function GamePage() {
     if (gameStore.currentTurn !== mySeat) return undefined;
     const targets = new Set<Seat>();
     for (const p of gameStore.otherPlayers) {
-      if (p.seat !== mySeat && p.finishOrder === null) {
+      if (p.seat !== mySeat) {
         const myTeam = mySeat === 'north' || mySeat === 'south' ? 'ns' : 'ew';
         const theirTeam = p.seat === 'north' || p.seat === 'south' ? 'ns' : 'ew';
         if (myTeam !== theirTeam) {
