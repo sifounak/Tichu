@@ -108,7 +108,7 @@ export class RoomManager {
   }
 
   /** Remove a player from their room. Destroys room if empty.
-   *  If a game was in progress, ends it and removes bots so the room reopens. */
+   *  If a game was in progress, ends it so the room reopens (bots stay). */
   leaveRoom(userId: string): { room: Room | null; roomCode: string; seat: Seat; gameWasInProgress: boolean } {
     const roomCode = this.userToRoom.get(userId);
     const seat = this.userToSeat.get(userId);
@@ -125,10 +125,10 @@ export class RoomManager {
     this.removeUser(userId);
     room.players = room.players.filter(p => p.seat !== seat);
 
-    // If a game was in progress, end it and remove bots so room reopens for new players
+    // If a game was in progress, end it so the room reopens for new players.
+    // Bots stay so the lobby shows the correct player count (e.g. 3/4).
     if (gameWasInProgress) {
       room.gameInProgress = false;
-      room.players = room.players.filter(p => !p.isBot);
     }
 
     // If no human players left, destroy the room
