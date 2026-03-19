@@ -127,7 +127,7 @@ export const useUiStore = create<UiStore>()((set) => ({
   setAnimationSpeed: (speed) => set({ animationSpeed: speed }),
 
   /* --- Chat --- */
-  chatOpen: false,
+  chatOpen: true,
   chatMessages: [],
   chatUnread: 0,
   toggleChat: () =>
