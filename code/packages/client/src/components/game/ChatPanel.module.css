@@ -4,7 +4,7 @@
 .toggleButton {
   position: fixed;
   /* Same bounds as .panel so the button centers in the panel's footprint */
-  top: calc(50vh + calc(16px * var(--scale)));
+  top: calc(50vh + calc(48px * var(--scale)));
   left: calc(87.5vw - calc(171px * var(--scale)));
   right: var(--space-4);
   bottom: calc(236px * var(--scale));
@@ -51,7 +51,7 @@
 /* Desktop: side panel — from below right player's indicator to above card hand */
 .panel {
   position: fixed;
-  top: calc(50vh + calc(16px * var(--scale)));
+  top: calc(50vh + calc(48px * var(--scale)));
   left: calc(87.5vw - calc(171px * var(--scale)));
   right: var(--space-4);
   bottom: calc(236px * var(--scale));
