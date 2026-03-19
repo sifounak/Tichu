@@ -344,12 +344,13 @@ export default function GamePage() {
     }
   }, [currentPhase]);
 
-  // When cards are received (phase changed to playing and receivedCards populated), show them
+  // When cards are received (phase changed to playing and receivedCards populated), show them.
+  // Skip on reconnect: if the player has already played cards, they've moved past this phase.
   useEffect(() => {
-    if (hasReceivedCards && currentPhase === GamePhase.Playing) {
+    if (hasReceivedCards && currentPhase === GamePhase.Playing && !gameStore.hasPlayedCards) {
       setShowReceivedCards(true);
     }
-  }, [hasReceivedCards, currentPhase]);
+  }, [hasReceivedCards, currentPhase, gameStore.hasPlayedCards]);
 
   const placedCardIds = new Set([...passSelection.values()].map((gc) => gc.id));
 
