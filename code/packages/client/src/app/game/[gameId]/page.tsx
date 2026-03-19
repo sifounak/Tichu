@@ -516,6 +516,7 @@ export default function GamePage() {
     receivedCards: gameStore.receivedCards,
     lastDogPlay: null, // Animation handled via uiStore, not view
     grandTichuDecided: gameStore.grandTichuDecided, // REQ-F-GT02
+    cardPassConfirmed: gameStore.cardPassConfirmed,
     winner: null,
   };
 
