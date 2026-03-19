@@ -47,6 +47,7 @@ export class GameManager {
   private readonly botRunner: BotRunner;
   private destroyed = false;
   private autoPassTimer: ReturnType<typeof setTimeout> | null = null;
+  private scoringTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     gameId: string,
@@ -234,6 +235,20 @@ export class GameManager {
       this.autoPassTimer = null;
     }
 
+    // Round scoring: broadcast state (client sees final card + scores), then
+    // advance to next round or game over after a delay
+    if (state === 'roundScoring') {
+      this.timer.stop();
+      this.broadcastState();
+      if (this.scoringTimer) clearTimeout(this.scoringTimer);
+      this.scoringTimer = setTimeout(() => {
+        if (this.destroyed) return;
+        this.actor.send({ type: 'ADVANCE_FROM_SCORING' });
+        this.broadcastState();
+      }, 3000); // 3s delay: lets clients animate the final card + show scoring overlay
+      return;
+    }
+
     // Manage turn timer
     if (state === 'playing' && round?.currentTurn) {
       this.timer.start(round.currentTurn);
@@ -274,6 +289,7 @@ export class GameManager {
     if (this.destroyed) return;
     this.destroyed = true;
     if (this.autoPassTimer) clearTimeout(this.autoPassTimer);
+    if (this.scoringTimer) clearTimeout(this.scoringTimer);
     this.timer.dispose();
     this.botRunner.dispose();
     this.actor.stop();

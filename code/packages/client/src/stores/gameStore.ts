@@ -104,7 +104,10 @@ export const useGameStore = create<GameStore>()((set) => ({
       receivedCards: view.receivedCards,
       dragonGiftOptions: [],
       hasPlayedCards: view.myHasPlayed,
-      latestRoundScore: null,
+      // During roundScoring, the latest score is in roundHistory
+      latestRoundScore: view.phase === 'roundScoring' && view.roundHistory.length > 0
+        ? view.roundHistory[view.roundHistory.length - 1]
+        : null,
       gameOverInfo: view.winner !== null ? { winner: view.winner, finalScores: view.scores } : null,
       grandTichuDecided: view.grandTichuDecided,
       cardPassConfirmed: view.cardPassConfirmed,
