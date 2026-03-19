@@ -858,7 +858,7 @@ describe('ExpertBot', () => {
 
   describe('chooseMahjongWish', () => {
     // Verifies: REQ-F-WISH01
-    it('wishes for mid-rank not in hand', () => {
+    it('wishes for mid-high rank not in hand', () => {
       const bot = new ExpertBot();
       const hand = [
         card('standard', 8, 'jade'),
@@ -866,17 +866,18 @@ describe('ExpertBot', () => {
         card('standard', 14, 'jade'),
       ];
       const wish = bot.chooseMahjongWish(hand);
-      expect(wish).toBe(7);
+      // Strategy guide: wish for mid-high ranks (10, 9, 8, 7, 11) not in hand
+      expect(wish).toBe(10);
     });
 
-    it('returns null when all mid-ranks held', () => {
+    it('returns null when all wish candidate ranks held', () => {
       const bot = new ExpertBot();
       const hand = [
-        card('standard', 6, 'jade'),
         card('standard', 7, 'pagoda'),
         card('standard', 8, 'star'),
         card('standard', 9, 'sword'),
         card('standard', 10, 'jade'),
+        card('standard', 11, 'jade'),
       ];
       expect(bot.chooseMahjongWish(hand)).toBeNull();
     });
