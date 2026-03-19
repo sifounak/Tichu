@@ -242,18 +242,16 @@ export class GameManager {
   }
 
   /** REQ-F-MP01, REQ-F-TIER02: Register a bot at the given seat */
-  registerBot(seat: Seat, difficulty: 'regular' | 'hard' | 'expert' = 'regular'): void {
+  registerBot(seat: Seat, difficulty: 'regular' | 'hard' | 'expert' = 'expert'): void {
     let strategy: BotStrategy;
     switch (difficulty) {
       case 'hard':
         strategy = new HardBot();
         break;
-      case 'expert':
-        strategy = new ExpertBot();
-        break;
       case 'regular':
+      case 'expert':
       default:
-        strategy = new RegularBot();
+        strategy = new ExpertBot();
         break;
     }
     this.botRunner.addBot(seat, strategy);
