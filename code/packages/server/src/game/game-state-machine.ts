@@ -59,7 +59,8 @@ export type GameEvent =
   | { type: 'PASS_TURN'; seat: Seat }
   | { type: 'DRAGON_GIFT_CHOSEN'; seat: Seat; recipient: Seat }
   | { type: 'TURN_TIMEOUT'; seat: Seat }
-  | { type: 'DECLARE_WISH'; seat: Seat; rank: Rank | null };
+  | { type: 'DECLARE_WISH'; seat: Seat; rank: Rank | null }
+  | { type: 'ADVANCE_FROM_SCORING' };
 
 // ─── Context Type ───────────────────────────────────────────────────────────
 
@@ -942,16 +943,18 @@ export const gameMachine = setup({
         if (!context.currentRound) return {};
         return scoreAndFinishRound(context.currentRound, context);
       }),
-      always: [
-        {
-          guard: 'isGameOver',
-          target: 'gameOver',
-        },
-        {
-          target: 'grandTichuDecision',
-          actions: 'startRound',
-        },
-      ],
+      on: {
+        ADVANCE_FROM_SCORING: [
+          {
+            guard: 'isGameOver',
+            target: 'gameOver',
+          },
+          {
+            target: 'grandTichuDecision',
+            actions: 'startRound',
+          },
+        ],
+      },
     },
 
     gameOver: {
