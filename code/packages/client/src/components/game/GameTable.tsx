@@ -42,8 +42,13 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   // Partner is at the top, opponents on left and right
   const seatPositions = getSeatPositions(mySeat);
 
+  // Green glow for players who have confirmed their card pass
+  const isCardPassing = view.phase === 'cardPassing';
+  const cardPassConfirmed = view.cardPassConfirmed ?? [];
+
   function renderSeat(seat: Seat) {
     const isDragonTarget = dragonGiftTargets?.has(seat) ?? false;
+    const isPassConfirmed = isCardPassing && cardPassConfirmed.includes(seat);
     if (seat === mySeat) {
       return (
         <PlayerSeat
@@ -57,6 +62,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           isCurrentTurn={currentTurn === seat}
           isTrickLeader={trickLeader === seat}
           isMe={true}
+          passConfirmed={isPassConfirmed}
         />
       );
     }
@@ -81,6 +87,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         dragonTarget={isDragonTarget}
         onSeatClick={isDragonTarget ? () => onDragonGift?.(seat) : undefined}
         hideTrickLabels={dragonGiftTargets !== undefined && dragonGiftTargets.size > 0}
+        passConfirmed={isPassConfirmed}
       />
     );
   }

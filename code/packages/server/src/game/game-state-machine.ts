@@ -657,6 +657,7 @@ export const gameMachine = setup({
 
       // REQ-F-BUG01: Round over but trick NOT complete (player went out mid-trick).
       // Award unfinished trick cards before letting always transitions handle scoring.
+      // Keep currentTrick alive so the client can animate the final play.
       if (isRoundOver(round)) {
         const trick = round.currentTrick!;
         const trickCards = collectTrickCards(trick);
@@ -668,7 +669,6 @@ export const gameMachine = setup({
         } else {
           round.players[trick.currentWinner].tricksWon.push(trickCards);
         }
-        round.currentTrick = null;
         return { currentRound: round };
       }
 
@@ -959,12 +959,12 @@ function completeTrickAndAdvance(
     round.players[winner].tricksWon.push(trickCards);
   }
 
-  round.currentTrick = null;
-
-  // REQ-F-BUG01: Let always transitions handle round-end scoring centrally
+  // Keep currentTrick alive when round ends so the client can animate the final play
   if (isRoundOver(round)) {
     return { currentRound: round };
   }
+
+  round.currentTrick = null;
 
   // Winner leads next trick (or next active if winner is out)
   if (round.players[winner].finishOrder !== null) {
