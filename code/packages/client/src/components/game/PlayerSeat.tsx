@@ -23,6 +23,8 @@ export interface PlayerSeatProps {
   onSeatClick?: () => void;
   /** Hide Pass/Leader labels during Dragon recipient selection to avoid overlap */
   hideTrickLabels?: boolean;
+  /** Green glow when player has confirmed card pass */
+  passConfirmed?: boolean;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -45,6 +47,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   dragonTarget,
   onSeatClick,
   hideTrickLabels,
+  passConfirmed,
 }: PlayerSeatProps) {
   const name = displayName ?? SEAT_LABELS[seat];
 
@@ -55,6 +58,7 @@ export const PlayerSeat = memo(function PlayerSeat({
     hasPassed && styles.passed,
     isMe && styles.me,
     dragonTarget && styles.dragonTarget,
+    passConfirmed && styles.passConfirmed,
   ].filter(Boolean).join(' ');
 
   return (

@@ -38,6 +38,12 @@
   box-shadow: 0 0 28px rgba(232, 168, 48, 0.65), 0 0 12px rgba(232, 168, 48, 0.4);
 }
 
+/* Card pass confirmed — green glow */
+.passConfirmed {
+  border-color: #2ecc71;
+  box-shadow: 0 0 28px rgba(46, 204, 113, 0.65), 0 0 12px rgba(46, 204, 113, 0.4);
+}
+
 /* REQ-F-DR01: Dragon gift target — purple glow */
 .dragonTarget {
   border-color: #9b59b6;
