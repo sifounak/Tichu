@@ -22,6 +22,8 @@ export interface GameTableProps {
   seatNames?: Record<Seat, string>;
   /** Whether the current player must satisfy an active wish */
   mustSatisfyWish?: boolean;
+  /** Whether it's the current player's turn (shows play area glow) */
+  isMyTurn?: boolean;
   /** Callback when player chooses a seat (mid-game join with multiple vacated seats) */
   onChooseSeat?: (seat: Seat) => void;
 }
@@ -34,7 +36,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, onChooseSeat }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -119,7 +121,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
       {/* Trick area (center) — hidden during pre-game phases */}
       {!hideCenter && (
         <div
-          className={`${styles.center} ${canPlay ? styles.clickableTrick : ''}`}
+          className={`${styles.center} ${isMyTurn ? styles.playAreaActive : ''} ${canPlay ? styles.clickableTrick : ''}`}
           onClick={canPlay ? onPlay : undefined}
           role={canPlay ? 'button' : undefined}
           aria-label={canPlay ? 'Play selected cards' : undefined}

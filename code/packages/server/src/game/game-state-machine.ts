@@ -627,22 +627,24 @@ export const gameMachine = setup({
         // Remove Dog from hand and check if player finished
         removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
+        // Determine where the Dog would go (for animation)
+        let nextLead = partner;
+        if (round.players[partner].finishOrder !== null) {
+          nextLead = getNextActiveSeat(partner, round);
+        }
+
+        // REQ-F-DA01: Mark Dog play for client animation (set before round-end check
+        // so the client can animate the Dog even if it's the final card of the round)
+        round.lastDogPlay = { fromSeat: seat, toSeat: nextLead };
+
         // REQ-F-BUG01: Let always transitions handle round-end scoring
-        // (1-2 finish and countActivePlayers <= 1 both detected by isRoundComplete guard)
         if (isRoundOver(round)) {
           round.currentTrick = null;
           return { currentRound: round };
         }
 
-        // Dog goes to the partner (or next active if partner is out)
-        let nextLead = partner;
-        if (round.players[partner].finishOrder !== null) {
-          nextLead = getNextActiveSeat(partner, round);
-        }
         round.currentTurn = nextLead;
         round.currentTrick = null; // Dog doesn't create a trick
-        // REQ-F-DA01: Mark Dog play for client animation
-        round.lastDogPlay = { fromSeat: seat, toSeat: nextLead };
         return { currentRound: round };
       }
 

@@ -84,13 +84,17 @@
   border-radius: var(--space-1);
 }
 
-/* Click-to-play trick area wrapper */
-.clickableTrick {
-  cursor: pointer;
+/* Play area glow — visible during player's turn */
+.playAreaActive {
   border-radius: var(--space-3);
   transition: background var(--duration-fast) var(--easing-smooth),
               box-shadow var(--duration-fast) var(--easing-smooth);
   box-shadow: 0 0 calc(16px * var(--scale)) rgba(74, 158, 255, 0.3);
+}
+
+/* Clickable trick area — active only when valid hand selected */
+.clickableTrick {
+  cursor: pointer;
 }
 
 .clickableTrick:hover {
