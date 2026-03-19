@@ -119,10 +119,18 @@ export class MoveHandler {
     return { ok: true };
   }
 
-  /** Handle PASS_CARDS */
+  /** Handle PASS_CARDS — allowed during cardPassing and earlier phases (once player has 14 cards) */
   handlePassCards(seat: Seat, cards: Record<Seat, GameCard>): MoveResult {
-    if (this.stateValue !== 'cardPassing') {
+    const allowedStates = ['cardPassing', 'grandTichuDecision', 'regularTichuDecision'];
+    if (!allowedStates.includes(this.stateValue)) {
       return { ok: false, error: 'Not in card passing phase' };
+    }
+    // During GT/Tichu decision, player must have decided (and received remaining 6 cards)
+    if (this.stateValue !== 'cardPassing') {
+      const round = this.context.currentRound;
+      if (!round || round.players[seat].hand.length < 14) {
+        return { ok: false, error: 'Must decide Grand Tichu before passing cards' };
+      }
     }
     if (this.context.cardPassDecisions.has(seat)) {
       return { ok: false, error: 'Already passed cards' };
@@ -151,9 +159,10 @@ export class MoveHandler {
     return { ok: true };
   }
 
-  /** Handle CANCEL_PASS_CARDS */
+  /** Handle CANCEL_PASS_CARDS — allowed during cardPassing and earlier phases */
   handleCancelPassCards(seat: Seat): MoveResult {
-    if (this.stateValue !== 'cardPassing') {
+    const allowedStates = ['cardPassing', 'grandTichuDecision', 'regularTichuDecision'];
+    if (!allowedStates.includes(this.stateValue)) {
       return { ok: false, error: 'Not in card passing phase' };
     }
     if (!this.context.cardPassDecisions.has(seat)) {
