@@ -24,6 +24,7 @@ import { ScorePanel } from '@/components/game/ScorePanel';
 import { TichuBanner } from '@/components/game/TichuBanner';
 import { ChatPanel } from '@/components/game/ChatPanel';
 import { DisconnectOverlay } from '@/components/game/DisconnectOverlay';
+import { Card } from '@/components/cards/Card';
 import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
 import { WishPicker } from '@/components/game/WishPicker';
@@ -845,8 +846,71 @@ export default function GamePage() {
                 onMouseEnter={() => handBombs.length > 1 && setBombPopupOpen(true)}
                 onMouseLeave={() => setBombPopupOpen(false)}
               >
+                {/* REQ-F-BB05/BB06: Multi-bomb popup — attached directly above button */}
+                {bombPopupOpen && handBombs.length > 1 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '100%',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      paddingBottom: 'calc(4px * var(--scale))',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: 'var(--color-bg-panel)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--space-3)',
+                        padding: 'calc(10px * var(--scale))',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 'calc(8px * var(--scale))',
+                        zIndex: 50,
+                      }}
+                    >
+                      {/* Sort: straight flushes on top (weakest→strongest), four-of-a-kind on bottom (weakest→strongest) */}
+                      {[...handBombs].sort((a, b) => {
+                        const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                        const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                        if (aIsSF !== bIsSF) return aIsSF - bIsSF;
+                        if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
+                          if (a.length !== b.length) return a.length - b.length;
+                          return a.rank - b.rank;
+                        }
+                        return a.rank - b.rank;
+                      }).map((bomb, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { handleBombPlay(bomb); setBombPopupOpen(false); }}
+                          style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--space-2)',
+                            cursor: 'pointer',
+                            padding: 'calc(6px * var(--scale))',
+                            display: 'flex',
+                            gap: 'calc(2px * var(--scale))',
+                            transition: 'background 0.15s, border-color 0.15s',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.borderColor = 'var(--color-gold-accent)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                          aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
+                        >
+                          {bomb.cards.map((gc) => (
+                            <div key={gc.id} style={{ pointerEvents: 'none', '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
+                              <Card gameCard={gc} state="normal" />
+                            </div>
+                          ))}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {/* REQ-F-BB04: Single bomb plays immediately on click */}
-                {/* REQ-F-BB05: Multiple bombs show popup on hover */}
                 <button
                   onClick={() => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined}
                   style={{
@@ -868,50 +932,6 @@ export default function GamePage() {
                 >
                   Bomb!
                 </button>
-                {/* REQ-F-BB05/BB06: Multi-bomb popup */}
-                {bombPopupOpen && handBombs.length > 1 && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '100%',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      marginBottom: 'var(--space-2)',
-                      background: 'var(--color-bg-panel)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--space-3)',
-                      padding: 'calc(10px * var(--scale))',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 'var(--space-2)',
-                      minWidth: 'calc(120px * var(--scale))',
-                      zIndex: 50,
-                    }}
-                  >
-                    {handBombs.map((bomb, i) => (
-                      <button
-                        key={i}
-                        onClick={() => { handleBombPlay(bomb); setBombPopupOpen(false); }}
-                        style={{
-                          background: 'rgba(255,255,255,0.1)',
-                          border: '1px solid var(--color-border)',
-                          borderRadius: 'var(--space-2)',
-                          color: 'var(--color-text-primary)',
-                          cursor: 'pointer',
-                          padding: 'var(--space-1) calc(10px * var(--scale))',
-                          fontSize: 'calc(13px * var(--scale))',
-                          fontWeight: 600,
-                          textAlign: 'left',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {bomb.type === CombinationType.FourBomb
-                          ? `4× ${bomb.rank}`
-                          : `SF ${bomb.cards.length}: ${(bomb.cards[0].card as { rank: number }).rank}–${bomb.rank}`}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
           </div>
