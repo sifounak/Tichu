@@ -535,6 +535,12 @@ export default function GamePage() {
     phase === GamePhase.TichuDecision ||
     phase === GamePhase.CardPassing;
 
+  // Player can select cards to pass once they have 14 cards (decided GT or in card passing phase)
+  const canSelectPassCards =
+    phase === GamePhase.CardPassing ||
+    ((phase === GamePhase.GrandTichuDecision || phase === GamePhase.TichuDecision) &&
+      gameStore.myHand.length >= 14);
+
   // Build tichu calls array for ScorePanel
   const tichuCalls = [
     { seat: mySeat!, call: gameStore.myTichuCall },
@@ -822,10 +828,10 @@ export default function GamePage() {
             )}
             <CardHand
               cards={gameStore.myHand}
-              selectedIds={phase === GamePhase.CardPassing && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : selection.selectedIds}
-              disabledIds={phase === GamePhase.CardPassing ? placedCardIds : undefined}
+              selectedIds={canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : selection.selectedIds}
+              disabledIds={canSelectPassCards ? placedCardIds : undefined}
               onCardClick={
-                phase === GamePhase.CardPassing && !passConfirmed
+                canSelectPassCards && !passConfirmed
                   ? handlePassCardClick
                   : phase === GamePhase.Playing
                     ? selection.toggleCard

@@ -62,47 +62,37 @@ export const PreGamePhase = memo(function PreGamePhase({
     const decidedSet = new Set(grandTichuDecided ?? []);
     const hasDecided = decidedSet.has(mySeat);
 
-    // REQ-F-GT04: waiting screen once this player has decided
+    // Once decided, show card passing UI so player can start choosing cards
     if (hasDecided) {
-      const myCalledGT = myTichuCall === 'grandTichu';
+      // Fall through to card passing UI below
+    } else {
+      // REQ-F-GT03: undecided — show buttons
       return (
         <div className={styles.phaseContainer}>
           <div className={styles.prompt}>
-            <h2 className={`${styles.title} ${myCalledGT ? styles.titleGrandTichu : ''}`}>
-              {myCalledGT ? 'Grand Tichu Called!' : 'You passed.'}
-            </h2>
-            <p className={styles.subtitle}>Waiting for other players…</p>
+            <h2 className={styles.title}>Grand Tichu?</h2>
+            <p className={styles.subtitle}>You have seen 8 cards. Declare Grand Tichu (+/- 200)?</p>
+            <div className={styles.buttonRow}>
+              <button
+                className={`${styles.button} ${styles.skipButton}`}
+                onClick={() => onGrandTichuDecision(false)}
+              >
+                Pass
+              </button>
+              <button
+                className={`${styles.button} ${styles.callButton}`}
+                onClick={() => onGrandTichuDecision(true)}
+              >
+                Grand Tichu!
+              </button>
+            </div>
           </div>
         </div>
       );
     }
-
-    // REQ-F-GT03: undecided — show buttons
-    return (
-      <div className={styles.phaseContainer}>
-        <div className={styles.prompt}>
-          <h2 className={styles.title}>Grand Tichu?</h2>
-          <p className={styles.subtitle}>You have seen 8 cards. Declare Grand Tichu (+/- 200)?</p>
-          <div className={styles.buttonRow}>
-            <button
-              className={`${styles.button} ${styles.skipButton}`}
-              onClick={() => onGrandTichuDecision(false)}
-            >
-              Pass
-            </button>
-            <button
-              className={`${styles.button} ${styles.callButton}`}
-              onClick={() => onGrandTichuDecision(true)}
-            >
-              Grand Tichu!
-            </button>
-          </div>
-        </div>
-      </div>
-    );
   }
 
-  if (phase === 'cardPassing') {
+  if (phase === 'cardPassing' || phase === 'grandTichuDecision' || phase === 'tichuDecision') {
     const allFilled = passSelection.size === 3;
 
     function renderSlot(seat: Seat) {

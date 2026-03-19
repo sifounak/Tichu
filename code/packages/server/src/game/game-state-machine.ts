@@ -799,6 +799,15 @@ export const gameMachine = setup({
           guard: 'hasNotDecidedGrandTichu',
           actions: 'recordGrandTichuPass',
         },
+        // Allow early card passing for players who have already decided
+        CARDS_PASSED: {
+          guard: 'hasNotPassedCards',
+          actions: 'recordCardPass',
+        },
+        CARDS_PASS_CANCELLED: {
+          guard: 'hasPassedCards',
+          actions: 'cancelCardPass',
+        },
       },
       always: {
         guard: 'allGrandTichuDecided',
@@ -816,6 +825,15 @@ export const gameMachine = setup({
         REGULAR_TICHU_PASS: {
           guard: 'hasNotDecidedRegularTichu',
           actions: 'recordRegularTichuPass',
+        },
+        // Allow early card passing for players who have already decided
+        CARDS_PASSED: {
+          guard: 'hasNotPassedCards',
+          actions: 'recordCardPass',
+        },
+        CARDS_PASS_CANCELLED: {
+          guard: 'hasPassedCards',
+          actions: 'cancelCardPass',
         },
       },
       always: {
