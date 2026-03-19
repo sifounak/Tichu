@@ -1,7 +1,7 @@
 // REQ-F-DI01: Player seat showing avatar, card count, Tichu indicator, pass status
 'use client';
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import type { Seat, TichuCall } from '@tichu/shared';
 import { Card } from '../cards/Card';
 import styles from './PlayerSeat.module.css';
@@ -17,8 +17,10 @@ export interface PlayerSeatProps {
   isCurrentTurn: boolean;
   isTrickLeader: boolean;
   isMe: boolean;
-  /** REQ-F-DR01: Highlight as a Dragon gift target */
+  /** REQ-F-DR01: Highlight as a Dragon gift target (always-on purple glow) */
   dragonTarget?: boolean;
+  /** Dragon gift target that only activates on hover (for finished opponents) */
+  dragonHoverTarget?: boolean;
   /** Callback when seat is clicked (e.g., for Dragon gift selection) */
   onSeatClick?: () => void;
   /** Hide Pass/Leader labels during Dragon recipient selection to avoid overlap */
@@ -45,11 +47,17 @@ export const PlayerSeat = memo(function PlayerSeat({
   isTrickLeader,
   isMe,
   dragonTarget,
+  dragonHoverTarget,
   onSeatClick,
   hideTrickLabels,
   passConfirmed,
 }: PlayerSeatProps) {
   const name = displayName ?? SEAT_LABELS[seat];
+  const [hovered, setHovered] = useState(false);
+
+  // dragonTarget = always-on purple glow; dragonHoverTarget = purple glow only on hover
+  const isDragonActive = dragonTarget || (dragonHoverTarget && hovered);
+  const isClickableDragon = dragonTarget || dragonHoverTarget;
 
   const className = [
     styles.seat,
@@ -57,7 +65,7 @@ export const PlayerSeat = memo(function PlayerSeat({
     isTrickLeader && styles.trickLeader,
     hasPassed && styles.passed,
     isMe && styles.me,
-    dragonTarget && styles.dragonTarget,
+    isDragonActive && styles.dragonTarget,
     passConfirmed && styles.passConfirmed,
   ].filter(Boolean).join(' ');
 
@@ -65,10 +73,12 @@ export const PlayerSeat = memo(function PlayerSeat({
     <div
       className={className}
       data-seat={seat}
-      aria-label={dragonTarget ? `Give Dragon trick to ${name}` : `${name}'s seat`}
-      onClick={dragonTarget ? onSeatClick : undefined}
-      role={dragonTarget ? 'button' : undefined}
-      style={dragonTarget ? { cursor: 'pointer' } : undefined}
+      aria-label={isClickableDragon ? `Give Dragon trick to ${name}` : `${name}'s seat`}
+      onClick={isClickableDragon ? onSeatClick : undefined}
+      role={isClickableDragon ? 'button' : undefined}
+      style={isClickableDragon ? { cursor: 'pointer' } : undefined}
+      onMouseEnter={dragonHoverTarget ? () => setHovered(true) : undefined}
+      onMouseLeave={dragonHoverTarget ? () => setHovered(false) : undefined}
     >
       <span className={styles.name}>{name}</span>
       <div className={styles.seatRow}>
@@ -109,25 +119,25 @@ export const PlayerSeat = memo(function PlayerSeat({
         </div>
       )}
 
-      {/* REQ-F-DI03: Pass indicator — label below box (hidden during Dragon gift selection) */}
-      {hasPassed && !hideTrickLabels && (
+      {/* REQ-F-DI03: Pass indicator — label below box (hidden for active dragon targets) */}
+      {hasPassed && !hideTrickLabels && !isDragonActive && (
         <span className={styles.passLabel} aria-label="Passed">
           Pass
         </span>
       )}
 
       {/* Turn indicator */}
-      {isCurrentTurn && !dragonTarget && (
+      {isCurrentTurn && !isDragonActive && (
         <span className={styles.turnLabel}>{isMe ? 'Your Turn' : 'Their Turn'}</span>
       )}
 
-      {/* Dragon gift target label */}
-      {dragonTarget && (
+      {/* Dragon gift target label — shown for always-on targets and hovered targets */}
+      {isDragonActive && (
         <span className={styles.dragonLabel}>Give Dragon</span>
       )}
 
-      {/* Trick leader label (hidden during Dragon gift selection) */}
-      {isTrickLeader && !isCurrentTurn && !hasPassed && !hideTrickLabels && (
+      {/* Trick leader label (hidden for active dragon targets) */}
+      {isTrickLeader && !isCurrentTurn && !hasPassed && !hideTrickLabels && !isDragonActive && (
         <span className={styles.leaderLabel}>Leading Trick</span>
       )}
 

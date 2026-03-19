@@ -280,11 +280,6 @@ export class MoveHandler {
       return { ok: false, error: 'Must gift Dragon trick to an opponent' };
     }
 
-    // Recipient must still be in the game (not finished)
-    if (round.players[recipient].finishOrder !== null) {
-      return { ok: false, error: 'Recipient has already finished' };
-    }
-
     this.actor.send({ type: 'DRAGON_GIFT_CHOSEN', seat, recipient });
     return { ok: true };
   }

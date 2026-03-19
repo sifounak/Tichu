@@ -151,22 +151,6 @@ export const TrickDisplay = memo(function TrickDisplay({
         </div>
       )}
 
-      {/* Auto-gift banner — shown when only 1 opponent remains */}
-      <AnimatePresence>
-        {dragonGiftAnimation && !dragonGiftPending && (
-          <motion.div
-            key="auto-gift-banner"
-            className={styles.autoGiftBanner}
-            initial={enabled ? { opacity: 0, y: -10 } : false}
-            animate={{ opacity: 1, y: 0 }}
-            exit={enabled ? { opacity: 0 } : undefined}
-            transition={{ duration: durations.cardPlay }}
-          >
-            Only one valid Dragon recipient {getArrowForPosition(dragonGiftAnimation.recipient, mySeat)}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* REQ-F-DI07: Wish indicator */}
       <AnimatePresence>
         {mahjongWish !== null && !wishFulfilled && (
