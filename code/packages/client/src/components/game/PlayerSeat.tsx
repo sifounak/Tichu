@@ -27,6 +27,8 @@ export interface PlayerSeatProps {
   hideTrickLabels?: boolean;
   /** Green glow when player has confirmed card pass */
   passConfirmed?: boolean;
+  /** Seat is vacated — player left mid-game, waiting for replacement */
+  vacated?: boolean;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -51,6 +53,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   onSeatClick,
   hideTrickLabels,
   passConfirmed,
+  vacated,
 }: PlayerSeatProps) {
   const name = displayName ?? SEAT_LABELS[seat];
   const [hovered, setHovered] = useState(false);
@@ -67,6 +70,7 @@ export const PlayerSeat = memo(function PlayerSeat({
     isMe && styles.me,
     isDragonActive && styles.dragonTarget,
     passConfirmed && styles.passConfirmed,
+    vacated && styles.vacated,
   ].filter(Boolean).join(' ');
 
   return (
@@ -144,6 +148,13 @@ export const PlayerSeat = memo(function PlayerSeat({
       {/* Card pass confirmed label */}
       {passConfirmed && (
         <span className={styles.passConfirmedLabel}>Ready to Pass</span>
+      )}
+
+      {/* Vacated seat overlay */}
+      {vacated && (
+        <div className={styles.vacatedOverlay}>
+          Waiting for player to join
+        </div>
       )}
     </div>
   );

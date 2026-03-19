@@ -519,6 +519,7 @@ export default function GamePage() {
     lastDogPlay: null, // Animation handled via uiStore, not view
     grandTichuDecided: gameStore.grandTichuDecided, // REQ-F-GT02
     cardPassConfirmed: gameStore.cardPassConfirmed,
+    vacatedSeats: gameStore.vacatedSeats,
     winner: null,
   };
 
@@ -973,15 +974,7 @@ export default function GamePage() {
         seatNames={seatNames}
       />
 
-      {/* REQ-F-MP08: Disconnect handling */}
-      <DisconnectOverlay
-        disconnectedSeat={uiStore.disconnectedSeat}
-        voteRequired={uiStore.disconnectVoteRequired}
-        onVote={handleDisconnectVote}
-        countdownSeconds={uiStore.disconnectCountdown}
-        reconnectedSeat={uiStore.reconnectedSeat}
-        seatNames={seatNames}
-      />
+      {/* Disconnect overlay removed — vacated seats shown inline on player info boxes */}
 
       <ConnectionStatus status={status} />
       <ErrorToast message={uiStore.errorToast} onDismiss={uiStore.clearErrorToast} />

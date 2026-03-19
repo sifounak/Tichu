@@ -190,6 +190,8 @@ export interface ClientGameView {
   grandTichuDecided: Seat[];
   /** Seats that have confirmed their card pass */
   cardPassConfirmed: Seat[];
+  /** Seats vacated by players who left mid-game (game paused until filled) */
+  vacatedSeats: Seat[];
   /** Winning team when phase is GameOver, null otherwise */
   winner: Team | null;
 }

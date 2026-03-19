@@ -345,7 +345,7 @@ export default function LobbyPage() {
                         {room.playerCount}/4
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center' }}>
-                        {room.gameInProgress ? (
+                        {room.gameInProgress && room.playerCount >= 4 ? (
                           <span className="px-4 py-1.5 rounded text-sm font-semibold inline-block"
                             style={{ background: 'var(--color-warning)', color: '#000' }}>
                             In Game

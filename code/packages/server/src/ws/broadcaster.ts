@@ -49,12 +49,12 @@ export class Broadcaster {
    * REQ-NF-A02: Broadcast projected game state to each player in a room.
    * Each player receives their own view with hidden opponent hands.
    */
-  broadcastGameState(roomCode: string, context: GameMachineContext, machineState: string): number {
+  broadcastGameState(roomCode: string, context: GameMachineContext, machineState: string, vacatedSeats: readonly Seat[] = []): number {
     const clients = this.connections.getClientsInRoom(roomCode);
     let sent = 0;
     for (const { ws, info } of clients) {
       if (info.seat) {
-        const view = projectGameState(context, machineState, info.seat);
+        const view = projectGameState(context, machineState, info.seat, vacatedSeats);
         const message: ServerMessage = { type: 'GAME_STATE', state: view };
         if (this.send(ws, message)) {
           sent++;
