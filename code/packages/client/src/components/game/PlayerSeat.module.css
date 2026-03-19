@@ -44,6 +44,18 @@
   box-shadow: 0 0 28px rgba(46, 204, 113, 0.65), 0 0 12px rgba(46, 204, 113, 0.4);
 }
 
+.passConfirmedLabel {
+  position: absolute;
+  bottom: calc(-40px * var(--scale));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: calc(26px * var(--scale));
+  font-weight: 700;
+  color: #2ecc71;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
 /* REQ-F-DR01: Dragon gift target — purple glow */
 .dragonTarget {
   border-color: #9b59b6;
