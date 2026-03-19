@@ -130,6 +130,11 @@ export const PlayerSeat = memo(function PlayerSeat({
       {isTrickLeader && !isCurrentTurn && !hasPassed && !hideTrickLabels && (
         <span className={styles.leaderLabel}>Leading Trick</span>
       )}
+
+      {/* Card pass confirmed label */}
+      {passConfirmed && (
+        <span className={styles.passConfirmedLabel}>Ready to Pass</span>
+      )}
     </div>
   );
 });
