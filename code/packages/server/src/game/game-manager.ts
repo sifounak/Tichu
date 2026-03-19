@@ -245,7 +245,7 @@ export class GameManager {
         if (this.destroyed) return;
         this.actor.send({ type: 'ADVANCE_FROM_SCORING' });
         this.broadcastState();
-      }, 3000); // 3s delay: lets clients animate the final card + show scoring overlay
+      }, 2250); // 2.25s delay: lets clients animate the final card before advancing
       return;
     }
 
