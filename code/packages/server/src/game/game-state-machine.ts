@@ -208,8 +208,15 @@ function isDragonPlay(combination: Combination): boolean {
 
 /** REQ-F-DR01: Check if Dragon gift is needed (Dragon won the trick, not by bomb) */
 function needsDragonGift(trick: TrickState): boolean {
-  // Find the winning play
-  const winningPlay = trick.plays.find((p) => p.seat === trick.currentWinner);
+  // Find the winning play — search from end so that if the winner played multiple
+  // times (e.g. Dragon first, then an out-of-turn bomb), the LAST play is found
+  let winningPlay: (typeof trick.plays)[number] | undefined;
+  for (let i = trick.plays.length - 1; i >= 0; i--) {
+    if (trick.plays[i].seat === trick.currentWinner) {
+      winningPlay = trick.plays[i];
+      break;
+    }
+  }
   if (!winningPlay) return false;
 
   // Only applies when Dragon is the winning single card
@@ -643,15 +650,26 @@ export const gameMachine = setup({
       // Remove cards from hand and check if player finished
       removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
-      // REQ-F-BUG01: Let always transitions handle round-end scoring centrally
-      // (1-2 finish and countActivePlayers <= 1 both detected by isRoundComplete guard)
-      if (isRoundOver(round)) {
-        return { currentRound: round };
-      }
-
       // Check if trick is complete (e.g., bomb after all others passed, or player finished)
       if (isTrickComplete(round.currentTrick, round)) {
         return completeTrickAndAdvance(round, context);
+      }
+
+      // REQ-F-BUG01: Round over but trick NOT complete (player went out mid-trick).
+      // Award unfinished trick cards before letting always transitions handle scoring.
+      if (isRoundOver(round)) {
+        const trick = round.currentTrick!;
+        const trickCards = collectTrickCards(trick);
+
+        if (needsDragonGift(trick)) {
+          // Dragon gift still required — awaitingDragonGift fires via always transition
+          round.dragonGiftPending = { trickCards, from: trick.currentWinner };
+          round.currentTurn = trick.currentWinner;
+        } else {
+          round.players[trick.currentWinner].tricksWon.push(trickCards);
+        }
+        round.currentTrick = null;
+        return { currentRound: round };
       }
 
       // Advance turn

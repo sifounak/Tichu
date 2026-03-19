@@ -21,6 +21,8 @@ export interface PlayerSeatProps {
   dragonTarget?: boolean;
   /** Callback when seat is clicked (e.g., for Dragon gift selection) */
   onSeatClick?: () => void;
+  /** Hide Pass/Leader labels during Dragon recipient selection to avoid overlap */
+  hideTrickLabels?: boolean;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -42,6 +44,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   isMe,
   dragonTarget,
   onSeatClick,
+  hideTrickLabels,
 }: PlayerSeatProps) {
   const name = displayName ?? SEAT_LABELS[seat];
 
@@ -102,8 +105,8 @@ export const PlayerSeat = memo(function PlayerSeat({
         </div>
       )}
 
-      {/* REQ-F-DI03: Pass indicator — label below box */}
-      {hasPassed && (
+      {/* REQ-F-DI03: Pass indicator — label below box (hidden during Dragon gift selection) */}
+      {hasPassed && !hideTrickLabels && (
         <span className={styles.passLabel} aria-label="Passed">
           Pass
         </span>
@@ -119,8 +122,8 @@ export const PlayerSeat = memo(function PlayerSeat({
         <span className={styles.dragonLabel}>Give Dragon</span>
       )}
 
-      {/* Trick leader label */}
-      {isTrickLeader && !isCurrentTurn && !hasPassed && (
+      {/* Trick leader label (hidden during Dragon gift selection) */}
+      {isTrickLeader && !isCurrentTurn && !hasPassed && !hideTrickLabels && (
         <span className={styles.leaderLabel}>Leading Trick</span>
       )}
     </div>
