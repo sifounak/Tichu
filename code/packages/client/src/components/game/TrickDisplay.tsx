@@ -61,6 +61,17 @@ function seatPosition(seat: Seat, mySeat: Seat): 'bottom' | 'top' | 'left' | 'ri
   return (['bottom', 'right', 'top', 'left'] as const)[rel];
 }
 
+/** Arrow character pointing toward a seat's relative position */
+function getArrowForPosition(recipient: Seat, mySeat: Seat): string {
+  const pos = seatPosition(recipient, mySeat);
+  switch (pos) {
+    case 'left': return '\u2190';   // ←
+    case 'right': return '\u2192';  // →
+    case 'top': return '\u2191';    // ↑
+    case 'bottom': return '\u2193'; // ↓
+  }
+}
+
 /** Entry direction offsets per seat position — start at the nearest edge of the play area */
 const ENTRY_OFFSETS: Record<string, { x: number | string; y: number | string }> = {
   bottom: { x: 0, y: '50%' },
@@ -138,6 +149,22 @@ export const TrickDisplay = memo(function TrickDisplay({
           You must give the Dragon trick to one of your opponents
         </div>
       )}
+
+      {/* Auto-gift banner — shown when only 1 opponent remains */}
+      <AnimatePresence>
+        {dragonGiftAnimation && !dragonGiftPending && (
+          <motion.div
+            key="auto-gift-banner"
+            className={styles.autoGiftBanner}
+            initial={enabled ? { opacity: 0, y: -10 } : false}
+            animate={{ opacity: 1, y: 0 }}
+            exit={enabled ? { opacity: 0 } : undefined}
+            transition={{ duration: durations.cardPlay }}
+          >
+            Only one valid Dragon recipient {getArrowForPosition(dragonGiftAnimation.recipient, mySeat)}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* REQ-F-DI07: Wish indicator */}
       <AnimatePresence>

@@ -80,6 +80,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         isMe={false}
         dragonTarget={isDragonTarget}
         onSeatClick={isDragonTarget ? () => onDragonGift?.(seat) : undefined}
+        hideTrickLabels={dragonGiftTargets !== undefined && dragonGiftTargets.size > 0}
       />
     );
   }
