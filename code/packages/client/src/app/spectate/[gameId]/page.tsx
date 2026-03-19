@@ -90,6 +90,9 @@ export default function SpectatePage() {
     receivedCards: { north: null, east: null, south: null, west: null },
     lastDogPlay: null,
     grandTichuDecided: [],
+    cardPassConfirmed: [],
+    vacatedSeats: [],
+    choosingSeat: false,
     winner: null,
   };
 

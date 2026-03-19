@@ -59,6 +59,9 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('DECLARE_WISH'), rank: rankSchema.nullable() }),
   z.object({ type: z.literal('GIFT_DRAGON'), to: seatSchema }),
 
+  // Mid-game seat choice (when joining with 2+ vacated seats)
+  z.object({ type: z.literal('CHOOSE_SEAT'), seat: seatSchema }),
+
   // Disconnect vote
   z.object({ type: z.literal('DISCONNECT_VOTE'), vote: z.enum(['wait', 'bot', 'abandon']) }),
 

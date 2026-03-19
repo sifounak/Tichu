@@ -22,6 +22,8 @@ export interface GameTableProps {
   seatNames?: Record<Seat, string>;
   /** Whether the current player must satisfy an active wish */
   mustSatisfyWish?: boolean;
+  /** Callback when player chooses a seat (mid-game join with multiple vacated seats) */
+  onChooseSeat?: (seat: Seat) => void;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -32,7 +34,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, onChooseSeat }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -68,6 +70,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           isTrickLeader={trickLeader === seat}
           isMe={true}
           passConfirmed={isPassConfirmed}
+          seatChooserLabel={onChooseSeat ? 'Choose This Seat' : undefined}
+          onChooseSeat={onChooseSeat ? () => onChooseSeat(seat) : undefined}
         />
       );
     }
@@ -94,6 +98,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         hideTrickLabels={isDragonTarget}
         passConfirmed={isPassConfirmed}
         vacated={vacatedSeats.includes(seat)}
+        seatChooserLabel={onChooseSeat && vacatedSeats.includes(seat) ? 'Sit Here' : undefined}
+        onChooseSeat={onChooseSeat && vacatedSeats.includes(seat) ? () => onChooseSeat(seat) : undefined}
       />
     );
   }

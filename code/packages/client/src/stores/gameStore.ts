@@ -48,6 +48,8 @@ export interface GameStore {
   cardPassConfirmed: Seat[];
   /** Seats vacated by players who left mid-game */
   vacatedSeats: Seat[];
+  /** True when this player must choose which vacated seat to take */
+  choosingSeat: boolean;
 
   /* --- Actions --- */
   /** Apply a full GAME_STATE sync from the server */
@@ -82,6 +84,7 @@ const initialState = {
   grandTichuDecided: [] as Seat[],
   cardPassConfirmed: [] as Seat[],
   vacatedSeats: [] as Seat[],
+  choosingSeat: false,
 };
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -115,6 +118,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       grandTichuDecided: view.grandTichuDecided,
       cardPassConfirmed: view.cardPassConfirmed,
       vacatedSeats: view.vacatedSeats ?? [],
+      choosingSeat: view.choosingSeat ?? false,
     }),
 
   applyServerMessage: (msg: ServerMessage) =>

@@ -427,6 +427,12 @@ export default function GamePage() {
     [send],
   );
 
+  // Handle seat choice when joining with multiple vacated seats
+  const handleChooseSeat = useCallback(
+    (seat: Seat) => send({ type: 'CHOOSE_SEAT', seat }),
+    [send],
+  );
+
   // Auto-skip Tichu decision phase — player can call Tichu from the ActionBar during gameplay
   // NOTE: Must be above early returns to respect Rules of Hooks
   const phase = gameStore.phase;
@@ -520,6 +526,7 @@ export default function GamePage() {
     grandTichuDecided: gameStore.grandTichuDecided, // REQ-F-GT02
     cardPassConfirmed: gameStore.cardPassConfirmed,
     vacatedSeats: gameStore.vacatedSeats,
+    choosingSeat: gameStore.choosingSeat,
     winner: null,
   };
 
@@ -721,7 +728,7 @@ export default function GamePage() {
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} mustSatisfyWish={mustSatisfyWish} />
+      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} mustSatisfyWish={mustSatisfyWish} onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined} />
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {phase !== GamePhase.WaitingForPlayers && (

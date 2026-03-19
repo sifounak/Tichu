@@ -23,6 +23,7 @@ export function projectGameState(
   machineState: string,
   forSeat: Seat,
   vacatedSeats: readonly Seat[] = [],
+  choosingSeats: readonly Seat[] = [],
 ): ClientGameView {
   const round = context.currentRound;
 
@@ -62,11 +63,13 @@ export function projectGameState(
       grandTichuDecided: [],
       cardPassConfirmed: [],
       vacatedSeats: [...vacatedSeats],
+      choosingSeat: choosingSeats.includes(forSeat),
       winner: context.winner,
     };
   }
 
   const myPlayer = round.players[forSeat];
+  const isChoosing = choosingSeats.includes(forSeat);
 
   return {
     gameId: context.gameId,
@@ -75,7 +78,7 @@ export function projectGameState(
     scores: { ...context.scores },
     roundHistory: [...context.roundHistory],
     mySeat: forSeat,
-    myHand: [...myPlayer.hand],
+    myHand: isChoosing ? [] : [...myPlayer.hand],
     myTichuCall: myPlayer.tipiCall,
     myHasPlayed: myPlayer.hasPlayed,
     otherPlayers: SEATS_IN_ORDER
@@ -101,6 +104,7 @@ export function projectGameState(
     grandTichuDecided: [...context.grandTichuDecisions],
     cardPassConfirmed: [...context.cardPassDecisions],
     vacatedSeats: [...vacatedSeats],
+    choosingSeat: isChoosing,
     winner: context.winner,
     receivedCards: myPlayer.passedCards.received
       ? SEATS_IN_ORDER.reduce((acc, fromSeat) => {
