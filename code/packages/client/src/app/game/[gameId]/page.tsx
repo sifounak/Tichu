@@ -957,14 +957,7 @@ export default function GamePage() {
 
       {/* REQ-F-DR01: Dragon gift selection is now handled via PlayerSeat clicks + TrickDisplay notification */}
 
-      {/* REQ-F-SC01: Round end overlay */}
-      {showRoundEnd && phase === GamePhase.RoundScoring && gameStore.latestRoundScore && gameStore.scores && (
-        <RoundEndPhase
-          roundScore={gameStore.latestRoundScore}
-          cumulativeScores={gameStore.scores}
-          onContinue={() => {}}
-        />
-      )}
+      {/* Round end overlay removed — only game end stats are shown */}
 
       {/* REQ-NF-U02: Tichu call banner */}
       {!showReceivedCards && <TichuBanner tichuEvent={uiStore.tichuEvent} />}
