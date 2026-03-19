@@ -8,6 +8,7 @@ import { memo, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TrickState, Seat, Rank } from '@tichu/shared';
 import { Card } from '../cards/Card';
+import { sortCombinationForDisplay } from '../cards/card-utils';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import styles from './TrickDisplay.module.css';
 
@@ -249,7 +250,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                     }}
                   >
                     <div className={styles.cards} style={{ '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)' } as React.CSSProperties}>
-                      {latestPlay.combination.cards.map((gc, cardIdx) => {
+                      {sortCombinationForDisplay(latestPlay.combination).map((gc, cardIdx) => {
                         const isPhoenixSingle =
                           latestPlay.combination.type === 'single' &&
                           gc.card.kind === 'phoenix';
