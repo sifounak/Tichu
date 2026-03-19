@@ -192,6 +192,8 @@ export interface ClientGameView {
   cardPassConfirmed: Seat[];
   /** Seats vacated by players who left mid-game (game paused until filled) */
   vacatedSeats: Seat[];
+  /** True when the player just joined with 2+ vacated seats and must pick one */
+  choosingSeat: boolean;
   /** Winning team when phase is GameOver, null otherwise */
   winner: Team | null;
 }

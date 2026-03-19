@@ -261,6 +261,13 @@ export class RoomManager {
     return seat === room.hostSeat;
   }
 
+  /** Reassign a user from one seat to another (used for mid-game seat choice) */
+  reassignSeat(userId: string, fromSeat: Seat, toSeat: Seat, roomCode: string): void {
+    this.seatToUser.delete(`${roomCode}:${fromSeat}`);
+    this.userToSeat.set(userId, toSeat);
+    this.seatToUser.set(`${roomCode}:${toSeat}`, userId);
+  }
+
   /** List public rooms for the lobby. */
   getPublicRooms(): LobbyEntry[] {
     const entries: LobbyEntry[] = [];

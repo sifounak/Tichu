@@ -29,6 +29,10 @@ export interface PlayerSeatProps {
   passConfirmed?: boolean;
   /** Seat is vacated — player left mid-game, waiting for replacement */
   vacated?: boolean;
+  /** Seat chooser button label (e.g. "Sit Here" or "Choose This Seat") */
+  seatChooserLabel?: string;
+  /** Callback when the seat chooser button is clicked */
+  onChooseSeat?: () => void;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -54,6 +58,8 @@ export const PlayerSeat = memo(function PlayerSeat({
   hideTrickLabels,
   passConfirmed,
   vacated,
+  seatChooserLabel,
+  onChooseSeat,
 }: PlayerSeatProps) {
   const name = displayName ?? SEAT_LABELS[seat];
   const [hovered, setHovered] = useState(false);
@@ -151,9 +157,18 @@ export const PlayerSeat = memo(function PlayerSeat({
       )}
 
       {/* Vacated seat overlay */}
-      {vacated && (
+      {vacated && !seatChooserLabel && (
         <div className={styles.vacatedOverlay}>
           Waiting for player to join
+        </div>
+      )}
+
+      {/* Seat chooser button (mid-game join with multiple vacant seats) */}
+      {seatChooserLabel && onChooseSeat && (
+        <div className={styles.seatChooserOverlay}>
+          <button className={styles.seatChooserButton} onClick={onChooseSeat}>
+            {seatChooserLabel}
+          </button>
         </div>
       )}
     </div>

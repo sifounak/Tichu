@@ -50,6 +50,8 @@ export class GameManager {
   private scoringTimer: ReturnType<typeof setTimeout> | null = null;
   /** Seats that have been vacated (player left mid-game, waiting for replacement) */
   private readonly vacatedSeats = new Set<Seat>();
+  /** Seats occupied by players who are choosing which vacated seat to take */
+  private readonly choosingSeats = new Set<Seat>();
 
   constructor(
     gameId: string,
@@ -191,16 +193,43 @@ export class GameManager {
     this.broadcastState();
   }
 
-  /** Fill a vacated seat with a new player. Resumes game. */
+  /** Fill a vacated seat with a new player.
+   *  If 2+ seats are vacated, the player must choose — mark them as choosing.
+   *  If only 1 seat is vacated (last spot), auto-fill immediately. */
   handleSeatFilled(seat: Seat): void {
     this.vacatedSeats.delete(seat);
+    if (this.vacatedSeats.size > 0) {
+      // 2+ seats were vacated; player just took one but others remain.
+      // They need to choose which vacated seat they actually want.
+      this.choosingSeats.add(seat);
+    }
     this.sendStateTo(seat);
+    this.broadcastState();
+  }
+
+  /** Handle CHOOSE_SEAT — player picks a vacated seat (or keeps their current one) */
+  handleChooseSeat(currentSeat: Seat, chosenSeat: Seat): void {
+    if (!this.choosingSeats.has(currentSeat)) return;
+    this.choosingSeats.delete(currentSeat);
+
+    if (chosenSeat !== currentSeat && this.vacatedSeats.has(chosenSeat)) {
+      // Swap: put current seat back as vacated, claim chosen seat
+      this.vacatedSeats.add(currentSeat);
+      this.vacatedSeats.delete(chosenSeat);
+    }
+    // If chosenSeat === currentSeat, just confirm — no swap needed
+
     this.broadcastState();
   }
 
   /** Get the set of currently vacated seats */
   getVacatedSeats(): ReadonlySet<Seat> {
     return this.vacatedSeats;
+  }
+
+  /** Check if a seat is in "choosing" mode */
+  isChoosingState(seat: Seat): boolean {
+    return this.choosingSeats.has(seat);
   }
 
   /** Seat a player into the game lobby */
@@ -233,12 +262,12 @@ export class GameManager {
   /** Broadcast current game state to all players in the room */
   broadcastState(): void {
     if (this.destroyed) return;
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats]);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats]);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
   private sendStateTo(seat: Seat): void {
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats]);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats]);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,

@@ -43,6 +43,7 @@ export class RoomHandler {
     router.on('START_GAME', (ws) => this.handleStartGame(ws));
     router.on('SWAP_SEATS', (ws, msg) => this.handleSwapSeats(ws, msg as ClientMessage & { type: 'SWAP_SEATS' }));
     router.on('KICK_PLAYER', (ws, msg) => this.handleKickPlayer(ws, msg as ClientMessage & { type: 'KICK_PLAYER' }));
+    router.on('CHOOSE_SEAT', (ws, msg) => this.handleChooseSeat(ws, msg as ClientMessage & { type: 'CHOOSE_SEAT' }));
   }
 
   private handleCreateRoom(ws: WebSocket, msg: ClientMessage & { type: 'CREATE_ROOM' }): void {
@@ -292,6 +293,47 @@ export class RoomHandler {
     } catch (err) {
       this.broadcaster.sendError(ws, 'SWAP_SEATS_FAILED', (err as Error).message);
     }
+  }
+
+  /** Handle mid-game seat choice — player picks which vacated seat to take */
+  private handleChooseSeat(ws: WebSocket, msg: ClientMessage & { type: 'CHOOSE_SEAT' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode || !info.seat) {
+      this.broadcaster.sendError(ws, 'NOT_IN_GAME', 'Not in a game');
+      return;
+    }
+
+    const game = this.gameStore.getGameByRoom(info.roomCode);
+    if (!game) {
+      this.broadcaster.sendError(ws, 'NO_GAME', 'No active game');
+      return;
+    }
+
+    const currentSeat = info.seat;
+    const chosenSeat = msg.seat;
+
+    // If choosing a different seat, swap in the room
+    if (chosenSeat !== currentSeat) {
+      try {
+        // Move player in the room: update room players + tracking maps
+        const room = this.roomManager.getRoom(info.roomCode);
+        if (!room) return;
+        const player = room.players.find(p => p.seat === currentSeat);
+        if (player) player.seat = chosenSeat;
+        // Update room-manager internal maps
+        this.roomManager.reassignSeat(info.userId, currentSeat, chosenSeat, info.roomCode);
+        // Update connection manager's seat
+        this.connections.assignToRoom(ws, info.roomCode, chosenSeat);
+        // Send new ROOM_JOINED so the client updates mySeat
+        this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: info.roomCode, seat: chosenSeat });
+      } catch (err) {
+        this.broadcaster.sendError(ws, 'CHOOSE_SEAT_FAILED', (err as Error).message);
+        return;
+      }
+    }
+
+    // Tell the game manager the seat choice is resolved
+    game.handleChooseSeat(currentSeat, chosenSeat);
   }
 
   // REQ-F-005: Public access for reconnection flow
