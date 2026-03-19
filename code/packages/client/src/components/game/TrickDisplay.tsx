@@ -238,13 +238,23 @@ export const TrickDisplay = memo(function TrickDisplay({
                         const isPhoenixSingle =
                           latestPlay.combination.type === 'single' &&
                           gc.card.kind === 'phoenix';
+                        const cardCount = latestPlay.combination.cards.length;
+                        const midIdx = (cardCount - 1) / 2;
+                        // Fan: spread cards out with rotation + vertical lift after impact
+                        const fanRotate = (cardIdx - midIdx) * 8;
+                        const fanY = -Math.abs(cardIdx - midIdx) * 12 - 8; // lift ~25% card height, arc shape
+                        const fanX = (cardIdx - midIdx) * 6;
                         return (
                           <motion.div
                             key={gc.id}
                             className={styles.trickCard}
-                            initial={enabled && isBombPlay ? { scale: 1.8, rotate: (cardIdx - 1) * 25, opacity: 0 } : false}
-                            animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                            transition={{ duration: durations.bombEffect * 1.2, delay: cardIdx * 0.07, type: 'spring', stiffness: 150, damping: 12 }}
+                            initial={enabled && isBombPlay ? { scale: 1.5, rotate: 0, y: 0, x: 0, opacity: 1 } : false}
+                            animate={enabled && isBombPlay
+                              ? { scale: [1.5, 1, 1], rotate: [0, 0, fanRotate], y: [0, 0, fanY], x: [0, 0, fanX], opacity: 1 }
+                              : { scale: 1, rotate: 0, opacity: 1 }}
+                            transition={enabled && isBombPlay
+                              ? { duration: 0.45, times: [0, 0.33, 1], ease: ['easeIn', 'easeOut'] }
+                              : { duration: durations.bombEffect }}
                           >
                             <Card gameCard={gc} state="normal" />
                             {isPhoenixSingle && (
