@@ -17,13 +17,13 @@
   overflow: hidden;
 }
 
-/* Partner at top-center */
+/* Partner at top-center — extra padding so the Tichu/Grand Tichu banner isn't clipped */
 .top {
   grid-area: top;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding-top: var(--space-6);
+  padding-top: calc(60px * var(--scale));
 }
 
 /* Left opponent — vertically aligned with play area center */
