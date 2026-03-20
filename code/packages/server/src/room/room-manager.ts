@@ -66,7 +66,7 @@ export class RoomManager {
       config: {
         targetScore: 1000,
         turnTimerSeconds: null,
-        botDifficulty: 'regular',
+        botDifficulty: 'expert',
         animationSpeed: 'normal',
         spectatorsAllowed: true,
         isPrivate: false,
