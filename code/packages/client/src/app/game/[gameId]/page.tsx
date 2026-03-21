@@ -748,8 +748,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         )}
 
         {/* Spectator count button with tooltip */}
-        {spectatorCount > 0 && (
-          <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative' }}>
             <button
               style={{
                 fontSize: 'var(--font-xl)',
@@ -801,7 +800,6 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
               </div>
             )}
           </div>
-        )}
 
         {/* Leave Room button */}
         <button
