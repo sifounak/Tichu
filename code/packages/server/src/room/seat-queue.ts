@@ -149,6 +149,8 @@ export class SeatQueue {
     // REQ-F-ES08: Remove from queue entirely — not recycled, not eligible for up-for-grabs
     this.removeFromQueue(userId);
     this.currentOfferedUserId = null;
+    // Tell the declining spectator to clear their offer and show waiting state
+    this.sendWaitingStatus(userId);
     this.offerNext();
     return true;
   }
@@ -294,6 +296,16 @@ export class SeatQueue {
     }
   }
 
+  /** Send "waiting for others" status to a spectator who passed/timed out (position 0 = passed) */
+  private sendWaitingStatus(userId: string): void {
+    this.callbacks.onSendToSpectator(userId, {
+      type: 'QUEUE_STATUS',
+      decidingSpectator: '',
+      position: 0,
+      timeoutMs: 0,
+    });
+  }
+
   /** Start the 30-second offer timeout */
   private startTimeout(userId: string): void {
     this.clearTimer();
@@ -302,6 +314,8 @@ export class SeatQueue {
       if (this.currentOfferedUserId === userId) {
         this.removeFromQueue(userId);
         this.currentOfferedUserId = null;
+        // Tell the timed-out spectator to clear their offer and show waiting state
+        this.sendWaitingStatus(userId);
         this.offerNext();
       }
     }, OFFER_TIMEOUT_MS);

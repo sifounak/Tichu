@@ -303,17 +303,25 @@ export function PreRoomView({
             </div>
           </div>
         ) : queueStatus ? (
-          // REQ-F-SC03: Non-selecting spectators see queue position + countdown
+          // REQ-F-SC03: Non-selecting spectators see queue position + countdown (position 0 = passed)
           <div style={{ textAlign: 'center' as const }}>
-            <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: 'var(--color-gold-accent)', marginBottom: 'var(--space-1)' }}>
-              A seat has opened up!
-            </div>
-            <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: 'var(--color-gold-accent)', marginBottom: 'var(--space-2)' }}>
-              You are {ordinal(queueStatus.position)} in line
-            </div>
-            <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
-              Moving to next spectator in {countdown} seconds...
-            </div>
+            {queueStatus.position === 0 ? (
+              <div style={{ fontSize: 'var(--font-lg)', fontWeight: 600, color: 'var(--color-text-secondary)' }}>
+                Waiting for other spectators to claim a seat...
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: 'var(--color-gold-accent)', marginBottom: 'var(--space-1)' }}>
+                  A seat has opened up!
+                </div>
+                <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: 'var(--color-gold-accent)', marginBottom: 'var(--space-2)' }}>
+                  You are {ordinal(queueStatus.position)} in line
+                </div>
+                <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
+                  Moving to next spectator in {countdown} seconds...
+                </div>
+              </>
+            )}
           </div>
         ) : (availableSeats && availableSeats.length > 0) ? (
           // REQ-F-SC04: Up-for-grabs — all spectators declined, first come first served

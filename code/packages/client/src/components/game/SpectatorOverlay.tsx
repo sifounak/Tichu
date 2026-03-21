@@ -89,16 +89,24 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
     );
   }
 
-  // REQ-F-SP08b: Queue status display
+  // REQ-F-SP08b: Queue status display (position 0 = passed/timed out, waiting for others)
   if (queueStatus) {
     return (
       <div style={{ ...infoBarStyle, bottom: 'calc(100px * var(--scale))' }}>
-        <p style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
-          A seat has opened up!
-        </p>
-        <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
-          You are #{queueStatus.position} in line...
-        </p>
+        {queueStatus.position === 0 ? (
+          <p style={{ fontSize: 'var(--font-md)', color: 'var(--color-text-secondary)' }}>
+            Waiting for other spectators to claim a seat...
+          </p>
+        ) : (
+          <>
+            <p style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+              A seat has opened up!
+            </p>
+            <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
+              You are #{queueStatus.position} in line...
+            </p>
+          </>
+        )}
       </div>
     );
   }
