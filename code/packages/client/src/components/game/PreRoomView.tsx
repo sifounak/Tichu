@@ -7,8 +7,10 @@
 // REQ-F-CG17: Only host sees bot controls
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { Seat, GameConfig, RoomPlayer } from '@tichu/shared';
+import type { ClientGameView } from '@tichu/shared';
+import { GameTable } from './GameTable';
 import styles from './PreRoomView.module.css';
 
 interface PreRoomViewProps {
@@ -23,14 +25,33 @@ interface PreRoomViewProps {
   onLeave: () => void;
 }
 
-function getSeatPositions(mySeat: Seat): Record<'top' | 'left' | 'right' | 'bottom', Seat> {
-  const order: Seat[] = ['north', 'east', 'south', 'west'];
-  const myIdx = order.indexOf(mySeat);
+/** Minimal ClientGameView stub so GameTable can calculate seat positions */
+function makeDummyView(mySeat: Seat): ClientGameView {
   return {
-    bottom: order[myIdx],
-    right: order[(myIdx + 1) % 4],
-    top: order[(myIdx + 2) % 4],
-    left: order[(myIdx + 3) % 4],
+    gameId: '',
+    config: { targetScore: 1000, turnTimerSeconds: null, botDifficulty: 'expert', animationSpeed: 'normal', spectatorsAllowed: true, isPrivate: false },
+    phase: 'playing' as any,
+    scores: { northSouth: 0, eastWest: 0 },
+    roundHistory: [],
+    mySeat,
+    myHand: [],
+    myTichuCall: 'none',
+    myHasPlayed: false,
+    otherPlayers: [],
+    currentTrick: null,
+    currentTurn: null,
+    mahjongWish: null,
+    wishFulfilled: false,
+    finishOrder: [],
+    dragonGiftPending: false,
+    dragonGiftedTo: null,
+    receivedCards: { north: null, east: null, south: null, west: null },
+    lastDogPlay: null,
+    grandTichuDecided: [],
+    cardPassConfirmed: [],
+    vacatedSeats: [],
+    choosingSeat: false,
+    winner: null,
   };
 }
 
@@ -57,7 +78,7 @@ export function PreRoomView({
 
   const isHost = mySeat === hostSeat;
   const amReady = mySeat ? readyPlayers.includes(mySeat) : false;
-  const seatPositions = mySeat ? getSeatPositions(mySeat) : { top: 'north' as Seat, left: 'west' as Seat, right: 'east' as Seat, bottom: 'south' as Seat };
+  const effectiveSeat = mySeat ?? 'south';
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomCode);
@@ -89,7 +110,8 @@ export function PreRoomView({
     send({ type: 'CONFIGURE_ROOM', config: updates });
   };
 
-  function renderSeatCard(seat: Seat) {
+  // Seat renderer passed to GameTable via renderSeatOverride
+  const renderSeatCard = useCallback((seat: Seat) => {
     const player = players.find((p) => p.seat === seat);
     const isMe = seat === mySeat;
     const isHostSeat = seat === hostSeat;
@@ -111,7 +133,7 @@ export function PreRoomView({
               <span className={styles.botDiffLabel}>Difficulty</span>
               <select
                 value={botDifficulty[seat]}
-                onChange={(e) => setBotDifficulty({ ...botDifficulty, [seat]: e.target.value as 'hard' | 'expert' })}
+                onChange={(e) => setBotDifficulty((prev) => ({ ...prev, [seat]: e.target.value as 'hard' | 'expert' }))}
                 className={styles.botDiffSelect}
               >
                 <option value="hard">Normal</option>
@@ -149,22 +171,104 @@ export function PreRoomView({
         )}
       </div>
     );
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty]);
+
+  // REQ-F-CG16: Center content — Start Game / Ready button
+  const centerContent = (
+    <div className={styles.centerContent}>
+      <div className={styles.readyCount}>
+        {readyPlayers.length}/{players.length} Ready
+        {players.length < 4 && ` — need ${4 - players.length} more`}
+      </div>
+      {!amReady && (
+        <button onClick={handleReadyToStart} className={styles.startBtn}>
+          Start Game
+        </button>
+      )}
+      {amReady && (
+        <button onClick={handleCancelReady} className={styles.readyBtn}>
+          Ready — Waiting...
+        </button>
+      )}
+    </div>
+  );
+
+  const dummyView = makeDummyView(effectiveSeat);
 
   return (
-    <div className={styles.container}>
-      {/* REQ-F-CG13: Room name and code header */}
+    <>
+      {/* REQ-F-CG13: Room name header */}
       <div className={styles.header}>
         <div className={styles.roomName}>{roomName ?? 'Room'}</div>
-        <div className={styles.roomCodeRow}>
-          <span className={styles.roomCode}>{roomCode}</span>
-          <button onClick={handleCopyCode} className={styles.copyBtn}>
-            {codeCopied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
       </div>
 
-      {/* REQ-F-CG15: Settings toggle (host: editable, non-host: read-only) */}
+      {/* Room code + Leave — reuse the same position as the in-game room code */}
+      <div style={{
+        position: 'fixed',
+        top: 'calc(120px * var(--scale))',
+        left: 'calc(148px * var(--scale))',
+        transform: 'translate(-50%, -50%)',
+        zIndex: 30,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 'var(--space-1)',
+      }}>
+        <button
+          onClick={handleCopyCode}
+          style={{
+            fontSize: 'var(--font-xl)',
+            fontWeight: 600,
+            color: 'var(--color-text-secondary)',
+            textAlign: 'center' as const,
+            background: 'transparent',
+            border: '1px solid transparent',
+            borderRadius: 'var(--card-border-radius)',
+            padding: 'var(--space-1) var(--space-3)',
+            cursor: 'pointer',
+            transition: 'border-color 0.2s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+          aria-label="Copy room code"
+        >
+          Room Code: <span style={{ fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.15em', color: 'var(--color-gold-accent)' }}>{roomCode}</span>
+        </button>
+
+        <button
+          onClick={onLeave}
+          style={{
+            background: 'rgba(255,255,255,0.1)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--card-border-radius)',
+            color: 'var(--color-text-secondary)',
+            padding: 'var(--space-1) var(--space-3)',
+            fontSize: 'var(--font-xl)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+          aria-label="Leave room"
+        >
+          Leave Room
+        </button>
+
+        {codeCopied && (
+          <div style={{
+            background: 'var(--color-bg-panel)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--card-border-radius)',
+            padding: 'var(--space-1) var(--space-3)',
+            fontSize: 'var(--font-md)',
+            color: 'var(--color-text-primary)',
+            whiteSpace: 'nowrap',
+          }}>
+            Room code copied to clipboard
+          </div>
+        )}
+      </div>
+
+      {/* REQ-F-CG15: Settings toggle */}
       <button onClick={() => setShowSettings(!showSettings)} className={styles.settingsToggle}>
         Settings
       </button>
@@ -242,36 +346,13 @@ export function PreRoomView({
         </div>
       )}
 
-      {/* Seat layout */}
-      <div className={styles.seatGrid}>
-        <div className={styles.top}>{renderSeatCard(seatPositions.top)}</div>
-        <div className={styles.left}>{renderSeatCard(seatPositions.left)}</div>
-        <div className={styles.right}>{renderSeatCard(seatPositions.right)}</div>
-        <div className={styles.bottom}>{renderSeatCard(seatPositions.bottom)}</div>
-      </div>
-
-      {/* REQ-F-CG16: Center area — Start Game / Ready button for all players */}
-      <div className={styles.center}>
-        <div className={styles.readyCount}>
-          {readyPlayers.length}/{players.length} Ready
-          {players.length < 4 && ` — need ${4 - players.length} more`}
-        </div>
-        {!amReady && (
-          <button onClick={handleReadyToStart} className={styles.startBtn}>
-            Start Game
-          </button>
-        )}
-        {amReady && (
-          <button onClick={handleCancelReady} className={styles.readyBtn}>
-            Ready — Waiting...
-          </button>
-        )}
-      </div>
-
-      {/* Leave button */}
-      <button onClick={onLeave} className={styles.leaveBtn}>
-        Leave
-      </button>
-    </div>
+      {/* Reuse GameTable with pre-room seat rendering and center content */}
+      <GameTable
+        view={dummyView}
+        hideCenter={false}
+        renderSeatOverride={renderSeatCard}
+        centerContent={centerContent}
+      />
+    </>
   );
 }
