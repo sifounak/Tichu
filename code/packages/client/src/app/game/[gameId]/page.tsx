@@ -864,6 +864,24 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             Waiting for players to pass cards...
           </div>
         ) : undefined}
+        bottomContent={isSpectator ? (() => {
+          const hostPlayer = view.otherPlayers.find((p) => p.seat === view.mySeat);
+          if (!hostPlayer) return undefined;
+          return (
+            <PlayerSeat
+              seat={view.mySeat}
+              displayName={seatNames[view.mySeat]}
+              cardCount={hostPlayer.cardCount}
+              tichuCall={hostPlayer.tichuCall}
+              hasPlayed={hostPlayer.hasPlayed}
+              hasPassed={view.currentTrick?.passes.includes(view.mySeat) ?? false}
+              finishOrder={hostPlayer.finishOrder}
+              isCurrentTurn={view.currentTurn === view.mySeat}
+              isTrickLeader={(view.currentTrick?.currentWinner ?? null) === view.mySeat}
+              isMe={false}
+            />
+          );
+        })() : undefined}
       />
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
