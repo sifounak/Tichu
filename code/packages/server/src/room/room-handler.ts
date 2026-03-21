@@ -313,18 +313,20 @@ export class RoomHandler {
     try {
       const { wasGameInProgress } = this.roomManager.removeBot(info.roomCode, msg.seat);
 
-      // REQ-F-SP32: If game was in progress, vacate seat and trigger queue
+      // REQ-F-SP32: If game was in progress, vacate seat
       if (wasGameInProgress) {
         const game = this.gameStore.getGameByRoom(info.roomCode);
         if (game) {
           game.handleSeatVacated(msg.seat);
         }
-        this.tryStartSeatQueue(info.roomCode, [msg.seat]);
       }
 
       // Ready resets when player composition changes
       this.roomManager.resetReady(info.roomCode);
       this.broadcastRoomUpdate(info.roomCode);
+
+      // Trigger queue for any empty seat (mid-game or pre-room) when spectators exist
+      this.tryStartSeatQueue(info.roomCode, [msg.seat]);
     } catch (err) {
       this.broadcaster.sendError(ws, 'REMOVE_BOT_FAILED', (err as Error).message);
     }
