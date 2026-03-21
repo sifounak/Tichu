@@ -847,7 +847,24 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         </div>
       )}
 
-      <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} isMyTurn={!isPreGame && !showReceivedCards && isMyTurn} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} mustSatisfyWish={mustSatisfyWish} onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined} />
+      <GameTable
+        view={view}
+        onPlay={handlePlay}
+        canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)}
+        isMyTurn={!isPreGame && !showReceivedCards && isMyTurn}
+        hideCenter={isPreGame && !isSpectator}
+        hideEmptyTrick={showReceivedCards}
+        dragonGiftTargets={dragonGiftTargets}
+        onDragonGift={handleDragonGift}
+        seatNames={seatNames}
+        mustSatisfyWish={mustSatisfyWish}
+        onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
+        centerContent={isSpectator && isPreGame ? (
+          <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 'calc(18px * var(--scale))', fontWeight: 600 }}>
+            Waiting for players to pass cards...
+          </div>
+        ) : undefined}
+      />
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {/* REQ-F-SP05: Hide for spectators — they see card counts in PlayerSeat, not actual hands */}
