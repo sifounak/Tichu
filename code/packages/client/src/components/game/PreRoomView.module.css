@@ -1,0 +1,381 @@
+/* REQ-F-CG13, CG16: Pre-room view — game table layout before game starts */
+
+.container {
+  background: var(--color-felt-green-dark);
+  height: 100dvh;
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Header with room name and code */
+.header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 16px;
+  z-index: 10;
+}
+
+.roomName {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-gold-accent);
+}
+
+.roomCodeRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.roomCode {
+  font-family: monospace;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  color: var(--color-text-primary);
+}
+
+.copyBtn {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.copyBtn:hover {
+  opacity: 0.8;
+}
+
+/* Seat grid — cross layout matching game table */
+.seatGrid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "top    top"
+    "left   right"
+    "bottom bottom";
+  padding: 16px;
+}
+
+.top {
+  grid-area: top;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 80px;
+}
+
+.left {
+  position: absolute;
+  left: 28px;
+  top: calc(50vh - 80px);
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.right {
+  position: absolute;
+  right: 28px;
+  top: calc(50vh - 80px);
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.bottom {
+  grid-area: bottom;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 32px;
+}
+
+/* Center area — ready button and status */
+.center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  z-index: 2;
+}
+
+.readyCount {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.startBtn {
+  padding: 12px 32px;
+  border-radius: 10px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.startBtn:hover {
+  opacity: 0.85;
+}
+
+.readyBtn {
+  padding: 12px 32px;
+  border-radius: 10px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  background: rgba(34, 197, 94, 0.2);
+  color: rgb(34, 197, 94);
+  border: 1px solid rgb(34, 197, 94);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.readyBtn:hover {
+  opacity: 0.85;
+}
+
+.disabledBtn {
+  padding: 12px 32px;
+  border-radius: 10px;
+  font-size: 1.125rem;
+  font-weight: 700;
+  background: var(--color-text-muted);
+  color: var(--color-felt-green-dark);
+  border: none;
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Seat card */
+.seatCard {
+  width: 180px;
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.seatCardMe {
+  background: rgba(201, 168, 76, 0.15);
+  border-color: var(--color-gold-accent);
+}
+
+.seatCardReady {
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.6), inset 0 0 8px rgba(34, 197, 94, 0.15);
+}
+
+.playerName {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.badge {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.readyLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(34, 197, 94);
+}
+
+.emptyLabel {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* Bot controls on empty seats (host only) */
+.botControls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.botDiffLabel {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.botDiffSelect {
+  width: 120px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--color-felt-green-dark);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.addBotBtn {
+  padding: 4px 16px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--color-felt-green-light);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.addBotBtn:hover {
+  opacity: 0.8;
+}
+
+.removeBtn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
+  background: transparent;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.removeBtn:hover {
+  opacity: 0.8;
+}
+
+/* Settings panel */
+.settingsToggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--color-bg-panel);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  z-index: 10;
+  transition: opacity 0.15s;
+}
+
+.settingsToggle:hover {
+  opacity: 0.8;
+}
+
+.settingsPanel {
+  position: absolute;
+  top: 52px;
+  right: 16px;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 16px;
+  z-index: 20;
+  width: 320px;
+}
+
+.settingsTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.settingsField {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.settingsLabel {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.settingsInput,
+.settingsSelect {
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--color-felt-green-dark);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.settingsCheckRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.settingsCheckLabel {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+/* Read-only summary for non-host */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+/* Leave button */
+.leaveBtn {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  z-index: 10;
+  transition: opacity 0.15s;
+}
+
+.leaveBtn:hover {
+  opacity: 0.8;
+}

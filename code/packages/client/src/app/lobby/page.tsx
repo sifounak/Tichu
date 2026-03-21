@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRoomStore } from '@/stores/roomStore';
+import { CreateGamePopup } from '@/components/lobby/CreateGamePopup';
+import type { CreateGameConfig } from '@/components/lobby/CreateGamePopup';
 import type { ServerMessage } from '@tichu/shared';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
@@ -31,6 +33,8 @@ export default function LobbyPage() {
   const [error, setError] = useState('');
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
+  // REQ-F-CG01: Popup state for game creation settings
+  const [showCreatePopup, setShowCreatePopup] = useState(false);
 
   // Check for kicked message on mount
   useEffect(() => {
@@ -49,12 +53,8 @@ export default function LobbyPage() {
         break;
       case 'ROOM_JOINED':
         setRoom(msg.roomCode, msg.seat);
-        // REQ-F-SP04: Spectator (seat: null) goes directly to game page
-        if (msg.seat === null) {
-          router.push(`/game/${msg.roomCode}`);
-        } else {
-          router.push(`/lobby/${msg.roomCode}`);
-        }
+        // REQ-F-CG07: All players and spectators go directly to game page
+        router.push(`/game/${msg.roomCode}`);
         break;
       case 'ERROR':
         setError(msg.message);
@@ -83,13 +83,20 @@ export default function LobbyPage() {
   // REQ-F-003: Persist playerName across page navigation
   const [roomNameError, setRoomNameError] = useState(false);
 
+  // REQ-F-CG01: Open settings popup instead of immediately creating room
   const handleCreate = () => {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
     if (!roomName.trim()) { setRoomNameError(true); return; }
     setRoomNameError(false);
     setError('');
+    setShowCreatePopup(true);
+  };
+
+  // REQ-F-CG05: Create room with config from popup
+  const handleCreateConfirm = (config: CreateGameConfig) => {
+    setShowCreatePopup(false);
     sessionStorage.setItem('tichu_player_name', playerName.trim());
-    send({ type: 'CREATE_ROOM', playerName: playerName.trim(), roomName: roomName.trim() });
+    send({ type: 'CREATE_ROOM', playerName: playerName.trim(), roomName: roomName.trim(), config });
   };
 
   const handleJoinByCode = () => {
@@ -224,7 +231,7 @@ export default function LobbyPage() {
               className="px-6 py-2 rounded-lg font-semibold transition-opacity hover:opacity-80 whitespace-nowrap"
               style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)', width: '135px' }}
             >
-              Create Room
+              Create Game
             </button>
           </div>
 
@@ -390,6 +397,14 @@ export default function LobbyPage() {
           )}
         </div>
       </div>
+
+      {/* REQ-F-CG01: Game creation settings popup */}
+      {showCreatePopup && (
+        <CreateGamePopup
+          onCancel={() => setShowCreatePopup(false)}
+          onCreate={handleCreateConfirm}
+        />
+      )}
     </main>
   );
 }
