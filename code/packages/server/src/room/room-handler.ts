@@ -625,6 +625,7 @@ export class RoomHandler {
       config: room.config,
       gameInProgress: room.gameInProgress,
       spectatorCount: room.spectators.length,
+      spectatorNames: room.spectators.filter(s => s.isConnected).map(s => s.name),
       readyPlayers: this.roomManager.getReadySeats(roomCode),
     };
 
