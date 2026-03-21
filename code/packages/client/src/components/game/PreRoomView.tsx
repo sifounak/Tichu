@@ -305,11 +305,11 @@ export function PreRoomView({
         ) : queueStatus ? (
           // REQ-F-SC03: Non-selecting spectators see queue position + countdown
           <div style={{ textAlign: 'center' as const }}>
-            <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: 'var(--color-text-primary)', marginBottom: 'var(--space-1)' }}>
+            <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: 'var(--color-gold-accent)', marginBottom: 'var(--space-1)' }}>
               A seat has opened up!
             </div>
-            <div style={{ fontSize: 'var(--font-md)', fontWeight: 600, color: 'var(--color-gold-accent)', marginBottom: 'var(--space-2)' }}>
-              You are {ordinal(queueStatus.position)} in line...
+            <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: 'var(--color-gold-accent)', marginBottom: 'var(--space-2)' }}>
+              You are {ordinal(queueStatus.position)} in line
             </div>
             <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
               Moving to next spectator in {countdown} seconds...
