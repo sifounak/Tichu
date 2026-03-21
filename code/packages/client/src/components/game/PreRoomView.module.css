@@ -104,8 +104,8 @@
 }
 
 .waitingText {
-  font-size: calc(18px * var(--scale));
-  font-weight: 600;
+  font-size: calc(28px * var(--scale));
+  font-weight: 700;
   color: var(--color-text-muted);
 }
 
