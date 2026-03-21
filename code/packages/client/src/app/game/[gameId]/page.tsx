@@ -496,8 +496,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     [send],
   );
 
-  // REQ-F-SP05: Detect spectator — mySeat is null for spectators
-  const isSpectator = gameStore.mySeat === null;
+  // REQ-F-SP05: Detect spectator — roomStore.mySeat is null for spectators
+  // (gameStore.mySeat is 'south' for spectators after GAME_STATE arrives)
+  const isSpectator = mySeatFromRoom === null;
 
   // Auto-skip Tichu decision phase — player can call Tichu from the ActionBar during gameplay
   // NOTE: Must be above early returns to respect Rules of Hooks
