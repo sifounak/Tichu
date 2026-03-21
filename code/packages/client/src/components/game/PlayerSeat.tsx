@@ -33,6 +33,8 @@ export interface PlayerSeatProps {
   seatChooserLabel?: string;
   /** Callback when the seat chooser button is clicked */
   onChooseSeat?: () => void;
+  /** Custom content replacing the default name/avatar/cards (for pre-room empty/bot seats) */
+  customContent?: React.ReactNode;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -60,6 +62,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   vacated,
   seatChooserLabel,
   onChooseSeat,
+  customContent,
 }: PlayerSeatProps) {
   const name = displayName ?? SEAT_LABELS[seat];
   const [hovered, setHovered] = useState(false);
@@ -78,6 +81,15 @@ export const PlayerSeat = memo(function PlayerSeat({
     passConfirmed && styles.passConfirmed,
     vacated && styles.vacated,
   ].filter(Boolean).join(' ');
+
+  // Custom content mode — same .seat container, custom inner content
+  if (customContent) {
+    return (
+      <div className={className} data-seat={seat} aria-label={`${name}'s seat`}>
+        {customContent}
+      </div>
+    );
+  }
 
   return (
     <div

@@ -115,7 +115,11 @@ export function PreRoomView({
     return players.find((p) => p.seat === seat)?.name;
   };
 
-  // Seat renderer: uses real PlayerSeat for occupied seats, bot controls for empty
+  const handleSwapSeat = (seat: Seat) => {
+    send({ type: 'SWAP_SEATS', targetSeat: seat });
+  };
+
+  // Seat renderer: all seats use PlayerSeat — customContent for empty/bot seats
   const renderSeat = useCallback((seat: Seat) => {
     const player = players.find((p) => p.seat === seat);
     const isReady = readyPlayers.includes(seat);
@@ -123,60 +127,80 @@ export function PreRoomView({
     // Player's own seat — rendered in the bottom panel, not here
     if (seat === mySeat) return null;
 
-    // Occupied seat — render actual PlayerSeat
-    if (player) {
+    // Human player — standard PlayerSeat with 0 cards
+    if (player && !player.isBot) {
       return (
-        <div style={{ position: 'relative' }}>
-          <PlayerSeat
-            seat={seat}
-            displayName={player.name}
-            cardCount={0}
-            tichuCall={'none'}
-            hasPlayed={false}
-            hasPassed={false}
-            finishOrder={null}
-            isCurrentTurn={false}
-            isTrickLeader={false}
-            isMe={false}
-            passConfirmed={isReady}
-          />
-          {/* Host controls overlay for bots/players */}
-          {isHost && (player.isBot || seat !== hostSeat) && (
-            <div className={styles.seatAction}>
-              <button
-                onClick={() => player.isBot ? handleRemoveBot(seat) : handleKickPlayer(seat)}
-                className={styles.removeBtn}
-              >
-                {player.isBot ? 'Remove' : 'Kick'}
-              </button>
-            </div>
-          )}
-        </div>
+        <PlayerSeat
+          seat={seat}
+          displayName={player.name}
+          cardCount={0}
+          tichuCall={'none'}
+          hasPlayed={false}
+          hasPassed={false}
+          finishOrder={null}
+          isCurrentTurn={false}
+          isTrickLeader={false}
+          isMe={false}
+          passConfirmed={isReady}
+        />
       );
     }
 
-    // Empty seat — bot controls (host) or waiting label (non-host)
+    // Bot — PlayerSeat with custom content: bot name + remove button
+    if (player?.isBot) {
+      return (
+        <PlayerSeat
+          seat={seat}
+          displayName={player.name}
+          cardCount={0}
+          tichuCall={'none'}
+          hasPlayed={false}
+          hasPassed={false}
+          finishOrder={null}
+          isCurrentTurn={false}
+          isTrickLeader={false}
+          isMe={false}
+          passConfirmed={isReady}
+          customContent={
+            <div className={styles.botSeatContent}>
+              <span className={styles.botName}>{player.name}</span>
+              {isHost && (
+                <button onClick={() => handleRemoveBot(seat)} className={styles.removeBtn}>
+                  Remove Bot
+                </button>
+              )}
+            </div>
+          }
+        />
+      );
+    }
+
+    // Empty seat — PlayerSeat with custom content: Empty Seat + Sit Here + Add Bot
     return (
-      <div className={styles.emptySeat}>
-        {isHost ? (
-          <div className={styles.botControls}>
-            <span className={styles.botDiffLabel}>Difficulty</span>
-            <select
-              value={botDifficulty[seat]}
-              onChange={(e) => setBotDifficulty((prev) => ({ ...prev, [seat]: e.target.value as 'hard' | 'expert' }))}
-              className={styles.botDiffSelect}
-            >
-              <option value="hard">Normal</option>
-              <option value="expert">Expert</option>
-            </select>
-            <button onClick={() => handleAddBot(seat)} className={styles.addBotBtn}>
-              Add Bot
+      <PlayerSeat
+        seat={seat}
+        cardCount={0}
+        tichuCall={'none'}
+        hasPlayed={false}
+        hasPassed={false}
+        finishOrder={null}
+        isCurrentTurn={false}
+        isTrickLeader={false}
+        isMe={false}
+        customContent={
+          <div className={styles.emptySeatContent}>
+            <span className={styles.emptyTitle}>Empty Seat</span>
+            <button onClick={() => handleSwapSeat(seat)} className={styles.sitHereBtn}>
+              Sit Here
             </button>
+            {isHost && (
+              <button onClick={() => handleAddBot(seat)} className={styles.addBotBtn}>
+                Add Bot
+              </button>
+            )}
           </div>
-        ) : (
-          <span className={styles.emptyLabel}>Waiting...</span>
-        )}
-      </div>
+        }
+      />
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty]);

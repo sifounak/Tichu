@@ -16,81 +16,73 @@
   color: var(--color-gold-accent);
 }
 
-/* Empty seat — matches PlayerSeat .seat dimensions */
-.emptySeat {
+/* Empty seat content — inside PlayerSeat via customContent */
+.emptySeatContent {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: var(--space-3) var(--space-6) var(--space-4);
-  border-radius: var(--space-3);
-  background: var(--color-bg-panel);
-  border: 2px solid var(--color-border);
-  min-width: calc(240px * var(--scale));
-  max-width: calc(280px * var(--scale));
-  min-height: calc(120px * var(--scale));
+  gap: calc(8px * var(--scale));
+  padding: var(--space-2) 0;
 }
 
-.emptyLabel {
-  color: var(--color-text-muted);
-  font-style: italic;
+.emptyTitle {
   font-size: calc(22px * var(--scale));
-}
-
-/* Bot controls on empty seats (host only) */
-.botControls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(6px * var(--scale));
-  width: 100%;
-}
-
-.botDiffLabel {
-  font-size: var(--font-sm);
+  font-weight: 600;
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
-.botDiffSelect {
-  width: calc(120px * var(--scale));
-  padding: calc(4px * var(--scale)) calc(8px * var(--scale));
-  border-radius: var(--space-1);
-  background: var(--color-felt-green-dark);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  text-align: center;
-  font-size: var(--font-sm);
+.sitHereBtn {
+  padding: calc(6px * var(--scale)) calc(20px * var(--scale));
+  border-radius: var(--space-2);
+  font-size: var(--font-base);
+  font-weight: 600;
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sitHereBtn:hover {
+  opacity: 0.85;
 }
 
 .addBotBtn {
-  padding: calc(4px * var(--scale)) calc(16px * var(--scale));
-  border-radius: var(--space-1);
-  font-size: var(--font-sm);
+  padding: calc(6px * var(--scale)) calc(20px * var(--scale));
+  border-radius: var(--space-2);
+  font-size: var(--font-base);
   font-weight: 600;
-  background: var(--color-felt-green-light);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
+  background: var(--color-success, #2ecc71);
+  color: #000;
+  border: none;
   cursor: pointer;
   transition: opacity 0.15s;
 }
 
 .addBotBtn:hover {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
-/* Remove/Kick button below an occupied seat */
-.seatAction {
+/* Bot seat content — inside PlayerSeat via customContent */
+.botSeatContent {
   display: flex;
-  justify-content: center;
-  margin-top: calc(6px * var(--scale));
+  flex-direction: column;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+  padding: var(--space-2) 0;
+}
+
+.botName {
+  font-size: calc(26px * var(--scale));
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-align: center;
 }
 
 .removeBtn {
-  padding: calc(4px * var(--scale)) calc(12px * var(--scale));
-  border-radius: var(--space-1);
-  font-size: var(--font-sm);
+  padding: calc(6px * var(--scale)) calc(16px * var(--scale));
+  border-radius: var(--space-2);
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--color-error);
   border: 1px solid var(--color-error);
