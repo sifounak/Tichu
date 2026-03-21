@@ -230,6 +230,26 @@ export class SeatQueue {
     this.spectatorOrder.push(userId);
   }
 
+  /**
+   * Handle a seat being filled externally (e.g. host added a bot).
+   * Removes the seat from available seats. If no seats remain, finishes the queue.
+   */
+  handleSeatFilledExternally(seat: Seat): void {
+    if (!this.isActive()) return;
+
+    this.availableSeats = this.availableSeats.filter(s => s !== seat);
+
+    if (this.availableSeats.length === 0) {
+      // All seats filled — cancel whatever phase we're in
+      this.clearTimer();
+      // If there was a deciding spectator, send them waiting status
+      if (this.currentOfferedUserId) {
+        this.sendWaitingStatus(this.currentOfferedUserId);
+      }
+      this.finishQueue();
+    }
+  }
+
   /** Clean up timers and reset state */
   cleanup(): void {
     this.clearTimer();
