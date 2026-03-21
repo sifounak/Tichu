@@ -703,7 +703,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 'var(--space-2)',
+        gap: 'var(--space-1)',
       }}>
         {/* REQ-F-SP05: Spectating badge — above room code, same width */}
         {isSpectator && (
