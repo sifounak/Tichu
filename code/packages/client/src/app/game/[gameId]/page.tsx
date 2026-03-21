@@ -868,6 +868,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         bottomContent={isSpectator ? (() => {
           const hostPlayer = view.otherPlayers.find((p) => p.seat === view.mySeat);
           if (!hostPlayer) return undefined;
+          const isCardPassPhase = view.phase === 'cardPassing';
+          const hostPassConfirmed = isCardPassPhase && (view.cardPassConfirmed ?? []).includes(view.mySeat);
           return (
             <PlayerSeat
               seat={view.mySeat}
@@ -880,6 +882,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
               isCurrentTurn={view.currentTurn === view.mySeat}
               isTrickLeader={(view.currentTrick?.currentWinner ?? null) === view.mySeat}
               isMe={false}
+              passConfirmed={hostPassConfirmed}
             />
           );
         })() : undefined}
