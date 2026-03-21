@@ -103,8 +103,9 @@
   gap: calc(12px * var(--scale));
 }
 
-.readyCount {
-  font-size: var(--font-base);
+.waitingText {
+  font-size: calc(18px * var(--scale));
+  font-weight: 600;
   color: var(--color-text-muted);
 }
 

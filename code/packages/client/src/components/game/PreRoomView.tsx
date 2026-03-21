@@ -209,24 +209,26 @@ export function PreRoomView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty]);
 
-  // Center content: Start Game / Ready — Waiting + Cancel
+  // Center content: spectators see waiting message; players see Start Game / Ready + Cancel
   const centerContent = (
     <div className={styles.centerContent}>
-      <div className={styles.readyCount}>
-        {readyPlayers.length}/{players.length} Ready
-        {players.length < 4 && ` — need ${4 - players.length} more`}
-      </div>
-      {!amReady && (
-        <button onClick={handleReadyToStart} className={styles.startBtn}>
-          Start Game
-        </button>
-      )}
-      {amReady && (
+      {isSpectator ? (
+        <div className={styles.waitingText}>Waiting for game to start...</div>
+      ) : (
         <>
-          <div className={styles.readyWaiting}>Ready — Waiting...</div>
-          <button onClick={handleCancelReady} className={styles.cancelBtn}>
-            Cancel
-          </button>
+          {!amReady && (
+            <button onClick={handleReadyToStart} className={styles.startBtn}>
+              Start Game
+            </button>
+          )}
+          {amReady && (
+            <>
+              <div className={styles.readyWaiting}>Ready — Waiting...</div>
+              <button onClick={handleCancelReady} className={styles.cancelBtn}>
+                Cancel
+              </button>
+            </>
+          )}
         </>
       )}
     </div>
