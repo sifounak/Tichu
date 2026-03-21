@@ -76,9 +76,11 @@ export function PreRoomView({
     west: 'expert',
   });
 
+  const isSpectator = mySeat === null;
   const isHost = mySeat === hostSeat;
   const amReady = mySeat ? readyPlayers.includes(mySeat) : false;
-  const effectiveSeat = mySeat ?? 'south';
+  // Spectators see from host's POV (host is always south)
+  const effectiveSeat = mySeat ?? hostSeat ?? 'south';
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomCode);
