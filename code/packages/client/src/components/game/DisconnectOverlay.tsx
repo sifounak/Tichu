@@ -7,14 +7,16 @@ import type { Seat } from '@tichu/shared';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import styles from './DisconnectOverlay.module.css';
 
-export type DisconnectVote = 'wait' | 'bot' | 'abandon';
+// REQ-F-ES04: Vote options reduced to Wait/Kick
+export type DisconnectVote = 'wait' | 'kick';
 
 export interface DisconnectOverlayProps {
-  disconnectedSeat: Seat | null;
+  /** REQ-F-ES17: Multi-disconnect support */
+  disconnectedSeats: Seat[];
   /** Whether we need to vote */
   voteRequired: boolean;
   onVote: (vote: DisconnectVote) => void;
-  /** Countdown seconds remaining (server-driven) */
+  /** Countdown seconds remaining (server-driven, 45s auto-kick) */
   countdownSeconds: number;
   /** Reconnection notification */
   reconnectedSeat: Seat | null;
@@ -29,7 +31,7 @@ const SEAT_LABELS: Record<Seat, string> = {
 };
 
 export const DisconnectOverlay = memo(function DisconnectOverlay({
-  disconnectedSeat,
+  disconnectedSeats,
   voteRequired,
   onVote,
   countdownSeconds,
@@ -50,9 +52,9 @@ export const DisconnectOverlay = memo(function DisconnectOverlay({
 
   return (
     <>
-      {/* Disconnect overlay */}
+      {/* REQ-F-ES04: Disconnect overlay with Wait/Kick vote */}
       <AnimatePresence>
-        {disconnectedSeat && (
+        {disconnectedSeats.length > 0 && (
           <motion.div
             className={styles.overlay}
             initial={enabled ? { opacity: 0 } : false}
@@ -61,14 +63,17 @@ export const DisconnectOverlay = memo(function DisconnectOverlay({
             transition={{ duration: durations.cardPlay }}
           >
             <div className={styles.panel} role="alertdialog" aria-label="Player disconnected">
-              <h3 className={styles.title}>Player Disconnected</h3>
+              <h3 className={styles.title}>
+                {disconnectedSeats.length === 1 ? 'Player Disconnected' : 'Players Disconnected'}
+              </h3>
               <p className={styles.message}>
-                {seatNames?.[disconnectedSeat] ?? SEAT_LABELS[disconnectedSeat]} has lost connection.
+                {disconnectedSeats.map(s => seatNames?.[s] ?? SEAT_LABELS[s]).join(' and ')}
+                {disconnectedSeats.length === 1 ? ' has' : ' have'} lost connection.
               </p>
 
               {countdownSeconds > 0 && (
                 <div className={styles.countdown} aria-live="polite">
-                  Auto-deciding in {countdownSeconds}s
+                  Auto-kicking in {countdownSeconds}s
                 </div>
               )}
 
@@ -77,23 +82,16 @@ export const DisconnectOverlay = memo(function DisconnectOverlay({
                   <button
                     className={`${styles.voteButton} ${styles.waitButton}`}
                     onClick={() => onVote('wait')}
-                    aria-label="Wait for player to reconnect"
+                    aria-label="Wait for player to rejoin"
                   >
                     Wait
                   </button>
                   <button
-                    className={`${styles.voteButton} ${styles.botButton}`}
-                    onClick={() => onVote('bot')}
-                    aria-label="Replace with bot"
-                  >
-                    Replace with Bot
-                  </button>
-                  <button
                     className={`${styles.voteButton} ${styles.abandonButton}`}
-                    onClick={() => onVote('abandon')}
-                    aria-label="Abandon game"
+                    onClick={() => onVote('kick')}
+                    aria-label="Kick disconnected player"
                   >
-                    Abandon
+                    Kick
                   </button>
                 </div>
               )}

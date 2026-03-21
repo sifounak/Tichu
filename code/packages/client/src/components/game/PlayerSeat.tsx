@@ -29,6 +29,10 @@ export interface PlayerSeatProps {
   passConfirmed?: boolean;
   /** Override the "Ready to Pass" label text (e.g. "Ready to Play" in pre-room) */
   passConfirmedLabel?: string;
+  /** REQ-F-ES01: Seat is empty — player left, shows "Empty Seat" with preserved game state */
+  emptySeat?: boolean;
+  /** REQ-F-ES04: Vote status glow — 'wait' = green, 'kick' = red, null = normal */
+  voteStatus?: 'wait' | 'kick' | null;
   /** Seat is vacated — player left mid-game, waiting for replacement */
   vacated?: boolean;
   /** Seat chooser button label (e.g. "Sit Here" or "Choose This Seat") */
@@ -61,13 +65,16 @@ export const PlayerSeat = memo(function PlayerSeat({
   onSeatClick,
   hideTrickLabels,
   passConfirmed,
+  emptySeat,
+  voteStatus,
   vacated,
   seatChooserLabel,
   onChooseSeat,
   customContent,
   passConfirmedLabel,
 }: PlayerSeatProps) {
-  const name = displayName ?? SEAT_LABELS[seat];
+  // REQ-F-ES01: Empty seat shows "Empty Seat" label
+  const name = emptySeat ? 'Empty Seat' : (displayName ?? SEAT_LABELS[seat]);
   const [hovered, setHovered] = useState(false);
 
   // dragonTarget = always-on purple glow; dragonHoverTarget = purple glow only on hover
@@ -76,12 +83,16 @@ export const PlayerSeat = memo(function PlayerSeat({
 
   const className = [
     styles.seat,
-    isCurrentTurn && styles.active,
-    isTrickLeader && styles.trickLeader,
+    // REQ-F-ES04: Vote glow overrides normal turn/leader glows during active vote
+    voteStatus === 'wait' && styles.voteWait,
+    voteStatus === 'kick' && styles.voteKick,
+    !voteStatus && isCurrentTurn && styles.active,
+    !voteStatus && isTrickLeader && styles.trickLeader,
     hasPassed && styles.passed,
     isMe && styles.me,
     isDragonActive && styles.dragonTarget,
     passConfirmed && styles.passConfirmed,
+    emptySeat && styles.emptySeat,
     vacated && styles.vacated,
   ].filter(Boolean).join(' ');
 
@@ -107,9 +118,9 @@ export const PlayerSeat = memo(function PlayerSeat({
     >
       <span className={styles.name}>{name}</span>
       <div className={styles.seatRow}>
-        {/* Avatar */}
-        <div className={styles.avatar}>
-          {finishOrder !== null ? (
+        {/* Avatar — REQ-F-ES01: Empty circle for empty seats */}
+        <div className={`${styles.avatar} ${emptySeat ? styles.emptyAvatar : ''}`}>
+          {emptySeat ? null : finishOrder !== null ? (
             <span className={styles.finishBadge}>#{finishOrder}</span>
           ) : (
             <span className={styles.initial}>{name[0].toUpperCase()}</span>
@@ -171,8 +182,16 @@ export const PlayerSeat = memo(function PlayerSeat({
         <span className={styles.passConfirmedLabel}>{passConfirmedLabel ?? 'Ready to Pass'}</span>
       )}
 
+      {/* REQ-F-ES04: Vote status label — overrides other labels during active vote */}
+      {voteStatus === 'wait' && (
+        <span className={styles.voteLabel} style={{ color: '#2ecc71' }}>Vote: Wait</span>
+      )}
+      {voteStatus === 'kick' && (
+        <span className={styles.voteLabel} style={{ color: '#e74c3c' }}>Vote: Kick</span>
+      )}
+
       {/* Vacated seat overlay */}
-      {vacated && !seatChooserLabel && (
+      {vacated && !emptySeat && !seatChooserLabel && (
         <div className={styles.vacatedOverlay}>
           Waiting for player to join
         </div>

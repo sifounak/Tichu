@@ -106,6 +106,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         onSeatClick={(isDragonTarget || isDragonHoverTarget) ? () => onDragonGift?.(seat) : undefined}
         hideTrickLabels={isDragonTarget}
         passConfirmed={isPassConfirmed}
+        emptySeat={vacatedSeats.includes(seat)}
+        voteStatus={(view.disconnectVotes?.[seat] as 'wait' | 'kick' | null) ?? null}
         vacated={vacatedSeats.includes(seat)}
         seatChooserLabel={onChooseSeat && vacatedSeats.includes(seat) ? 'Sit Here' : undefined}
         onChooseSeat={onChooseSeat && vacatedSeats.includes(seat) ? () => onChooseSeat(seat) : undefined}

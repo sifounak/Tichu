@@ -154,7 +154,8 @@ export class GameManager {
         break;
 
       case 'DISCONNECT_VOTE':
-        this.disconnectHandler.handleVote(this.roomCode, seat, message.vote);
+        // REQ-F-ES04: Vote type narrowed to 'wait' | 'kick' — disconnect-handler rewrite in M2
+        this.disconnectHandler.handleVote(this.roomCode, seat, message.vote as any);
         return; // Vote handler manages its own broadcasts
 
       default:
@@ -174,16 +175,40 @@ export class GameManager {
     this.broadcastState();
   }
 
-  /** Handle a player disconnecting from this game */
+  /** REQ-F-ES04: Handle a player disconnecting from this game.
+   *  Stops timer and starts vote process. Does NOT vacate seat yet — waits for vote result. */
   handleDisconnect(seat: Seat): void {
+    this.timer.stop();
     this.disconnectHandler.handleDisconnect(this.roomCode, seat);
+    this.broadcastState();
   }
 
-  /** Handle a player reconnecting to this game */
+  /** REQ-F-ES14: Handle a player reconnecting to this game.
+   *  If vote was "wait" and player reconnects, auto-restore to original seat. */
   handleReconnect(_ws: WebSocket, seat: Seat): void {
     this.disconnectHandler.handleReconnect(this.roomCode, seat);
     // Send the current full state to the reconnected player
     this.sendStateTo(seat);
+    this.broadcastState();
+  }
+
+  /** REQ-F-ES04: Wire the kick-resolved callback — when kick vote passes, vacate each kicked seat.
+   *  Called by game-store or room-handler to register the callback. */
+  wireKickCallback(onSeatsVacated: (roomCode: string, seats: Seat[]) => void): void {
+    this.disconnectHandler.onVoteResult = (roomCode, outcome, seats) => {
+      if (outcome === 'kick') {
+        // Vacate each kicked seat
+        for (const s of seats) {
+          this.vacatedSeats.add(s);
+        }
+        // Clear disconnected tracking for kicked seats (they're now vacated, not disconnected)
+        this.broadcastState();
+        onSeatsVacated(roomCode, seats);
+      } else if (outcome === 'waiting') {
+        // Keep seats reserved — just broadcast updated state (vote UI clears)
+        this.broadcastState();
+      }
+    };
   }
 
   /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
@@ -209,10 +234,12 @@ export class GameManager {
 
   /** REQ-F-SP06: Send spectator-projected state to a specific WebSocket. */
   sendSpectatorState(ws: WebSocket): void {
+    const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
     const view = projectSpectatorView(
       this.context,
       this.stateValue,
       [...this.vacatedSeats],
+      voteStatus,
     );
     this.broadcaster.send(ws, { type: 'GAME_STATE', state: view });
   }
@@ -267,15 +294,22 @@ export class GameManager {
     this.botRunner.addBot(seat, strategy);
   }
 
+  /** Get the disconnect handler (for state projection access) */
+  getDisconnectHandler(): DisconnectHandler {
+    return this.disconnectHandler;
+  }
+
   /** Broadcast current game state to all players in the room */
   broadcastState(): void {
     if (this.destroyed) return;
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats]);
+    const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
   private sendStateTo(seat: Seat): void {
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats]);
+    const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,

@@ -56,8 +56,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('READY_TO_START') }),
   z.object({ type: z.literal('CANCEL_READY') }),
 
-  // REQ-F-SP08: Spectator seat queue responses
-  z.object({ type: z.literal('CLAIM_SEAT') }),
+  // REQ-F-ES06: Spectator seat queue responses (seat optional for multi-vacancy picking)
+  z.object({ type: z.literal('CLAIM_SEAT'), seat: seatSchema.optional() }),
   z.object({ type: z.literal('DECLINE_SEAT') }),
 
   // Game actions
@@ -75,8 +75,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   // Mid-game seat choice (when joining with 2+ vacated seats)
   z.object({ type: z.literal('CHOOSE_SEAT'), seat: seatSchema }),
 
-  // Disconnect vote
-  z.object({ type: z.literal('DISCONNECT_VOTE'), vote: z.enum(['wait', 'bot', 'abandon']) }),
+  // REQ-F-ES04: Disconnect vote (Wait to keep seat reserved, Kick to vacate)
+  z.object({ type: z.literal('DISCONNECT_VOTE'), vote: z.enum(['wait', 'kick']) }),
 
   // Chat
   z.object({ type: z.literal('CHAT_MESSAGE'), text: z.string().min(1).max(500) }),
@@ -95,10 +95,11 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), readyPlayers: z.array(seatSchema) }),
   z.object({ type: z.literal('ROOM_LEFT') }),
   z.object({ type: z.literal('KICKED'), message: z.string() }),
-  z.object({ type: z.literal('LOBBY_LIST'), rooms: z.array(z.object({ roomCode: z.string(), roomName: z.string(), hostName: z.string(), playerCount: z.number(), spectatorCount: z.number(), config: z.any(), gameInProgress: z.boolean() })) }),
+  // REQ-F-ES05: LOBBY_LIST includes hasEmptySeats for "Join (In Progress)" button
+  z.object({ type: z.literal('LOBBY_LIST'), rooms: z.array(z.object({ roomCode: z.string(), roomName: z.string(), hostName: z.string(), playerCount: z.number(), spectatorCount: z.number(), config: z.any(), gameInProgress: z.boolean(), hasEmptySeats: z.boolean() })) }),
 
-  // REQ-F-SP07: Seat offered to deciding spectator (FIFO priority)
-  z.object({ type: z.literal('SEAT_OFFERED'), seat: seatSchema, timeoutMs: z.number() }),
+  // REQ-F-ES06: Seat offered to deciding spectator (FIFO priority, array for multi-vacancy)
+  z.object({ type: z.literal('SEAT_OFFERED'), seats: z.array(seatSchema), timeoutMs: z.number() }),
   // REQ-F-SP08b: Queue status for non-deciding spectators
   z.object({ type: z.literal('QUEUE_STATUS'), decidingSpectator: z.string(), position: z.number().int().min(1), timeoutMs: z.number() }),
   // REQ-F-SP08c: All spectators declined — seats up for grabs
@@ -136,10 +137,12 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('GAME_OVER'), winner: z.string(), finalScores: z.record(z.number()) }),
 
-  // Disconnect handling
+  // REQ-F-ES04: Disconnect handling (multi-disconnect support)
   z.object({ type: z.literal('PLAYER_DISCONNECTED'), seat: seatSchema }),
   z.object({ type: z.literal('PLAYER_RECONNECTED'), seat: seatSchema }),
-  z.object({ type: z.literal('DISCONNECT_VOTE_REQUIRED'), disconnectedSeat: seatSchema }),
+  z.object({ type: z.literal('DISCONNECT_VOTE_REQUIRED'), disconnectedSeats: z.array(seatSchema) }),
+  // REQ-F-ES04: Per-seat vote status broadcast for vote UI on player info boxes
+  z.object({ type: z.literal('DISCONNECT_VOTE_UPDATE'), votes: z.record(seatSchema, z.enum(['wait', 'kick']).nullable()), disconnectedSeats: z.array(seatSchema), timeoutMs: z.number() }),
 
   // Chat
   z.object({ type: z.literal('CHAT_RECEIVED'), from: seatSchema, text: z.string() }),

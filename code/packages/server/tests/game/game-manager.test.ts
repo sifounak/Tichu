@@ -207,6 +207,7 @@ describe('GameManager', () => {
         'lobby',
         [],
         [],
+        null, // disconnectVoteStatus
       );
     });
   });

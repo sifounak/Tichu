@@ -24,8 +24,8 @@ interface PreRoomViewProps {
   readyPlayers: Seat[];
   send: (msg: Record<string, unknown>) => boolean;
   onLeave: () => void;
-  /** REQ-F-SC02: Seat offer for selecting spectator (countdown) */
-  seatOffer?: { seat: Seat; timeoutMs: number } | null;
+  /** REQ-F-ES06: Seat offer for selecting spectator (countdown, multi-seat) */
+  seatOffer?: { seats: Seat[]; timeoutMs: number } | null;
   /** REQ-F-SC03: Queue status for non-selecting spectators */
   queueStatus?: { decidingSpectator: string; position: number; timeoutMs: number } | null;
   /** REQ-F-SC04: Available seats for up-for-grabs phase */
@@ -60,6 +60,8 @@ function makeDummyView(mySeat: Seat): ClientGameView {
     cardPassConfirmed: [],
     vacatedSeats: [],
     choosingSeat: false,
+    disconnectVotes: {},
+    gameHalted: false,
     winner: null,
   };
 }

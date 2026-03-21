@@ -10,8 +10,9 @@ describe('uiStore — M15 features', () => {
       chatOpen: false,
       chatMessages: [],
       chatUnread: 0,
-      disconnectedSeat: null,
+      disconnectedSeats: [],
       disconnectVoteRequired: false,
+      disconnectVotes: {},
       disconnectCountdown: 0,
       reconnectedSeat: null,
       tichuEvent: null,
@@ -47,30 +48,53 @@ describe('uiStore — M15 features', () => {
     });
   });
 
-  describe('disconnect (REQ-F-MP08)', () => {
-    it('setDisconnected stores the seat', () => {
-      useUiStore.getState().setDisconnected('north');
-      expect(useUiStore.getState().disconnectedSeat).toBe('north');
+  // REQ-F-ES04: Disconnect state with multi-seat support
+  describe('disconnect (REQ-F-ES04)', () => {
+    it('addDisconnectedSeat stores the seat', () => {
+      useUiStore.getState().addDisconnectedSeat('north');
+      expect(useUiStore.getState().disconnectedSeats).toEqual(['north']);
+    });
+
+    it('addDisconnectedSeat supports multiple seats', () => {
+      useUiStore.getState().addDisconnectedSeat('north');
+      useUiStore.getState().addDisconnectedSeat('east');
+      expect(useUiStore.getState().disconnectedSeats).toEqual(['north', 'east']);
+    });
+
+    it('addDisconnectedSeat does not duplicate', () => {
+      useUiStore.getState().addDisconnectedSeat('north');
+      useUiStore.getState().addDisconnectedSeat('north');
+      expect(useUiStore.getState().disconnectedSeats).toEqual(['north']);
     });
 
     it('setDisconnectVoteRequired enables voting', () => {
-      useUiStore.getState().setDisconnected('east');
+      useUiStore.getState().addDisconnectedSeat('east');
       useUiStore.getState().setDisconnectVoteRequired(true);
       expect(useUiStore.getState().disconnectVoteRequired).toBe(true);
     });
 
     it('setDisconnectCountdown updates countdown', () => {
-      useUiStore.getState().setDisconnectCountdown(30);
-      expect(useUiStore.getState().disconnectCountdown).toBe(30);
+      useUiStore.getState().setDisconnectCountdown(45);
+      expect(useUiStore.getState().disconnectCountdown).toBe(45);
     });
 
-    it('setReconnected clears disconnect state', () => {
-      useUiStore.getState().setDisconnected('west');
+    it('setReconnected clears disconnect state for that seat', () => {
+      useUiStore.getState().addDisconnectedSeat('west');
       useUiStore.getState().setDisconnectVoteRequired(true);
       useUiStore.getState().setReconnected('west');
-      expect(useUiStore.getState().disconnectedSeat).toBeNull();
+      expect(useUiStore.getState().disconnectedSeats).toEqual([]);
       expect(useUiStore.getState().disconnectVoteRequired).toBe(false);
       expect(useUiStore.getState().reconnectedSeat).toBe('west');
+    });
+
+    it('clearDisconnectState resets all disconnect fields', () => {
+      useUiStore.getState().addDisconnectedSeat('north');
+      useUiStore.getState().setDisconnectVoteRequired(true);
+      useUiStore.getState().setDisconnectVotes({ north: null, east: 'wait', south: 'kick', west: null });
+      useUiStore.getState().clearDisconnectState();
+      expect(useUiStore.getState().disconnectedSeats).toEqual([]);
+      expect(useUiStore.getState().disconnectVoteRequired).toBe(false);
+      expect(useUiStore.getState().disconnectVotes).toEqual({});
     });
   });
 

@@ -365,7 +365,16 @@ export default function LobbyPage() {
                         {room.playerCount}/4
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center' }}>
-                        {room.playerCount < 4 ? (
+                        {/* REQ-F-ES05: "Join (In Progress)" for mid-game rooms with empty seats */}
+                        {room.hasEmptySeats ? (
+                          <button
+                            onClick={() => handleJoinRoom(room.roomCode)}
+                            className="px-4 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
+                            style={{ background: 'var(--color-success)', color: '#000' }}
+                          >
+                            Join (In Progress)
+                          </button>
+                        ) : room.playerCount < 4 ? (
                           <button
                             onClick={() => handleJoinRoom(room.roomCode)}
                             className="px-5 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"

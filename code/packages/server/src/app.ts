@@ -159,10 +159,19 @@ export function createApp(config: Partial<AppConfig> = {}) {
         } else if (info.seat) {
           // REQ-F-002: Mark player as disconnected (preserves room membership for reconnection)
           roomHandler.roomManager.markDisconnected(info.userId);
-          broadcaster.broadcastToRoom(info.roomCode, {
-            type: 'PLAYER_DISCONNECTED',
-            seat: info.seat,
-          });
+
+          // REQ-F-ES04: If game is in progress, trigger disconnect vote flow
+          const room = roomHandler.roomManager.getRoom(info.roomCode);
+          const game = gameStore.getGameByRoom(info.roomCode);
+          if (room?.gameInProgress && game) {
+            game.handleDisconnect(info.seat);
+          } else {
+            // No game in progress — just broadcast disconnection
+            broadcaster.broadcastToRoom(info.roomCode, {
+              type: 'PLAYER_DISCONNECTED',
+              seat: info.seat,
+            });
+          }
         }
       }
     });

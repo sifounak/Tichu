@@ -1,11 +1,11 @@
-// Verifies: REQ-F-MP08 — Disconnect handling UI
+// Verifies: REQ-F-ES04 — Disconnect handling UI with Wait/Kick vote
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { DisconnectOverlay } from '@/components/game/DisconnectOverlay';
 
-describe('DisconnectOverlay (REQ-F-MP08)', () => {
+describe('DisconnectOverlay (REQ-F-ES04)', () => {
   const defaultProps = {
-    disconnectedSeat: null as 'north' | null,
+    disconnectedSeats: [] as ('north' | 'east' | 'south' | 'west')[],
     voteRequired: false,
     onVote: vi.fn(),
     countdownSeconds: 0,
@@ -19,7 +19,7 @@ describe('DisconnectOverlay (REQ-F-MP08)', () => {
 
   it('shows overlay when a player disconnects', () => {
     render(
-      <DisconnectOverlay {...defaultProps} disconnectedSeat="north" />,
+      <DisconnectOverlay {...defaultProps} disconnectedSeats={['north']} />,
     );
     expect(screen.getByText('Player Disconnected')).toBeInTheDocument();
     expect(screen.getByText(/North has lost connection/)).toBeInTheDocument();
@@ -29,48 +29,59 @@ describe('DisconnectOverlay (REQ-F-MP08)', () => {
     render(
       <DisconnectOverlay
         {...defaultProps}
-        disconnectedSeat="east"
+        disconnectedSeats={['east']}
         voteRequired={true}
       />,
     );
-    expect(screen.getByLabelText('Wait for player to reconnect')).toBeInTheDocument();
-    expect(screen.getByLabelText('Replace with bot')).toBeInTheDocument();
-    expect(screen.getByLabelText('Abandon game')).toBeInTheDocument();
+    expect(screen.getByLabelText('Wait for player to rejoin')).toBeInTheDocument();
+    expect(screen.getByLabelText('Kick disconnected player')).toBeInTheDocument();
   });
 
-  it('calls onVote with correct value', () => {
+  it('calls onVote with kick', () => {
     const onVote = vi.fn();
     render(
       <DisconnectOverlay
         {...defaultProps}
-        disconnectedSeat="south"
+        disconnectedSeats={['south']}
         voteRequired={true}
         onVote={onVote}
       />,
     );
-    fireEvent.click(screen.getByLabelText('Replace with bot'));
-    expect(onVote).toHaveBeenCalledWith('bot');
+    fireEvent.click(screen.getByLabelText('Kick disconnected player'));
+    expect(onVote).toHaveBeenCalledWith('kick');
   });
 
-  it('shows countdown timer', () => {
+  it('shows countdown timer with auto-kick text', () => {
     render(
       <DisconnectOverlay
         {...defaultProps}
-        disconnectedSeat="west"
+        disconnectedSeats={['west']}
         countdownSeconds={25}
       />,
     );
-    expect(screen.getByText(/Auto-deciding in 25s/)).toBeInTheDocument();
+    expect(screen.getByText(/Auto-kicking in 25s/)).toBeInTheDocument();
   });
 
   it('hides vote buttons when vote is not required', () => {
     render(
       <DisconnectOverlay
         {...defaultProps}
-        disconnectedSeat="north"
+        disconnectedSeats={['north']}
         voteRequired={false}
       />,
     );
-    expect(screen.queryByLabelText('Wait for player to reconnect')).toBeNull();
+    expect(screen.queryByLabelText('Wait for player to rejoin')).toBeNull();
+  });
+
+  // REQ-F-ES17: Multi-disconnect support
+  it('shows plural text for multiple disconnected players', () => {
+    render(
+      <DisconnectOverlay
+        {...defaultProps}
+        disconnectedSeats={['north', 'east']}
+      />,
+    );
+    expect(screen.getByText('Players Disconnected')).toBeInTheDocument();
+    expect(screen.getByText(/North and East have lost connection/)).toBeInTheDocument();
   });
 });

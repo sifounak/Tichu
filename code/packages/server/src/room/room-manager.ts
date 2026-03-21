@@ -297,6 +297,8 @@ export class RoomManager {
           spectatorsAllowed: room.config.spectatorsAllowed,
         },
         gameInProgress: room.gameInProgress,
+        // REQ-F-ES05: Mark rooms with empty seats mid-game for "Join (In Progress)" button
+        hasEmptySeats: room.gameInProgress && room.players.length < 4,
       });
     }
     return entries;

@@ -87,6 +87,7 @@ function createMockGameStore(): GameStore {
       registerBot: vi.fn(),
       handleMessage: vi.fn(),
       broadcastState: vi.fn(),
+      wireKickCallback: vi.fn(),
       destroy: vi.fn(),
     }),
     getGame: vi.fn(),
