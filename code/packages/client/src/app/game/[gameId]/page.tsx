@@ -558,18 +558,12 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             gameStore.reset();
             router.push('/lobby');
           }}
+          seatOffer={isPreRoomSpectator ? uiStore.seatOffer : undefined}
+          queueStatus={isPreRoomSpectator ? uiStore.queueStatus : undefined}
+          availableSeats={isPreRoomSpectator ? uiStore.availableSeats : undefined}
+          onClaimSeat={isPreRoomSpectator ? () => send({ type: 'CLAIM_SEAT' }) : undefined}
+          onDeclineSeat={isPreRoomSpectator ? () => send({ type: 'DECLINE_SEAT' }) : undefined}
         />
-        {/* Spectator seat offer overlay in pre-room */}
-        {isPreRoomSpectator && (
-          <SpectatorOverlay
-            seatOffer={uiStore.seatOffer}
-            queueStatus={uiStore.queueStatus}
-            availableSeats={uiStore.availableSeats}
-            onClaimSeat={() => send({ type: 'CLAIM_SEAT' })}
-            onDeclineSeat={() => send({ type: 'DECLINE_SEAT' })}
-            onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
-          />
-        )}
       </>
     );
   }

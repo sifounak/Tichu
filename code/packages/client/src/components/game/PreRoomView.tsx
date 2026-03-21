@@ -7,7 +7,7 @@
 // REQ-F-CG17: Only host sees bot controls
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Seat, GameConfig, RoomPlayer } from '@tichu/shared';
 import type { ClientGameView } from '@tichu/shared';
 import { GameTable } from './GameTable';
@@ -24,6 +24,14 @@ interface PreRoomViewProps {
   readyPlayers: Seat[];
   send: (msg: Record<string, unknown>) => boolean;
   onLeave: () => void;
+  /** REQ-F-SC02: Seat offer for selecting spectator (countdown) */
+  seatOffer?: { seat: Seat; timeoutMs: number } | null;
+  /** REQ-F-SC03: Queue status for non-selecting spectators */
+  queueStatus?: { decidingSpectator: string; position: number; timeoutMs: number } | null;
+  /** REQ-F-SC04: Available seats for up-for-grabs phase */
+  availableSeats?: Seat[];
+  onClaimSeat?: () => void;
+  onDeclineSeat?: () => void;
 }
 
 /** Minimal ClientGameView stub so GameTable can calculate seat positions */
@@ -66,6 +74,11 @@ export function PreRoomView({
   readyPlayers,
   send,
   onLeave,
+  seatOffer,
+  queueStatus,
+  availableSeats,
+  onClaimSeat,
+  onDeclineSeat,
 }: PreRoomViewProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -75,6 +88,18 @@ export function PreRoomView({
     south: 'expert',
     west: 'expert',
   });
+
+  // REQ-F-SC02: Countdown timer for seat offer / queue status
+  const [countdown, setCountdown] = useState(0);
+  useEffect(() => {
+    const timeoutMs = seatOffer?.timeoutMs ?? queueStatus?.timeoutMs;
+    if (!timeoutMs) { setCountdown(0); return; }
+    setCountdown(Math.ceil(timeoutMs / 1000));
+    const interval = setInterval(() => {
+      setCountdown((prev) => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [seatOffer, queueStatus]);
 
   const isSpectator = mySeat === null;
   const isHost = mySeat === hostSeat;
@@ -179,7 +204,8 @@ export function PreRoomView({
       );
     }
 
-    // Empty seat — PlayerSeat with custom content: Empty Seat + Sit Here + Add Bot
+    // Empty seat — PlayerSeat with custom content: Empty Seat + Claim/Sit Here + Add Bot
+    // REQ-F-SC01: Spectators see "Claim Seat" that sends CLAIM_SEAT; players see "Sit Here" that sends SWAP_SEATS
     return (
       <PlayerSeat
         seat={seat}
@@ -194,9 +220,15 @@ export function PreRoomView({
         customContent={
           <div className={styles.emptySeatContent}>
             <span className={styles.emptyTitle}>Empty Seat</span>
-            <button onClick={() => handleSwapSeat(seat)} className={styles.sitHereBtn}>
-              Sit Here
-            </button>
+            {isSpectator ? (
+              <button onClick={() => send({ type: 'CLAIM_SEAT' })} className={styles.sitHereBtn}>
+                Claim Seat
+              </button>
+            ) : (
+              <button onClick={() => handleSwapSeat(seat)} className={styles.sitHereBtn}>
+                Sit Here
+              </button>
+            )}
             {isHost && (
               <button onClick={() => handleAddBot(seat)} className={styles.addBotBtn}>
                 Add Bot
@@ -209,11 +241,111 @@ export function PreRoomView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty]);
 
-  // Center content: spectators see waiting message; players see Start Game / Ready + Cancel
+  // Helper for ordinal suffixes (1st, 2nd, 3rd, 4th, ...)
+  const ordinal = (n: number) => {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  };
+
+  // Center content: spectators see seat claim dialog / queue status / up-for-grabs; players see Start Game / Ready + Cancel
   const centerContent = (
     <div className={styles.centerContent}>
       {isSpectator ? (
-        <div className={styles.waitingText}>Waiting for game to start...</div>
+        // REQ-F-SC02: Selecting spectator sees dialog with Pass / Claim Seat + countdown
+        seatOffer ? (
+          <div style={{
+            background: 'var(--color-bg-panel)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--space-3)',
+            padding: 'var(--space-5) var(--space-6)',
+            textAlign: 'center' as const,
+          }}>
+            <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, marginBottom: 'var(--space-4)', color: 'var(--color-text-primary)' }}>
+              A seat has opened up!
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', marginBottom: 'var(--space-3)' }}>
+              <button
+                onClick={onDeclineSeat}
+                style={{
+                  padding: 'var(--space-2) var(--space-5)',
+                  borderRadius: 'var(--space-2)',
+                  border: '1px solid var(--color-border)',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-md)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Pass
+              </button>
+              <button
+                onClick={onClaimSeat}
+                style={{
+                  padding: 'var(--space-2) var(--space-5)',
+                  borderRadius: 'var(--space-2)',
+                  border: 'none',
+                  background: 'var(--color-gold-accent)',
+                  color: 'var(--color-felt-green-dark)',
+                  fontSize: 'var(--font-md)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Claim Seat
+              </button>
+            </div>
+            <div style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
+              {countdown} seconds to decide
+            </div>
+          </div>
+        ) : queueStatus ? (
+          // REQ-F-SC03: Non-selecting spectators see queue position + countdown
+          <div style={{ textAlign: 'center' as const }}>
+            <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, color: 'var(--color-gold-accent)', marginBottom: 'var(--space-2)' }}>
+              You are {ordinal(queueStatus.position)} in line
+            </div>
+            <div style={{ fontSize: 'var(--font-md)', color: 'var(--color-text-secondary)' }}>
+              Moving to next spectator in {countdown} seconds...
+            </div>
+          </div>
+        ) : (availableSeats && availableSeats.length > 0) ? (
+          // REQ-F-SC04: Up-for-grabs — all spectators declined, first come first served
+          <div style={{
+            background: 'var(--color-bg-panel)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--space-3)',
+            padding: 'var(--space-5) var(--space-6)',
+            textAlign: 'center' as const,
+          }}>
+            <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, marginBottom: 'var(--space-2)', color: 'var(--color-text-primary)' }}>
+              Seats Up for Grabs!
+            </div>
+            <div style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-4)', fontSize: 'var(--font-md)' }}>
+              First come, first served
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
+              <button
+                onClick={onClaimSeat}
+                style={{
+                  padding: 'var(--space-2) var(--space-5)',
+                  borderRadius: 'var(--space-2)',
+                  border: 'none',
+                  background: 'var(--color-gold-accent)',
+                  color: 'var(--color-felt-green-dark)',
+                  fontSize: 'var(--font-md)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Claim Seat
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className={styles.waitingText}>Waiting for game to start...</div>
+        )
       ) : (
         <>
           {!amReady && (
