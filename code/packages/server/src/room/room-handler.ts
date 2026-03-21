@@ -258,9 +258,9 @@ export class RoomHandler {
     try {
       this.roomManager.addBot(info.roomCode, msg.seat, msg.difficulty);
 
-      // REQ-F-SP30: Bots auto-ready when start is available
+      // REQ-F-SP30: Bots auto-ready immediately when added (before game starts)
       const room = this.roomManager.getRoom(info.roomCode);
-      if (room && room.players.length === 4 && !room.gameInProgress) {
+      if (room && !room.gameInProgress) {
         this.roomManager.setReady(info.roomCode, msg.seat);
       }
 
@@ -406,8 +406,8 @@ export class RoomHandler {
     }
 
     const room = this.roomManager.getRoom(info.roomCode);
-    if (!room || room.players.length !== 4) {
-      this.broadcaster.sendError(ws, 'NOT_READY', 'Need 4 players to ready up');
+    if (!room) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Room not found');
       return;
     }
     if (room.gameInProgress) {
@@ -419,7 +419,7 @@ export class RoomHandler {
     this.broadcastRoomUpdate(info.roomCode);
 
     // REQ-F-SP20: Auto-start when all 4 ready
-    if (this.roomManager.areAllReady(info.roomCode)) {
+    if (room.players.length === 4 && this.roomManager.areAllReady(info.roomCode)) {
       this.startGameInternal(info.roomCode, ws);
     }
   }

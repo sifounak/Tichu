@@ -56,7 +56,6 @@ export function PreRoomView({
   });
 
   const isHost = mySeat === hostSeat;
-  const canStart = players.length === 4;
   const amReady = mySeat ? readyPlayers.includes(mySeat) : false;
   const seatPositions = mySeat ? getSeatPositions(mySeat) : { top: 'north' as Seat, left: 'west' as Seat, right: 'east' as Seat, bottom: 'south' as Seat };
 
@@ -255,20 +254,16 @@ export function PreRoomView({
       <div className={styles.center}>
         <div className={styles.readyCount}>
           {readyPlayers.length}/{players.length} Ready
+          {players.length < 4 && ` — need ${4 - players.length} more`}
         </div>
-        {canStart && !amReady && (
+        {!amReady && (
           <button onClick={handleReadyToStart} className={styles.startBtn}>
             Start Game
           </button>
         )}
-        {canStart && amReady && (
+        {amReady && (
           <button onClick={handleCancelReady} className={styles.readyBtn}>
             Ready — Waiting...
-          </button>
-        )}
-        {!canStart && (
-          <button disabled className={styles.disabledBtn}>
-            Need {4 - players.length} more player{4 - players.length !== 1 ? 's' : ''}
           </button>
         )}
       </div>
