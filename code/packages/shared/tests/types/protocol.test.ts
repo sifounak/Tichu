@@ -66,8 +66,10 @@ describe('clientMessageSchema', () => {
     expect(clientMessageSchema.parse({ type: 'GIFT_DRAGON', to: 'east' })).toEqual({ type: 'GIFT_DRAGON', to: 'east' });
   });
 
+  // REQ-F-ES04: Vote options changed to wait/kick
   it('validates DISCONNECT_VOTE message', () => {
-    expect(clientMessageSchema.parse({ type: 'DISCONNECT_VOTE', vote: 'bot' })).toEqual({ type: 'DISCONNECT_VOTE', vote: 'bot' });
+    expect(clientMessageSchema.parse({ type: 'DISCONNECT_VOTE', vote: 'kick' })).toEqual({ type: 'DISCONNECT_VOTE', vote: 'kick' });
+    expect(clientMessageSchema.parse({ type: 'DISCONNECT_VOTE', vote: 'wait' })).toEqual({ type: 'DISCONNECT_VOTE', vote: 'wait' });
   });
 
   it('validates CHAT_MESSAGE message', () => {
@@ -170,7 +172,7 @@ describe('serverMessageSchema', () => {
     const msg = {
       type: 'LOBBY_LIST',
       rooms: [
-        { roomCode: 'ABC123', roomName: 'Test Room', hostName: 'Alice', playerCount: 2, spectatorCount: 0, config: { targetScore: 1000 }, gameInProgress: false },
+        { roomCode: 'ABC123', roomName: 'Test Room', hostName: 'Alice', playerCount: 2, spectatorCount: 0, config: { targetScore: 1000 }, gameInProgress: false, hasEmptySeats: false },
       ],
     };
     expect(serverMessageSchema.parse(msg)).toEqual(msg);
@@ -268,8 +270,20 @@ describe('serverMessageSchema', () => {
     expect(serverMessageSchema.parse({ type: 'PLAYER_RECONNECTED', seat: 'east' })).toBeTruthy();
   });
 
+  // REQ-F-ES04/ES17: Multi-disconnect support
   it('validates DISCONNECT_VOTE_REQUIRED message', () => {
-    expect(serverMessageSchema.parse({ type: 'DISCONNECT_VOTE_REQUIRED', disconnectedSeat: 'west' })).toBeTruthy();
+    expect(serverMessageSchema.parse({ type: 'DISCONNECT_VOTE_REQUIRED', disconnectedSeats: ['west'] })).toBeTruthy();
+    expect(serverMessageSchema.parse({ type: 'DISCONNECT_VOTE_REQUIRED', disconnectedSeats: ['north', 'east'] })).toBeTruthy();
+  });
+
+  // REQ-F-ES04: Vote status broadcast
+  it('validates DISCONNECT_VOTE_UPDATE message', () => {
+    expect(serverMessageSchema.parse({
+      type: 'DISCONNECT_VOTE_UPDATE',
+      votes: { north: null, east: 'wait', south: 'kick', west: null },
+      disconnectedSeats: ['north'],
+      timeoutMs: 45000,
+    })).toBeTruthy();
   });
 
   it('validates CHAT_RECEIVED message', () => {

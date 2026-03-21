@@ -40,15 +40,19 @@ export interface UiStore {
   toggleChat: () => void;
   addChatMessage: (msg: ChatMessage) => void;
 
-  /* --- Disconnect (REQ-F-MP08) --- */
-  disconnectedSeat: Seat | null;
+  /* --- Disconnect (REQ-F-ES04) --- */
+  disconnectedSeats: Seat[];
   disconnectVoteRequired: boolean;
+  disconnectVotes: Record<string, 'wait' | 'kick' | null>;
   disconnectCountdown: number;
   reconnectedSeat: Seat | null;
-  setDisconnected: (seat: Seat | null) => void;
+  setDisconnectedSeats: (seats: Seat[]) => void;
+  addDisconnectedSeat: (seat: Seat) => void;
   setDisconnectVoteRequired: (required: boolean) => void;
+  setDisconnectVotes: (votes: Record<string, 'wait' | 'kick' | null>) => void;
   setDisconnectCountdown: (seconds: number) => void;
   setReconnected: (seat: Seat | null) => void;
+  clearDisconnectState: () => void;
 
   /* --- Tichu Banner (REQ-NF-U02) --- */
   tichuEvent: { seat: Seat; level: TichuCall } | null;
@@ -73,11 +77,11 @@ export interface UiStore {
   startDragonGiftAnimation: (recipient: Seat, trick: TrickState) => void;
   clearDragonGiftAnimation: () => void;
 
-  /* --- Spectator Queue (REQ-F-SP08, SP08b, SP08c) --- */
-  seatOffer: { seat: Seat; timeoutMs: number } | null;
+  /* --- Spectator Queue (REQ-F-ES06, ES11, ES10) --- */
+  seatOffer: { seats: Seat[]; timeoutMs: number } | null;
   queueStatus: { decidingSpectator: string; position: number; timeoutMs: number } | null;
   availableSeats: Seat[];
-  setSeatOffer: (offer: { seat: Seat; timeoutMs: number } | null) => void;
+  setSeatOffer: (offer: { seats: Seat[]; timeoutMs: number } | null) => void;
   clearSeatOffer: () => void;
   setQueueStatus: (status: { decidingSpectator: string; position: number; timeoutMs: number } | null) => void;
   setAvailableSeats: (seats: Seat[]) => void;
@@ -147,17 +151,30 @@ export const useUiStore = create<UiStore>()((set) => ({
       chatUnread: s.chatOpen ? s.chatUnread : s.chatUnread + 1,
     })),
 
-  /* --- Disconnect --- */
-  disconnectedSeat: null,
+  /* --- Disconnect (REQ-F-ES04) --- */
+  disconnectedSeats: [],
   disconnectVoteRequired: false,
+  disconnectVotes: {},
   disconnectCountdown: 0,
   reconnectedSeat: null,
-  setDisconnected: (seat) =>
-    set({ disconnectedSeat: seat, disconnectVoteRequired: false, disconnectCountdown: 0 }),
+  setDisconnectedSeats: (seats) =>
+    set({ disconnectedSeats: seats, disconnectVoteRequired: false, disconnectCountdown: 0, disconnectVotes: {} }),
+  addDisconnectedSeat: (seat) =>
+    set((s) => ({
+      disconnectedSeats: s.disconnectedSeats.includes(seat) ? s.disconnectedSeats : [...s.disconnectedSeats, seat],
+    })),
   setDisconnectVoteRequired: (required) => set({ disconnectVoteRequired: required }),
+  setDisconnectVotes: (votes) => set({ disconnectVotes: votes }),
   setDisconnectCountdown: (seconds) => set({ disconnectCountdown: seconds }),
   setReconnected: (seat) =>
-    set({ reconnectedSeat: seat, disconnectedSeat: null, disconnectVoteRequired: false }),
+    set((s) => ({
+      reconnectedSeat: seat,
+      disconnectedSeats: s.disconnectedSeats.filter(s2 => s2 !== seat),
+      disconnectVoteRequired: false,
+      disconnectVotes: {},
+    })),
+  clearDisconnectState: () =>
+    set({ disconnectedSeats: [], disconnectVoteRequired: false, disconnectVotes: {}, disconnectCountdown: 0, reconnectedSeat: null }),
 
   /* --- Tichu Banner --- */
   tichuEvent: null,

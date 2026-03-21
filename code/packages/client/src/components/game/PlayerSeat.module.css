@@ -72,6 +72,39 @@
   .dragonTarget { animation: none; }
 }
 
+/* REQ-F-ES04: Vote Wait — green glow */
+.voteWait {
+  border-color: #2ecc71;
+  box-shadow: 0 0 28px rgba(46, 204, 113, 0.65), 0 0 12px rgba(46, 204, 113, 0.4);
+}
+
+/* REQ-F-ES04: Vote Kick — red glow */
+.voteKick {
+  border-color: #e74c3c;
+  box-shadow: 0 0 28px rgba(231, 76, 60, 0.65), 0 0 12px rgba(231, 76, 60, 0.4);
+}
+
+/* REQ-F-ES01: Empty seat — preserved game state, empty circle avatar */
+.emptySeat {
+  opacity: 0.7;
+}
+
+.emptyAvatar {
+  background: transparent;
+  border: 2px dashed var(--color-text-muted);
+}
+
+.voteLabel {
+  position: absolute;
+  bottom: calc(-40px * var(--scale));
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: calc(26px * var(--scale));
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
 .dragonLabel {
   position: absolute;
   bottom: calc(-40px * var(--scale));

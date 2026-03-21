@@ -194,6 +194,10 @@ export interface ClientGameView {
   vacatedSeats: Seat[];
   /** True when the player just joined with 2+ vacated seats and must pick one */
   choosingSeat: boolean;
+  /** REQ-F-ES04: Per-seat disconnect vote status (null = not voted, only present during active vote) */
+  disconnectVotes: Record<string, 'wait' | 'kick' | null>;
+  /** REQ-F-ES02: True when game is halted due to empty seats or active disconnect vote */
+  gameHalted: boolean;
   /** Winning team when phase is GameOver, null otherwise */
   winner: Team | null;
 }

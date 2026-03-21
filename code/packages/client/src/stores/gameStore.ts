@@ -50,6 +50,10 @@ export interface GameStore {
   vacatedSeats: Seat[];
   /** True when this player must choose which vacated seat to take */
   choosingSeat: boolean;
+  /** REQ-F-ES04: Per-seat disconnect vote status */
+  disconnectVotes: Record<string, 'wait' | 'kick' | null>;
+  /** REQ-F-ES02: True when game is halted due to empty seats or disconnect vote */
+  gameHalted: boolean;
 
   /* --- Actions --- */
   /** Apply a full GAME_STATE sync from the server */
@@ -85,6 +89,8 @@ const initialState = {
   cardPassConfirmed: [] as Seat[],
   vacatedSeats: [] as Seat[],
   choosingSeat: false,
+  disconnectVotes: {} as Record<string, 'wait' | 'kick' | null>,
+  gameHalted: false,
 };
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -119,6 +125,8 @@ export const useGameStore = create<GameStore>()((set) => ({
       cardPassConfirmed: view.cardPassConfirmed,
       vacatedSeats: view.vacatedSeats ?? [],
       choosingSeat: view.choosingSeat ?? false,
+      disconnectVotes: view.disconnectVotes ?? {},
+      gameHalted: view.gameHalted ?? false,
     }),
 
   applyServerMessage: (msg: ServerMessage) =>

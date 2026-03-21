@@ -101,8 +101,9 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 
 | File | Key Class | Purpose |
 |------|----------|---------|
-| `room-manager.ts` | `RoomManager` | CRUD rooms, assign seats, add/remove bots, swap seats, track disconnections, periodic cleanup (30 min). Room codes: 6-char alphanumeric. |
-| `room-handler.ts` | `RoomHandler` | WebSocket handlers for CREATE_ROOM, JOIN_ROOM, LEAVE_ROOM, CONFIGURE_ROOM, ADD_BOT, REMOVE_BOT, SWAP_SEATS, GET_LOBBY, START_GAME. Host-only validation. Broadcasts ROOM_UPDATE. |
+| `room-manager.ts` | `RoomManager` | CRUD rooms, assign seats, add/remove bots, swap seats, track disconnections, periodic cleanup (30 min). Room codes: 6-char alphanumeric. Destroys room when all humans leave (REQ-F-ES15). |
+| `room-handler.ts` | `RoomHandler` | WebSocket handlers for CREATE_ROOM, JOIN_ROOM, LEAVE_ROOM, CONFIGURE_ROOM, ADD_BOT, REMOVE_BOT, SWAP_SEATS, GET_LOBBY, START_GAME. Host-only validation. Broadcasts ROOM_UPDATE. Wires disconnect kick callback → seat queue. Sends ROOM_CLOSED to spectators on all-leave. |
+| `seat-queue.ts` | `SeatQueue` | FIFO seat queue for spectator→player promotion. Phases: offering (one-at-a-time with 30s timeout), up-for-grabs (first-come-first-served). Multi-seat picking, no-recycle on pass/timeout, per-spectator ordinal positions. |
 
 ### Game Logic (`game/`)
 
@@ -114,7 +115,7 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 | `game-handler.ts` | `GameHandler` | Routes game WebSocket messages (PLAY_CARDS, PASS_TURN, GRAND_TICHU_DECISION, etc.) from client → GameManager. |
 | `move-handler.ts` | `MoveHandler` | Translates client messages → XState events. Validates preconditions (correct turn, cards in hand, etc.). Returns `MoveResult` {ok} or {ok: false, error}. |
 | `turn-timer.ts` | `TurnTimer` | Optional countdown per turn, auto-pass on timeout. |
-| `disconnect-handler.ts` | `DisconnectHandler` | Disconnect detection → vote session (wait/bot/abandon) → 60s timeout defaults to bot replacement. 2/3 majority threshold. |
+| `disconnect-handler.ts` | `DisconnectHandler` | Disconnect detection → Wait/Kick vote (2/3 majority, 45s auto-kick). Multi-disconnect merges into single session. Vote switching allowed. Broadcasts DISCONNECT_VOTE_UPDATE per vote change. getVoteStatus() for state projection. |
 
 ### Bot AI (`bot/`)
 
@@ -250,7 +251,9 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 
 **Room:** CREATE_ROOM, JOIN_ROOM, LEAVE_ROOM, CONFIGURE_ROOM, ADD_BOT, REMOVE_BOT, SWAP_SEATS, GET_LOBBY, START_GAME
 
-**Game:** GRAND_TICHU_DECISION, TICHU_DECLARATION, REGULAR_TICHU_PASS, PASS_CARDS, PLAY_CARDS, PASS_TURN, DECLARE_WISH, GIFT_DRAGON, DISCONNECT_VOTE, CHAT_MESSAGE
+**Game:** GRAND_TICHU_DECISION, TICHU_DECLARATION, REGULAR_TICHU_PASS, PASS_CARDS, PLAY_CARDS, PASS_TURN, DECLARE_WISH, GIFT_DRAGON, DISCONNECT_VOTE (wait|kick), CHAT_MESSAGE
+
+**Queue:** CLAIM_SEAT (optional seat for multi-vacancy), DECLINE_SEAT, CHOOSE_SEAT, READY_TO_START, CANCEL_READY
 
 ### Server → Client
 
@@ -258,7 +261,9 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 
 **Game:** GAME_STATE (full sync), DEAL_FIRST_8, DEAL_REMAINING_6, CARDS_PLAYED, PLAYER_PASSED, TRICK_WON, TURN_CHANGE, WISH_DECLARED, WISH_FULFILLED, DRAGON_GIFT_REQUIRED, DRAGON_GIFTED, PLAYER_FINISHED, TICHU_CALLED, ROUND_SCORED, GAME_OVER
 
-**Meta:** PLAYER_DISCONNECTED, PLAYER_RECONNECTED, DISCONNECT_VOTE_REQUIRED, CHAT_RECEIVED, ERROR
+**Meta:** PLAYER_DISCONNECTED, PLAYER_RECONNECTED, DISCONNECT_VOTE_REQUIRED, DISCONNECT_VOTE_UPDATE, CHAT_RECEIVED, ERROR
+
+**Queue:** SEAT_OFFERED (multi-seat), QUEUE_STATUS (per-spectator ordinal), SEATS_AVAILABLE (up-for-grabs), ROOM_CLOSED
 
 ---
 

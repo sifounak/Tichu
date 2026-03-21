@@ -1,8 +1,10 @@
-// REQ-F-SP07: FIFO seat queue system for spectators
-// REQ-F-SP08: 30-second timeout with three choices per offer
-// REQ-F-SP08a: Queue stops when all seats filled
-// REQ-F-SP08b: Non-deciding spectators see queue status
-// REQ-F-SP08c: "Up for grabs" fallback when all decline
+// REQ-F-ES06: FIFO seat queue with multi-seat picking
+// REQ-F-ES07: Queue — Claim Seat (with specific seat choice)
+// REQ-F-ES08: Queue — Pass or Timeout (removed from queue, not recycled)
+// REQ-F-ES09: Queue — Lobby Join During Processing
+// REQ-F-ES10: Up For Grabs Phase (broadcast to ALL spectators)
+// REQ-F-ES11: Queue Status for Non-Deciding Spectators (per-spectator ordinal)
+// REQ-F-ES16: Queue Completion
 
 import type { Seat } from '@tichu/shared';
 
@@ -10,21 +12,23 @@ export type QueuePhase = 'idle' | 'offering' | 'up-for-grabs';
 
 export interface SeatQueueCallbacks {
   /** Send a message to a specific spectator by userId */
-  onSendToSpectator: (userId: string, message: SeatOfferedMessage | SeatsAvailableMessage) => void;
-  /** Broadcast queue status to all non-deciding spectators */
-  onBroadcastQueueStatus: (roomCode: string, status: QueueStatusMessage) => void;
+  onSendToSpectator: (userId: string, message: SeatOfferedMessage | SeatsAvailableMessage | QueueStatusMessage) => void;
   /** A spectator claimed a seat — promote them */
   onSeatClaimed: (userId: string, seat: Seat) => void;
-  /** All available seats have been filled — queue is done */
+  /** REQ-F-ES16: All available seats have been filled — queue is done */
   onAllSeatsFilled: (roomCode: string) => void;
+  /** REQ-F-ES10: Get current spectator userIds for up-for-grabs broadcast */
+  onGetCurrentSpectators: (roomCode: string) => string[];
 }
 
+// REQ-F-ES06: Multi-seat offer (array for multi-vacancy picking)
 export interface SeatOfferedMessage {
   type: 'SEAT_OFFERED';
-  seat: Seat;
+  seats: Seat[];
   timeoutMs: number;
 }
 
+// REQ-F-ES11: Per-spectator ordinal queue position
 export interface QueueStatusMessage {
   type: 'QUEUE_STATUS';
   decidingSpectator: string;
@@ -40,16 +44,16 @@ export interface SeatsAvailableMessage {
 const OFFER_TIMEOUT_MS = 30_000;
 
 /**
- * REQ-F-SP07: Manages a FIFO seat queue for a single room.
+ * REQ-F-ES06: Manages a FIFO seat queue for a single room.
  *
  * When seats open, spectators are offered them one at a time (FIFO order)
  * with a 30-second timeout. Each spectator can:
- * - Claim the seat (CLAIM_SEAT)
- * - Decline / Continue Spectating (DECLINE_SEAT) — moved to end of round
- * - Leave the room (handled externally via handleLeave)
+ * - Claim a seat (CLAIM_SEAT with optional seat choice for multi-vacancy)
+ * - Pass / Decline (DECLINE_SEAT) — removed from queue entirely, NOT recycled
+ * - Timeout (30s) — treated as pass, removed from queue
  *
- * If all spectators decline, transitions to "up for grabs" phase where
- * any spectator can claim first-come-first-served.
+ * REQ-F-ES10: If all queue spectators pass/timeout, transitions to "up for grabs"
+ * where ALL current spectators (not just queue participants) can claim first-come-first-served.
  */
 export class SeatQueue {
   private readonly roomCode: string;
@@ -57,12 +61,10 @@ export class SeatQueue {
 
   private _phase: QueuePhase = 'idle';
   private availableSeats: Seat[] = [];
-  private spectatorOrder: string[] = []; // snapshot of queue at start
+  private spectatorOrder: string[] = [];
   private currentIndex = 0;
   private currentOfferedUserId: string | null = null;
   private offerTimer: ReturnType<typeof setTimeout> | null = null;
-  private declinedUserIds = new Set<string>();
-  private lateJoiners: string[] = []; // spectators who joined during queue processing
 
   constructor(roomCode: string, callbacks: SeatQueueCallbacks) {
     this.roomCode = roomCode;
@@ -80,7 +82,7 @@ export class SeatQueue {
   }
 
   /**
-   * REQ-F-SP07: Start queue processing when seats become available.
+   * REQ-F-ES06: Start queue processing when seats become available.
    * Takes a snapshot of spectators in FIFO order.
    */
   startQueue(availableSeats: Seat[], spectatorUserIds: string[]): void {
@@ -89,29 +91,35 @@ export class SeatQueue {
     this.availableSeats = [...availableSeats];
     this.spectatorOrder = [...spectatorUserIds];
     this.currentIndex = 0;
-    this.declinedUserIds.clear();
-    this.lateJoiners = [];
     this._phase = 'offering';
 
     this.offerNext();
   }
 
   /**
-   * REQ-F-SP08: Spectator claims the offered seat.
-   * Returns true if the claim was valid.
+   * REQ-F-ES07: Spectator claims a seat.
+   * @param userId - The spectator claiming
+   * @param seat - Optional specific seat choice (for multi-vacancy). If omitted, auto-assign first available.
    */
-  handleClaim(userId: string): boolean {
+  handleClaim(userId: string, seat?: Seat): boolean {
     if (this._phase === 'offering') {
       if (userId !== this.currentOfferedUserId) return false;
 
       this.clearTimer();
-      const seat = this.availableSeats.shift()!;
-      this.callbacks.onSeatClaimed(userId, seat);
 
-      // Remove claimer from queue lists
-      this.removeFromQueues(userId);
+      // REQ-F-ES07: Pick specific seat if provided and available, otherwise first available
+      let claimedSeat: Seat;
+      if (seat && this.availableSeats.includes(seat)) {
+        this.availableSeats = this.availableSeats.filter(s => s !== seat);
+        claimedSeat = seat;
+      } else {
+        claimedSeat = this.availableSeats.shift()!;
+      }
 
-      // REQ-F-SP08a: If all seats filled, stop queue
+      this.callbacks.onSeatClaimed(userId, claimedSeat);
+      this.removeFromQueue(userId);
+
+      // REQ-F-ES16: If all seats filled, stop queue
       if (this.availableSeats.length === 0) {
         this.finishQueue();
         return true;
@@ -130,17 +138,18 @@ export class SeatQueue {
   }
 
   /**
-   * REQ-F-SP08: Spectator declines the offered seat (continue spectating).
-   * Spectator is moved out of the active round; will only be re-offered
-   * after all others (including late joiners) have decided.
+   * REQ-F-ES08: Spectator passes on the offered seat.
+   * They are removed from the queue entirely (not recycled).
    */
   handleDecline(userId: string): boolean {
     if (this._phase !== 'offering') return false;
     if (userId !== this.currentOfferedUserId) return false;
 
     this.clearTimer();
-    this.declinedUserIds.add(userId);
-    this.advanceToNext();
+    // REQ-F-ES08: Remove from queue entirely — not recycled, not eligible for up-for-grabs
+    this.removeFromQueue(userId);
+    this.currentOfferedUserId = null;
+    this.offerNext();
     return true;
   }
 
@@ -151,23 +160,33 @@ export class SeatQueue {
   handleLeave(userId: string): void {
     const wasDeciding = this._phase === 'offering' && userId === this.currentOfferedUserId;
 
-    this.removeFromQueues(userId);
+    this.removeFromQueue(userId);
 
     if (wasDeciding) {
       this.clearTimer();
       this.currentOfferedUserId = null;
-      // Don't advance index — removeFromQueues already shifted the array
-      // so currentIndex now points to the next person
       this.offerNext();
     }
   }
 
   /**
-   * REQ-F-SP10: Add a late-joining spectator to the queue during active processing.
+   * REQ-F-ES09: Add a late-joining spectator to the queue during active processing.
+   * If in up-for-grabs phase, immediately send SEATS_AVAILABLE.
    */
   addToQueue(userId: string): void {
     if (!this.isActive()) return;
-    this.lateJoiners.push(userId);
+
+    if (this._phase === 'up-for-grabs') {
+      // REQ-F-ES09: Immediately notify late joiner of available seats
+      this.callbacks.onSendToSpectator(userId, {
+        type: 'SEATS_AVAILABLE',
+        seats: [...this.availableSeats],
+      });
+      return;
+    }
+
+    // Add to end of queue for offering phase
+    this.spectatorOrder.push(userId);
   }
 
   /** Clean up timers and reset state */
@@ -178,90 +197,73 @@ export class SeatQueue {
     this.spectatorOrder = [];
     this.currentIndex = 0;
     this.currentOfferedUserId = null;
-    this.declinedUserIds.clear();
-    this.lateJoiners = [];
   }
 
   // ─── Private helpers ──────────────────────────────────────────────────
 
   /** Offer the next seat to the next spectator in line */
   private offerNext(): void {
-    // Find next eligible spectator (not declined, still in queue)
-    while (this.currentIndex < this.spectatorOrder.length) {
+    // Find next spectator in queue
+    if (this.currentIndex < this.spectatorOrder.length) {
       const userId = this.spectatorOrder[this.currentIndex];
-      if (!this.declinedUserIds.has(userId)) {
-        this.offerToSpectator(userId);
-        return;
-      }
-      this.currentIndex++;
+      this.offerToSpectator(userId);
+      return;
     }
 
-    // Check late joiners
-    if (this.lateJoiners.length > 0) {
-      // Move late joiners into main queue and continue
-      this.spectatorOrder.push(...this.lateJoiners);
-      this.lateJoiners = [];
-      // currentIndex now points into the newly appended section
-      if (this.currentIndex < this.spectatorOrder.length) {
-        this.offerNext();
-        return;
-      }
-    }
-
-    // Everyone in the original queue + late joiners has been asked
-    // Check if anyone declined — if so, transition to up-for-grabs
-    if (this.declinedUserIds.size > 0) {
-      this.transitionToUpForGrabs();
-    } else {
-      // No one left to ask (all left the room) — finish queue
+    // No more spectators in queue — check if any spectators exist in the room
+    const allSpectators = this.callbacks.onGetCurrentSpectators(this.roomCode);
+    if (allSpectators.length === 0) {
+      // No spectators in room at all — finish queue (no one to offer to)
       this.finishQueue();
+      return;
     }
-  }
 
-  /** Advance past the current spectator and offer to the next */
-  private advanceToNext(): void {
-    this.currentIndex++;
-    this.offerNext();
+    // REQ-F-ES10: Spectators exist — transition to up-for-grabs
+    this.transitionToUpForGrabs();
   }
 
   /** Send SEAT_OFFERED to a specific spectator and start the 30s timer */
   private offerToSpectator(userId: string): void {
     this.currentOfferedUserId = userId;
-    const seat = this.availableSeats[0];
 
-    // REQ-F-SP08: Send seat offer with 30s timeout
+    // REQ-F-ES06: Send all available seats so spectator can pick (multi-vacancy)
     this.callbacks.onSendToSpectator(userId, {
       type: 'SEAT_OFFERED',
-      seat,
+      seats: [...this.availableSeats],
       timeoutMs: OFFER_TIMEOUT_MS,
     });
 
-    // REQ-F-SP08b: Broadcast queue status to other spectators
-    const spectatorName = userId; // Will be resolved to display name by callback
-    this.broadcastQueueStatus(spectatorName);
+    // REQ-F-ES11: Send individual queue status to each non-deciding spectator
+    this.broadcastIndividualQueueStatus(userId);
 
     // Start 30s timeout
     this.startTimeout(userId);
   }
 
-  /** REQ-F-SP08b: Broadcast queue position to all non-deciding spectators */
-  private broadcastQueueStatus(decidingSpectator: string): void {
-    this.callbacks.onBroadcastQueueStatus(this.roomCode, {
-      type: 'QUEUE_STATUS',
-      decidingSpectator,
-      position: this.currentIndex + 1,
-      timeoutMs: OFFER_TIMEOUT_MS,
-    });
+  /** REQ-F-ES11: Send per-spectator ordinal position to each waiting spectator */
+  private broadcastIndividualQueueStatus(decidingSpectator: string): void {
+    // Compute position for each spectator still in queue after current
+    for (let i = this.currentIndex + 1; i < this.spectatorOrder.length; i++) {
+      const waitingUserId = this.spectatorOrder[i];
+      const position = i - this.currentIndex; // 1st, 2nd, 3rd... in line
+      this.callbacks.onSendToSpectator(waitingUserId, {
+        type: 'QUEUE_STATUS',
+        decidingSpectator,
+        position,
+        timeoutMs: OFFER_TIMEOUT_MS,
+      });
+    }
   }
 
   /** Start the 30-second offer timeout */
   private startTimeout(userId: string): void {
     this.clearTimer();
     this.offerTimer = setTimeout(() => {
-      // Timeout = same as decline
+      // REQ-F-ES08: Timeout = same as pass — removed from queue entirely
       if (this.currentOfferedUserId === userId) {
-        this.declinedUserIds.add(userId);
-        this.advanceToNext();
+        this.removeFromQueue(userId);
+        this.currentOfferedUserId = null;
+        this.offerNext();
       }
     }, OFFER_TIMEOUT_MS);
   }
@@ -275,10 +277,20 @@ export class SeatQueue {
   }
 
   /**
-   * REQ-F-SP08c: All spectators declined — transition to "up for grabs" phase.
-   * Any spectator can claim first-come-first-served.
+   * REQ-F-ES10: All queue spectators passed/timed out — transition to "up for grabs".
+   * Broadcast to ALL current spectators in the room (via callback), not just queue participants.
    */
   private transitionToUpForGrabs(): void {
+    // Get all current spectators from the room
+    const allSpectators = this.callbacks.onGetCurrentSpectators(this.roomCode);
+
+    if (allSpectators.length === 0) {
+      // No spectators at all — just wait (queue stays active for future joiners or finishes)
+      this._phase = 'up-for-grabs';
+      this.currentOfferedUserId = null;
+      return;
+    }
+
     this._phase = 'up-for-grabs';
     this.currentOfferedUserId = null;
 
@@ -287,61 +299,60 @@ export class SeatQueue {
       seats: [...this.availableSeats],
     };
 
-    // Send to all remaining spectators (those who declined)
-    for (const userId of this.declinedUserIds) {
-      this.callbacks.onSendToSpectator(userId, seatsMessage);
-    }
-    // Also send to late joiners who haven't been processed
-    for (const userId of this.lateJoiners) {
+    // REQ-F-ES10: Send to ALL current spectators
+    for (const userId of allSpectators) {
       this.callbacks.onSendToSpectator(userId, seatsMessage);
     }
   }
 
   /**
-   * REQ-F-SP08c: Handle claim during "up for grabs" phase.
-   * First spectator to respond gets the seat.
+   * REQ-F-ES10: Handle claim during "up for grabs" phase.
+   * First spectator to respond gets the seat (auto-assign, no seat choice).
    */
   private handleUpForGrabsClaim(userId: string): boolean {
     if (this._phase !== 'up-for-grabs') return false;
     if (this.availableSeats.length === 0) return false;
 
+    // REQ-F-ES10: Auto-assign to first available seat (no seat choice in this phase)
     const seat = this.availableSeats.shift()!;
     this.callbacks.onSeatClaimed(userId, seat);
-    this.removeFromQueues(userId);
 
-    // REQ-F-SP08a: If all seats filled, stop queue
+    // REQ-F-ES16: If all seats filled, stop queue
     if (this.availableSeats.length === 0) {
       this.finishQueue();
       return true;
     }
 
-    // More seats available — broadcast updated seats to remaining spectators
+    // More seats available — broadcast updated seats to all remaining spectators
+    const allSpectators = this.callbacks.onGetCurrentSpectators(this.roomCode);
     const seatsMessage: SeatsAvailableMessage = {
       type: 'SEATS_AVAILABLE',
       seats: [...this.availableSeats],
     };
-    for (const declinedId of this.declinedUserIds) {
-      this.callbacks.onSendToSpectator(declinedId, seatsMessage);
-    }
-    for (const lateId of this.lateJoiners) {
-      this.callbacks.onSendToSpectator(lateId, seatsMessage);
+    for (const specId of allSpectators) {
+      if (specId !== userId) {
+        this.callbacks.onSendToSpectator(specId, seatsMessage);
+      }
     }
 
     return true;
   }
 
-  /** Remove a userId from all queue lists */
-  private removeFromQueues(userId: string): void {
-    this.spectatorOrder = this.spectatorOrder.filter(id => id !== userId);
-    this.lateJoiners = this.lateJoiners.filter(id => id !== userId);
-    this.declinedUserIds.delete(userId);
-    // Adjust currentIndex if needed (removal before current position)
-    if (this.currentIndex > this.spectatorOrder.length) {
-      this.currentIndex = this.spectatorOrder.length;
+  /** Remove a userId from the queue */
+  private removeFromQueue(userId: string): void {
+    const idx = this.spectatorOrder.indexOf(userId);
+    if (idx !== -1) {
+      this.spectatorOrder.splice(idx, 1);
+      // Adjust currentIndex if removal was before or at current position
+      if (idx < this.currentIndex) {
+        this.currentIndex--;
+      } else if (idx === this.currentIndex && this.currentOfferedUserId === userId) {
+        // Current user removed — don't advance index (next user slides into this slot)
+      }
     }
   }
 
-  /** REQ-F-SP08a: Finish queue processing and notify */
+  /** REQ-F-ES16: Finish queue processing and notify */
   private finishQueue(): void {
     this.clearTimer();
     this._phase = 'idle';

@@ -50,8 +50,8 @@ export class RoomHandler {
     // REQ-F-SP18: Ready-to-start system
     router.on('READY_TO_START', (ws) => this.handleReadyToStart(ws));
     router.on('CANCEL_READY', (ws) => this.handleCancelReady(ws));
-    // REQ-F-SP08: Seat queue responses
-    router.on('CLAIM_SEAT', (ws) => this.handleClaimSeat(ws));
+    // REQ-F-ES07: Seat queue responses
+    router.on('CLAIM_SEAT', (ws, msg) => this.handleClaimSeat(ws, msg as ClientMessage & { type: 'CLAIM_SEAT' }));
     router.on('DECLINE_SEAT', (ws) => this.handleDeclineSeat(ws));
   }
 
@@ -167,12 +167,16 @@ export class RoomHandler {
     }
 
     try {
-      const { room, roomCode, seat, gameWasInProgress } = this.roomManager.leaveRoom(info.userId);
+      // REQ-F-ES15: Before leaving, get spectator list (room may be destroyed after leave)
+      const roomCode = this.roomManager.getUserRoom(info.userId);
+      const spectatorsBefore = roomCode ? this.roomManager.getSpectatorUserIds(roomCode) : [];
+
+      const { room, roomCode: rc, seat, gameWasInProgress } = this.roomManager.leaveRoom(info.userId);
       this.connections.removeFromRoom(ws);
 
       // If a game was in progress, mark the seat as vacated (game stays alive)
-      if (gameWasInProgress) {
-        const game = this.gameStore.getGameByRoom(roomCode);
+      if (gameWasInProgress && room) {
+        const game = this.gameStore.getGameByRoom(rc);
         if (game) {
           game.handleSeatVacated(seat);
         }
@@ -181,10 +185,30 @@ export class RoomHandler {
       this.broadcaster.send(ws, { type: 'ROOM_LEFT' });
 
       if (room) {
-        this.broadcastRoomUpdate(roomCode);
+        this.broadcastRoomUpdate(rc);
 
         // REQ-F-SP07: Start seat queue when player leaves and spectators exist
-        this.tryStartSeatQueue(roomCode, [seat]);
+        this.tryStartSeatQueue(rc, [seat]);
+      } else if (gameWasInProgress) {
+        // REQ-F-ES15: Room destroyed (all players left) — notify spectators and clean up game
+        for (const spectatorId of spectatorsBefore) {
+          const specWs = this.connections.getSocketByUserId(spectatorId);
+          if (specWs) {
+            this.broadcaster.send(specWs, {
+              type: 'ROOM_CLOSED',
+              message: 'All players have left. The room has been closed.',
+            });
+            this.connections.removeFromRoom(specWs);
+          }
+        }
+        // Clean up any active seat queue
+        const queue = this.seatQueues.get(rc);
+        if (queue) {
+          queue.cleanup();
+          this.seatQueues.delete(rc);
+        }
+        // Destroy the game
+        this.gameStore.destroyGameByRoom(rc);
       }
     } catch (err) {
       this.broadcaster.sendError(ws, 'LEAVE_ROOM_FAILED', (err as Error).message);
@@ -439,6 +463,12 @@ export class RoomHandler {
     try {
       const game = this.gameStore.createGame(roomCode, room.config);
 
+      // REQ-F-ES04: Wire kick callback — when disconnect vote resolves to kick, vacate seats and start queue
+      game.wireKickCallback((rc, seats) => {
+        this.tryStartSeatQueue(rc, seats);
+        this.broadcastRoomUpdate(rc);
+      });
+
       for (const player of room.players) {
         game.seatPlayer(player.seat);
         if (!player.isBot) {
@@ -479,14 +509,8 @@ export class RoomHandler {
           const ws = this.connections.getSocketByUserId(userId);
           if (ws) this.broadcaster.send(ws, message);
         },
-        onBroadcastQueueStatus: (rc, status) => {
-          // Resolve decidingSpectator from userId to display name
-          const name = this.roomManager.getSpectatorName(status.decidingSpectator);
-          const resolved = { ...status, decidingSpectator: name ?? status.decidingSpectator };
-          this.broadcaster.broadcastToSpectators(rc, resolved);
-        },
         onSeatClaimed: (userId, seat) => {
-          // REQ-F-SP09: Promote spectator to player
+          // REQ-F-ES07: Promote spectator to player
           this.roomManager.promoteSpectatorToPlayer(userId, seat);
           const ws = this.connections.getSocketByUserId(userId);
           if (ws) {
@@ -501,10 +525,14 @@ export class RoomHandler {
           }
           this.broadcastRoomUpdate(roomCode);
         },
+        // REQ-F-ES16: All available seats have been filled
         onAllSeatsFilled: (rc) => {
-          // Queue finished — clean up
           this.seatQueues.delete(rc);
           this.broadcastRoomUpdate(rc);
+        },
+        // REQ-F-ES10: Get current spectator list for up-for-grabs broadcast
+        onGetCurrentSpectators: (rc) => {
+          return this.roomManager.getSpectatorUserIds(rc);
         },
       });
       this.seatQueues.set(roomCode, queue);
@@ -512,7 +540,8 @@ export class RoomHandler {
     return queue;
   }
 
-  /** Start seat queue if spectators exist and seats are available. */
+  /** REQ-F-ES06, REQ-F-ES13: Start seat queue if spectators exist and seats are available.
+   *  Works for both mid-game and pre-room leaves. */
   private tryStartSeatQueue(roomCode: string, vacatedSeats: import('@tichu/shared').Seat[]): void {
     if (vacatedSeats.length === 0) return;
     const spectatorIds = this.roomManager.getSpectatorUserIds(roomCode);
@@ -522,8 +551,8 @@ export class RoomHandler {
     queue.startQueue(vacatedSeats, spectatorIds);
   }
 
-  // REQ-F-SP08: Handle spectator claiming the offered seat
-  private handleClaimSeat(ws: WebSocket): void {
+  // REQ-F-ES07: Handle spectator claiming a seat (with optional specific seat choice)
+  private handleClaimSeat(ws: WebSocket, msg?: ClientMessage & { type: 'CLAIM_SEAT' }): void {
     const info = this.connections.getClientInfo(ws);
     if (!info?.roomCode) {
       this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
@@ -536,7 +565,8 @@ export class RoomHandler {
       return;
     }
 
-    const claimed = queue.handleClaim(info.userId);
+    // REQ-F-ES07: Pass optional seat for multi-vacancy picking
+    const claimed = queue.handleClaim(info.userId, msg?.seat ?? undefined);
     if (!claimed) {
       this.broadcaster.sendError(ws, 'CLAIM_FAILED', 'Cannot claim seat');
     }

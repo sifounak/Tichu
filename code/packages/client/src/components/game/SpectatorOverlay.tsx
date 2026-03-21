@@ -11,12 +11,14 @@ const SEAT_LABELS: Record<Seat, string> = {
 };
 
 interface SpectatorOverlayProps {
-  /** Seat offer from SEAT_OFFERED message */
-  seatOffer: { seat: Seat; timeoutMs: number } | null;
+  /** REQ-F-ES06: Seat offer from SEAT_OFFERED message (multi-seat support) */
+  seatOffer: { seats: Seat[]; timeoutMs: number } | null;
   /** Queue status from QUEUE_STATUS message */
   queueStatus: { decidingSpectator: string; position: number; timeoutMs: number } | null;
   /** Available seats from SEATS_AVAILABLE (up-for-grabs) */
   availableSeats: Seat[];
+  /** REQ-F-ES04: Whether a disconnect vote is active (spectators see waiting message) */
+  disconnectVoteActive?: boolean;
   onClaimSeat: () => void;
   onDeclineSeat: () => void;
   onLeaveRoom: () => void;
@@ -26,6 +28,7 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
   seatOffer,
   queueStatus,
   availableSeats,
+  disconnectVoteActive,
   onClaimSeat,
   onDeclineSeat,
   onLeaveRoom,
@@ -42,6 +45,17 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
     return () => clearInterval(interval);
   }, [seatOffer]);
 
+  // REQ-F-ES04: Spectators see waiting message during disconnect vote
+  if (disconnectVoteActive) {
+    return (
+      <div style={{ ...infoBarStyle, bottom: 'calc(100px * var(--scale))' }}>
+        <p style={{ fontSize: 'var(--font-md)', color: 'var(--color-text-secondary)' }}>
+          Waiting for current players to choose what to do about the disconnected player(s)
+        </p>
+      </div>
+    );
+  }
+
   // REQ-F-SP08: Seat offer overlay
   if (seatOffer) {
     return (
@@ -51,7 +65,10 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
             Seat Available!
           </h3>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-1)' }}>
-            The <strong>{SEAT_LABELS[seatOffer.seat]}</strong> seat is open.
+            {seatOffer.seats.length === 1
+              ? <>The <strong>{SEAT_LABELS[seatOffer.seats[0]]}</strong> seat is open.</>
+              : <>{seatOffer.seats.map(s => SEAT_LABELS[s]).join(', ')} seats are open.</>
+            }
           </p>
           <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)', fontSize: 'var(--font-sm)' }}>
             {countdown}s remaining

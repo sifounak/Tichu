@@ -134,19 +134,24 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           timestamp: Date.now(),
         });
       } else if (msg.type === 'PLAYER_DISCONNECTED') {
-        // REQ-F-MP08: Player disconnected
-        uiStore.setDisconnected(msg.seat as Seat);
+        // REQ-F-ES04: Player disconnected
+        uiStore.addDisconnectedSeat(msg.seat as Seat);
       } else if (msg.type === 'PLAYER_RECONNECTED') {
         uiStore.setReconnected(msg.seat as Seat);
       } else if (msg.type === 'DISCONNECT_VOTE_REQUIRED') {
+        // REQ-F-ES04: Vote required (multi-disconnect support)
         uiStore.setDisconnectVoteRequired(true);
+      } else if (msg.type === 'DISCONNECT_VOTE_UPDATE') {
+        // REQ-F-ES04: Per-seat vote status update
+        uiStore.setDisconnectVotes((msg as any).votes);
+        uiStore.setDisconnectCountdown(Math.ceil((msg as any).timeoutMs / 1000));
       } else if (msg.type === 'TICHU_CALLED') {
         // REQ-NF-U02: Show Tichu banner
         uiStore.setTichuEvent({ seat: msg.seat as Seat, level: msg.level as TichuCall });
         gameStore.applyServerMessage(msg);
       } else if (msg.type === 'SEAT_OFFERED') {
-        // REQ-F-SP08: Seat offer for spectator
-        uiStore.setSeatOffer({ seat: msg.seat as Seat, timeoutMs: (msg as any).timeoutMs });
+        // REQ-F-ES06: Seat offer for spectator (multi-seat support)
+        uiStore.setSeatOffer({ seats: (msg as any).seats as Seat[], timeoutMs: (msg as any).timeoutMs });
       } else if (msg.type === 'QUEUE_STATUS') {
         // REQ-F-SP08b: Queue status update
         uiStore.setQueueStatus({
@@ -484,9 +489,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     [send],
   );
 
-  // REQ-F-MP08: Disconnect vote
+  // REQ-F-ES04: Disconnect vote (Wait/Kick only)
   const handleDisconnectVote = useCallback(
-    (vote: 'wait' | 'bot' | 'abandon') => send({ type: 'DISCONNECT_VOTE', vote }),
+    (vote: 'wait' | 'kick') => send({ type: 'DISCONNECT_VOTE', vote }),
     [send],
   );
 
@@ -518,6 +523,17 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     }
     setShowRoundEnd(false);
   }, [phase]);
+
+  // REQ-F-ES03: Send LEAVE_ROOM on browser tab close so server treats it as explicit leave
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!isSpectator && gameInProgress) {
+        send({ type: 'LEAVE_ROOM' });
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [send, isSpectator, gameInProgress]);
 
   // REQ-F-DR01: Compute Dragon gift targets — opponents the player can give the trick to
   // NOTE: Must be above early returns to respect Rules of Hooks
@@ -624,6 +640,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     cardPassConfirmed: gameStore.cardPassConfirmed,
     vacatedSeats: gameStore.vacatedSeats,
     choosingSeat: gameStore.choosingSeat,
+    disconnectVotes: gameStore.disconnectVotes,
+    gameHalted: gameStore.gameHalted,
     winner: null,
   };
 
@@ -766,6 +784,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           seatOffer={uiStore.seatOffer}
           queueStatus={uiStore.queueStatus}
           availableSeats={uiStore.availableSeats}
+          disconnectVoteActive={uiStore.disconnectVoteRequired}
           onClaimSeat={() => send({ type: 'CLAIM_SEAT' })}
           onDeclineSeat={() => send({ type: 'DECLINE_SEAT' })}
           onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
