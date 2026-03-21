@@ -1,6 +1,7 @@
 // REQ-NF-U01: Responsive game table — CSS Grid with 4 seats + center trick area
 'use client';
 
+import type { ReactNode } from 'react';
 import { memo } from 'react';
 import type { ClientGameView, Seat } from '@tichu/shared';
 import { useUiStore } from '@/stores/uiStore';
@@ -26,6 +27,10 @@ export interface GameTableProps {
   isMyTurn?: boolean;
   /** Callback when player chooses a seat (mid-game join with multiple vacated seats) */
   onChooseSeat?: (seat: Seat) => void;
+  /** Override seat rendering (e.g. for pre-room state) */
+  renderSeatOverride?: (seat: Seat) => React.ReactNode;
+  /** Custom content for center area (replaces TrickDisplay when provided) */
+  centerContent?: React.ReactNode;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -36,7 +41,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat, renderSeatOverride, centerContent }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -106,20 +111,26 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
     );
   }
 
+  const seat = renderSeatOverride ?? renderSeat;
+
   return (
     <div className={styles.table} aria-label="Game table">
       {/* Partner (top) */}
       <div className={styles.top}>
-        {renderSeat(seatPositions.top)}
+        {seat(seatPositions.top)}
       </div>
 
       {/* Left opponent */}
       <div className={styles.left}>
-        {renderSeat(seatPositions.left)}
+        {seat(seatPositions.left)}
       </div>
 
-      {/* Trick area (center) — hidden during pre-game phases */}
-      {!hideCenter && (
+      {/* Center area — custom content, TrickDisplay, or hidden */}
+      {centerContent ? (
+        <div className={styles.center}>
+          {centerContent}
+        </div>
+      ) : !hideCenter ? (
         <div
           className={`${styles.center} ${isMyTurn ? styles.playAreaActive : ''} ${canPlay ? styles.clickableTrick : ''}`}
           onClick={canPlay ? onPlay : undefined}
@@ -138,11 +149,11 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
             mustSatisfyWish={mustSatisfyWish}
           />
         </div>
-      )}
+      ) : null}
 
       {/* Right opponent */}
       <div className={styles.right}>
-        {renderSeat(seatPositions.right)}
+        {seat(seatPositions.right)}
       </div>
 
       {/* Player (bottom) — rendered in the fixed bottom panel in page.tsx */}
