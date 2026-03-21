@@ -93,11 +93,11 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
   if (queueStatus) {
     return (
       <div style={{ ...infoBarStyle, bottom: 'calc(100px * var(--scale))' }}>
-        <p style={{ fontSize: 'var(--font-md)', color: 'var(--color-text-secondary)' }}>
-          Waiting for <strong>{queueStatus.decidingSpectator}</strong> to decide...
+        <p style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--color-text-primary)' }}>
+          A seat has opened up!
         </p>
         <p style={{ fontSize: 'var(--font-sm)', color: 'var(--color-text-muted)' }}>
-          You are #{queueStatus.position} in line
+          You are #{queueStatus.position} in line...
         </p>
       </div>
     );
@@ -109,7 +109,7 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
       <div style={overlayStyle}>
         <div style={panelStyle}>
           <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
-            Seats Up for Grabs!
+            Seats are up for Grabs!
           </h3>
           <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-4)' }}>
             {availableSeats.map(s => SEAT_LABELS[s]).join(', ')} — first come, first served
