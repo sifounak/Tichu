@@ -750,6 +750,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           borderRadius: 'var(--space-2)',
           fontSize: 'var(--font-md)',
           fontWeight: 700,
+          width: '50%',
+          textAlign: 'center' as const,
         }}>
           Spectating
         </div>
