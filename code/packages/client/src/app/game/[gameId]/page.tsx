@@ -693,7 +693,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
   return (
     <>
-      {/* Room code + Leave Room */}
+      {/* Room code + Spectators + Leave Room */}
       <div style={{
         position: 'fixed',
         top: 'calc(120px * var(--scale))',
@@ -703,7 +703,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 'var(--space-1)',
+        gap: 'var(--space-2)',
       }}>
         {/* REQ-F-SP05: Spectating badge — above room code, same width */}
         {isSpectator && (
@@ -750,58 +750,60 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         )}
 
         {/* Spectator count button with tooltip */}
-        <div style={{ position: 'relative' }}>
-            <button
-              style={{
-                fontSize: 'var(--font-xl)',
-                fontWeight: 600,
-                color: 'var(--color-text-secondary)',
-                textAlign: 'center' as const,
-                background: 'transparent',
-                border: '1px solid transparent',
-                borderRadius: 'var(--card-border-radius)',
-                padding: 'var(--space-1) var(--space-3)',
-                cursor: 'default',
-                transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--color-border)';
-                e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-                const tooltip = e.currentTarget.nextElementSibling as HTMLElement;
-                if (tooltip) tooltip.style.display = 'block';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'transparent';
-                e.currentTarget.style.background = 'transparent';
-                const tooltip = e.currentTarget.nextElementSibling as HTMLElement;
-                if (tooltip) tooltip.style.display = 'none';
-              }}
-            >
-              Spectators: <span style={{ color: 'var(--color-gold-accent)', fontWeight: 900 }}>{spectatorCount}</span>
-            </button>
-            {spectatorNames.length > 0 && (
-              <div style={{
-                display: 'none',
-                position: 'absolute',
-                top: '100%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                marginTop: '4px',
-                background: 'var(--color-bg-panel)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--card-border-radius)',
-                padding: 'var(--space-2) var(--space-3)',
-                fontSize: 'var(--font-md)',
-                color: 'var(--color-text-primary)',
-                whiteSpace: 'nowrap',
-                zIndex: 40,
-              }}>
-                {spectatorNames.map((name, i) => (
-                  <div key={i}>{name}</div>
-                ))}
-              </div>
-            )}
-          </div>
+        <div
+          style={{ position: 'relative' }}
+          onMouseEnter={(e) => {
+            const btn = e.currentTarget.querySelector('button') as HTMLElement;
+            const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
+            if (btn) { btn.style.borderColor = 'var(--color-border)'; btn.style.background = 'rgba(255,255,255,0.1)'; }
+            if (tip) tip.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const btn = e.currentTarget.querySelector('button') as HTMLElement;
+            const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
+            if (btn) { btn.style.borderColor = 'transparent'; btn.style.background = 'transparent'; }
+            if (tip) tip.style.display = 'none';
+          }}
+        >
+          <button
+            style={{
+              fontSize: 'var(--font-xl)',
+              fontWeight: 600,
+              color: 'var(--color-text-secondary)',
+              textAlign: 'center' as const,
+              background: 'transparent',
+              border: '1px solid transparent',
+              borderRadius: 'var(--card-border-radius)',
+              padding: 'var(--space-1) var(--space-3)',
+              cursor: 'default',
+              transition: 'border-color 0.2s',
+            }}
+          >
+            Spectators: <span style={{ color: 'var(--color-gold-accent)', fontWeight: 900 }}>{spectatorCount}</span>
+          </button>
+          {spectatorNames.length > 0 && (
+            <div data-tooltip style={{
+              display: 'none',
+              position: 'absolute',
+              top: '100%',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              marginTop: '4px',
+              background: 'var(--color-bg-panel)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--card-border-radius)',
+              padding: 'var(--space-2) var(--space-3)',
+              fontSize: 'var(--font-md)',
+              color: 'var(--color-text-primary)',
+              whiteSpace: 'nowrap',
+              zIndex: 40,
+            }}>
+              {spectatorNames.map((name, i) => (
+                <div key={i}>{name}</div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Leave Room button */}
         <button

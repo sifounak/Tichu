@@ -394,7 +394,7 @@ export function PreRoomView({
         <div className={styles.roomName}>{roomName ?? 'Room'}</div>
       </div>
 
-      {/* Room code + Leave — same position as in-game */}
+      {/* Room code + Spectators + Leave — same position as in-game */}
       <div style={{
         position: 'fixed',
         top: 'calc(120px * var(--scale))',
@@ -404,7 +404,7 @@ export function PreRoomView({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 'var(--space-1)',
+        gap: 'var(--space-2)',
       }}>
         {/* Spectating badge */}
         {isSpectator && (
@@ -444,7 +444,21 @@ export function PreRoomView({
         </button>
 
         {/* Spectator count button with tooltip */}
-        <div style={{ position: 'relative' }}>
+        <div
+          style={{ position: 'relative' }}
+          onMouseEnter={(e) => {
+            const btn = e.currentTarget.querySelector('button') as HTMLElement;
+            const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
+            if (btn) { btn.style.borderColor = 'var(--color-border)'; btn.style.background = 'rgba(255,255,255,0.1)'; }
+            if (tip) tip.style.display = 'block';
+          }}
+          onMouseLeave={(e) => {
+            const btn = e.currentTarget.querySelector('button') as HTMLElement;
+            const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
+            if (btn) { btn.style.borderColor = 'transparent'; btn.style.background = 'transparent'; }
+            if (tip) tip.style.display = 'none';
+          }}
+        >
           <button
             style={{
               fontSize: 'var(--font-xl)',
@@ -458,23 +472,11 @@ export function PreRoomView({
               cursor: 'default',
               transition: 'border-color 0.2s',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'var(--color-border)';
-              e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-              const tooltip = e.currentTarget.nextElementSibling as HTMLElement;
-              if (tooltip) tooltip.style.display = 'block';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'transparent';
-              e.currentTarget.style.background = 'transparent';
-              const tooltip = e.currentTarget.nextElementSibling as HTMLElement;
-              if (tooltip) tooltip.style.display = 'none';
-            }}
           >
             Spectators: <span style={{ color: 'var(--color-gold-accent)', fontWeight: 900 }}>{spectatorCount}</span>
           </button>
           {spectatorNames.length > 0 && (
-            <div style={{
+            <div data-tooltip style={{
               display: 'none',
               position: 'absolute',
               top: '100%',
