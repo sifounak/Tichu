@@ -578,7 +578,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           queueStatus={isPreRoomSpectator ? uiStore.queueStatus : undefined}
           availableSeats={isPreRoomSpectator ? uiStore.availableSeats : undefined}
           onClaimSeat={isPreRoomSpectator ? () => send({ type: 'CLAIM_SEAT' }) : undefined}
-          onDeclineSeat={isPreRoomSpectator ? () => { uiStore.clearSeatOffer(); send({ type: 'DECLINE_SEAT' }); } : undefined}
+          onDeclineSeat={isPreRoomSpectator ? () => { uiStore.setQueueStatus({ decidingSpectator: '', position: 0, timeoutMs: 0 }); send({ type: 'DECLINE_SEAT' }); } : undefined}
         />
       </>
     );
@@ -786,7 +786,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           availableSeats={uiStore.availableSeats}
           disconnectVoteActive={uiStore.disconnectVoteRequired}
           onClaimSeat={() => send({ type: 'CLAIM_SEAT' })}
-          onDeclineSeat={() => { uiStore.clearSeatOffer(); send({ type: 'DECLINE_SEAT' }); }}
+          onDeclineSeat={() => { uiStore.setQueueStatus({ decidingSpectator: '', position: 0, timeoutMs: 0 }); send({ type: 'DECLINE_SEAT' }); }}
           onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
         />
       )}
