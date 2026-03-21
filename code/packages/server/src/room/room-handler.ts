@@ -132,6 +132,12 @@ export class RoomHandler {
           game.handleSeatFilled(seat);
         }
       }
+
+      // If a queue is active, notify it that this seat was filled externally
+      const queue = this.seatQueues.get(joinedRoom.roomCode);
+      if (queue?.isActive()) {
+        queue.handleSeatFilledExternally(seat);
+      }
     } catch (err) {
       this.broadcaster.sendError(ws, 'JOIN_ROOM_FAILED', (err as Error).message);
     }
@@ -284,6 +290,12 @@ export class RoomHandler {
       const room = this.roomManager.getRoom(info.roomCode);
       if (room && !room.gameInProgress) {
         this.roomManager.setReady(info.roomCode, msg.seat);
+      }
+
+      // If a queue is active, notify it that this seat was filled externally
+      const queue = this.seatQueues.get(info.roomCode);
+      if (queue?.isActive()) {
+        queue.handleSeatFilledExternally(msg.seat);
       }
 
       this.broadcastRoomUpdate(info.roomCode);
