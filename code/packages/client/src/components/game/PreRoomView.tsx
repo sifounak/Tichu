@@ -205,7 +205,7 @@ export function PreRoomView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty]);
 
-  // Center content: Start Game / Ready button
+  // Center content: Start Game / Waiting + Cancel
   const centerContent = (
     <div className={styles.centerContent}>
       <div className={styles.readyCount}>
@@ -218,9 +218,12 @@ export function PreRoomView({
         </button>
       )}
       {amReady && (
-        <button onClick={handleCancelReady} className={styles.readyBtn}>
-          Ready — Waiting...
-        </button>
+        <>
+          <div className={styles.waitingText}>Waiting for others to be ready...</div>
+          <button onClick={handleCancelReady} className={styles.cancelBtn}>
+            Cancel
+          </button>
+        </>
       )}
     </div>
   );
@@ -385,18 +388,18 @@ export function PreRoomView({
         centerContent={centerContent}
       />
 
-      {/* Bottom panel — player's own seat, same position as in-game */}
+      {/* Bottom panel — player's own seat, positioned where it sits during gameplay
+           (above where the card hand would be) */}
       {mySeat && (
         <div style={{
           position: 'fixed',
-          bottom: 'calc(34px * var(--scale))',
+          bottom: 'calc(200px * var(--scale))',
           left: 0,
           right: 0,
           zIndex: 20,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 'calc(28px * var(--scale))',
         }}>
           <PlayerSeat
             seat={effectiveSeat}
@@ -411,6 +414,9 @@ export function PreRoomView({
             isMe={true}
             passConfirmed={amReady}
           />
+          {amReady && (
+            <span className={styles.readyIndicator}>Ready to Start Game</span>
+          )}
         </div>
       )}
     </>
