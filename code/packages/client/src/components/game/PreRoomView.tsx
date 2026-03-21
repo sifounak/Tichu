@@ -142,6 +142,7 @@ export function PreRoomView({
           isTrickLeader={false}
           isMe={false}
           passConfirmed={isReady}
+          passConfirmedLabel="Ready to Play"
         />
       );
     }
@@ -161,6 +162,7 @@ export function PreRoomView({
           isTrickLeader={false}
           isMe={false}
           passConfirmed={isReady}
+          passConfirmedLabel="Ready to Play"
           customContent={
             <div className={styles.botSeatContent}>
               <span className={styles.botName}>{player.name}</span>
@@ -205,7 +207,7 @@ export function PreRoomView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty]);
 
-  // Center content: Start Game / Waiting + Cancel
+  // Center content: Start Game / Ready — Waiting + Cancel
   const centerContent = (
     <div className={styles.centerContent}>
       <div className={styles.readyCount}>
@@ -219,7 +221,7 @@ export function PreRoomView({
       )}
       {amReady && (
         <>
-          <div className={styles.waitingText}>Waiting for others to be ready...</div>
+          <div className={styles.readyWaiting}>Ready — Waiting...</div>
           <button onClick={handleCancelReady} className={styles.cancelBtn}>
             Cancel
           </button>
@@ -413,10 +415,8 @@ export function PreRoomView({
             isTrickLeader={false}
             isMe={true}
             passConfirmed={amReady}
+            passConfirmedLabel="Ready to Play"
           />
-          {amReady && (
-            <span className={styles.readyIndicator}>Ready to Start Game</span>
-          )}
         </div>
       )}
     </>
