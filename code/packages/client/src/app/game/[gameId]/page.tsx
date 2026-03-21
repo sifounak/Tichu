@@ -674,6 +674,22 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         alignItems: 'center',
         gap: 'var(--space-1)',
       }}>
+        {/* REQ-F-SP05: Spectating badge — above room code, same width */}
+        {isSpectator && (
+          <div style={{
+            background: 'var(--color-gold-accent)',
+            color: 'var(--color-felt-green-dark)',
+            padding: 'var(--space-1) var(--space-3)',
+            borderRadius: 'var(--card-border-radius)',
+            fontSize: 'calc(26px * var(--scale))',
+            fontWeight: 700,
+            textAlign: 'center' as const,
+            width: '100%',
+          }}>
+            Spectating
+          </div>
+        )}
+
         {/* Room code — button border appears on hover */}
         {roomCode && (
           <button
@@ -735,27 +751,6 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           </div>
         )}
       </div>
-
-      {/* REQ-F-SP05: Spectating badge */}
-      {isSpectator && (
-        <div style={{
-          position: 'fixed',
-          top: 'calc(16px * var(--scale))',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 35,
-          background: 'var(--color-gold-accent)',
-          color: 'var(--color-felt-green-dark)',
-          padding: 'var(--space-1) var(--space-4)',
-          borderRadius: 'var(--space-2)',
-          fontSize: 'var(--font-md)',
-          fontWeight: 700,
-          width: '50%',
-          textAlign: 'center' as const,
-        }}>
-          Spectating
-        </div>
-      )}
 
       {/* REQ-F-SP08: Spectator overlay (seat offers, queue status, seats available) */}
       {isSpectator && (
