@@ -92,7 +92,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   // REQ-F-SP04: seat is nullable — null indicates spectator
   z.object({ type: z.literal('ROOM_JOINED'), roomCode: z.string(), seat: seatSchema.nullable() }),
   // REQ-F-SP16: ROOM_UPDATE includes spectatorCount and readyPlayers
-  z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), readyPlayers: z.array(seatSchema) }),
+  z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), spectatorNames: z.array(z.string()).optional(), readyPlayers: z.array(seatSchema) }),
   z.object({ type: z.literal('ROOM_LEFT') }),
   z.object({ type: z.literal('KICKED'), message: z.string() }),
   // REQ-F-ES05: LOBBY_LIST includes hasEmptySeats for "Join (In Progress)" button
