@@ -25,21 +25,25 @@ const seatSchema = z.enum(['north', 'east', 'south', 'west']);
 
 // --- Client → Server messages ---
 
+// REQ-F-CG06: Shared room config schema (reused by CREATE_ROOM and CONFIGURE_ROOM)
+const roomConfigSchema = z.object({
+  targetScore: z.number().int().min(100).max(10000).optional(),
+  turnTimerSeconds: z.union([z.literal(null), z.literal(30), z.literal(60), z.literal(90)]).optional(),
+  botDifficulty: z.enum(['regular', 'hard', 'expert']).optional(),
+  animationSpeed: z.enum(['slow', 'normal', 'fast', 'off']).optional(),
+  spectatorsAllowed: z.boolean().optional(),
+  isPrivate: z.boolean().optional(),
+});
+
 export const clientMessageSchema = z.discriminatedUnion('type', [
   // Room actions
-  z.object({ type: z.literal('CREATE_ROOM'), playerName: z.string().min(1).max(30), roomName: z.string().max(30).optional() }),
+  // REQ-F-CG06: CREATE_ROOM accepts optional config payload
+  z.object({ type: z.literal('CREATE_ROOM'), playerName: z.string().min(1).max(30), roomName: z.string().max(30).optional(), config: roomConfigSchema.optional() }),
   // REQ-F-SP04: JOIN_ROOM supports optional asSpectator flag
   z.object({ type: z.literal('JOIN_ROOM'), roomCode: z.string().length(6), playerName: z.string().min(1).max(30), asSpectator: z.boolean().optional() }),
   z.object({ type: z.literal('LEAVE_ROOM') }),
   // REQ-F-MP04: Room configuration
-  z.object({ type: z.literal('CONFIGURE_ROOM'), config: z.object({
-    targetScore: z.number().int().min(100).max(10000).optional(),
-    turnTimerSeconds: z.union([z.literal(null), z.literal(30), z.literal(60), z.literal(90)]).optional(),
-    botDifficulty: z.enum(['regular', 'hard', 'expert']).optional(),
-    animationSpeed: z.enum(['slow', 'normal', 'fast', 'off']).optional(),
-    spectatorsAllowed: z.boolean().optional(),
-    isPrivate: z.boolean().optional(),
-  }) }),
+  z.object({ type: z.literal('CONFIGURE_ROOM'), config: roomConfigSchema }),
   z.object({ type: z.literal('ADD_BOT'), seat: seatSchema, difficulty: z.enum(['regular', 'hard', 'expert']).optional() }),
   z.object({ type: z.literal('REMOVE_BOT'), seat: seatSchema }),
   z.object({ type: z.literal('GET_LOBBY') }),

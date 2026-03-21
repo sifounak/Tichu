@@ -64,6 +64,10 @@ export class RoomHandler {
 
     try {
       const room = this.roomManager.createRoom(info.userId, msg.playerName, msg.roomName);
+      // REQ-F-CG06: Apply config from CREATE_ROOM if provided
+      if (msg.config) {
+        this.roomManager.configureRoom(room.roomCode, msg.config);
+      }
       this.connections.assignToRoom(ws, room.roomCode, room.hostSeat);
 
       this.broadcaster.send(ws, { type: 'ROOM_CREATED', roomCode: room.roomCode });

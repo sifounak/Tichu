@@ -1,0 +1,107 @@
+/* REQ-F-CG01: Settings popup overlay */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.popup {
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 24px 32px;
+  width: 400px;
+  max-width: 90vw;
+}
+
+.title {
+  color: var(--color-gold-accent);
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.input,
+.select {
+  width: 100%;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: var(--color-felt-green-dark);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkboxLabel {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.createBtn {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.createBtn:hover {
+  opacity: 0.8;
+}
+
+.cancelBtn {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.cancelBtn:hover {
+  opacity: 0.8;
+}

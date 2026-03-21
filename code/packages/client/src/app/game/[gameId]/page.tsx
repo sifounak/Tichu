@@ -6,10 +6,10 @@
 // REQ-NF-U02: Tichu banner animation
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GamePhase, detectAllBombs, CombinationType } from '@tichu/shared';
-import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId, Combination } from '@tichu/shared';
+import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId, Combination, GameConfig } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import { useBombWindow } from '@/hooks/useBombWindow';
@@ -29,6 +29,7 @@ import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
 import { WishPicker } from '@/components/game/WishPicker';
 import { PreGamePhase, RoundEndPhase, GameEndPhase } from '@/components/phases';
+import { PreRoomView } from '@/components/game/PreRoomView';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import { ErrorToast } from '@/components/ui/ErrorToast';
 
@@ -44,12 +45,19 @@ function getGuestId(): string {
   return id;
 }
 
-export default function GamePage() {
+export default function GamePage(props: { params: Promise<{ gameId: string }> }) {
+  const { gameId: urlGameId } = use(props.params);
   const router = useRouter();
   const gameStore = useGameStore();
   const uiStore = useUiStore();
   const roomCode = useRoomStore((s) => s.roomCode);
+  const roomName = useRoomStore((s) => s.roomName);
   const roomPlayers = useRoomStore((s) => s.players);
+  const hostSeat = useRoomStore((s) => s.hostSeat);
+  const roomConfig = useRoomStore((s) => s.config);
+  const gameInProgress = useRoomStore((s) => s.gameInProgress);
+  const readyPlayers = useRoomStore((s) => s.readyPlayers);
+  const mySeatFromRoom = useRoomStore((s) => s.mySeat);
   const leaveRoom = useRoomStore((s) => s.leaveRoom);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -163,6 +171,23 @@ export default function GamePage() {
         uiStore.setSeatOffer(null);
         uiStore.setQueueStatus(null);
         uiStore.setAvailableSeats([]);
+      } else if (msg.type === 'ROOM_UPDATE') {
+        // REQ-F-CG13: Handle room updates for pre-room state
+        const rs = useRoomStore.getState();
+        rs.updateRoom(
+          (msg as any).roomName,
+          (msg as any).players,
+          (msg as any).hostSeat,
+          (msg as any).config as GameConfig,
+          (msg as any).gameInProgress,
+          (msg as any).spectatorCount ?? 0,
+          (msg as any).readyPlayers ?? [],
+        );
+      } else if (msg.type === 'KICKED') {
+        leaveRoom();
+        gameStore.reset();
+        sessionStorage.setItem('tichu_kicked_message', (msg as any).message ?? 'You were kicked');
+        router.push('/lobby');
       } else if (msg.type === 'ROOM_LEFT') {
         leaveRoom();
         gameStore.reset();
@@ -182,6 +207,17 @@ export default function GamePage() {
     onMessage: handleMessage,
     onStatusChange: uiStore.setConnectionStatus,
   });
+
+  // REQ-F-CG07: Auto-join room when navigating directly to /game/[roomCode]
+  useEffect(() => {
+    if (status !== 'connected' || !urlGameId) return;
+    const timer = setTimeout(() => {
+      if (!useRoomStore.getState().roomCode) {
+        send({ type: 'JOIN_ROOM', roomCode: urlGameId, playerName });
+      }
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [status, urlGameId, send, playerName]);
 
   // REQ-F-BW01: Bomb window — 2s delay after each play while humans are active
   const bombWindow = useBombWindow({
@@ -500,6 +536,28 @@ export default function GamePage() {
     }
     return targets.size > 0 ? targets : undefined;
   }, [gameStore.dragonGiftPending, gameStore.currentTurn, mySeat, gameStore.otherPlayers]);
+
+  // --- Pre-room state: room exists but game hasn't started ---
+  if (roomCode && !gameInProgress && !gameStore.gameId) {
+    return (
+      <PreRoomView
+        roomCode={roomCode}
+        roomName={roomName}
+        mySeat={mySeatFromRoom}
+        players={roomPlayers}
+        hostSeat={hostSeat}
+        config={roomConfig}
+        readyPlayers={readyPlayers}
+        send={send as (msg: Record<string, unknown>) => boolean}
+        onLeave={() => {
+          send({ type: 'LEAVE_ROOM' });
+          leaveRoom();
+          gameStore.reset();
+          router.push('/lobby');
+        }}
+      />
+    );
+  }
 
   // --- Loading state ---
   if (!gameStore.gameId || !gameStore.phase) {

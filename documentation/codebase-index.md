@@ -170,9 +170,8 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 |-------|------|---------|
 | `/` | `page.tsx` | Landing — Play / Sign In / Leaderboard links |
 | `/auth` | `auth/page.tsx` | Login / Register / Guest init |
-| `/lobby` | `lobby/page.tsx` | Browse public rooms, create, join by code. Polls GET_LOBBY every 2s. |
-| `/lobby/[roomId]` | `lobby/[roomId]/page.tsx` | Room waiting area — seat layout (D-pad), bot controls, config, start game. Auto-joins on mount. |
-| `/game/[gameId]` | `game/[gameId]/page.tsx` | Main game view — GameTable + ActionBar + CardHand + overlays |
+| `/lobby` | `lobby/page.tsx` | Browse public rooms, create (with settings popup), join by code. Polls GET_LOBBY every 2s. |
+| `/game/[gameId]` | `game/[gameId]/page.tsx` | Main game view — PreRoomView (pre-game setup) + GameTable + ActionBar + CardHand + overlays |
 | `/spectate/[gameId]` | `spectate/[gameId]/page.tsx` | Read-only spectator mode |
 | `/leaderboard` | `leaderboard/page.tsx` | Top players by win rate (min 5 games) |
 | `/profile` | `profile/page.tsx` | Player stats + game history |
@@ -211,6 +210,13 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 | `DisconnectOverlay.tsx` | Disconnect notification + vote UI (Wait/Bot/Abandon) with countdown. |
 | `DragonGiftModal.tsx` | Choose opponent for dragon trick gift. |
 | `AnimatedScore.tsx` | Number tally count-up animation. |
+| `PreRoomView.tsx` | Pre-game room setup: seat layout with bot controls (host), ready system, settings panel, room code display. |
+
+#### Lobby (`lobby/`)
+
+| Component | Purpose |
+|-----------|---------|
+| `CreateGamePopup.tsx` | Modal popup with game settings (target score, turn timer, animation speed, private, spectators) shown on "Create Game". |
 
 #### Cards (`cards/`)
 
@@ -274,8 +280,9 @@ lobby → grandTichuDecision (first 8 cards dealt)
 ## Data Flow
 
 1. **Connect:** Client → `/ws?userId=&playerName=` → ConnectionManager tracks
-2. **Room:** Client sends CREATE/JOIN_ROOM → RoomHandler → RoomManager → broadcasts ROOM_UPDATE
-3. **Start:** Host sends START_GAME → GameStore creates GameManager → seats players → XState actor starts → broadcasts GAME_STATE
+2. **Room:** Client sends CREATE_ROOM (with optional config) or JOIN_ROOM → RoomHandler → RoomManager → broadcasts ROOM_UPDATE → client navigates to `/game/[roomCode]` (PreRoomView)
+3. **Pre-game setup:** Players add bots, configure settings, and ready up on the game page → all 4 ready → server auto-starts
+4. **Start:** All ready → GameStore creates GameManager → seats players → XState actor starts → broadcasts GAME_STATE
 4. **Play:** Client sends game message → GameHandler → GameManager → MoveHandler validates → XState event → state transition → Broadcaster sends projected state per player
 5. **Bots:** BotRunner detects state change → schedules decision (800-1500ms delay) → sends XState event
 6. **Disconnect:** WS close → DisconnectHandler → vote session → resolve (wait/bot/abandon)
