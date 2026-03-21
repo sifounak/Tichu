@@ -582,6 +582,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           availableSeats={isPreRoomSpectator ? uiStore.availableSeats : undefined}
           onClaimSeat={isPreRoomSpectator ? () => send({ type: 'CLAIM_SEAT' }) : undefined}
           onDeclineSeat={isPreRoomSpectator ? () => { uiStore.setQueueStatus({ decidingSpectator: '', position: 0, timeoutMs: 0 }); send({ type: 'DECLINE_SEAT' }); } : undefined}
+          spectatorCount={spectatorCount}
+          spectatorNames={spectatorNames}
         />
       </>
     );
