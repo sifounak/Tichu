@@ -14,13 +14,17 @@ export interface RoomStore {
   hostSeat: Seat | null;
   config: GameConfig | null;
   gameInProgress: boolean;
+  // REQ-F-SP16: Spectator count and ready state from ROOM_UPDATE
+  spectatorCount: number;
+  readyPlayers: Seat[];
 
   /* --- Lobby state --- */
   lobbyRooms: LobbyEntry[];
 
   /* --- Actions --- */
-  setRoom: (roomCode: string, seat: Seat) => void;
-  updateRoom: (roomName: string, players: RoomPlayer[], hostSeat: Seat, config: GameConfig, gameInProgress: boolean) => void;
+  // REQ-F-SP04: seat is nullable for spectators
+  setRoom: (roomCode: string, seat: Seat | null) => void;
+  updateRoom: (roomName: string, players: RoomPlayer[], hostSeat: Seat, config: GameConfig, gameInProgress: boolean, spectatorCount?: number, readyPlayers?: Seat[]) => void;
   setLobbyRooms: (rooms: LobbyEntry[]) => void;
   leaveRoom: () => void;
   reset: () => void;
@@ -34,6 +38,8 @@ const INITIAL_STATE = {
   hostSeat: null,
   config: null,
   gameInProgress: false,
+  spectatorCount: 0,
+  readyPlayers: [] as Seat[],
   lobbyRooms: [],
 };
 
@@ -42,8 +48,8 @@ export const useRoomStore = create<RoomStore>()((set) => ({
 
   setRoom: (roomCode, seat) => set({ roomCode, mySeat: seat }),
 
-  updateRoom: (roomName, players, hostSeat, config, gameInProgress) =>
-    set({ roomName, players, hostSeat, config, gameInProgress }),
+  updateRoom: (roomName, players, hostSeat, config, gameInProgress, spectatorCount = 0, readyPlayers = []) =>
+    set({ roomName, players, hostSeat, config, gameInProgress, spectatorCount, readyPlayers }),
 
   setLobbyRooms: (rooms) => set({ lobbyRooms: rooms }),
 
@@ -55,6 +61,8 @@ export const useRoomStore = create<RoomStore>()((set) => ({
     hostSeat: null,
     config: null,
     gameInProgress: false,
+    spectatorCount: 0,
+    readyPlayers: [],
   }),
 
   reset: () => set(INITIAL_STATE),

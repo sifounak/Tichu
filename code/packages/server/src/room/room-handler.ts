@@ -3,12 +3,13 @@
 // REQ-F-MP04: Room configuration options
 
 import type { WebSocket } from 'ws';
-import type { ClientMessage, Seat } from '@tichu/shared';
+import type { ClientMessage } from '@tichu/shared';
 import type { ConnectionManager } from '../ws/connection-manager.js';
 import type { Broadcaster } from '../ws/broadcaster.js';
 import type { MessageRouter } from '../ws/message-router.js';
 import { RoomManager } from './room-manager.js';
 import { GameStore } from '../game/game-store.js';
+import { SeatQueue } from './seat-queue.js';
 
 /**
  * Handles room-related WebSocket messages by routing them to the RoomManager.
@@ -19,6 +20,8 @@ export class RoomHandler {
   private readonly gameStore: GameStore;
   private readonly connections: ConnectionManager;
   private readonly broadcaster: Broadcaster;
+  // REQ-F-SP07: Per-room seat queues for spectator→player promotion
+  private readonly seatQueues = new Map<string, SeatQueue>();
 
   constructor(
     router: MessageRouter,
@@ -44,6 +47,12 @@ export class RoomHandler {
     router.on('SWAP_SEATS', (ws, msg) => this.handleSwapSeats(ws, msg as ClientMessage & { type: 'SWAP_SEATS' }));
     router.on('KICK_PLAYER', (ws, msg) => this.handleKickPlayer(ws, msg as ClientMessage & { type: 'KICK_PLAYER' }));
     router.on('CHOOSE_SEAT', (ws, msg) => this.handleChooseSeat(ws, msg as ClientMessage & { type: 'CHOOSE_SEAT' }));
+    // REQ-F-SP18: Ready-to-start system
+    router.on('READY_TO_START', (ws) => this.handleReadyToStart(ws));
+    router.on('CANCEL_READY', (ws) => this.handleCancelReady(ws));
+    // REQ-F-SP08: Seat queue responses
+    router.on('CLAIM_SEAT', (ws) => this.handleClaimSeat(ws));
+    router.on('DECLINE_SEAT', (ws) => this.handleDeclineSeat(ws));
   }
 
   private handleCreateRoom(ws: WebSocket, msg: ClientMessage & { type: 'CREATE_ROOM' }): void {
@@ -65,6 +74,7 @@ export class RoomHandler {
     }
   }
 
+  // REQ-F-SP02, SP04, SP23: Join room — auto-spectator when full, explicit spectator via flag
   private handleJoinRoom(ws: WebSocket, msg: ClientMessage & { type: 'JOIN_ROOM' }): void {
     const info = this.connections.getClientInfo(ws);
     if (!info) {
@@ -72,16 +82,48 @@ export class RoomHandler {
       return;
     }
 
-    try {
-      const { room, seat } = this.roomManager.joinRoom(info.userId, msg.roomCode, msg.playerName);
-      this.connections.assignToRoom(ws, room.roomCode, seat);
+    const room = this.roomManager.getRoom(msg.roomCode);
+    const isFull = room ? room.players.length >= 4 : false;
+    const shouldSpectate = msg.asSpectator || isFull;
 
-      this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: room.roomCode, seat });
-      this.broadcastRoomUpdate(room.roomCode);
+    if (shouldSpectate && room) {
+      // Join as spectator
+      try {
+        this.roomManager.joinAsSpectator(info.userId, msg.roomCode, msg.playerName);
+        this.connections.assignAsSpectator(ws, msg.roomCode);
+
+        this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: msg.roomCode, seat: null });
+        this.broadcastRoomUpdate(msg.roomCode);
+
+        // If game is in progress, send current game state to spectator
+        if (room.gameInProgress) {
+          const game = this.gameStore.getGameByRoom(msg.roomCode);
+          if (game) {
+            game.sendSpectatorState(ws);
+          }
+        }
+
+        // REQ-F-SP10, SP27: If queue is active, add late-joining spectator
+        const queue = this.seatQueues.get(msg.roomCode);
+        if (queue?.isActive()) {
+          queue.addToQueue(info.userId);
+        }
+      } catch (err) {
+        this.broadcaster.sendError(ws, 'JOIN_ROOM_FAILED', (err as Error).message);
+      }
+      return;
+    }
+
+    try {
+      const { room: joinedRoom, seat } = this.roomManager.joinRoom(info.userId, msg.roomCode, msg.playerName);
+      this.connections.assignToRoom(ws, joinedRoom.roomCode, seat);
+
+      this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: joinedRoom.roomCode, seat });
+      this.broadcastRoomUpdate(joinedRoom.roomCode);
 
       // If a game is in progress, seat the new player into the active game
-      if (room.gameInProgress) {
-        const game = this.gameStore.getGameByRoom(room.roomCode);
+      if (joinedRoom.gameInProgress) {
+        const game = this.gameStore.getGameByRoom(joinedRoom.roomCode);
         if (game) {
           game.handleSeatFilled(seat);
         }
@@ -95,6 +137,28 @@ export class RoomHandler {
     const info = this.connections.getClientInfo(ws);
     if (!info) {
       this.broadcaster.sendError(ws, 'NOT_AUTHENTICATED', 'Not authenticated');
+      return;
+    }
+
+    // REQ-F-SP02: Check if leaving as spectator
+    if (this.roomManager.isSpectator(info.userId)) {
+      try {
+        // REQ-F-SP08: Notify queue if spectator leaves during active queue
+        const spectatorRoomCode = this.roomManager.getSpectatorRoom(info.userId);
+        if (spectatorRoomCode) {
+          const queue = this.seatQueues.get(spectatorRoomCode);
+          if (queue?.isActive()) {
+            queue.handleLeave(info.userId);
+          }
+        }
+
+        const { room, roomCode } = this.roomManager.leaveAsSpectator(info.userId);
+        this.connections.removeFromRoom(ws);
+        this.broadcaster.send(ws, { type: 'ROOM_LEFT' });
+        if (room) this.broadcastRoomUpdate(roomCode);
+      } catch (err) {
+        this.broadcaster.sendError(ws, 'LEAVE_ROOM_FAILED', (err as Error).message);
+      }
       return;
     }
 
@@ -114,6 +178,11 @@ export class RoomHandler {
 
       if (room) {
         this.broadcastRoomUpdate(roomCode);
+
+        // REQ-F-SP07: Start seat queue when player leaves mid-game and spectators exist
+        if (gameWasInProgress) {
+          this.tryStartSeatQueue(roomCode, [seat]);
+        }
       }
     } catch (err) {
       this.broadcaster.sendError(ws, 'LEAVE_ROOM_FAILED', (err as Error).message);
@@ -184,12 +253,25 @@ export class RoomHandler {
 
     try {
       this.roomManager.addBot(info.roomCode, msg.seat, msg.difficulty);
+
+      // REQ-F-SP30: Bots auto-ready when start is available
+      const room = this.roomManager.getRoom(info.roomCode);
+      if (room && room.players.length === 4 && !room.gameInProgress) {
+        this.roomManager.setReady(info.roomCode, msg.seat);
+      }
+
       this.broadcastRoomUpdate(info.roomCode);
+
+      // REQ-F-SP20: Check if all ready after bot auto-ready
+      if (this.roomManager.areAllReady(info.roomCode)) {
+        this.startGameInternal(info.roomCode, ws);
+      }
     } catch (err) {
       this.broadcaster.sendError(ws, 'ADD_BOT_FAILED', (err as Error).message);
     }
   }
 
+  // REQ-F-SP31: Remove bot — allowed mid-game, triggers seat vacate
   private handleRemoveBot(ws: WebSocket, msg: ClientMessage & { type: 'REMOVE_BOT' }): void {
     const info = this.connections.getClientInfo(ws);
     if (!info?.roomCode) {
@@ -203,7 +285,19 @@ export class RoomHandler {
     }
 
     try {
-      this.roomManager.removeBot(info.roomCode, msg.seat);
+      const { wasGameInProgress } = this.roomManager.removeBot(info.roomCode, msg.seat);
+
+      // REQ-F-SP32: If game was in progress, vacate seat and trigger queue
+      if (wasGameInProgress) {
+        const game = this.gameStore.getGameByRoom(info.roomCode);
+        if (game) {
+          game.handleSeatVacated(msg.seat);
+        }
+        this.tryStartSeatQueue(info.roomCode, [msg.seat]);
+      }
+
+      // Ready resets when player composition changes
+      this.roomManager.resetReady(info.roomCode);
       this.broadcastRoomUpdate(info.roomCode);
     } catch (err) {
       this.broadcaster.sendError(ws, 'REMOVE_BOT_FAILED', (err as Error).message);
@@ -215,6 +309,7 @@ export class RoomHandler {
     this.broadcaster.send(ws, { type: 'LOBBY_LIST', rooms });
   }
 
+  /** Legacy START_GAME handler — kept for backward compatibility. Delegates to startGameInternal. */
   private handleStartGame(ws: WebSocket): void {
     const info = this.connections.getClientInfo(ws);
     if (!info?.roomCode) {
@@ -227,45 +322,7 @@ export class RoomHandler {
       return;
     }
 
-    const room = this.roomManager.getRoom(info.roomCode);
-    if (!room) {
-      this.broadcaster.sendError(ws, 'ROOM_NOT_FOUND', 'Room not found');
-      return;
-    }
-
-    try {
-      // Create the game via GameStore (before setting gameInProgress flag)
-      const game = this.gameStore.createGame(info.roomCode, room.config);
-
-      // Seat all players into the game
-      for (const player of room.players) {
-        game.seatPlayer(player.seat);
-        if (!player.isBot) {
-          // Assign the WebSocket connection's seat to the game
-          const userId = this.roomManager.getUserIdAtSeat(info.roomCode, player.seat);
-          if (userId) {
-            const playerWs = this.connections.getSocketByUserId(userId);
-            if (playerWs) {
-              this.connections.assignToRoom(playerWs, info.roomCode, player.seat);
-            }
-          }
-        } else {
-          // REQ-F-MP01: Register bot strategy for this seat
-          game.registerBot(player.seat, room.config.botDifficulty);
-        }
-      }
-
-      // REQ-F-SG03: Set gameInProgress only after successful initialization
-      this.roomManager.startGame(info.roomCode);
-
-      // Start the game (HOST_START_GAME triggers FSM transition)
-      game.handleMessage(ws, info.seat as Seat, { type: 'START_GAME' });
-    } catch (err) {
-      // REQ-F-SG03: Roll back gameInProgress flag on failure
-      this.roomManager.endGame(info.roomCode);
-      this.gameStore.destroyGameByRoom(info.roomCode);
-      this.broadcaster.sendError(ws, 'START_GAME_FAILED', (err as Error).message);
-    }
+    this.startGameInternal(info.roomCode, ws);
   }
 
   // REQ-F-006: Handle seat swap requests
@@ -336,14 +393,179 @@ export class RoomHandler {
     game.handleChooseSeat(currentSeat, chosenSeat);
   }
 
+  // REQ-F-SP18: Player signals ready to start
+  private handleReadyToStart(ws: WebSocket): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode || !info.seat) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room with a seat');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (!room || room.players.length !== 4) {
+      this.broadcaster.sendError(ws, 'NOT_READY', 'Need 4 players to ready up');
+      return;
+    }
+    if (room.gameInProgress) {
+      this.broadcaster.sendError(ws, 'GAME_IN_PROGRESS', 'Game already in progress');
+      return;
+    }
+
+    this.roomManager.setReady(info.roomCode, info.seat);
+    this.broadcastRoomUpdate(info.roomCode);
+
+    // REQ-F-SP20: Auto-start when all 4 ready
+    if (this.roomManager.areAllReady(info.roomCode)) {
+      this.startGameInternal(info.roomCode, ws);
+    }
+  }
+
+  // REQ-F-SP18: Player cancels ready
+  private handleCancelReady(ws: WebSocket): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode || !info.seat) return;
+
+    this.roomManager.cancelReady(info.roomCode, info.seat);
+    this.broadcastRoomUpdate(info.roomCode);
+  }
+
+  /** REQ-F-SP20: Internal game start logic shared between ready system and legacy START_GAME. */
+  private startGameInternal(roomCode: string, triggerWs: WebSocket): void {
+    const room = this.roomManager.getRoom(roomCode);
+    if (!room) return;
+
+    try {
+      const game = this.gameStore.createGame(roomCode, room.config);
+
+      for (const player of room.players) {
+        game.seatPlayer(player.seat);
+        if (!player.isBot) {
+          const userId = this.roomManager.getUserIdAtSeat(roomCode, player.seat);
+          if (userId) {
+            const playerWs = this.connections.getSocketByUserId(userId);
+            if (playerWs) {
+              this.connections.assignToRoom(playerWs, roomCode, player.seat);
+            }
+          }
+        } else {
+          game.registerBot(player.seat, room.config.botDifficulty);
+        }
+      }
+
+      this.roomManager.startGame(roomCode);
+      this.roomManager.resetReady(roomCode);
+
+      // Find a human player's ws to trigger the FSM
+      const hostUserId = this.roomManager.getUserIdAtSeat(roomCode, room.hostSeat);
+      const hostWs = hostUserId ? this.connections.getSocketByUserId(hostUserId) : triggerWs;
+      game.handleMessage(hostWs ?? triggerWs, room.hostSeat, { type: 'START_GAME' });
+    } catch (err) {
+      this.roomManager.endGame(roomCode);
+      this.gameStore.destroyGameByRoom(roomCode);
+      this.broadcaster.sendError(triggerWs, 'START_GAME_FAILED', (err as Error).message);
+    }
+  }
+
+  // ─── Seat Queue (REQ-F-SP07–SP10, SP27, SP28, SP31, SP32) ───────────
+
+  /** Get or create the SeatQueue for a room, wiring callbacks. */
+  private getOrCreateQueue(roomCode: string): SeatQueue {
+    let queue = this.seatQueues.get(roomCode);
+    if (!queue) {
+      queue = new SeatQueue(roomCode, {
+        onSendToSpectator: (userId, message) => {
+          const ws = this.connections.getSocketByUserId(userId);
+          if (ws) this.broadcaster.send(ws, message);
+        },
+        onBroadcastQueueStatus: (rc, status) => {
+          // Resolve decidingSpectator from userId to display name
+          const name = this.roomManager.getSpectatorName(status.decidingSpectator);
+          const resolved = { ...status, decidingSpectator: name ?? status.decidingSpectator };
+          this.broadcaster.broadcastToSpectators(rc, resolved);
+        },
+        onSeatClaimed: (userId, seat) => {
+          // REQ-F-SP09: Promote spectator to player
+          this.roomManager.promoteSpectatorToPlayer(userId, seat);
+          const ws = this.connections.getSocketByUserId(userId);
+          if (ws) {
+            this.connections.assignToRoom(ws, roomCode, seat);
+            this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode, seat });
+
+            // Send current game state if game is in progress
+            const game = this.gameStore.getGameByRoom(roomCode);
+            if (game) {
+              game.handleSeatFilled(seat);
+            }
+          }
+          this.broadcastRoomUpdate(roomCode);
+        },
+        onAllSeatsFilled: (rc) => {
+          // Queue finished — clean up
+          this.seatQueues.delete(rc);
+          this.broadcastRoomUpdate(rc);
+        },
+      });
+      this.seatQueues.set(roomCode, queue);
+    }
+    return queue;
+  }
+
+  /** Start seat queue if spectators exist and seats are available. */
+  private tryStartSeatQueue(roomCode: string, vacatedSeats: import('@tichu/shared').Seat[]): void {
+    if (vacatedSeats.length === 0) return;
+    const spectatorIds = this.roomManager.getSpectatorUserIds(roomCode);
+    if (spectatorIds.length === 0) return;
+
+    const queue = this.getOrCreateQueue(roomCode);
+    queue.startQueue(vacatedSeats, spectatorIds);
+  }
+
+  // REQ-F-SP08: Handle spectator claiming the offered seat
+  private handleClaimSeat(ws: WebSocket): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    const queue = this.seatQueues.get(info.roomCode);
+    if (!queue || !queue.isActive()) {
+      this.broadcaster.sendError(ws, 'NO_QUEUE', 'No active seat queue');
+      return;
+    }
+
+    const claimed = queue.handleClaim(info.userId);
+    if (!claimed) {
+      this.broadcaster.sendError(ws, 'CLAIM_FAILED', 'Cannot claim seat');
+    }
+  }
+
+  // REQ-F-SP08: Handle spectator declining the offered seat
+  private handleDeclineSeat(ws: WebSocket): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    const queue = this.seatQueues.get(info.roomCode);
+    if (!queue || !queue.isActive()) {
+      this.broadcaster.sendError(ws, 'NO_QUEUE', 'No active seat queue');
+      return;
+    }
+
+    queue.handleDecline(info.userId);
+  }
+
   // REQ-F-005: Public access for reconnection flow
   /** Broadcast ROOM_UPDATE to all players in a room */
+  // REQ-F-SP16: ROOM_UPDATE includes spectatorCount and readyPlayers
   broadcastRoomUpdate(roomCode: string): void {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
-    this.broadcaster.broadcastToRoom(roomCode, {
-      type: 'ROOM_UPDATE',
+    const update = {
+      type: 'ROOM_UPDATE' as const,
       roomName: room.roomName,
       players: room.players.map(p => ({
         seat: p.seat,
@@ -354,10 +576,18 @@ export class RoomHandler {
       hostSeat: room.hostSeat,
       config: room.config,
       gameInProgress: room.gameInProgress,
-    });
+      spectatorCount: room.spectators.length,
+      readyPlayers: this.roomManager.getReadySeats(roomCode),
+    };
+
+    this.broadcaster.broadcastToRoom(roomCode, update);
   }
 
   dispose(): void {
+    for (const queue of this.seatQueues.values()) {
+      queue.cleanup();
+    }
+    this.seatQueues.clear();
     this.roomManager.dispose();
   }
 }

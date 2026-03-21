@@ -147,6 +147,7 @@ describe('serverMessageSchema', () => {
   it('validates ROOM_UPDATE message', () => {
     const msg = {
       type: 'ROOM_UPDATE',
+      roomName: 'Test Room',
       players: [
         { seat: 'north', name: 'Alice', isBot: false, isConnected: true },
         { seat: 'east', name: 'Bot', isBot: true, isConnected: true },
@@ -154,6 +155,8 @@ describe('serverMessageSchema', () => {
       hostSeat: 'north',
       config: { targetScore: 1000 },
       gameInProgress: false,
+      spectatorCount: 0,
+      readyPlayers: [],
     };
     expect(serverMessageSchema.parse(msg)).toEqual(msg);
   });
@@ -167,7 +170,7 @@ describe('serverMessageSchema', () => {
     const msg = {
       type: 'LOBBY_LIST',
       rooms: [
-        { roomCode: 'ABC123', hostName: 'Alice', playerCount: 2, spectatorCount: 0, config: { targetScore: 1000 }, gameInProgress: false },
+        { roomCode: 'ABC123', roomName: 'Test Room', hostName: 'Alice', playerCount: 2, spectatorCount: 0, config: { targetScore: 1000 }, gameInProgress: false },
       ],
     };
     expect(serverMessageSchema.parse(msg)).toEqual(msg);

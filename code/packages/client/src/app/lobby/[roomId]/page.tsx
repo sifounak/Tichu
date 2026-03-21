@@ -30,7 +30,7 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
   const router = useRouter();
   const [error, setError] = useState('');
   const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
-  const { roomCode, roomName: storedRoomName, mySeat, players, hostSeat, config, gameInProgress, setRoom, updateRoom, leaveRoom } = useRoomStore();
+  const { roomCode, roomName: storedRoomName, mySeat, players, hostSeat, config, gameInProgress, spectatorCount, readyPlayers, setRoom, updateRoom, leaveRoom } = useRoomStore();
 
   const onMessage = useCallback((msg: ServerMessage) => {
     switch (msg.type) {
@@ -38,7 +38,11 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         setRoom(msg.roomCode, msg.seat);
         break;
       case 'ROOM_UPDATE':
-        updateRoom(msg.roomName, msg.players, msg.hostSeat, msg.config as GameConfig, msg.gameInProgress);
+        // REQ-F-SP16: Pass spectatorCount and readyPlayers from ROOM_UPDATE
+        updateRoom(
+          msg.roomName, msg.players, msg.hostSeat, msg.config as GameConfig, msg.gameInProgress,
+          (msg as any).spectatorCount ?? 0, (msg as any).readyPlayers ?? [],
+        );
         break;
       case 'ROOM_LEFT':
         leaveRoom();
@@ -47,6 +51,12 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
       case 'KICKED':
         leaveRoom();
         sessionStorage.setItem('tichu_kicked_message', msg.message);
+        router.push('/lobby');
+        break;
+      case 'ROOM_CLOSED':
+        // REQ-F-SP15: Room destroyed — return to lobby with message
+        leaveRoom();
+        sessionStorage.setItem('tichu_kicked_message', (msg as any).message ?? 'The room was closed');
         router.push('/lobby');
         break;
       case 'GAME_STATE':
@@ -102,6 +112,17 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
     send({ type: 'START_GAME' });
   };
 
+  // REQ-F-SP18: Ready-to-start system
+  const handleReadyToStart = () => {
+    send({ type: 'READY_TO_START' });
+  };
+
+  const handleCancelReady = () => {
+    send({ type: 'CANCEL_READY' });
+  };
+
+  const amReady = mySeat ? readyPlayers.includes(mySeat) : false;
+
   // REQ-F-006: Seat swap
   const handleSwapSeat = (seat: Seat) => {
     send({ type: 'SWAP_SEATS', targetSeat: seat });
@@ -117,6 +138,8 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
     const player = players.find(p => p.seat === seat);
     const isMe = seat === mySeat;
     const isHostSeat = seat === hostSeat;
+    // REQ-F-SP19: Ready player visual indicator
+    const isReady = readyPlayers.includes(seat);
 
     // Determine display name and subtitle
     let displayName: string;
@@ -135,6 +158,8 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
         style={{
           background: isMe ? 'rgba(201, 168, 76, 0.15)' : 'rgba(255, 255, 255, 0.05)',
           border: isMe ? '1px solid var(--color-gold-accent)' : '1px solid var(--color-border)',
+          // REQ-F-SP19: Green glow when player is ready
+          boxShadow: isReady ? '0 0 12px rgba(34, 197, 94, 0.6), inset 0 0 8px rgba(34, 197, 94, 0.15)' : 'none',
           width: '180px',
           height: '130px',
           padding: '20px 16px 28px',
@@ -150,6 +175,10 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           <div className="font-semibold text-base">{displayName}</div>
           {subtitle && (
             <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>{subtitle}</div>
+          )}
+          {/* REQ-F-SP19: Ready indicator */}
+          {isReady && (
+            <div className="text-xs font-semibold mt-0.5" style={{ color: 'rgb(34, 197, 94)' }}>Ready</div>
           )}
         </div>
 
@@ -408,6 +437,13 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           </div>
         )}
 
+        {/* Spectator count */}
+        {spectatorCount > 0 && (
+          <p className="text-center mb-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
+            {spectatorCount} spectator{spectatorCount !== 1 ? 's' : ''} watching
+          </p>
+        )}
+
         {/* Action buttons */}
         <div className="flex gap-4 justify-center mt-8">
           <button
@@ -421,17 +457,42 @@ export default function RoomPage(props: { params: Promise<{ roomId: string }> })
           >
             {isHost ? 'Cancel' : 'Leave Room'}
           </button>
-          {isHost && (
+          {/* REQ-F-SP18: All-player ready-to-start replaces host-only start */}
+          {canStart && !amReady && (
             <button
-              onClick={handleStartGame}
-              disabled={!canStart}
-              className="px-6 py-2.5 rounded-lg font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
+              onClick={handleReadyToStart}
+              className="px-6 py-2.5 rounded-lg font-semibold transition-opacity hover:opacity-80"
               style={{
-                background: canStart ? 'var(--color-gold-accent)' : 'var(--color-text-muted)',
+                background: 'var(--color-gold-accent)',
                 color: 'var(--color-felt-green-dark)',
               }}
             >
-              {canStart ? 'Start Game' : `Need ${4 - players.length} more player${4 - players.length !== 1 ? 's' : ''}`}
+              Start Game
+            </button>
+          )}
+          {canStart && amReady && (
+            <button
+              onClick={handleCancelReady}
+              className="px-6 py-2.5 rounded-lg font-semibold transition-opacity hover:opacity-80"
+              style={{
+                background: 'rgba(34, 197, 94, 0.2)',
+                color: 'rgb(34, 197, 94)',
+                border: '1px solid rgb(34, 197, 94)',
+              }}
+            >
+              Ready — Waiting...
+            </button>
+          )}
+          {!canStart && (
+            <button
+              disabled
+              className="px-6 py-2.5 rounded-lg font-semibold disabled:opacity-40"
+              style={{
+                background: 'var(--color-text-muted)',
+                color: 'var(--color-felt-green-dark)',
+              }}
+            >
+              {players.length < 4 ? `Need ${4 - players.length} more player${4 - players.length !== 1 ? 's' : ''}` : 'Game in progress'}
             </button>
           )}
         </div>

@@ -123,6 +123,21 @@ export function createApp(config: Partial<AppConfig> = {}) {
       if (game) {
         game.handleReconnect(ws, existingSeat);
       }
+    } else {
+      // REQ-F-SP13: Detect returning spectator
+      const spectatorRoom = roomHandler.roomManager.getSpectatorRoom(userId);
+      if (spectatorRoom) {
+        connections.assignAsSpectator(ws, spectatorRoom);
+        roomHandler.roomManager.markSpectatorReconnected(userId);
+        broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: spectatorRoom, seat: null });
+        roomHandler.broadcastRoomUpdate(spectatorRoom);
+
+        // Send game state if game in progress
+        const game = gameStore.getGameByRoom(spectatorRoom);
+        if (game) {
+          game.sendSpectatorState(ws);
+        }
+      }
     }
 
     ws.on('pong', () => {
@@ -137,12 +152,18 @@ export function createApp(config: Partial<AppConfig> = {}) {
     ws.on('close', () => {
       const info = connections.removeClient(ws);
       if (info?.roomCode) {
-        // REQ-F-002: Mark player as disconnected (preserves room membership for reconnection)
-        roomHandler.roomManager.markDisconnected(info.userId);
-        broadcaster.broadcastToRoom(info.roomCode, {
-          type: 'PLAYER_DISCONNECTED',
-          seat: info.seat!,
-        });
+        // REQ-F-SP13: Check if spectator first
+        if (roomHandler.roomManager.isSpectator(info.userId)) {
+          roomHandler.roomManager.markSpectatorDisconnected(info.userId);
+          // No PLAYER_DISCONNECTED broadcast for spectators
+        } else if (info.seat) {
+          // REQ-F-002: Mark player as disconnected (preserves room membership for reconnection)
+          roomHandler.roomManager.markDisconnected(info.userId);
+          broadcaster.broadcastToRoom(info.roomCode, {
+            type: 'PLAYER_DISCONNECTED',
+            seat: info.seat,
+          });
+        }
       }
     });
 

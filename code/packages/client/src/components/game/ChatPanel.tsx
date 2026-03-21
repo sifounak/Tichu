@@ -18,6 +18,8 @@ export interface ChatPanelProps {
   onToggle: () => void;
   unreadCount: number;
   seatNames?: Record<Seat, string>;
+  // REQ-F-SP14: Spectators can read chat but not send
+  readOnly?: boolean;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -34,6 +36,7 @@ export const ChatPanel = memo(function ChatPanel({
   onToggle,
   unreadCount,
   seatNames,
+  readOnly = false,
 }: ChatPanelProps) {
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -98,25 +101,28 @@ export const ChatPanel = memo(function ChatPanel({
             <div ref={messagesEndRef} />
           </div>
 
-          <form className={styles.inputRow} onSubmit={handleSubmit}>
-            <input
-              className={styles.input}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type a message..."
-              maxLength={500}
-              aria-label="Chat message"
-            />
-            <button
-              className={styles.sendButton}
-              type="submit"
-              disabled={!input.trim()}
-              aria-label="Send message"
-            >
-              Send
-            </button>
-          </form>
+          {/* REQ-F-SP14: Hide input for spectators (readOnly mode) */}
+          {!readOnly && (
+            <form className={styles.inputRow} onSubmit={handleSubmit}>
+              <input
+                className={styles.input}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type a message..."
+                maxLength={500}
+                aria-label="Chat message"
+              />
+              <button
+                className={styles.sendButton}
+                type="submit"
+                disabled={!input.trim()}
+                aria-label="Send message"
+              >
+                Send
+              </button>
+            </form>
+          )}
         </div>
       )}
     </>

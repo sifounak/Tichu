@@ -96,6 +96,15 @@ export class ConnectionManager {
     }
   }
 
+  /** REQ-F-SP02: Assign a client to a room as spectator (no seat). */
+  assignAsSpectator(ws: WebSocket, roomCode: string): void {
+    const info = this.clients.get(ws);
+    if (info) {
+      info.roomCode = roomCode;
+      info.seat = null;
+    }
+  }
+
   /** Remove a client's room assignment */
   removeFromRoom(ws: WebSocket): void {
     const info = this.clients.get(ws);

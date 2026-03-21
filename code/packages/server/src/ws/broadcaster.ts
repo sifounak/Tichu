@@ -4,7 +4,7 @@ import type { WebSocket } from 'ws';
 import type { Seat, ServerMessage } from '@tichu/shared';
 import type { ConnectionManager } from './connection-manager.js';
 import type { GameMachineContext } from '../game/game-state-machine.js';
-import { projectGameState } from './state-projection.js';
+import { projectGameState, projectSpectatorView } from './state-projection.js';
 
 /**
  * Sends server messages to connected clients via the ConnectionManager.
@@ -48,14 +48,26 @@ export class Broadcaster {
   /**
    * REQ-NF-A02: Broadcast projected game state to each player in a room.
    * Each player receives their own view with hidden opponent hands.
+   * REQ-F-SP06: Spectators (seat === null) receive a spectator-projected view.
    */
   broadcastGameState(roomCode: string, context: GameMachineContext, machineState: string, vacatedSeats: readonly Seat[] = [], choosingSeats: readonly Seat[] = []): number {
     const clients = this.connections.getClientsInRoom(roomCode);
     let sent = 0;
+    // REQ-F-SP05, REQ-NF-SP02: Compute spectator view once (lazy, shared across all spectators)
+    let spectatorView: ReturnType<typeof projectSpectatorView> | null = null;
     for (const { ws, info } of clients) {
       if (info.seat) {
         const view = projectGameState(context, machineState, info.seat, vacatedSeats, choosingSeats);
         const message: ServerMessage = { type: 'GAME_STATE', state: view };
+        if (this.send(ws, message)) {
+          sent++;
+        }
+      } else {
+        // Spectator — send projected view with no hand data
+        if (!spectatorView) {
+          spectatorView = projectSpectatorView(context, machineState, vacatedSeats);
+        }
+        const message: ServerMessage = { type: 'GAME_STATE', state: spectatorView };
         if (this.send(ws, message)) {
           sent++;
         }
