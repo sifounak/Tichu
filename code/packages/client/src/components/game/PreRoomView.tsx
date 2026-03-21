@@ -404,7 +404,7 @@ export function PreRoomView({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: 'var(--space-2)',
+        gap: 'var(--space-1)',
       }}>
         {/* Spectating badge */}
         {isSpectator && (
