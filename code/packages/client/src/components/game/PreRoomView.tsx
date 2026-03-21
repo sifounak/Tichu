@@ -390,6 +390,27 @@ export function PreRoomView({
         hideCenter={false}
         renderSeatOverride={renderSeat}
         centerContent={centerContent}
+        bottomContent={isSpectator ? (() => {
+          const hostPlayer = players.find((p) => p.seat === hostSeat);
+          if (!hostPlayer) return undefined;
+          const hostReady = hostSeat ? readyPlayers.includes(hostSeat) : false;
+          return (
+            <PlayerSeat
+              seat={hostSeat ?? 'south'}
+              displayName={hostPlayer.name}
+              cardCount={0}
+              tichuCall={'none'}
+              hasPlayed={false}
+              hasPassed={false}
+              finishOrder={null}
+              isCurrentTurn={false}
+              isTrickLeader={false}
+              isMe={false}
+              passConfirmed={hostReady}
+              passConfirmedLabel="Ready to Play"
+            />
+          );
+        })() : undefined}
       />
 
       {/* Bottom panel — player's own seat, positioned where it sits during gameplay

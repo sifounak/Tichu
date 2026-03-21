@@ -31,6 +31,8 @@ export interface GameTableProps {
   renderSeatOverride?: (seat: Seat) => React.ReactNode;
   /** Custom content for center area (replaces TrickDisplay when provided) */
   centerContent?: React.ReactNode;
+  /** Custom content for bottom area (replaces empty spacer, e.g. for spectator bottom seat) */
+  bottomContent?: React.ReactNode;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -41,7 +43,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat, renderSeatOverride, centerContent }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -156,8 +158,14 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         {seat(seatPositions.right)}
       </div>
 
-      {/* Player (bottom) — rendered in the fixed bottom panel in page.tsx */}
-      <div className={styles.bottom} />
+      {/* Player (bottom) — rendered in the fixed bottom panel in page.tsx, or custom content */}
+      <div className={styles.bottom}>
+        {bottomContent && (
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 'var(--space-4)' }}>
+            {bottomContent}
+          </div>
+        )}
+      </div>
 
     </div>
   );
