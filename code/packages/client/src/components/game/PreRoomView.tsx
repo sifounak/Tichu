@@ -11,6 +11,7 @@ import { useCallback, useState } from 'react';
 import type { Seat, GameConfig, RoomPlayer } from '@tichu/shared';
 import type { ClientGameView } from '@tichu/shared';
 import { GameTable } from './GameTable';
+import { PlayerSeat } from './PlayerSeat';
 import styles from './PreRoomView.module.css';
 
 interface PreRoomViewProps {
@@ -68,7 +69,6 @@ export function PreRoomView({
 }: PreRoomViewProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
-  // REQ-F-CG09: Per-seat bot difficulty state
   const [botDifficulty, setBotDifficulty] = useState<Record<Seat, 'hard' | 'expert'>>({
     north: 'expert',
     east: 'expert',
@@ -110,71 +110,78 @@ export function PreRoomView({
     send({ type: 'CONFIGURE_ROOM', config: updates });
   };
 
-  // Seat renderer passed to GameTable via renderSeatOverride
-  const renderSeatCard = useCallback((seat: Seat) => {
+  // Find player name for a given seat
+  const getPlayerName = (seat: Seat) => {
+    return players.find((p) => p.seat === seat)?.name;
+  };
+
+  // Seat renderer: uses real PlayerSeat for occupied seats, bot controls for empty
+  const renderSeat = useCallback((seat: Seat) => {
     const player = players.find((p) => p.seat === seat);
-    const isMe = seat === mySeat;
-    const isHostSeat = seat === hostSeat;
     const isReady = readyPlayers.includes(seat);
 
-    const cardClasses = [
-      styles.seatCard,
-      isMe ? styles.seatCardMe : '',
-      isReady ? styles.seatCardReady : '',
-    ].filter(Boolean).join(' ');
+    // Player's own seat — rendered in the bottom panel, not here
+    if (seat === mySeat) return null;
 
-    if (!player) {
-      // Empty seat
+    // Occupied seat — render actual PlayerSeat
+    if (player) {
       return (
-        <div className={cardClasses}>
-          {/* REQ-F-CG17: Only host sees bot controls */}
-          {isHost ? (
-            <div className={styles.botControls}>
-              <span className={styles.botDiffLabel}>Difficulty</span>
-              <select
-                value={botDifficulty[seat]}
-                onChange={(e) => setBotDifficulty((prev) => ({ ...prev, [seat]: e.target.value as 'hard' | 'expert' }))}
-                className={styles.botDiffSelect}
+        <div style={{ position: 'relative' }}>
+          <PlayerSeat
+            seat={seat}
+            displayName={player.name}
+            cardCount={0}
+            tichuCall={'none'}
+            hasPlayed={false}
+            hasPassed={false}
+            finishOrder={null}
+            isCurrentTurn={false}
+            isTrickLeader={false}
+            isMe={false}
+            passConfirmed={isReady}
+          />
+          {/* Host controls overlay for bots/players */}
+          {isHost && (player.isBot || seat !== hostSeat) && (
+            <div className={styles.seatAction}>
+              <button
+                onClick={() => player.isBot ? handleRemoveBot(seat) : handleKickPlayer(seat)}
+                className={styles.removeBtn}
               >
-                <option value="hard">Normal</option>
-                <option value="expert">Expert</option>
-              </select>
-              <button onClick={() => handleAddBot(seat)} className={styles.addBotBtn}>
-                Add Bot
+                {player.isBot ? 'Remove' : 'Kick'}
               </button>
             </div>
-          ) : (
-            <span className={styles.emptyLabel}>Waiting...</span>
           )}
         </div>
       );
     }
 
-    // Occupied seat
+    // Empty seat — bot controls (host) or waiting label (non-host)
     return (
-      <div className={cardClasses}>
-        <span className={styles.playerName}>{player.name}</span>
-        {isHostSeat && <span className={styles.badge}>(Host)</span>}
-        {isMe && !isHostSeat && <span className={styles.badge}>(You)</span>}
-        {isReady && <span className={styles.readyLabel}>Ready</span>}
-
-        {/* REQ-F-CG14: Host can remove bots and kick players */}
-        {isHost && player.isBot && (
-          <button onClick={() => handleRemoveBot(seat)} className={styles.removeBtn}>
-            Remove
-          </button>
-        )}
-        {isHost && !player.isBot && !isMe && (
-          <button onClick={() => handleKickPlayer(seat)} className={styles.removeBtn}>
-            Kick
-          </button>
+      <div className={styles.emptySeat}>
+        {isHost ? (
+          <div className={styles.botControls}>
+            <span className={styles.botDiffLabel}>Difficulty</span>
+            <select
+              value={botDifficulty[seat]}
+              onChange={(e) => setBotDifficulty((prev) => ({ ...prev, [seat]: e.target.value as 'hard' | 'expert' }))}
+              className={styles.botDiffSelect}
+            >
+              <option value="hard">Normal</option>
+              <option value="expert">Expert</option>
+            </select>
+            <button onClick={() => handleAddBot(seat)} className={styles.addBotBtn}>
+              Add Bot
+            </button>
+          </div>
+        ) : (
+          <span className={styles.emptyLabel}>Waiting...</span>
         )}
       </div>
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty]);
 
-  // REQ-F-CG16: Center content — Start Game / Ready button
+  // Center content: Start Game / Ready button
   const centerContent = (
     <div className={styles.centerContent}>
       <div className={styles.readyCount}>
@@ -203,7 +210,7 @@ export function PreRoomView({
         <div className={styles.roomName}>{roomName ?? 'Room'}</div>
       </div>
 
-      {/* Room code + Leave — reuse the same position as the in-game room code */}
+      {/* Room code + Leave — same position as in-game */}
       <div style={{
         position: 'fixed',
         top: 'calc(120px * var(--scale))',
@@ -346,13 +353,42 @@ export function PreRoomView({
         </div>
       )}
 
-      {/* Reuse GameTable with pre-room seat rendering and center content */}
+      {/* Game table with pre-room seat rendering and center content */}
       <GameTable
         view={dummyView}
         hideCenter={false}
-        renderSeatOverride={renderSeatCard}
+        renderSeatOverride={renderSeat}
         centerContent={centerContent}
       />
+
+      {/* Bottom panel — player's own seat, same position as in-game */}
+      {mySeat && (
+        <div style={{
+          position: 'fixed',
+          bottom: 'calc(34px * var(--scale))',
+          left: 0,
+          right: 0,
+          zIndex: 20,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 'calc(28px * var(--scale))',
+        }}>
+          <PlayerSeat
+            seat={effectiveSeat}
+            displayName={getPlayerName(effectiveSeat)}
+            cardCount={0}
+            tichuCall={'none'}
+            hasPlayed={false}
+            hasPassed={false}
+            finishOrder={null}
+            isCurrentTurn={false}
+            isTrickLeader={false}
+            isMe={true}
+            passConfirmed={amReady}
+          />
+        </div>
+      )}
     </>
   );
 }
