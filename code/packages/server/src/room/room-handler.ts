@@ -183,10 +183,8 @@ export class RoomHandler {
       if (room) {
         this.broadcastRoomUpdate(roomCode);
 
-        // REQ-F-SP07: Start seat queue when player leaves mid-game and spectators exist
-        if (gameWasInProgress) {
-          this.tryStartSeatQueue(roomCode, [seat]);
-        }
+        // REQ-F-SP07: Start seat queue when player leaves and spectators exist
+        this.tryStartSeatQueue(roomCode, [seat]);
       }
     } catch (err) {
       this.broadcaster.sendError(ws, 'LEAVE_ROOM_FAILED', (err as Error).message);

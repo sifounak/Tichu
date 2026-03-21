@@ -540,23 +540,37 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
   // --- Pre-room state: room exists but game hasn't started ---
   if (roomCode && !gameInProgress && !gameStore.gameId) {
+    const isPreRoomSpectator = mySeatFromRoom === null;
     return (
-      <PreRoomView
-        roomCode={roomCode}
-        roomName={roomName}
-        mySeat={mySeatFromRoom}
-        players={roomPlayers}
-        hostSeat={hostSeat}
-        config={roomConfig}
-        readyPlayers={readyPlayers}
-        send={send as (msg: Record<string, unknown>) => boolean}
-        onLeave={() => {
-          send({ type: 'LEAVE_ROOM' });
-          leaveRoom();
-          gameStore.reset();
-          router.push('/lobby');
-        }}
-      />
+      <>
+        <PreRoomView
+          roomCode={roomCode}
+          roomName={roomName}
+          mySeat={mySeatFromRoom}
+          players={roomPlayers}
+          hostSeat={hostSeat}
+          config={roomConfig}
+          readyPlayers={readyPlayers}
+          send={send as (msg: Record<string, unknown>) => boolean}
+          onLeave={() => {
+            send({ type: 'LEAVE_ROOM' });
+            leaveRoom();
+            gameStore.reset();
+            router.push('/lobby');
+          }}
+        />
+        {/* Spectator seat offer overlay in pre-room */}
+        {isPreRoomSpectator && (
+          <SpectatorOverlay
+            seatOffer={uiStore.seatOffer}
+            queueStatus={uiStore.queueStatus}
+            availableSeats={uiStore.availableSeats}
+            onClaimSeat={() => send({ type: 'CLAIM_SEAT' })}
+            onDeclineSeat={() => send({ type: 'DECLINE_SEAT' })}
+            onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
+          />
+        )}
+      </>
     );
   }
 
