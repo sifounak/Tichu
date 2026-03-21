@@ -255,6 +255,22 @@ export function PreRoomView({
         alignItems: 'center',
         gap: 'var(--space-1)',
       }}>
+        {/* Spectating badge */}
+        {isSpectator && (
+          <div style={{
+            background: 'var(--color-gold-accent)',
+            color: 'var(--color-felt-green-dark)',
+            padding: 'var(--space-1) var(--space-3)',
+            borderRadius: 'var(--card-border-radius)',
+            fontSize: 'calc(26px * var(--scale))',
+            fontWeight: 700,
+            textAlign: 'center' as const,
+            width: '100%',
+          }}>
+            Spectating
+          </div>
+        )}
+
         <button
           onClick={handleCopyCode}
           style={{
