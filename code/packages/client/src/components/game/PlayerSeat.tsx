@@ -27,6 +27,8 @@ export interface PlayerSeatProps {
   hideTrickLabels?: boolean;
   /** Green glow when player has confirmed card pass */
   passConfirmed?: boolean;
+  /** Override the "Ready to Pass" label text (e.g. "Ready to Play" in pre-room) */
+  passConfirmedLabel?: string;
   /** Seat is vacated — player left mid-game, waiting for replacement */
   vacated?: boolean;
   /** Seat chooser button label (e.g. "Sit Here" or "Choose This Seat") */
@@ -63,6 +65,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   seatChooserLabel,
   onChooseSeat,
   customContent,
+  passConfirmedLabel,
 }: PlayerSeatProps) {
   const name = displayName ?? SEAT_LABELS[seat];
   const [hovered, setHovered] = useState(false);
@@ -165,7 +168,7 @@ export const PlayerSeat = memo(function PlayerSeat({
 
       {/* Card pass confirmed label */}
       {passConfirmed && (
-        <span className={styles.passConfirmedLabel}>Ready to Pass</span>
+        <span className={styles.passConfirmedLabel}>{passConfirmedLabel ?? 'Ready to Pass'}</span>
       )}
 
       {/* Vacated seat overlay */}
