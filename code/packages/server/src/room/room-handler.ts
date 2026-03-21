@@ -619,6 +619,14 @@ export class RoomHandler {
     this.broadcaster.broadcastToRoom(roomCode, update);
   }
 
+  /** Resend queue state to a reconnecting spectator (preserves their place in line) */
+  resendQueueState(roomCode: string, userId: string): void {
+    const queue = this.seatQueues.get(roomCode);
+    if (queue?.isActive()) {
+      queue.resendStateToSpectator(userId);
+    }
+  }
+
   dispose(): void {
     for (const queue of this.seatQueues.values()) {
       queue.cleanup();

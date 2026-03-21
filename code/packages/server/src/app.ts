@@ -137,6 +137,9 @@ export function createApp(config: Partial<AppConfig> = {}) {
         if (game) {
           game.sendSpectatorState(ws);
         }
+
+        // Resend queue state if a seat queue is active (preserves place in line on refresh)
+        roomHandler.resendQueueState(spectatorRoom, userId);
       }
     }
 
