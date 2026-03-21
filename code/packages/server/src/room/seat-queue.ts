@@ -170,6 +170,45 @@ export class SeatQueue {
   }
 
   /**
+   * Resend the current queue state to a specific spectator (e.g. after reconnection).
+   * Sends SEAT_OFFERED if they're deciding, QUEUE_STATUS if waiting, SEATS_AVAILABLE if up-for-grabs.
+   */
+  resendStateToSpectator(userId: string): void {
+    if (!this.isActive()) return;
+
+    if (this._phase === 'up-for-grabs') {
+      this.callbacks.onSendToSpectator(userId, {
+        type: 'SEATS_AVAILABLE',
+        seats: [...this.availableSeats],
+      });
+      return;
+    }
+
+    if (this._phase === 'offering') {
+      if (userId === this.currentOfferedUserId) {
+        // They're the deciding spectator — resend offer
+        this.callbacks.onSendToSpectator(userId, {
+          type: 'SEAT_OFFERED',
+          seats: [...this.availableSeats],
+          timeoutMs: 30_000, // approximate — timer is already running
+        });
+      } else {
+        // Check if they're in the queue
+        const idx = this.spectatorOrder.indexOf(userId);
+        if (idx > this.currentIndex) {
+          const position = idx - this.currentIndex;
+          this.callbacks.onSendToSpectator(userId, {
+            type: 'QUEUE_STATUS',
+            decidingSpectator: this.currentOfferedUserId ?? '',
+            position,
+            timeoutMs: 30_000,
+          });
+        }
+      }
+    }
+  }
+
+  /**
    * REQ-F-ES09: Add a late-joining spectator to the queue during active processing.
    * If in up-for-grabs phase, immediately send SEATS_AVAILABLE.
    */
