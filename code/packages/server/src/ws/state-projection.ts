@@ -132,6 +132,93 @@ function mapMachineStateToPhase(machineState: string): GamePhase {
   return mapping[machineState] ?? ('waitingForPlayers' as GamePhase);
 }
 
+/**
+ * REQ-F-SP05: Project game state for spectators — all hands hidden.
+ * REQ-NF-SP02: No card IDs or card objects — only cardCount integers.
+ *
+ * Spectators see mySeat as 'south' (default camera), myHand is empty,
+ * and all 4 players appear in otherPlayers with card counts only.
+ */
+export function projectSpectatorView(
+  context: GameMachineContext,
+  machineState: string,
+  vacatedSeats: readonly Seat[] = [],
+): ClientGameView {
+  const round = context.currentRound;
+  const phase = mapMachineStateToPhase(machineState);
+
+  if (!round) {
+    return {
+      gameId: context.gameId,
+      config: context.config,
+      phase,
+      scores: { ...context.scores },
+      roundHistory: [...context.roundHistory],
+      mySeat: 'south',
+      myHand: [],
+      myTichuCall: 'none',
+      myHasPlayed: false,
+      otherPlayers: SEATS_IN_ORDER.map(seat => ({
+        seat,
+        cardCount: 0,
+        tichuCall: 'none' as TichuCall,
+        hasPlayed: false,
+        finishOrder: null,
+      })),
+      currentTrick: null,
+      currentTurn: null,
+      mahjongWish: null,
+      wishFulfilled: false,
+      finishOrder: [],
+      dragonGiftPending: false,
+      dragonGiftedTo: null,
+      receivedCards: { north: null, east: null, south: null, west: null },
+      lastDogPlay: null,
+      grandTichuDecided: [],
+      cardPassConfirmed: [],
+      vacatedSeats: [...vacatedSeats],
+      choosingSeat: false,
+      winner: context.winner,
+    };
+  }
+
+  return {
+    gameId: context.gameId,
+    config: context.config,
+    phase,
+    scores: { ...context.scores },
+    roundHistory: [...context.roundHistory],
+    mySeat: 'south',
+    myHand: [],
+    myTichuCall: 'none',
+    myHasPlayed: false,
+    otherPlayers: SEATS_IN_ORDER.map(seat => {
+      const player = round.players[seat];
+      return {
+        seat,
+        cardCount: player.hand.length,
+        tichuCall: player.tipiCall,
+        hasPlayed: player.hasPlayed,
+        finishOrder: player.finishOrder,
+      };
+    }),
+    currentTrick: round.currentTrick ? sanitizeTrickState(round.currentTrick) : null,
+    currentTurn: round.currentTurn,
+    mahjongWish: round.mahjongWish,
+    wishFulfilled: round.wishFulfilled,
+    finishOrder: [...round.finishOrder],
+    dragonGiftPending: round.dragonGiftPending !== null,
+    dragonGiftedTo: round.dragonGiftedTo ?? null,
+    receivedCards: { north: null, east: null, south: null, west: null },
+    lastDogPlay: round.lastDogPlay,
+    grandTichuDecided: [...context.grandTichuDecisions],
+    cardPassConfirmed: [...context.cardPassDecisions],
+    vacatedSeats: [...vacatedSeats],
+    choosingSeat: false,
+    winner: context.winner,
+  };
+}
+
 /** Create a safe copy of trick state (cards in tricks are public) */
 function sanitizeTrickState(trick: TrickState): TrickState {
   return {

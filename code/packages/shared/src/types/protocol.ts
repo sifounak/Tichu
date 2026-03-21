@@ -28,7 +28,8 @@ const seatSchema = z.enum(['north', 'east', 'south', 'west']);
 export const clientMessageSchema = z.discriminatedUnion('type', [
   // Room actions
   z.object({ type: z.literal('CREATE_ROOM'), playerName: z.string().min(1).max(30), roomName: z.string().max(30).optional() }),
-  z.object({ type: z.literal('JOIN_ROOM'), roomCode: z.string().length(6), playerName: z.string().min(1).max(30) }),
+  // REQ-F-SP04: JOIN_ROOM supports optional asSpectator flag
+  z.object({ type: z.literal('JOIN_ROOM'), roomCode: z.string().length(6), playerName: z.string().min(1).max(30), asSpectator: z.boolean().optional() }),
   z.object({ type: z.literal('LEAVE_ROOM') }),
   // REQ-F-MP04: Room configuration
   z.object({ type: z.literal('CONFIGURE_ROOM'), config: z.object({
@@ -46,6 +47,14 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   // REQ-F-006: Seat swap
   z.object({ type: z.literal('SWAP_SEATS'), targetSeat: seatSchema }),
   z.object({ type: z.literal('KICK_PLAYER'), seat: seatSchema }),
+
+  // REQ-F-SP18: Ready-to-start system (replaces host-only start)
+  z.object({ type: z.literal('READY_TO_START') }),
+  z.object({ type: z.literal('CANCEL_READY') }),
+
+  // REQ-F-SP08: Spectator seat queue responses
+  z.object({ type: z.literal('CLAIM_SEAT') }),
+  z.object({ type: z.literal('DECLINE_SEAT') }),
 
   // Game actions
   z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean() }),
@@ -76,11 +85,22 @@ export type ClientMessage = z.infer<typeof clientMessageSchema>;
 export const serverMessageSchema = z.discriminatedUnion('type', [
   // Room events
   z.object({ type: z.literal('ROOM_CREATED'), roomCode: z.string() }),
-  z.object({ type: z.literal('ROOM_JOINED'), roomCode: z.string(), seat: seatSchema }),
-  z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean() }),
+  // REQ-F-SP04: seat is nullable — null indicates spectator
+  z.object({ type: z.literal('ROOM_JOINED'), roomCode: z.string(), seat: seatSchema.nullable() }),
+  // REQ-F-SP16: ROOM_UPDATE includes spectatorCount and readyPlayers
+  z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), readyPlayers: z.array(seatSchema) }),
   z.object({ type: z.literal('ROOM_LEFT') }),
   z.object({ type: z.literal('KICKED'), message: z.string() }),
   z.object({ type: z.literal('LOBBY_LIST'), rooms: z.array(z.object({ roomCode: z.string(), roomName: z.string(), hostName: z.string(), playerCount: z.number(), spectatorCount: z.number(), config: z.any(), gameInProgress: z.boolean() })) }),
+
+  // REQ-F-SP07: Seat offered to deciding spectator (FIFO priority)
+  z.object({ type: z.literal('SEAT_OFFERED'), seat: seatSchema, timeoutMs: z.number() }),
+  // REQ-F-SP08b: Queue status for non-deciding spectators
+  z.object({ type: z.literal('QUEUE_STATUS'), decidingSpectator: z.string(), position: z.number().int().min(1), timeoutMs: z.number() }),
+  // REQ-F-SP08c: All spectators declined — seats up for grabs
+  z.object({ type: z.literal('SEATS_AVAILABLE'), seats: z.array(seatSchema) }),
+  // REQ-F-SP15: Room closed while spectator connected
+  z.object({ type: z.literal('ROOM_CLOSED'), message: z.string() }),
 
   // Game state
   z.object({ type: z.literal('GAME_STATE'), state: z.any() }), // Full ClientGameView; validated separately

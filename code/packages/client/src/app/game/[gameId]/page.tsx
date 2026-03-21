@@ -23,7 +23,7 @@ import { ActionBar } from '@/components/game/ActionBar';
 import { ScorePanel } from '@/components/game/ScorePanel';
 import { TichuBanner } from '@/components/game/TichuBanner';
 import { ChatPanel } from '@/components/game/ChatPanel';
-import { DisconnectOverlay } from '@/components/game/DisconnectOverlay';
+import { SpectatorOverlay } from '@/components/game/SpectatorOverlay';
 import { Card } from '@/components/cards/Card';
 import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
@@ -136,6 +136,33 @@ export default function GamePage() {
         // REQ-NF-U02: Show Tichu banner
         uiStore.setTichuEvent({ seat: msg.seat as Seat, level: msg.level as TichuCall });
         gameStore.applyServerMessage(msg);
+      } else if (msg.type === 'SEAT_OFFERED') {
+        // REQ-F-SP08: Seat offer for spectator
+        uiStore.setSeatOffer({ seat: msg.seat as Seat, timeoutMs: (msg as any).timeoutMs });
+      } else if (msg.type === 'QUEUE_STATUS') {
+        // REQ-F-SP08b: Queue status update
+        uiStore.setQueueStatus({
+          decidingSpectator: (msg as any).decidingSpectator,
+          position: (msg as any).position,
+          timeoutMs: (msg as any).timeoutMs,
+        });
+      } else if (msg.type === 'SEATS_AVAILABLE') {
+        // REQ-F-SP08c: Seats up for grabs
+        uiStore.setAvailableSeats((msg as any).seats as Seat[]);
+      } else if (msg.type === 'ROOM_CLOSED') {
+        // REQ-F-SP15: Room closed — return to lobby
+        leaveRoom();
+        gameStore.reset();
+        sessionStorage.setItem('tichu_kicked_message', (msg as any).message ?? 'The room was closed');
+        router.push('/lobby');
+      } else if (msg.type === 'ROOM_JOINED') {
+        // REQ-F-SP09: Spectator promoted to player — update seat
+        const roomStore = useRoomStore.getState();
+        roomStore.setRoom((msg as any).roomCode, (msg as any).seat);
+        // Clear spectator queue state
+        uiStore.setSeatOffer(null);
+        uiStore.setQueueStatus(null);
+        uiStore.setAvailableSeats([]);
       } else if (msg.type === 'ROOM_LEFT') {
         leaveRoom();
         gameStore.reset();
@@ -433,14 +460,17 @@ export default function GamePage() {
     [send],
   );
 
+  // REQ-F-SP05: Detect spectator — mySeat is null for spectators
+  const isSpectator = gameStore.mySeat === null;
+
   // Auto-skip Tichu decision phase — player can call Tichu from the ActionBar during gameplay
   // NOTE: Must be above early returns to respect Rules of Hooks
   const phase = gameStore.phase;
   useEffect(() => {
-    if (phase === GamePhase.TichuDecision) {
+    if (phase === GamePhase.TichuDecision && !isSpectator) {
       send({ type: 'REGULAR_TICHU_PASS' });
     }
-  }, [phase, send]);
+  }, [phase, send, isSpectator]);
 
   // Delay round end overlay so the last trick sweep animation is visible
   const [showRoundEnd, setShowRoundEnd] = useState(false);
@@ -647,6 +677,37 @@ export default function GamePage() {
         )}
       </div>
 
+      {/* REQ-F-SP05: Spectating badge */}
+      {isSpectator && (
+        <div style={{
+          position: 'fixed',
+          top: 'calc(16px * var(--scale))',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 35,
+          background: 'var(--color-gold-accent)',
+          color: 'var(--color-felt-green-dark)',
+          padding: 'var(--space-1) var(--space-4)',
+          borderRadius: 'var(--space-2)',
+          fontSize: 'var(--font-md)',
+          fontWeight: 700,
+        }}>
+          Spectating
+        </div>
+      )}
+
+      {/* REQ-F-SP08: Spectator overlay (seat offers, queue status, seats available) */}
+      {isSpectator && (
+        <SpectatorOverlay
+          seatOffer={uiStore.seatOffer}
+          queueStatus={uiStore.queueStatus}
+          availableSeats={uiStore.availableSeats}
+          onClaimSeat={() => send({ type: 'CLAIM_SEAT' })}
+          onDeclineSeat={() => send({ type: 'DECLINE_SEAT' })}
+          onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
+        />
+      )}
+
       {/* Leave confirmation dialog */}
       {showLeaveConfirm && (
         <div
@@ -673,10 +734,10 @@ export default function GamePage() {
             onClick={(e) => e.stopPropagation()}
           >
             <p style={{ fontSize: 'var(--font-base)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>
-              Leave Game?
+              {isSpectator ? 'Leave Room?' : 'Leave Game?'}
             </p>
             <p style={{ fontSize: 'calc(13px * var(--scale))', color: 'var(--color-text-muted)', marginBottom: 'var(--space-5)' }}>
-              You will forfeit this game and return to the lobby.
+              {isSpectator ? 'You will return to the lobby.' : 'You will forfeit this game and return to the lobby.'}
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <button
@@ -731,7 +792,8 @@ export default function GamePage() {
       <GameTable view={view} onPlay={handlePlay} canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)} isMyTurn={!isPreGame && !showReceivedCards && isMyTurn} hideCenter={isPreGame} hideEmptyTrick={showReceivedCards} dragonGiftTargets={dragonGiftTargets} onDragonGift={handleDragonGift} seatNames={seatNames} mustSatisfyWish={mustSatisfyWish} onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined} />
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
-      {phase !== GamePhase.WaitingForPlayers && (
+      {/* REQ-F-SP05: Hide for spectators — they see card counts in PlayerSeat, not actual hands */}
+      {phase !== GamePhase.WaitingForPlayers && !isSpectator && (
         <div style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))' }}>
           {/* Pre-game prompts (no hand — hand is always rendered below) */}
           {isPreGame && (
@@ -947,8 +1009,8 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* REQ-F-PH07: Phoenix value picker */}
-      {uiStore.phoenixPickerOptions && (
+      {/* REQ-F-PH07: Phoenix value picker (hidden for spectators) */}
+      {!isSpectator && uiStore.phoenixPickerOptions && (
         <PhoenixValuePicker
           options={uiStore.phoenixPickerOptions}
           onSelect={handlePhoenixChoice}
@@ -956,8 +1018,8 @@ export default function GamePage() {
         />
       )}
 
-      {/* REQ-F-WP01: Wish picker for Mahjong */}
-      {uiStore.wishPickerVisible && (
+      {/* REQ-F-WP01: Wish picker for Mahjong (hidden for spectators) */}
+      {!isSpectator && uiStore.wishPickerVisible && (
         <WishPicker
           onSelect={handleWishChoice}
           onCancel={uiStore.hideWishPicker}
@@ -971,7 +1033,7 @@ export default function GamePage() {
       {/* REQ-NF-U02: Tichu call banner */}
       {!showReceivedCards && <TichuBanner tichuEvent={uiStore.tichuEvent} />}
 
-      {/* REQ-F-MP07: In-game chat */}
+      {/* REQ-F-MP07: In-game chat — REQ-F-SP14: readOnly for spectators */}
       <ChatPanel
         messages={uiStore.chatMessages}
         onSend={handleChatSend}
@@ -979,6 +1041,7 @@ export default function GamePage() {
         onToggle={uiStore.toggleChat}
         unreadCount={uiStore.chatUnread}
         seatNames={seatNames}
+        readOnly={isSpectator}
       />
 
       {/* Disconnect overlay removed — vacated seats shown inline on player info boxes */}

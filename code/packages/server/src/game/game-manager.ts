@@ -21,7 +21,7 @@ import {
 import { TurnTimer } from './turn-timer.js';
 import { MoveHandler } from './move-handler.js';
 import { DisconnectHandler } from './disconnect-handler.js';
-import { projectGameState } from '../ws/state-projection.js';
+import { projectGameState, projectSpectatorView } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
 import { RegularBot } from '../bot/regular-bot.js';
 import { HardBot } from '../bot/hard-bot.js';
@@ -205,6 +205,16 @@ export class GameManager {
     }
     this.sendStateTo(seat);
     this.broadcastState();
+  }
+
+  /** REQ-F-SP06: Send spectator-projected state to a specific WebSocket. */
+  sendSpectatorState(ws: WebSocket): void {
+    const view = projectSpectatorView(
+      this.context,
+      this.stateValue,
+      [...this.vacatedSeats],
+    );
+    this.broadcaster.send(ws, { type: 'GAME_STATE', state: view });
   }
 
   /** Handle CHOOSE_SEAT — player picks a vacated seat (or keeps their current one) */

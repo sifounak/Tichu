@@ -73,6 +73,15 @@ export interface UiStore {
   startDragonGiftAnimation: (recipient: Seat, trick: TrickState) => void;
   clearDragonGiftAnimation: () => void;
 
+  /* --- Spectator Queue (REQ-F-SP08, SP08b, SP08c) --- */
+  seatOffer: { seat: Seat; timeoutMs: number } | null;
+  queueStatus: { decidingSpectator: string; position: number; timeoutMs: number } | null;
+  availableSeats: Seat[];
+  setSeatOffer: (offer: { seat: Seat; timeoutMs: number } | null) => void;
+  clearSeatOffer: () => void;
+  setQueueStatus: (status: { decidingSpectator: string; position: number; timeoutMs: number } | null) => void;
+  setAvailableSeats: (seats: Seat[]) => void;
+
   /* --- Error Toast --- */
   errorToast: string | null;
   showErrorToast: (message: string) => void;
@@ -174,6 +183,15 @@ export const useUiStore = create<UiStore>()((set) => ({
   startDragonGiftAnimation: (recipient, trick) =>
     set({ dragonGiftAnimation: { recipient, trick } }),
   clearDragonGiftAnimation: () => set({ dragonGiftAnimation: null }),
+
+  /* --- Spectator Queue --- */
+  seatOffer: null,
+  queueStatus: null,
+  availableSeats: [],
+  setSeatOffer: (offer) => set({ seatOffer: offer, queueStatus: null }),
+  clearSeatOffer: () => set({ seatOffer: null }),
+  setQueueStatus: (status) => set({ queueStatus: status, seatOffer: null }),
+  setAvailableSeats: (seats) => set({ availableSeats: seats, seatOffer: null, queueStatus: null }),
 
   /* --- Error Toast --- */
   errorToast: null,

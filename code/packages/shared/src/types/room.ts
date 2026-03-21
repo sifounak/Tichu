@@ -10,6 +10,15 @@ export interface RoomPlayer {
   isConnected: boolean;
 }
 
+// REQ-F-SP03: Spectator tracked in FIFO order for seat priority
+/** A spectator watching a room */
+export interface RoomSpectator {
+  userId: string;
+  name: string;
+  joinedAt: number;
+  isConnected: boolean;
+}
+
 /** REQ-F-MP04: Room configuration extends game configuration */
 export interface RoomConfig extends GameConfig {
   maxSpectators: number;
@@ -21,6 +30,8 @@ export interface Room {
   roomName: string;
   hostSeat: Seat;
   players: RoomPlayer[];
+  // REQ-F-SP03: Spectators in FIFO order for seat priority queue
+  spectators: RoomSpectator[];
   config: RoomConfig;
   gameInProgress: boolean;
   createdAt: number;
@@ -33,6 +44,7 @@ export interface LobbyEntry {
   hostName: string;
   playerCount: number;
   spectatorCount: number;
-  config: Pick<RoomConfig, 'targetScore' | 'botDifficulty'>;
+  // REQ-F-SP01: Include spectatorsAllowed so lobby can show "Join as Spectator" button
+  config: Pick<RoomConfig, 'targetScore' | 'botDifficulty' | 'spectatorsAllowed'>;
   gameInProgress: boolean;
 }

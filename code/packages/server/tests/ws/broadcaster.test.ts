@@ -119,7 +119,8 @@ describe('Broadcaster', () => {
       expect(eastMsg.state.mySeat).toBe('east');
     });
 
-    it('skips clients without seat assignment (spectators)', () => {
+    // REQ-F-SP06: Spectators now receive spectator-projected game state
+    it('sends spectator-projected state to clients without seat assignment', () => {
       const wsPlayer = createMockWs();
       const wsSpectator = createMockWs();
 
@@ -137,9 +138,15 @@ describe('Broadcaster', () => {
       const context = createInitialContext('game-1');
       const sent = broadcaster.broadcastGameState('ROOM-A', context, 'lobby');
 
-      expect(sent).toBe(1); // Only player with seat
+      expect(sent).toBe(2); // Player + spectator
       expect(wsPlayer.send).toHaveBeenCalled();
-      expect(wsSpectator.send).not.toHaveBeenCalled();
+      expect(wsSpectator.send).toHaveBeenCalled();
+
+      // REQ-NF-SP02: Spectator view has no hand data
+      const spectatorMsg = JSON.parse((wsSpectator.send as ReturnType<typeof vi.fn>).mock.calls[0][0]);
+      expect(spectatorMsg.type).toBe('GAME_STATE');
+      expect(spectatorMsg.state.mySeat).toBe('south');
+      expect(spectatorMsg.state.myHand).toEqual([]);
     });
   });
 

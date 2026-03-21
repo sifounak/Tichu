@@ -49,7 +49,12 @@ export default function LobbyPage() {
         break;
       case 'ROOM_JOINED':
         setRoom(msg.roomCode, msg.seat);
-        router.push(`/lobby/${msg.roomCode}`);
+        // REQ-F-SP04: Spectator (seat: null) goes directly to game page
+        if (msg.seat === null) {
+          router.push(`/game/${msg.roomCode}`);
+        } else {
+          router.push(`/lobby/${msg.roomCode}`);
+        }
         break;
       case 'ERROR':
         setError(msg.message);
@@ -100,6 +105,14 @@ export default function LobbyPage() {
     setError('');
     sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'JOIN_ROOM', roomCode, playerName: playerName.trim() });
+  };
+
+  // REQ-F-SP01: Join room as spectator
+  const handleJoinAsSpectator = (roomCode: string) => {
+    if (!playerName.trim()) { setError('Please enter a name'); return; }
+    setError('');
+    sessionStorage.setItem('tichu_player_name', playerName.trim());
+    send({ type: 'JOIN_ROOM', roomCode, playerName: playerName.trim(), asSpectator: true });
   };
 
   const handleSort = (col: typeof sortCol) => {
@@ -345,18 +358,22 @@ export default function LobbyPage() {
                         {room.playerCount}/4
                       </td>
                       <td style={{ padding: '12px', textAlign: 'center' }}>
-                        {room.gameInProgress && room.playerCount >= 4 ? (
-                          <span className="px-4 py-1.5 rounded text-sm font-semibold inline-block"
-                            style={{ background: 'var(--color-warning)', color: '#000' }}>
-                            In Game
-                          </span>
-                        ) : room.playerCount < 4 ? (
+                        {room.playerCount < 4 ? (
                           <button
                             onClick={() => handleJoinRoom(room.roomCode)}
                             className="px-5 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
                             style={{ background: 'var(--color-success)', color: '#000' }}
                           >
                             Join
+                          </button>
+                        ) : room.config.spectatorsAllowed ? (
+                          /* REQ-F-SP01: "Spectate" button when room is full + spectators allowed */
+                          <button
+                            onClick={() => handleJoinAsSpectator(room.roomCode)}
+                            className="px-4 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
+                            style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}
+                          >
+                            Spectate
                           </button>
                         ) : (
                           <span className="px-4 py-1.5 rounded text-sm font-semibold inline-block"
