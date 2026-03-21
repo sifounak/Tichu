@@ -525,9 +525,11 @@ export class RoomHandler {
           }
           this.broadcastRoomUpdate(roomCode);
         },
-        // REQ-F-ES16: All available seats have been filled
+        // REQ-F-ES16: All available seats have been filled — clear queue UI for spectators
         onAllSeatsFilled: (rc) => {
           this.seatQueues.delete(rc);
+          // Send empty SEATS_AVAILABLE to clear queueStatus/seatOffer on all spectator clients
+          this.broadcaster.broadcastToSpectators(rc, { type: 'SEATS_AVAILABLE', seats: [] });
           this.broadcastRoomUpdate(rc);
         },
         // REQ-F-ES10: Get current spectator list for up-for-grabs broadcast
