@@ -80,6 +80,9 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
 
   // Chat
   z.object({ type: z.literal('CHAT_MESSAGE'), text: z.string().min(1).max(500) }),
+
+  // Heartbeat (application-level — requires JavaScript to respond, unlike protocol-level ping/pong)
+  z.object({ type: z.literal('HEARTBEAT_PONG') }),
 ]);
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -146,6 +149,9 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
 
   // Chat
   z.object({ type: z.literal('CHAT_RECEIVED'), from: seatSchema, text: z.string() }),
+
+  // Heartbeat (application-level — requires JavaScript to respond, unlike protocol-level ping/pong)
+  z.object({ type: z.literal('HEARTBEAT_PING') }),
 
   // Error
   z.object({ type: z.literal('ERROR'), code: z.string(), message: z.string() }),
