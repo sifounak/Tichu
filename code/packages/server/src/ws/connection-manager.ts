@@ -45,10 +45,11 @@ export class ConnectionManager {
 
   /** Register a new client connection */
   addClient(ws: WebSocket, userId: string, playerName: string): void {
-    // If this user already has a socket, close the old one
+    // If this user already has a socket, terminate the old one
     const existing = this.userSockets.get(userId);
     if (existing && existing !== ws) {
       this.removeClient(existing);
+      existing.terminate();
     }
 
     const info: ClientInfo = {
@@ -157,7 +158,12 @@ export class ConnectionManager {
             ws.terminate(); // Will trigger 'close' event — cleanup happens there
           }
         } else {
-          ws.ping();
+          try {
+            ws.send(JSON.stringify({ type: 'HEARTBEAT_PING' }));
+          } catch {
+            // Send failed — connection is broken; terminate triggers 'close' event
+            ws.terminate();
+          }
         }
       }
     }, this.pingIntervalMs);

@@ -72,6 +72,11 @@ export function useWebSocket({
         const raw = JSON.parse(event.data as string);
         const result = serverMessageSchema.safeParse(raw);
         if (result.success) {
+          // Application-level heartbeat: respond immediately, don't bubble to game logic
+          if (result.data.type === 'HEARTBEAT_PING') {
+            ws.send(JSON.stringify({ type: 'HEARTBEAT_PONG' }));
+            return;
+          }
           onMessageRef.current(result.data);
         } else {
           console.warn('[WS] Invalid server message:', result.error.issues);

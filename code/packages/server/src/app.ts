@@ -73,6 +73,11 @@ export function createApp(config: Partial<AppConfig> = {}) {
   const broadcaster = new Broadcaster(connections);
   const router = new MessageRouter(connections, broadcaster);
 
+  // Application-level heartbeat: HEARTBEAT_PONG from client → record liveness
+  router.on('HEARTBEAT_PONG', (ws) => {
+    connections.recordPong(ws);
+  });
+
   // ─── Game & Room infrastructure ─────────────────────────────────────
   const gameStore = new GameStore(broadcaster);
   const roomHandler = new RoomHandler(router, connections, broadcaster, gameStore);
@@ -143,9 +148,9 @@ export function createApp(config: Partial<AppConfig> = {}) {
       }
     }
 
-    ws.on('pong', () => {
-      connections.recordPong(ws);
-    });
+    // Note: protocol-level ws.on('pong') removed — browser network stack auto-responds
+    // to protocol pings even after tab close. Application-level HEARTBEAT_PONG (via
+    // message router) requires JavaScript to respond, so it correctly detects tab closure.
 
     ws.on('message', (data) => {
       const message = typeof data === 'string' ? data : data.toString();
