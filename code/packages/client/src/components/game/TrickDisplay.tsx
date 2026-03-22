@@ -62,16 +62,6 @@ function seatPosition(seat: Seat, mySeat: Seat): 'bottom' | 'top' | 'left' | 'ri
   return (['bottom', 'right', 'top', 'left'] as const)[rel];
 }
 
-/** Arrow character pointing toward a seat's relative position */
-function getArrowForPosition(recipient: Seat, mySeat: Seat): string {
-  const pos = seatPosition(recipient, mySeat);
-  switch (pos) {
-    case 'left': return '\u2190';   // ←
-    case 'right': return '\u2192';  // →
-    case 'top': return '\u2191';    // ↑
-    case 'bottom': return '\u2193'; // ↓
-  }
-}
 
 /** Entry direction offsets per seat position — start at the nearest edge of the play area */
 const ENTRY_OFFSETS: Record<string, { x: number | string; y: number | string }> = {

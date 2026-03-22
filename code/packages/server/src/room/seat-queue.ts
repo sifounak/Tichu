@@ -97,6 +97,38 @@ export class SeatQueue {
   }
 
   /**
+   * Add newly vacated seats to an active queue.
+   * If in the offering phase, resend the updated seat list to the current spectator.
+   * If in up-for-grabs, broadcast to all spectators.
+   */
+  addSeats(seats: Seat[]): void {
+    if (!this.isActive()) return;
+    for (const s of seats) {
+      if (!this.availableSeats.includes(s)) {
+        this.availableSeats.push(s);
+      }
+    }
+
+    if (this._phase === 'offering' && this.currentOfferedUserId) {
+      // Resend updated offer to the deciding spectator
+      this.callbacks.onSendToSpectator(this.currentOfferedUserId, {
+        type: 'SEAT_OFFERED',
+        seats: [...this.availableSeats],
+        timeoutMs: OFFER_TIMEOUT_MS, // approximate — timer already running
+      });
+    } else if (this._phase === 'up-for-grabs') {
+      // Broadcast updated seats to all spectators
+      const allSpectators = this.callbacks.onGetCurrentSpectators(this.roomCode);
+      for (const userId of allSpectators) {
+        this.callbacks.onSendToSpectator(userId, {
+          type: 'SEATS_AVAILABLE',
+          seats: [...this.availableSeats],
+        });
+      }
+    }
+  }
+
+  /**
    * REQ-F-ES07: Spectator claims a seat.
    * @param userId - The spectator claiming
    * @param seat - Optional specific seat choice (for multi-vacancy). If omitted, auto-assign first available.

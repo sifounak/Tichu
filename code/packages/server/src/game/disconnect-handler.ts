@@ -223,8 +223,8 @@ export class DisconnectHandler {
     const totalPlayers = 4;
     const voterCount = totalPlayers - session.disconnectedSeats.size;
 
-    // Majority = ceil(voters / 2) but at least 2
-    const majorityThreshold = Math.max(2, Math.ceil(voterCount / 2));
+    // Majority = ceil(voters / 2) but at least 2; sole remaining voter has full authority
+    const majorityThreshold = voterCount <= 1 ? 1 : Math.max(2, Math.ceil(voterCount / 2));
 
     // Count votes
     let waitVotes = 0;

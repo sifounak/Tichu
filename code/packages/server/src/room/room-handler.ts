@@ -191,12 +191,14 @@ export class RoomHandler {
       this.broadcaster.send(ws, { type: 'ROOM_LEFT' });
 
       if (room) {
+        // REQ-F-SP30: Re-ready remaining bots after ready reset
+        this.reReadyBots(rc);
         this.broadcastRoomUpdate(rc);
 
         // REQ-F-SP07: Start seat queue when player leaves and spectators exist
         this.tryStartSeatQueue(rc, [seat]);
-      } else if (gameWasInProgress) {
-        // REQ-F-ES15: Room destroyed (all players left) — notify spectators and clean up game
+      } else {
+        // REQ-F-ES15: Room destroyed (all players left) — notify spectators and return to lobby
         for (const spectatorId of spectatorsBefore) {
           const specWs = this.connections.getSocketByUserId(spectatorId);
           if (specWs) {
@@ -213,8 +215,10 @@ export class RoomHandler {
           queue.cleanup();
           this.seatQueues.delete(rc);
         }
-        // Destroy the game
-        this.gameStore.destroyGameByRoom(rc);
+        // Destroy the game if it was in progress
+        if (gameWasInProgress) {
+          this.gameStore.destroyGameByRoom(rc);
+        }
       }
     } catch (err) {
       this.broadcaster.sendError(ws, 'LEAVE_ROOM_FAILED', (err as Error).message);
@@ -335,6 +339,8 @@ export class RoomHandler {
 
       // Ready resets when player composition changes
       this.roomManager.resetReady(info.roomCode);
+      // REQ-F-SP30: Re-ready remaining bots after ready reset
+      this.reReadyBots(info.roomCode);
       this.broadcastRoomUpdate(info.roomCode);
 
       // Trigger queue for any empty seat (mid-game or pre-room) when spectators exist
@@ -556,12 +562,30 @@ export class RoomHandler {
     return queue;
   }
 
+  /** REQ-F-SP30: Re-mark all remaining bots as ready after a resetReady() call. */
+  private reReadyBots(roomCode: string): void {
+    const room = this.roomManager.getRoom(roomCode);
+    if (!room || room.gameInProgress) return;
+    for (const player of room.players) {
+      if (player.isBot) {
+        this.roomManager.setReady(roomCode, player.seat);
+      }
+    }
+  }
+
   /** REQ-F-ES06, REQ-F-ES13: Start seat queue if spectators exist and seats are available.
    *  Works for both mid-game and pre-room leaves. */
   private tryStartSeatQueue(roomCode: string, vacatedSeats: import('@tichu/shared').Seat[]): void {
     if (vacatedSeats.length === 0) return;
     const spectatorIds = this.roomManager.getSpectatorUserIds(roomCode);
     if (spectatorIds.length === 0) return;
+
+    const existing = this.seatQueues.get(roomCode);
+    if (existing?.isActive()) {
+      // Queue already running — merge new seats into it
+      existing.addSeats(vacatedSeats);
+      return;
+    }
 
     const queue = this.getOrCreateQueue(roomCode);
     queue.startQueue(vacatedSeats, spectatorIds);

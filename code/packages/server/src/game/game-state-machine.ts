@@ -969,7 +969,7 @@ export const gameMachine = setup({
 
 function completeTrickAndAdvance(
   round: RoundState,
-  context: GameMachineContext,
+  _context: GameMachineContext,
 ): Partial<GameMachineContext> {
   const trick = round.currentTrick!;
   const trickCards = collectTrickCards(trick);

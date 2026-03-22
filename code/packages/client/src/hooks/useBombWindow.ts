@@ -2,7 +2,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import type { Rank } from '@tichu/shared';
 import { useAnimationSettings } from './useAnimationSettings';
 import { useUiStore } from '@/stores/uiStore';
 

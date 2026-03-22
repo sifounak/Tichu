@@ -184,14 +184,9 @@ export function createApp(config: Partial<AppConfig> = {}) {
     });
   });
 
-  // Stale connection handler
+  // Stale connection handler — ws.terminate() triggers 'close' event which does full cleanup
   connections.onStaleConnection = (_ws, info) => {
-    if (info.roomCode && info.seat) {
-      broadcaster.broadcastToRoom(info.roomCode, {
-        type: 'PLAYER_DISCONNECTED',
-        seat: info.seat,
-      });
-    }
+    fastify.log.info(`Stale connection detected for user ${info.userId} (room: ${info.roomCode ?? 'none'})`);
   };
 
   return {
