@@ -39,8 +39,8 @@ export class ConnectionManager {
   onStaleConnection: ((ws: WebSocket, info: ClientInfo) => void) | null = null;
 
   constructor(options?: { pingIntervalMs?: number; staleThresholdMs?: number }) {
-    this.pingIntervalMs = options?.pingIntervalMs ?? 30_000;
-    this.staleThresholdMs = options?.staleThresholdMs ?? 45_000;
+    this.pingIntervalMs = options?.pingIntervalMs ?? 10_000;
+    this.staleThresholdMs = options?.staleThresholdMs ?? 20_000;
   }
 
   /** Register a new client connection */
@@ -151,9 +151,11 @@ export class ConnectionManager {
       const now = Date.now();
       for (const [ws, info] of this.clients) {
         if (now - info.lastPong > this.staleThresholdMs) {
-          this.onStaleConnection?.(ws, info);
-          ws.terminate();
-          this.removeClient(ws);
+          // Guard against double-terminate on already-closing sockets
+          if (ws.readyState !== ws.CLOSED && ws.readyState !== ws.CLOSING) {
+            this.onStaleConnection?.(ws, info);
+            ws.terminate(); // Will trigger 'close' event — cleanup happens there
+          }
         } else {
           ws.ping();
         }

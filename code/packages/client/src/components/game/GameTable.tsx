@@ -1,7 +1,6 @@
 // REQ-NF-U01: Responsive game table — CSS Grid with 4 seats + center trick area
 'use client';
 
-import type { ReactNode } from 'react';
 import { memo } from 'react';
 import type { ClientGameView, Seat } from '@tichu/shared';
 import { useUiStore } from '@/stores/uiStore';

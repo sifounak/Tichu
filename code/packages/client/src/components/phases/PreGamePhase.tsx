@@ -52,7 +52,7 @@ export const PreGamePhase = memo(function PreGamePhase({
   onDismissReceived,
   seatNames,
   grandTichuDecided,
-  myTichuCall,
+  myTichuCall: _myTichuCall,
 }: PreGamePhaseProps) {
   const partner = getPartner(mySeat);
   const leftOpponent = getNextSeat(getNextSeat(getNextSeat(mySeat)));

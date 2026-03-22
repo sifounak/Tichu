@@ -28,7 +28,7 @@ import { Card } from '@/components/cards/Card';
 import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
 import { WishPicker } from '@/components/game/WishPicker';
-import { PreGamePhase, RoundEndPhase, GameEndPhase } from '@/components/phases';
+import { PreGamePhase, GameEndPhase } from '@/components/phases';
 import { PreRoomView } from '@/components/game/PreRoomView';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import { ErrorToast } from '@/components/ui/ErrorToast';
@@ -210,7 +210,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
-  const { status, send } = useWebSocket({
+  const { status, send, disconnect } = useWebSocket({
     url: wsUrl,
     onMessage: handleMessage,
     onStatusChange: uiStore.setConnectionStatus,
@@ -492,12 +492,6 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     [send],
   );
 
-  // REQ-F-ES04: Disconnect vote (Wait/Kick only)
-  const handleDisconnectVote = useCallback(
-    (vote: 'wait' | 'kick') => send({ type: 'DISCONNECT_VOTE', vote }),
-    [send],
-  );
-
   // Handle seat choice when joining with multiple vacated seats
   const handleChooseSeat = useCallback(
     (seat: Seat) => send({ type: 'CHOOSE_SEAT', seat }),
@@ -517,26 +511,18 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     }
   }, [phase, send, isSpectator]);
 
-  // Delay round end overlay so the last trick sweep animation is visible
-  const [showRoundEnd, setShowRoundEnd] = useState(false);
-  useEffect(() => {
-    if (phase === GamePhase.RoundScoring) {
-      const timer = setTimeout(() => setShowRoundEnd(true), 1000);
-      return () => clearTimeout(timer);
-    }
-    setShowRoundEnd(false);
-  }, [phase]);
 
-  // REQ-F-ES03: Send LEAVE_ROOM on browser tab close so server treats it as explicit leave
+
+  // REQ-F-ES03: Close WebSocket on browser tab close so server detects disconnect via 'close' event
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (!isSpectator && gameInProgress) {
-        send({ type: 'LEAVE_ROOM' });
+        disconnect();
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [send, isSpectator, gameInProgress]);
+  }, [disconnect, isSpectator, gameInProgress]);
 
   // REQ-F-DR01: Compute Dragon gift targets — opponents the player can give the trick to
   // NOTE: Must be above early returns to respect Rules of Hooks
@@ -786,17 +772,18 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
               display: 'none',
               position: 'absolute',
               top: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              marginTop: '4px',
-              background: 'var(--color-bg-panel)',
+              left: 0,
+              minWidth: '100%',
+              background: 'rgb(0,0,0)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--card-border-radius)',
               padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--font-md)',
+              fontSize: 'var(--font-xl)',
+              fontWeight: 700,
               color: 'var(--color-text-primary)',
               whiteSpace: 'nowrap',
               zIndex: 40,
+              boxSizing: 'border-box',
             }}>
               {spectatorNames.map((name, i) => (
                 <div key={i}>{name}</div>
@@ -809,15 +796,18 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         <button
           onClick={() => setShowLeaveConfirm(true)}
           style={{
-            background: 'rgba(255,255,255,0.1)',
-            border: '1px solid var(--color-border)',
+            background: 'transparent',
+            border: '1px solid transparent',
             borderRadius: 'var(--card-border-radius)',
             color: 'var(--color-text-secondary)',
             padding: 'var(--space-1) var(--space-3)',
             fontSize: 'var(--font-xl)',
             fontWeight: 600,
             cursor: 'pointer',
+            transition: 'border-color 0.2s',
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
           aria-label="Leave room"
         >
           Leave Room
@@ -1022,7 +1012,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                 canPlay={selection.canPlay}
                 canPass={selection.canPass}
                 isMyTurn={isMyTurn}
-                phase={phase}
+                phase={phase!}
                 myTichuCall={gameStore.myTichuCall}
                 hasPlayedCards={gameStore.hasPlayedCards}
                 hasBombReady={!isMyTurn && selection.isBombSelection}

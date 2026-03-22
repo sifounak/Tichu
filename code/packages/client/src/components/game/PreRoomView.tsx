@@ -90,7 +90,7 @@ export function PreRoomView({
 }: PreRoomViewProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
-  const [botDifficulty, setBotDifficulty] = useState<Record<Seat, 'hard' | 'expert'>>({
+  const [botDifficulty] = useState<Record<Seat, 'hard' | 'expert'>>({
     north: 'expert',
     east: 'expert',
     south: 'expert',
@@ -104,10 +104,17 @@ export function PreRoomView({
     if (!timeoutMs) { setCountdown(0); return; }
     setCountdown(Math.ceil(timeoutMs / 1000));
     const interval = setInterval(() => {
-      setCountdown((prev) => Math.max(0, prev - 1));
+      setCountdown((prev) => {
+        const next = Math.max(0, prev - 1);
+        // Auto-dismiss seat offer when countdown expires (treat as timeout)
+        if (next === 0 && seatOffer && onDeclineSeat) {
+          onDeclineSeat();
+        }
+        return next;
+      });
     }, 1000);
     return () => clearInterval(interval);
-  }, [seatOffer, queueStatus]);
+  }, [seatOffer, queueStatus, onDeclineSeat]);
 
   const isSpectator = mySeat === null;
   const isHost = mySeat === hostSeat;
@@ -127,10 +134,6 @@ export function PreRoomView({
 
   const handleRemoveBot = (seat: Seat) => {
     send({ type: 'REMOVE_BOT', seat });
-  };
-
-  const handleKickPlayer = (seat: Seat) => {
-    send({ type: 'KICK_PLAYER', seat });
   };
 
   const handleReadyToStart = () => {
@@ -229,9 +232,11 @@ export function PreRoomView({
           <div className={styles.emptySeatContent}>
             <span className={styles.emptyTitle}>Empty Seat</span>
             {isSpectator ? (
-              <button onClick={() => send({ type: 'CLAIM_SEAT' })} className={styles.sitHereBtn}>
-                Claim Seat
-              </button>
+              (seatOffer?.seats.includes(seat) || availableSeats?.includes(seat)) ? (
+                <button onClick={() => send({ type: 'CLAIM_SEAT' })} className={styles.sitHereBtn}>
+                  Claim Seat
+                </button>
+              ) : null
             ) : (
               <button onClick={() => handleSwapSeat(seat)} className={styles.sitHereBtn}>
                 Sit Here
@@ -247,7 +252,7 @@ export function PreRoomView({
       />
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty]);
+  }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty, seatOffer, availableSeats]);
 
   // Helper for ordinal suffixes (1st, 2nd, 3rd, 4th, ...)
   const ordinal = (n: number) => {
@@ -480,17 +485,18 @@ export function PreRoomView({
               display: 'none',
               position: 'absolute',
               top: '100%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              marginTop: '4px',
-              background: 'var(--color-bg-panel)',
+              left: 0,
+              minWidth: '100%',
+              background: 'rgb(0,0,0)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--card-border-radius)',
               padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--font-md)',
+              fontSize: 'var(--font-xl)',
+              fontWeight: 700,
               color: 'var(--color-text-primary)',
               whiteSpace: 'nowrap',
               zIndex: 40,
+              boxSizing: 'border-box',
             }}>
               {spectatorNames.map((name, i) => (
                 <div key={i}>{name}</div>
@@ -502,15 +508,18 @@ export function PreRoomView({
         <button
           onClick={onLeave}
           style={{
-            background: 'rgba(255,255,255,0.1)',
-            border: '1px solid var(--color-border)',
+            background: 'transparent',
+            border: '1px solid transparent',
             borderRadius: 'var(--card-border-radius)',
             color: 'var(--color-text-secondary)',
             padding: 'var(--space-1) var(--space-3)',
             fontSize: 'var(--font-xl)',
             fontWeight: 600,
             cursor: 'pointer',
+            transition: 'border-color 0.2s',
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
           aria-label="Leave room"
         >
           Leave Room

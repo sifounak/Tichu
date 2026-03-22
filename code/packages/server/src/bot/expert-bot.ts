@@ -11,7 +11,6 @@ import {
   isDragon,
   isPhoenix,
   isDog,
-  isMahjong,
 } from '@tichu/shared';
 import type {
   BotStrategy,
@@ -23,8 +22,6 @@ import {
   countLeadGetters,
   evaluateHandStrength,
   sortByStrength,
-  getCardStrength,
-  selectLeadPlay,
   isPartnerWinning,
   canGoOut,
   getOpponentTichuCallers,
@@ -32,7 +29,6 @@ import {
   rankCombinationsForLead,
   rankCombinationsForFollow,
   findSingletons,
-  findBombs,
 } from './bot-strategy-utils.js';
 import { CardTracker } from './card-tracker.js';
 

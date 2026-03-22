@@ -40,10 +40,17 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
     if (!seatOffer) { setCountdown(30); return; }
     setCountdown(Math.ceil(seatOffer.timeoutMs / 1000));
     const interval = setInterval(() => {
-      setCountdown((prev) => Math.max(0, prev - 1));
+      setCountdown((prev) => {
+        const next = Math.max(0, prev - 1);
+        // Auto-dismiss seat offer when countdown expires (treat as timeout)
+        if (next === 0 && seatOffer) {
+          onDeclineSeat();
+        }
+        return next;
+      });
     }, 1000);
     return () => clearInterval(interval);
-  }, [seatOffer]);
+  }, [seatOffer, onDeclineSeat]);
 
   // REQ-F-ES04: Spectators see waiting message during disconnect vote
   if (disconnectVoteActive) {

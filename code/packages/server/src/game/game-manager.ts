@@ -23,7 +23,6 @@ import { MoveHandler } from './move-handler.js';
 import { DisconnectHandler } from './disconnect-handler.js';
 import { projectGameState, projectSpectatorView } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
-import { RegularBot } from '../bot/regular-bot.js';
 import { HardBot } from '../bot/hard-bot.js';
 import { ExpertBot } from '../bot/expert-bot.js';
 import type { BotStrategy } from '../bot/bot-interface.js';
@@ -190,6 +189,10 @@ export class GameManager {
     // Send the current full state to the reconnected player
     this.sendStateTo(seat);
     this.broadcastState();
+    // Restart timer + bot logic if all players are back
+    if (this.disconnectHandler.getDisconnectedSeats(this.roomCode).length === 0) {
+      this.onStateChange(null);
+    }
   }
 
   /** REQ-F-ES04: Wire the kick-resolved callback — when kick vote passes, vacate each kicked seat.

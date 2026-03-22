@@ -1,7 +1,7 @@
 // REQ-F-BOT02: RegularBot implementation — random valid moves
 
 import type { GameCard, Seat, Rank } from '@tichu/shared';
-import { SEATS_IN_ORDER, isPhoenix } from '@tichu/shared';
+import { isPhoenix } from '@tichu/shared';
 import type {
   BotStrategy,
   BotPlayContext,
