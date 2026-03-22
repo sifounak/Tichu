@@ -180,7 +180,8 @@ export function createApp(config: Partial<AppConfig> = {}) {
     });
 
     ws.on('error', () => {
-      connections.removeClient(ws);
+      // No-op: 'close' always fires after 'error' in the ws library,
+      // and the close handler does full cleanup (removeClient + disconnect logic).
     });
   });
 
