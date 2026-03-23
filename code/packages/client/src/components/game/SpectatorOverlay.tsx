@@ -69,14 +69,8 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
       <div style={overlayStyle}>
         <div style={panelStyle}>
           <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
-            Seat Available!
+            A seat has opened up!
           </h3>
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-1)' }}>
-            {seatOffer.seats.length === 1
-              ? <>The <strong>{SEAT_LABELS[seatOffer.seats[0]]}</strong> seat is open.</>
-              : <>{seatOffer.seats.map(s => SEAT_LABELS[s]).join(', ')} seats are open.</>
-            }
-          </p>
           <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)', fontSize: 'var(--font-sm)' }}>
             {countdown}s remaining
           </p>
@@ -86,9 +80,6 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
             </button>
             <button onClick={onDeclineSeat} style={buttonStyle('rgba(255,255,255,0.1)', 'var(--color-text-primary)', '1px solid var(--color-border)')}>
               Continue Spectating
-            </button>
-            <button onClick={onLeaveRoom} style={buttonStyle('#dc2626', 'white')}>
-              Leave Room
             </button>
           </div>
         </div>

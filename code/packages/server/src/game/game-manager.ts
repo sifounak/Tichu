@@ -267,6 +267,10 @@ export class GameManager {
    *  If only 1 seat is vacated (last spot), auto-fill immediately. */
   handleSeatFilled(seat: Seat): void {
     this.vacatedSeats.delete(seat);
+    // If this seat was previously a bot, remove the bot so the new player is treated as human
+    if (this.botRunner.isBot(seat)) {
+      this.botRunner.removeBot(seat);
+    }
     if (this.vacatedSeats.size > 0) {
       // 2+ seats were vacated; player just took one but others remain.
       // They need to choose which vacated seat they actually want.

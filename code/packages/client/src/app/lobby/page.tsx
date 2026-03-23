@@ -167,15 +167,31 @@ export default function LobbyPage() {
         {/* Kicked notification */}
         {kickedMessage && (
           <div className="mb-4 text-center py-3 px-4 rounded-lg"
-            style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--color-error)' }}
+            style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--color-error)', position: 'relative' }}
             role="alert"
           >
             {kickedMessage}
             <button
               onClick={() => setKickedMessage(null)}
-              className="ml-3 text-xs underline opacity-70 hover:opacity-100"
+              style={{
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                color: 'var(--color-error)',
+                fontSize: '18px',
+                cursor: 'pointer',
+                opacity: 0.7,
+                lineHeight: 1,
+                padding: '4px',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.7'; }}
+              aria-label="Dismiss"
             >
-              Dismiss
+              ✕
             </button>
           </div>
         )}
@@ -263,7 +279,7 @@ export default function LobbyPage() {
                 width: '135px',
               }}
             >
-              Join Room
+              Join Game
             </button>
           </div>
         </div>
@@ -300,9 +316,10 @@ export default function LobbyPage() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px', tableLayout: 'fixed' }}>
                 <colgroup>
-                  <col style={{ width: '40%' }} />
+                  <col style={{ width: '35%' }} />
                   <col />
                   <col style={{ width: '80px' }} />
+                  <col style={{ width: '100px' }} />
                   <col style={{ width: '85px' }} />
                   <col style={{ width: '120px' }} />
                 </colgroup>
@@ -312,7 +329,6 @@ export default function LobbyPage() {
                       ['roomName', 'Room Name', 'left'],
                       ['hostName', 'Host', 'left'],
                       ['goal', 'Goal', 'right'],
-                      ['players', 'Players', 'center'],
                     ] as const).map(([col, label, align]) => (
                       <th
                         key={col}
@@ -341,6 +357,35 @@ export default function LobbyPage() {
                       fontSize: '13px',
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      Spectators
+                    </th>
+                    <th
+                      onClick={() => handleSort('players')}
+                      style={{
+                        padding: '10px 12px',
+                        textAlign: 'center',
+                        color: 'var(--color-text-muted)',
+                        fontWeight: 600,
+                        fontSize: '13px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Players{sortIndicator('players')}
+                    </th>
+                    <th style={{
+                      padding: '10px 12px',
+                      textAlign: 'center',
+                      color: 'var(--color-text-muted)',
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
                     }}>
                       Join
                     </th>
@@ -360,6 +405,9 @@ export default function LobbyPage() {
                       </td>
                       <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'right' }}>
                         {room.config.targetScore}
+                      </td>
+                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
+                        {room.spectatorCount}
                       </td>
                       <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
                         {room.playerCount}/4

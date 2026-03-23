@@ -97,7 +97,11 @@ export class RoomHandler {
 
     const room = this.roomManager.getRoom(msg.roomCode);
     const isFull = room ? room.players.length >= 4 : false;
-    const shouldSpectate = msg.asSpectator || isFull;
+    // Force spectator mode when queue is in up-for-grabs phase so the new player
+    // sees the up-for-grabs dialog instead of immediately taking a seat
+    const queue = this.seatQueues.get(msg.roomCode);
+    const queueUpForGrabs = queue?.phase === 'up-for-grabs';
+    const shouldSpectate = msg.asSpectator || isFull || queueUpForGrabs;
 
     if (shouldSpectate && room) {
       // Join as spectator
