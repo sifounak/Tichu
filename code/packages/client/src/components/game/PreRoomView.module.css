@@ -1,19 +1,11 @@
 /* Pre-room view — overlays on top of GameTable layout */
 
-/* Header with room name */
-.header {
-  position: fixed;
-  top: calc(16px * var(--scale));
-  left: 50%;
-  transform: translateX(-50%);
-  text-align: center;
-  z-index: 10;
-}
-
+/* Room name — displayed in the top-left panel above the room code */
 .roomName {
   font-size: calc(24px * var(--scale));
   font-weight: 700;
   color: var(--color-gold-accent);
+  text-align: center;
 }
 
 /* Empty seat content — inside PlayerSeat via customContent */

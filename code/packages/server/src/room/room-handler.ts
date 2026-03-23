@@ -263,6 +263,8 @@ export class RoomHandler {
 
       // Update remaining players
       this.broadcastRoomUpdate(roomCode);
+      // Notify spectators about the newly vacant seat
+      this.tryStartSeatQueue(roomCode, [msg.seat]);
     } catch (err) {
       this.broadcaster.sendError(ws, 'KICK_FAILED', (err as Error).message);
     }
@@ -295,6 +297,10 @@ export class RoomHandler {
         this.roomManager.resetReady(roomCode);
         this.reReadyBots(roomCode);
         this.broadcastRoomUpdate(roomCode);
+        // Notify spectators about the newly vacant seat
+        if (targetSeat) {
+          this.tryStartSeatQueue(roomCode, [targetSeat]);
+        }
       }
     };
   }
@@ -669,21 +675,19 @@ export class RoomHandler {
     }
   }
 
-  /** REQ-F-PV18: Restart the game — destroy current game, create fresh one, re-seat all players */
-  private restartGame(roomCode: string, fallbackWs: WebSocket): void {
+  /** REQ-F-PV18: Restart the game — destroy current game, return to pre-game lobby */
+  private restartGame(roomCode: string, _fallbackWs: WebSocket): void {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
-    // End the current game
+    // End the current game and reset ready states so players must re-ready
     this.roomManager.endGame(roomCode);
     this.gameStore.destroyGameByRoom(roomCode);
+    this.roomManager.resetReady(roomCode);
+    this.reReadyBots(roomCode);
 
-    // Start a fresh game (reuses startGameInternal logic)
-    try {
-      this.startGameInternal(roomCode, fallbackWs);
-    } catch (err) {
-      console.error(`[RESTART_GAME_FAILED] roomCode=${roomCode} error=${(err as Error).message}`);
-    }
+    // Broadcast room update — clients will see gameInProgress=false and show PreRoomView
+    this.broadcastRoomUpdate(roomCode);
   }
 
   // ─── Seat Queue (REQ-F-SP07–SP10, SP27, SP28, SP31, SP32) ───────────

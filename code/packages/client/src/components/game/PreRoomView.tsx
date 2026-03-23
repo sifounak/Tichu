@@ -127,8 +127,8 @@ export function PreRoomView({
   const isSpectator = mySeat === null;
   const isHost = mySeat === hostSeat;
   const amReady = mySeat ? readyPlayers.includes(mySeat) : false;
-  // Spectators see from host's POV (host is always south)
-  const effectiveSeat = mySeat ?? hostSeat ?? 'south';
+  // Spectators always see compass layout (N top, S bottom, W left, E right)
+  const effectiveSeat = mySeat ?? 'south';
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomCode);
@@ -444,11 +444,6 @@ export function PreRoomView({
 
   return (
     <>
-      {/* REQ-F-CG13: Room name header */}
-      <div className={styles.header}>
-        <div className={styles.roomName}>{roomName ?? 'Room'}</div>
-      </div>
-
       {/* Room code + Spectators + Leave — same position as in-game */}
       <div style={{
         position: 'fixed',
@@ -461,6 +456,9 @@ export function PreRoomView({
         alignItems: 'center',
         gap: 'var(--space-1)',
       }}>
+        {/* REQ-F-CG13: Room name */}
+        <div className={styles.roomName}>{roomName ?? 'Room'}</div>
+
         {/* Spectating badge */}
         {isSpectator && (
           <div style={{
@@ -747,29 +745,10 @@ export function PreRoomView({
       <GameTable
         view={dummyView}
         hideCenter={false}
+        compassLayout={isSpectator}
         renderSeatOverride={renderSeat}
         centerContent={centerContent}
-        bottomContent={isSpectator ? (() => {
-          const hostPlayer = players.find((p) => p.seat === hostSeat);
-          if (!hostPlayer) return undefined;
-          const hostReady = hostSeat ? readyPlayers.includes(hostSeat) : false;
-          return (
-            <PlayerSeat
-              seat={hostSeat ?? 'south'}
-              displayName={hostPlayer.name}
-              cardCount={0}
-              tichuCall={'none'}
-              hasPlayed={false}
-              hasPassed={false}
-              finishOrder={null}
-              isCurrentTurn={false}
-              isTrickLeader={false}
-              isMe={false}
-              passConfirmed={hostReady}
-              passConfirmedLabel="Ready to Play"
-            />
-          );
-        })() : undefined}
+        bottomContent={isSpectator ? renderSeat('south') : undefined}
       />
 
       {/* Bottom panel — player's own seat, positioned where it sits during gameplay
