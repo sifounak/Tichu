@@ -4,6 +4,7 @@ import type { GameConfig } from '@tichu/shared';
 import type { Broadcaster } from '../ws/broadcaster.js';
 import { GameManager } from './game-manager.js';
 import { DisconnectHandler } from './disconnect-handler.js';
+import { VoteHandler } from './vote-handler.js';
 
 /**
  * In-memory store of active games.
@@ -21,11 +22,15 @@ export class GameStore {
   /** Shared disconnect handler for all games */
   readonly disconnectHandler: DisconnectHandler;
 
+  /** REQ-F-PV22: Shared player vote handler for all games */
+  readonly voteHandler: VoteHandler;
+
   constructor(
     private readonly broadcaster: Broadcaster,
     options?: { voteTimeoutMs?: number },
   ) {
     this.disconnectHandler = new DisconnectHandler(broadcaster, options);
+    this.voteHandler = new VoteHandler(broadcaster, options);
   }
 
   /** Create a new game for a room */
@@ -40,6 +45,7 @@ export class GameStore {
       roomCode,
       this.broadcaster,
       this.disconnectHandler,
+      this.voteHandler,
       config,
     );
 
@@ -71,6 +77,7 @@ export class GameStore {
     this.games.delete(gameId);
     this.roomToGame.delete(roomCode);
     this.disconnectHandler.cleanupRoom(roomCode);
+    this.voteHandler.cleanupRoom(roomCode);
 
     return true;
   }
@@ -100,6 +107,7 @@ export class GameStore {
     this.games.clear();
     this.roomToGame.clear();
     this.disconnectHandler.dispose();
+    this.voteHandler.dispose();
   }
 }
 

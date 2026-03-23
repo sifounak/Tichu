@@ -175,11 +175,10 @@ export class RoomManager {
     return { kickedUserId, roomCode };
   }
 
-  /** Add a bot to a seat. */
+  /** REQ-F-VI03: Add a bot to a seat. Allowed mid-game for vacated seats. */
   addBot(roomCode: string, seat: Seat, difficulty?: 'regular' | 'hard' | 'expert'): Room {
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error('Room not found.');
-    if (room.gameInProgress) throw new Error('Game already in progress.');
 
     const occupiedSeats = new Set(room.players.map(p => p.seat));
     if (occupiedSeats.has(seat)) throw new Error(`Seat ${seat} is already occupied.`);

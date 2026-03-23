@@ -1,0 +1,91 @@
+/* REQ-F-PV05/PV07: Player vote overlay */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.panel {
+  background: var(--color-felt-green-dark);
+  border: 1px solid var(--color-border);
+  border-radius: var(--space-3);
+  padding: var(--space-6) var(--space-8);
+  max-width: calc(420px * var(--scale));
+  min-width: calc(280px * var(--scale));
+  text-align: center;
+  box-shadow: var(--shadow-panel);
+}
+
+.title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.message {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-md);
+  color: var(--color-text-secondary);
+}
+
+.countdown {
+  font-size: calc(13px * var(--scale));
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-4);
+}
+
+.voteButtons {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: center;
+  margin-bottom: var(--space-3);
+}
+
+.voteButton {
+  padding: calc(10px * var(--scale)) var(--space-6);
+  border: none;
+  border-radius: var(--space-2);
+  font-size: var(--font-md);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: calc(44px * var(--scale));
+  transition: opacity var(--duration-fast) var(--easing-smooth);
+}
+
+.voteButton:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.voteButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.approveButton {
+  background: var(--color-success);
+  color: white;
+}
+
+.rejectButton {
+  background: var(--color-error);
+  color: white;
+}
+
+.waiting {
+  font-size: var(--font-base);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    margin: 0 var(--space-4);
+    padding: var(--space-5);
+  }
+}

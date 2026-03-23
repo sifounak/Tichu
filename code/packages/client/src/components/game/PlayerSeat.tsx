@@ -41,6 +41,16 @@ export interface PlayerSeatProps {
   onChooseSeat?: () => void;
   /** Custom content replacing the default name/avatar/cards (for pre-room empty/bot seats) */
   customContent?: React.ReactNode;
+  /** REQ-F-PV03: Kick vote target selection mode — red glow + "Kick Player" label */
+  kickVoteTarget?: boolean;
+  /** REQ-F-PV10/PV11: Player vote status — true=approve (green), false=reject (red), null=pending */
+  playerVoteStatus?: boolean | null;
+  /** REQ-F-PV10/PV11: Label for the player vote status (e.g., "Voted: Kick") */
+  playerVoteLabel?: string;
+  /** REQ-F-PV09: Hide normal labels (turn/leader/pass) during active vote */
+  hideNormalLabels?: boolean;
+  /** REQ-F-VI05: Host can add a bot to a vacated seat mid-game */
+  onAddBot?: () => void;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -72,6 +82,11 @@ export const PlayerSeat = memo(function PlayerSeat({
   onChooseSeat,
   customContent,
   passConfirmedLabel,
+  kickVoteTarget,
+  playerVoteStatus,
+  playerVoteLabel,
+  hideNormalLabels,
+  onAddBot,
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
   const name = emptySeat ? 'Empty Seat' : (displayName ?? SEAT_LABELS[seat]);
@@ -83,11 +98,15 @@ export const PlayerSeat = memo(function PlayerSeat({
 
   const className = [
     styles.seat,
+    // REQ-F-PV10/PV11: Player vote glows take priority during active vote
+    kickVoteTarget && styles.kickVoteTarget,
+    playerVoteStatus === true && styles.voteApprove,
+    playerVoteStatus === false && styles.voteReject,
     // REQ-F-ES04: Vote glow overrides normal turn/leader glows during active vote
-    voteStatus === 'wait' && styles.voteWait,
-    voteStatus === 'kick' && styles.voteKick,
-    !voteStatus && isCurrentTurn && styles.active,
-    !voteStatus && isTrickLeader && styles.trickLeader,
+    !kickVoteTarget && playerVoteStatus == null && voteStatus === 'wait' && styles.voteWait,
+    !kickVoteTarget && playerVoteStatus == null && voteStatus === 'kick' && styles.voteKick,
+    !kickVoteTarget && playerVoteStatus == null && !voteStatus && isCurrentTurn && styles.active,
+    !kickVoteTarget && playerVoteStatus == null && !voteStatus && isTrickLeader && styles.trickLeader,
     hasPassed && styles.passed,
     isMe && styles.me,
     isDragonActive && styles.dragonTarget,
@@ -109,10 +128,10 @@ export const PlayerSeat = memo(function PlayerSeat({
     <div
       className={className}
       data-seat={seat}
-      aria-label={isClickableDragon ? `Give Dragon trick to ${name}` : `${name}'s seat`}
-      onClick={isClickableDragon ? onSeatClick : undefined}
-      role={isClickableDragon ? 'button' : undefined}
-      style={isClickableDragon ? { cursor: 'pointer' } : undefined}
+      aria-label={kickVoteTarget ? `Kick ${name}` : isClickableDragon ? `Give Dragon trick to ${name}` : `${name}'s seat`}
+      onClick={kickVoteTarget ? onSeatClick : isClickableDragon ? onSeatClick : undefined}
+      role={kickVoteTarget || isClickableDragon ? 'button' : undefined}
+      style={kickVoteTarget || isClickableDragon ? { cursor: 'pointer' } : undefined}
       onMouseEnter={dragonHoverTarget ? () => setHovered(true) : undefined}
       onMouseLeave={dragonHoverTarget ? () => setHovered(false) : undefined}
     >
@@ -155,15 +174,26 @@ export const PlayerSeat = memo(function PlayerSeat({
         </div>
       )}
 
+      {/* REQ-F-PV03: Kick target selection label */}
+      {kickVoteTarget && (
+        <span className={styles.playerVoteLabel} style={{ color: '#e74c3c' }}>Kick Player</span>
+      )}
+
+      {/* REQ-F-PV10/PV11: Player vote status label */}
+      {!kickVoteTarget && playerVoteLabel && playerVoteStatus != null && (
+        <span className={styles.playerVoteLabel} style={{ color: playerVoteStatus ? '#2ecc71' : '#e74c3c' }}>{playerVoteLabel}</span>
+      )}
+
+      {/* REQ-F-PV09: Normal labels hidden during active vote */}
       {/* REQ-F-DI03: Pass indicator — label below box (hidden for active dragon targets) */}
-      {hasPassed && !hideTrickLabels && !isDragonActive && (
+      {!hideNormalLabels && hasPassed && !hideTrickLabels && !isDragonActive && (
         <span className={styles.passLabel} aria-label="Passed">
           Pass
         </span>
       )}
 
       {/* Turn indicator */}
-      {isCurrentTurn && !isDragonActive && (
+      {!hideNormalLabels && isCurrentTurn && !isDragonActive && (
         <span className={styles.turnLabel}>{isMe ? 'Your Turn' : 'Their Turn'}</span>
       )}
 
@@ -173,20 +203,20 @@ export const PlayerSeat = memo(function PlayerSeat({
       )}
 
       {/* Trick leader label (hidden for active dragon targets) */}
-      {isTrickLeader && !isCurrentTurn && !hasPassed && !hideTrickLabels && !isDragonActive && (
+      {!hideNormalLabels && isTrickLeader && !isCurrentTurn && !hasPassed && !hideTrickLabels && !isDragonActive && (
         <span className={styles.leaderLabel}>Leading Trick</span>
       )}
 
       {/* Card pass confirmed label */}
-      {passConfirmed && (
+      {!hideNormalLabels && passConfirmed && (
         <span className={styles.passConfirmedLabel}>{passConfirmedLabel ?? 'Ready to Pass'}</span>
       )}
 
       {/* REQ-F-ES04: Vote status label — overrides other labels during active vote */}
-      {voteStatus === 'wait' && (
+      {!hideNormalLabels && voteStatus === 'wait' && (
         <span className={styles.voteLabel} style={{ color: '#2ecc71' }}>Vote: Wait</span>
       )}
-      {voteStatus === 'kick' && (
+      {!hideNormalLabels && voteStatus === 'kick' && (
         <span className={styles.voteLabel} style={{ color: '#e74c3c' }}>Vote: Kick</span>
       )}
 
@@ -194,6 +224,25 @@ export const PlayerSeat = memo(function PlayerSeat({
       {vacated && !emptySeat && !seatChooserLabel && (
         <div className={styles.vacatedOverlay}>
           Waiting for player to join
+          {/* REQ-F-VI05: Host can add a bot to fill vacated seat */}
+          {onAddBot && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAddBot(); }}
+              style={{
+                marginTop: 'var(--space-2)',
+                padding: 'var(--space-1) var(--space-3)',
+                background: 'var(--color-gold-accent)',
+                color: 'var(--color-felt-green-dark)',
+                border: 'none',
+                borderRadius: 'var(--card-border-radius)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Add Bot
+            </button>
+          )}
         </div>
       )}
 

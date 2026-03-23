@@ -5,6 +5,7 @@
 // REQ-F-CG15: Host can change settings pre-game
 // REQ-F-CG16: Start Game button in center of play area
 // REQ-F-CG17: Only host sees bot controls
+// REQ-F-VI11: Pre-game "Start a Vote" button with Kick Player only
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -12,6 +13,8 @@ import type { Seat, GameConfig, RoomPlayer } from '@tichu/shared';
 import type { ClientGameView } from '@tichu/shared';
 import { GameTable } from './GameTable';
 import { PlayerSeat } from './PlayerSeat';
+import { VoteOverlay } from './VoteOverlay';
+import { useUiStore } from '@/stores/uiStore';
 import styles from './PreRoomView.module.css';
 
 interface PreRoomViewProps {
@@ -97,6 +100,11 @@ export function PreRoomView({
     west: 'expert',
   });
 
+  // REQ-F-VI11: Pre-game vote state
+  const [showVoteDropdown, setShowVoteDropdown] = useState(false);
+  const [preGameKickTargetMode, setPreGameKickTargetMode] = useState(false);
+  const uiStore = useUiStore();
+
   // REQ-F-SC02: Countdown timer for seat offer / queue status
   const [countdown, setCountdown] = useState(0);
   useEffect(() => {
@@ -136,6 +144,10 @@ export function PreRoomView({
     send({ type: 'REMOVE_BOT', seat });
   };
 
+  const handleKickPlayer = (seat: Seat) => {
+    send({ type: 'KICK_PLAYER', seat });
+  };
+
   const handleReadyToStart = () => {
     send({ type: 'READY_TO_START' });
   };
@@ -143,6 +155,32 @@ export function PreRoomView({
   const handleCancelReady = () => {
     send({ type: 'CANCEL_READY' });
   };
+
+  // REQ-F-VI12: Pre-game kick target selection — send PRE_GAME_KICK_VOTE
+  const handlePreGameKickTarget = (seat: Seat) => {
+    if (seat === mySeat) return; // Cannot kick self
+    setPreGameKickTargetMode(false);
+    send({ type: 'PRE_GAME_KICK_VOTE', targetSeat: seat });
+  };
+
+  // REQ-F-VI12: Escape cancels kick target mode
+  useEffect(() => {
+    if (!preGameKickTargetMode) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreGameKickTargetMode(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [preGameKickTargetMode]);
+
+  // Build seat→name mapping for VoteOverlay
+  const SEAT_LABELS: Record<string, string> = { north: 'North', east: 'East', south: 'South', west: 'West' };
+  const seatNames = {
+    north: players.find(p => p.seat === 'north')?.name ?? SEAT_LABELS.north,
+    east: players.find(p => p.seat === 'east')?.name ?? SEAT_LABELS.east,
+    south: players.find(p => p.seat === 'south')?.name ?? SEAT_LABELS.south,
+    west: players.find(p => p.seat === 'west')?.name ?? SEAT_LABELS.west,
+  } as Record<Seat, string>;
 
   const handleConfigChange = (updates: Record<string, unknown>) => {
     send({ type: 'CONFIGURE_ROOM', config: updates });
@@ -165,7 +203,7 @@ export function PreRoomView({
     // Player's own seat — rendered in the bottom panel, not here
     if (seat === mySeat) return null;
 
-    // Human player — standard PlayerSeat with 0 cards
+    // Human player — standard PlayerSeat with kick button for host
     if (player && !player.isBot) {
       return (
         <PlayerSeat
@@ -181,6 +219,16 @@ export function PreRoomView({
           isMe={false}
           passConfirmed={isReady}
           passConfirmedLabel="Ready to Play"
+          kickVoteTarget={preGameKickTargetMode}
+          onSeatClick={preGameKickTargetMode ? () => handlePreGameKickTarget(seat) : undefined}
+          customContent={isHost ? (
+            <div className={styles.botSeatContent}>
+              <span className={styles.botName}>{player.name}</span>
+              <button onClick={() => handleKickPlayer(seat)} className={styles.removeBtn}>
+                Kick
+              </button>
+            </div>
+          ) : undefined}
         />
       );
     }
@@ -201,6 +249,8 @@ export function PreRoomView({
           isMe={false}
           passConfirmed={isReady}
           passConfirmedLabel="Ready to Play"
+          kickVoteTarget={preGameKickTargetMode}
+          onSeatClick={preGameKickTargetMode ? () => handlePreGameKickTarget(seat) : undefined}
           customContent={
             <div className={styles.botSeatContent}>
               <span className={styles.botName}>{player.name}</span>
@@ -252,7 +302,7 @@ export function PreRoomView({
       />
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty, seatOffer, availableSeats]);
+  }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty, seatOffer, availableSeats, preGameKickTargetMode]);
 
   // Helper for ordinal suffixes (1st, 2nd, 3rd, 4th, ...)
   const ordinal = (n: number) => {
@@ -484,8 +534,9 @@ export function PreRoomView({
             <div data-tooltip style={{
               display: 'none',
               position: 'absolute',
-              top: '100%',
-              left: 0,
+              top: 0,
+              left: '100%',
+              marginLeft: 'var(--space-1)',
               minWidth: '100%',
               background: 'rgb(0,0,0)',
               border: '1px solid var(--color-border)',
@@ -504,6 +555,80 @@ export function PreRoomView({
             </div>
           )}
         </div>
+
+        {/* REQ-F-VI11: Pre-game "Start a Vote" button — only Kick Player option */}
+        {!isSpectator && mySeat && players.length >= 2 && !uiStore.activeVote && (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => { setShowVoteDropdown(!showVoteDropdown); setPreGameKickTargetMode(false); }}
+              style={{
+                background: 'transparent',
+                border: '1px solid transparent',
+                borderRadius: 'var(--card-border-radius)',
+                color: 'var(--color-text-secondary)',
+                padding: 'var(--space-1) var(--space-3)',
+                fontSize: 'var(--font-xl)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'border-color 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+              aria-label="Start a vote"
+            >
+              Start a Vote
+            </button>
+            {showVoteDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: '100%',
+                  marginLeft: 'var(--space-1)',
+                  background: 'rgb(0,0,0)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: 'var(--space-1) 0',
+                  zIndex: 50,
+                  minWidth: '100%',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <button
+                  onClick={() => { setShowVoteDropdown(false); setPreGameKickTargetMode(true); }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--color-text-primary)',
+                    padding: 'var(--space-2) var(--space-3)',
+                    fontSize: 'var(--font-base)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  Kick Player
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* REQ-F-VI12: Kick target mode cancel hint */}
+        {preGameKickTargetMode && (
+          <div style={{
+            fontSize: 'var(--font-sm)',
+            color: 'var(--color-gold-accent)',
+            fontWeight: 600,
+            textAlign: 'center',
+          }}>
+            Click a player to kick (Esc to cancel)
+          </div>
+        )}
 
         <button
           onClick={onLeave}
@@ -674,6 +799,38 @@ export function PreRoomView({
             passConfirmed={amReady}
             passConfirmedLabel="Ready to Play"
           />
+        </div>
+      )}
+      {/* REQ-F-VI13: Pre-game vote overlay */}
+      {uiStore.activeVote && (
+        <VoteOverlay
+          activeVote={uiStore.activeVote}
+          mySeat={mySeat ?? 'south'}
+          countdownSeconds={uiStore.voteCountdown}
+          seatNames={seatNames}
+          onVote={(voteId, vote) => send({ type: 'PRE_GAME_VOTE', voteId, vote })}
+          readOnly={isSpectator}
+        />
+      )}
+
+      {/* REQ-F-VI13: Pre-game vote result center status */}
+      {uiStore.voteResult && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 100,
+          background: 'var(--color-bg-panel)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--space-3)',
+          padding: 'var(--space-4) var(--space-6)',
+          fontSize: 'var(--font-lg)',
+          fontWeight: 700,
+          color: uiStore.voteResult.passed ? 'var(--color-gold-accent)' : '#e74c3c',
+          textAlign: 'center',
+        }}>
+          {uiStore.voteResult.message}
         </div>
       )}
     </>

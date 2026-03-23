@@ -32,6 +32,7 @@ import { PreGamePhase, GameEndPhase } from '@/components/phases';
 import { PreRoomView } from '@/components/game/PreRoomView';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import { ErrorToast } from '@/components/ui/ErrorToast';
+import { VoteOverlay } from '@/components/game/VoteOverlay';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 
@@ -62,6 +63,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   const mySeatFromRoom = useRoomStore((s) => s.mySeat);
   const leaveRoom = useRoomStore((s) => s.leaveRoom);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [showVoteDropdown, setShowVoteDropdown] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
 
   // REQ-F-SG01: Include userId and playerName in WebSocket URL
@@ -147,6 +149,47 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         // REQ-F-ES04: Per-seat vote status update
         uiStore.setDisconnectVotes((msg as any).votes);
         uiStore.setDisconnectCountdown(Math.ceil((msg as any).timeoutMs / 1000));
+      } else if (msg.type === 'VOTE_STARTED') {
+        // REQ-F-PV05/PV07: Vote started — show overlay
+        const m = msg as any;
+        uiStore.setActiveVote({
+          voteId: m.voteId,
+          voteType: m.voteType,
+          initiatorSeat: m.initiatorSeat,
+          targetSeat: m.targetSeat,
+          votes: {},
+          timeoutMs: m.timeoutMs,
+        });
+        uiStore.setKickTargetMode(false);
+        uiStore.setVoteCountdown(Math.ceil(m.timeoutMs / 1000));
+      } else if (msg.type === 'VOTE_UPDATE') {
+        // REQ-NF-PV01: Real-time vote update
+        const m = msg as any;
+        uiStore.setActiveVote({
+          ...uiStore.activeVote!,
+          votes: m.votes,
+          timeoutMs: m.timeoutMs,
+        });
+        uiStore.setVoteCountdown(Math.ceil(m.timeoutMs / 1000));
+      } else if (msg.type === 'VOTE_RESULT') {
+        // REQ-F-PV16-PV19: Vote resolved
+        const m = msg as any;
+        uiStore.setActiveVote(null);
+        // REQ-F-PV16: Build kick success message with player name from seatNames
+        let resultMessage = m.message;
+        if (m.voteType === 'kick' && m.passed && m.targetSeat && !resultMessage) {
+          const targetName = roomPlayers.find(p => p.seat === m.targetSeat)?.name ?? m.targetSeat;
+          resultMessage = `${targetName} was kicked!`;
+        }
+        uiStore.setVoteResult({
+          voteType: m.voteType,
+          passed: m.passed,
+          message: resultMessage,
+        });
+        // Clear result after 2 seconds
+        setTimeout(() => {
+          uiStore.setVoteResult(null);
+        }, 2000);
       } else if (msg.type === 'TICHU_CALLED') {
         // REQ-NF-U02: Show Tichu banner
         uiStore.setTichuEvent({ seat: msg.seat as Seat, level: msg.level as TichuCall });
@@ -524,6 +567,27 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [disconnect, isSpectator, gameInProgress]);
 
+  // REQ-F-PV15: Countdown timer for active vote
+  useEffect(() => {
+    if (!uiStore.activeVote) return;
+    const interval = setInterval(() => {
+      uiStore.setVoteCountdown(Math.max(0, uiStore.voteCountdown - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [uiStore, uiStore.activeVote]);
+
+  // REQ-F-PV03: Escape key cancels kick target mode and vote dropdown
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (uiStore.kickTargetMode) uiStore.setKickTargetMode(false);
+        if (showVoteDropdown) setShowVoteDropdown(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [uiStore, showVoteDropdown]);
+
   // REQ-F-DR01: Compute Dragon gift targets — opponents the player can give the trick to
   // NOTE: Must be above early returns to respect Rules of Hooks
   const mySeat = gameStore.mySeat;
@@ -771,8 +835,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             <div data-tooltip style={{
               display: 'none',
               position: 'absolute',
-              top: '100%',
-              left: 0,
+              top: 0,
+              left: '100%',
+              marginLeft: 'var(--space-1)',
               minWidth: '100%',
               background: 'rgb(0,0,0)',
               border: '1px solid var(--color-border)',
@@ -791,6 +856,87 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             </div>
           )}
         </div>
+
+        {/* REQ-F-PV01: Start a Vote button + dropdown */}
+        {!isSpectator && mySeatFromRoom && (gameInProgress || gameStore.gameId) && !uiStore.activeVote && !uiStore.disconnectVoteRequired && (
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowVoteDropdown(!showVoteDropdown)}
+              style={{
+                background: 'transparent',
+                border: '1px solid transparent',
+                borderRadius: 'var(--card-border-radius)',
+                color: 'var(--color-text-secondary)',
+                padding: 'var(--space-1) var(--space-3)',
+                fontSize: 'var(--font-xl)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'border-color 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+              aria-label="Start a vote"
+            >
+              Start a Vote
+            </button>
+            {showVoteDropdown && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: '100%',
+                  marginLeft: 'var(--space-1)',
+                  background: 'rgb(0,0,0)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: 'var(--space-1) 0',
+                  zIndex: 50,
+                  minWidth: '100%',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <button
+                  onClick={() => { setShowVoteDropdown(false); uiStore.setKickTargetMode(true); }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--color-text-primary)',
+                    padding: 'var(--space-2) var(--space-3)',
+                    fontSize: 'var(--font-base)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  Kick Player
+                </button>
+                <button
+                  onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_VOTE' }); }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--color-text-primary)',
+                    padding: 'var(--space-2) var(--space-3)',
+                    fontSize: 'var(--font-base)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  Restart Game
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Leave Room button */}
         <button
@@ -935,6 +1081,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         seatNames={seatNames}
         mustSatisfyWish={mustSatisfyWish}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
+        onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
+        onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat) => send({ type: 'ADD_BOT', seat }) : undefined}
         centerContent={isSpectator && isPreGame ? (
           <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 'calc(18px * var(--scale))', fontWeight: 600 }}>
             Waiting for players to pass cards...
@@ -1217,6 +1365,43 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       />
 
       {/* Disconnect overlay removed — vacated seats shown inline on player info boxes */}
+
+      {/* REQ-F-PV05/PV07: Vote overlay dialog — REQ-F-VI06: spectators see read-only */}
+      {uiStore.activeVote && (
+        <VoteOverlay
+          activeVote={uiStore.activeVote}
+          mySeat={mySeat ?? 'south'}
+          countdownSeconds={uiStore.voteCountdown}
+          seatNames={seatNames}
+          onVote={(voteId, vote) => send({ type: 'PLAYER_VOTE', voteId, vote })}
+          readOnly={isSpectator}
+        />
+      )}
+
+      {/* REQ-F-PV16-PV19: Vote result center status */}
+      {uiStore.voteResult && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 90,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            background: 'var(--color-bg-panel)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--space-3)',
+            padding: 'var(--space-6) var(--space-8)',
+            fontSize: 'var(--font-3xl)',
+            fontWeight: 700,
+            color: uiStore.voteResult.passed ? '#2ecc71' : '#e74c3c',
+          }}>
+            {uiStore.voteResult.message}
+          </div>
+        </div>
+      )}
 
       <ConnectionStatus status={status} />
       <ErrorToast message={uiStore.errorToast} onDismiss={uiStore.clearErrorToast} />
