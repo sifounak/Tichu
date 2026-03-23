@@ -234,6 +234,11 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           (msg as any).spectatorNames ?? [],
           (msg as any).readyPlayers ?? [],
         );
+        // REQ-F-PV18: Game ended (restart vote) — reset game store so PreRoomView shows
+        if (!(msg as any).gameInProgress && gameStore.gameId) {
+          gameStore.reset();
+          uiStore.clearPlayerVoteState();
+        }
       } else if (msg.type === 'KICKED') {
         leaveRoom();
         gameStore.reset();
@@ -1080,6 +1085,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         onDragonGift={handleDragonGift}
         seatNames={seatNames}
         mustSatisfyWish={mustSatisfyWish}
+        compassLayout={isSpectator}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
         onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat) => send({ type: 'ADD_BOT', seat }) : undefined}

@@ -36,6 +36,8 @@ export interface GameTableProps {
   onKickTarget?: (seat: Seat) => void;
   /** REQ-F-VI05: Callback for host to add bot to vacated seat */
   onAddBot?: (seat: Seat) => void;
+  /** Fixed compass orientation (N top, S bottom, W left, E right) for spectators */
+  compassLayout?: boolean;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -46,7 +48,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -58,7 +60,10 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
 
   // Determine layout: player (me) is always at the bottom
   // Partner is at the top, opponents on left and right
-  const seatPositions = getSeatPositions(mySeat);
+  // compassLayout: fixed compass orientation for spectators (N top, S bottom, W left, E right)
+  const seatPositions = compassLayout
+    ? { top: 'north' as Seat, bottom: 'south' as Seat, left: 'west' as Seat, right: 'east' as Seat }
+    : getSeatPositions(mySeat);
 
   // Green glow for players who have confirmed their card pass
   const isCardPassing = view.phase === 'cardPassing';
