@@ -112,8 +112,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
 
   // REQ-F-ES06: Seat offered to deciding spectator (FIFO priority, array for multi-vacancy)
   z.object({ type: z.literal('SEAT_OFFERED'), seats: z.array(seatSchema), timeoutMs: z.number() }),
-  // REQ-F-SP08b: Queue status for non-deciding spectators
-  z.object({ type: z.literal('QUEUE_STATUS'), decidingSpectator: z.string(), position: z.number().int().min(1), timeoutMs: z.number() }),
+  // REQ-F-SP08b: Queue status for non-deciding spectators (position 0 = passed/timed out)
+  z.object({ type: z.literal('QUEUE_STATUS'), decidingSpectator: z.string(), position: z.number().int().min(0), timeoutMs: z.number() }),
   // REQ-F-SP08c: All spectators declined — seats up for grabs
   z.object({ type: z.literal('SEATS_AVAILABLE'), seats: z.array(seatSchema) }),
   // REQ-F-SP15: Room closed while spectator connected

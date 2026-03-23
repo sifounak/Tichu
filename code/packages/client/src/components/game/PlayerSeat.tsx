@@ -116,9 +116,17 @@ export const PlayerSeat = memo(function PlayerSeat({
   ].filter(Boolean).join(' ');
 
   // Custom content mode — same .seat container, custom inner content
+  // Preserves kickVoteTarget click handling so pre-game kick vote works
   if (customContent) {
     return (
-      <div className={className} data-seat={seat} aria-label={`${name}'s seat`}>
+      <div
+        className={className}
+        data-seat={seat}
+        aria-label={kickVoteTarget ? `Kick ${name}` : `${name}'s seat`}
+        onClick={kickVoteTarget ? onSeatClick : undefined}
+        role={kickVoteTarget ? 'button' : undefined}
+        style={kickVoteTarget ? { cursor: 'pointer' } : undefined}
+      >
         {customContent}
       </div>
     );
