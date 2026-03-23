@@ -32,6 +32,10 @@ export interface GameTableProps {
   centerContent?: React.ReactNode;
   /** Custom content for bottom area (replaces empty spacer, e.g. for spectator bottom seat) */
   bottomContent?: React.ReactNode;
+  /** REQ-F-PV03: Callback when a kick target seat is clicked */
+  onKickTarget?: (seat: Seat) => void;
+  /** REQ-F-VI05: Callback for host to add bot to vacated seat */
+  onAddBot?: (seat: Seat) => void;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -42,10 +46,13 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
+  // REQ-F-PV09: Vote state for glow/label overrides
+  const activeVote = useUiStore((s) => s.activeVote);
+  const kickTargetMode = useUiStore((s) => s.kickTargetMode);
   const trickLeader = currentTrick?.currentWinner ?? null;
   const vacatedSeats = view.vacatedSeats ?? [];
 
@@ -65,6 +72,16 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
     const isDragonHoverTarget = isDragonCandidate && !isDragonTarget;
     const isPassConfirmed = isCardPassing && cardPassConfirmed.includes(seat);
     if (seat === mySeat) {
+      // REQ-F-PV10/PV11: My vote status
+      const myVoteStatus = activeVote?.votes?.[seat];
+      let myPvLabel: string | undefined = undefined;
+      if (activeVote && myVoteStatus != null) {
+        if (activeVote.voteType === 'kick') {
+          myPvLabel = myVoteStatus ? 'Voted: Kick' : "Voted: Don't Kick";
+        } else {
+          myPvLabel = myVoteStatus ? 'Voted: Restart' : "Voted: Don't Restart";
+        }
+      }
       return (
         <PlayerSeat
           seat={seat}
@@ -80,6 +97,9 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           passConfirmed={isPassConfirmed}
           seatChooserLabel={onChooseSeat ? 'Choose This Seat' : undefined}
           onChooseSeat={onChooseSeat ? () => onChooseSeat(seat) : undefined}
+          playerVoteStatus={myVoteStatus ?? undefined}
+          playerVoteLabel={myPvLabel}
+          hideNormalLabels={!!activeVote || kickTargetMode}
         />
       );
     }
@@ -88,6 +108,20 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
     // (reflects them picking up their remaining 6 cards, as in a real game)
     const decidedInGT =
       view.phase === 'grandTichuDecision' && (view.grandTichuDecided ?? []).includes(seat);
+    // REQ-F-PV10/PV11: Compute vote glow/label for this seat
+    const seatVoteStatus = activeVote?.votes?.[seat];
+    const voteType = activeVote?.voteType;
+    let pvStatus: boolean | null | undefined = undefined;
+    let pvLabel: string | undefined = undefined;
+    if (activeVote && seatVoteStatus != null) {
+      pvStatus = seatVoteStatus;
+      if (voteType === 'kick') {
+        pvLabel = seatVoteStatus ? 'Voted: Kick' : "Voted: Don't Kick";
+      } else {
+        pvLabel = seatVoteStatus ? 'Voted: Restart' : "Voted: Don't Restart";
+      }
+    }
+
     return (
       <PlayerSeat
         seat={seat}
@@ -102,7 +136,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         isMe={false}
         dragonTarget={isDragonTarget}
         dragonHoverTarget={isDragonHoverTarget}
-        onSeatClick={(isDragonTarget || isDragonHoverTarget) ? () => onDragonGift?.(seat) : undefined}
+        onSeatClick={kickTargetMode ? () => onKickTarget?.(seat) : (isDragonTarget || isDragonHoverTarget) ? () => onDragonGift?.(seat) : undefined}
         hideTrickLabels={isDragonTarget}
         passConfirmed={isPassConfirmed}
         emptySeat={vacatedSeats.includes(seat)}
@@ -110,6 +144,11 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         vacated={vacatedSeats.includes(seat)}
         seatChooserLabel={onChooseSeat && vacatedSeats.includes(seat) ? 'Sit Here' : undefined}
         onChooseSeat={onChooseSeat && vacatedSeats.includes(seat) ? () => onChooseSeat(seat) : undefined}
+        kickVoteTarget={kickTargetMode && seat !== mySeat}
+        playerVoteStatus={pvStatus ?? undefined}
+        playerVoteLabel={pvLabel}
+        hideNormalLabels={!!activeVote || kickTargetMode}
+        onAddBot={onAddBot && vacatedSeats.includes(seat) ? () => onAddBot(seat) : undefined}
       />
     );
   }

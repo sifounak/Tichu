@@ -21,6 +21,7 @@ import {
 import { TurnTimer } from './turn-timer.js';
 import { MoveHandler } from './move-handler.js';
 import { DisconnectHandler } from './disconnect-handler.js';
+import { VoteHandler } from './vote-handler.js';
 import { projectGameState, projectSpectatorView } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
 import { HardBot } from '../bot/hard-bot.js';
@@ -43,6 +44,7 @@ export class GameManager {
   private readonly moveHandler: MoveHandler;
   private readonly broadcaster: Broadcaster;
   private readonly disconnectHandler: DisconnectHandler;
+  private readonly voteHandler: VoteHandler;
   private readonly botRunner: BotRunner;
   private destroyed = false;
   private autoPassTimer: ReturnType<typeof setTimeout> | null = null;
@@ -57,12 +59,14 @@ export class GameManager {
     roomCode: string,
     broadcaster: Broadcaster,
     disconnectHandler: DisconnectHandler,
+    voteHandler: VoteHandler,
     config?: Partial<GameConfig>,
   ) {
     this.gameId = gameId;
     this.roomCode = roomCode;
     this.broadcaster = broadcaster;
     this.disconnectHandler = disconnectHandler;
+    this.voteHandler = voteHandler;
 
     // Create the XState game actor
     this.actor = createGameActor(gameId, config);
@@ -157,6 +161,17 @@ export class GameManager {
         this.disconnectHandler.handleVote(this.roomCode, seat, message.vote as any);
         return; // Vote handler manages its own broadcasts
 
+      // REQ-F-PV20: Player-initiated vote messages
+      case 'START_KICK_VOTE':
+        this.handleStartKickVote(ws, seat, message.targetSeat);
+        return;
+      case 'START_RESTART_VOTE':
+        this.handleStartRestartVote(ws, seat);
+        return;
+      case 'PLAYER_VOTE':
+        this.voteHandler.handleVote(this.roomCode, seat, message.voteId, message.vote);
+        return;
+
       default:
         this.broadcaster.sendError(ws, 'UNHANDLED_TYPE', `Game does not handle: ${message.type}`);
         return;
@@ -178,6 +193,13 @@ export class GameManager {
    *  Stops timer and starts vote process. Does NOT vacate seat yet — waits for vote result. */
   handleDisconnect(seat: Seat): void {
     this.timer.stop();
+    // REQ-F-PV26/PV27: Cancel active player vote if initiator or target disconnects
+    const activeVote = this.voteHandler.getActiveVote(this.roomCode);
+    if (activeVote) {
+      if (activeVote.initiatorSeat === seat || activeVote.targetSeat === seat) {
+        this.voteHandler.cancelVote(this.roomCode);
+      }
+    }
     this.disconnectHandler.handleDisconnect(this.roomCode, seat);
     this.broadcastState();
   }
@@ -214,6 +236,25 @@ export class GameManager {
     };
   }
 
+  /** REQ-F-PV22: Wire the player vote result callback.
+   *  Called by game-store or room-handler to register the callback. */
+  wireVoteCallback(onKickVotePassed: (roomCode: string, targetSeat: Seat) => void, onRestartVotePassed: (roomCode: string) => void): void {
+    this.voteHandler.onVoteResult = (roomCode, voteType, passed, targetSeat) => {
+      if (voteType === 'kick' && passed && targetSeat) {
+        // REQ-F-PV16: Kick vote passed — vacate the target seat
+        this.vacatedSeats.add(targetSeat);
+        this.broadcastState();
+        onKickVotePassed(roomCode, targetSeat);
+      } else if (voteType === 'restart' && passed) {
+        // REQ-F-PV18: Restart vote passed — handled by GameStore after delay
+        onRestartVotePassed(roomCode);
+      } else {
+        // REQ-F-PV17/PV19: Vote failed — just broadcast to clear vote UI
+        this.broadcastState();
+      }
+    };
+  }
+
   /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
   handleSeatVacated(seat: Seat): void {
     this.vacatedSeats.add(seat);
@@ -238,11 +279,13 @@ export class GameManager {
   /** REQ-F-SP06: Send spectator-projected state to a specific WebSocket. */
   sendSpectatorState(ws: WebSocket): void {
     const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
+    const activeVote = this.voteHandler.getActiveVote(this.roomCode);
     const view = projectSpectatorView(
       this.context,
       this.stateValue,
       [...this.vacatedSeats],
       voteStatus,
+      activeVote,
     );
     this.broadcaster.send(ws, { type: 'GAME_STATE', state: view });
   }
@@ -302,17 +345,77 @@ export class GameManager {
     return this.disconnectHandler;
   }
 
+  /** REQ-F-PV22: Get the vote handler (for state projection access) */
+  getVoteHandler(): VoteHandler {
+    return this.voteHandler;
+  }
+
+  /** REQ-F-PV03, REQ-F-PV25, REQ-F-PV28: Start a kick vote with validation */
+  private handleStartKickVote(ws: WebSocket, initiatorSeat: Seat, targetSeat: Seat): void {
+    // REQ-F-PV28: Cannot kick self
+    if (initiatorSeat === targetSeat) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Cannot kick yourself');
+      return;
+    }
+    // REQ-F-PV25: No concurrent votes
+    if (this.voteHandler.hasActiveVote(this.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
+      return;
+    }
+    if (this.disconnectHandler.hasActiveVote(this.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'Cannot start vote during disconnect handling');
+      return;
+    }
+    // Only human players can initiate
+    if (this.botRunner.isBot(initiatorSeat)) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
+      return;
+    }
+
+    const humanSeats = this.getHumanSeats();
+    this.voteHandler.startKickVote(this.roomCode, initiatorSeat, targetSeat, humanSeats);
+  }
+
+  /** REQ-F-PV04, REQ-F-PV25: Start a restart vote with validation */
+  private handleStartRestartVote(ws: WebSocket, initiatorSeat: Seat): void {
+    // REQ-F-PV25: No concurrent votes
+    if (this.voteHandler.hasActiveVote(this.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
+      return;
+    }
+    if (this.disconnectHandler.hasActiveVote(this.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'Cannot start vote during disconnect handling');
+      return;
+    }
+    // Only human players can initiate
+    if (this.botRunner.isBot(initiatorSeat)) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
+      return;
+    }
+
+    const humanSeats = this.getHumanSeats();
+    this.voteHandler.startRestartVote(this.roomCode, initiatorSeat, humanSeats);
+  }
+
+  /** Get all human (non-bot) seats */
+  private getHumanSeats(): Seat[] {
+    const allSeats: Seat[] = ['north', 'east', 'south', 'west'];
+    return allSeats.filter(s => !this.botRunner.isBot(s) && !this.vacatedSeats.has(s));
+  }
+
   /** Broadcast current game state to all players in the room */
   broadcastState(): void {
     if (this.destroyed) return;
     const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus);
+    const activeVote = this.voteHandler.getActiveVote(this.roomCode);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
   private sendStateTo(seat: Seat): void {
     const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus);
+    const activeVote = this.voteHandler.getActiveVote(this.roomCode);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,

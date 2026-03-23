@@ -1,15 +1,17 @@
 // REQ-F-MP02: Room codes for matchmaking
 // REQ-F-MP03: Public lobby
 // REQ-F-MP04: Room configuration options
+// REQ-F-VI08: Pre-game kick voting via room-level VoteHandler
 
 import type { WebSocket } from 'ws';
-import type { ClientMessage } from '@tichu/shared';
+import type { ClientMessage, Seat } from '@tichu/shared';
 import type { ConnectionManager } from '../ws/connection-manager.js';
 import type { Broadcaster } from '../ws/broadcaster.js';
 import type { MessageRouter } from '../ws/message-router.js';
 import { RoomManager } from './room-manager.js';
 import { GameStore } from '../game/game-store.js';
 import { SeatQueue } from './seat-queue.js';
+import { VoteHandler } from '../game/vote-handler.js';
 
 /**
  * Handles room-related WebSocket messages by routing them to the RoomManager.
@@ -22,6 +24,8 @@ export class RoomHandler {
   private readonly broadcaster: Broadcaster;
   // REQ-F-SP07: Per-room seat queues for spectator→player promotion
   private readonly seatQueues = new Map<string, SeatQueue>();
+  // REQ-F-VI08: Pre-game kick voting via room-level VoteHandler
+  private readonly preGameVoteHandler: VoteHandler;
 
   constructor(
     router: MessageRouter,
@@ -34,6 +38,8 @@ export class RoomHandler {
     this.broadcaster = broadcaster;
     this.gameStore = gameStore;
     this.roomManager = roomManager ?? new RoomManager();
+    this.preGameVoteHandler = new VoteHandler(broadcaster);
+    this.wirePreGameVoteCallback();
 
     // Register room message handlers
     router.on('CREATE_ROOM', (ws, msg) => this.handleCreateRoom(ws, msg as ClientMessage & { type: 'CREATE_ROOM' }));
@@ -53,6 +59,9 @@ export class RoomHandler {
     // REQ-F-ES07: Seat queue responses
     router.on('CLAIM_SEAT', (ws, msg) => this.handleClaimSeat(ws, msg as ClientMessage & { type: 'CLAIM_SEAT' }));
     router.on('DECLINE_SEAT', (ws) => this.handleDeclineSeat(ws));
+    // REQ-F-VI09: Pre-game kick vote messages
+    router.on('PRE_GAME_KICK_VOTE', (ws, msg) => this.handlePreGameKickVote(ws, msg as ClientMessage & { type: 'PRE_GAME_KICK_VOTE' }));
+    router.on('PRE_GAME_VOTE', (ws, msg) => this.handlePreGameVote(ws, msg as ClientMessage & { type: 'PRE_GAME_VOTE' }));
   }
 
   private handleCreateRoom(ws: WebSocket, msg: ClientMessage & { type: 'CREATE_ROOM' }): void {
@@ -255,6 +264,95 @@ export class RoomHandler {
     }
   }
 
+  // REQ-F-VI08: Wire pre-game vote result callback
+  private wirePreGameVoteCallback(): void {
+    this.preGameVoteHandler.onVoteResult = (roomCode, voteType, passed, targetSeat) => {
+      if (voteType === 'kick' && passed && targetSeat) {
+        // REQ-F-VI10: Pre-game kick vote passed — remove player from room
+        const targetUserId = this.roomManager.getUserIdAtSeat(roomCode, targetSeat);
+        if (targetUserId) {
+          const targetWs = this.connections.getSocketByUserId(targetUserId);
+          if (targetWs) {
+            this.broadcaster.send(targetWs, { type: 'KICKED', message: 'You were kicked by vote' });
+            try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
+            this.connections.removeFromRoom(targetWs);
+          }
+        } else {
+          // Bot kick in pre-game
+          const room = this.roomManager.getRoom(roomCode);
+          if (room) {
+            const player = room.players.find(p => p.seat === targetSeat);
+            if (player?.isBot) {
+              try { this.roomManager.removeBot(roomCode, targetSeat); } catch { /* already removed */ }
+            }
+          }
+        }
+        // Reset ready states after kick
+        this.roomManager.resetReady(roomCode);
+        this.reReadyBots(roomCode);
+        this.broadcastRoomUpdate(roomCode);
+      }
+    };
+  }
+
+  // REQ-F-VI09: Handle pre-game kick vote initiation
+  private handlePreGameKickVote(ws: WebSocket, msg: ClientMessage & { type: 'PRE_GAME_KICK_VOTE' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (!room) return;
+
+    // Only works pre-game
+    if (room.gameInProgress) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Use in-game vote during active games');
+      return;
+    }
+
+    const initiatorSeat = info.seat;
+    if (!initiatorSeat) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Must be seated to start a vote');
+      return;
+    }
+
+    // REQ-F-VI14: Cannot kick self
+    if (initiatorSeat === msg.targetSeat) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Cannot kick yourself');
+      return;
+    }
+
+    // REQ-F-VI15: No concurrent votes
+    if (this.preGameVoteHandler.hasActiveVote(info.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
+      return;
+    }
+
+    // Verify target seat exists
+    const targetPlayer = room.players.find(p => p.seat === msg.targetSeat);
+    if (!targetPlayer) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'No player at that seat');
+      return;
+    }
+
+    // Get all human seats for eligible voters
+    const humanSeats = room.players
+      .filter(p => !p.isBot)
+      .map(p => p.seat) as Seat[];
+
+    this.preGameVoteHandler.startKickVote(info.roomCode, initiatorSeat, msg.targetSeat, humanSeats);
+  }
+
+  // REQ-F-VI09: Handle pre-game vote cast
+  private handlePreGameVote(ws: WebSocket, msg: ClientMessage & { type: 'PRE_GAME_VOTE' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode || !info.seat) return;
+
+    this.preGameVoteHandler.handleVote(info.roomCode, info.seat, msg.voteId, msg.vote);
+  }
+
   private handleConfigureRoom(ws: WebSocket, msg: ClientMessage & { type: 'CONFIGURE_ROOM' }): void {
     const info = this.connections.getClientInfo(ws);
     if (!info?.roomCode) {
@@ -290,9 +388,18 @@ export class RoomHandler {
     try {
       this.roomManager.addBot(info.roomCode, msg.seat, msg.difficulty);
 
-      // REQ-F-SP30: Bots auto-ready immediately when added (before game starts)
       const room = this.roomManager.getRoom(info.roomCode);
-      if (room && !room.gameInProgress) {
+
+      // REQ-F-VI04: Mid-game bot integration — register with game and fill vacated seat
+      if (room?.gameInProgress) {
+        const game = this.gameStore.getGameByRoom(info.roomCode);
+        if (game) {
+          const difficulty = msg.difficulty ?? room.config.botDifficulty;
+          game.registerBot(msg.seat, difficulty);
+          game.handleSeatFilled(msg.seat);
+        }
+      } else if (room) {
+        // REQ-F-SP30: Bots auto-ready immediately when added (before game starts)
         this.roomManager.setReady(info.roomCode, msg.seat);
       }
 
@@ -304,8 +411,8 @@ export class RoomHandler {
 
       this.broadcastRoomUpdate(info.roomCode);
 
-      // REQ-F-SP20: Check if all ready after bot auto-ready
-      if (this.roomManager.areAllReady(info.roomCode)) {
+      // REQ-F-SP20: Check if all ready after bot auto-ready (pre-game only)
+      if (room && !room.gameInProgress && this.roomManager.areAllReady(info.roomCode)) {
         this.startGameInternal(info.roomCode, ws);
       }
     } catch (err) {
@@ -480,6 +587,11 @@ export class RoomHandler {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
+    // REQ-NF-VI03: Cancel any active pre-game vote before starting the game
+    if (this.preGameVoteHandler.hasActiveVote(roomCode)) {
+      this.preGameVoteHandler.cancelVote(roomCode);
+    }
+
     try {
       const game = this.gameStore.createGame(roomCode, room.config);
 
@@ -488,6 +600,41 @@ export class RoomHandler {
         this.tryStartSeatQueue(rc, seats);
         this.broadcastRoomUpdate(rc);
       });
+
+      // REQ-F-PV22: Wire player vote callback — handle kick and restart outcomes
+      game.wireVoteCallback(
+        (rc, targetSeat) => {
+          // REQ-F-PV16: Kick vote passed — send KICKED to target, vacate seat
+          const targetUserId = this.roomManager.getUserIdAtSeat(rc, targetSeat);
+          if (targetUserId) {
+            // Human player kick
+            const targetWs = this.connections.getSocketByUserId(targetUserId);
+            if (targetWs) {
+              this.broadcaster.send(targetWs, { type: 'KICKED', message: 'You were kicked by vote' });
+              // Use leaveRoom to properly clean up room membership
+              try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
+              this.connections.removeFromRoom(targetWs);
+            }
+          } else {
+            // REQ-F-VI01: Bot kick — bots have no userId in seatToUser, remove directly
+            const room = this.roomManager.getRoom(rc);
+            if (room) {
+              const player = room.players.find(p => p.seat === targetSeat);
+              if (player?.isBot) {
+                try { this.roomManager.removeBot(rc, targetSeat); } catch { /* already removed */ }
+              }
+            }
+          }
+          this.tryStartSeatQueue(rc, [targetSeat]);
+          this.broadcastRoomUpdate(rc);
+        },
+        (rc) => {
+          // REQ-F-PV18: Restart vote passed — destroy and recreate game after 2s delay
+          setTimeout(() => {
+            this.restartGame(rc, triggerWs);
+          }, 2000);
+        },
+      );
 
       for (const player of room.players) {
         game.seatPlayer(player.seat);
@@ -515,6 +662,23 @@ export class RoomHandler {
       this.roomManager.endGame(roomCode);
       this.gameStore.destroyGameByRoom(roomCode);
       this.broadcaster.sendError(triggerWs, 'START_GAME_FAILED', (err as Error).message);
+    }
+  }
+
+  /** REQ-F-PV18: Restart the game — destroy current game, create fresh one, re-seat all players */
+  private restartGame(roomCode: string, fallbackWs: WebSocket): void {
+    const room = this.roomManager.getRoom(roomCode);
+    if (!room) return;
+
+    // End the current game
+    this.roomManager.endGame(roomCode);
+    this.gameStore.destroyGameByRoom(roomCode);
+
+    // Start a fresh game (reuses startGameInternal logic)
+    try {
+      this.startGameInternal(roomCode, fallbackWs);
+    } catch (err) {
+      console.error(`[RESTART_GAME_FAILED] roomCode=${roomCode} error=${(err as Error).message}`);
     }
   }
 

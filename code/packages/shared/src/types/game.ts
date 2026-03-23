@@ -200,4 +200,13 @@ export interface ClientGameView {
   gameHalted: boolean;
   /** Winning team when phase is GameOver, null otherwise */
   winner: Team | null;
+  /** REQ-F-PV23: Active player-initiated vote (kick or restart), null when no vote */
+  activeVote?: {
+    voteId: string;
+    voteType: 'kick' | 'restart';
+    initiatorSeat: Seat;
+    targetSeat?: Seat;
+    votes: Record<string, boolean | null>;
+    timeoutMs: number;
+  } | null;
 }

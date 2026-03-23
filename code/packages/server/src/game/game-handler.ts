@@ -21,6 +21,10 @@ const GAME_MESSAGE_TYPES = [
   'DECLARE_WISH',
   'GIFT_DRAGON',
   'DISCONNECT_VOTE',
+  // REQ-F-PV20: Player-initiated vote messages
+  'START_KICK_VOTE',
+  'START_RESTART_VOTE',
+  'PLAYER_VOTE',
 ] as const;
 
 /**

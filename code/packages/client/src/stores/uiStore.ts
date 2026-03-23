@@ -86,6 +86,28 @@ export interface UiStore {
   setQueueStatus: (status: { decidingSpectator: string; position: number; timeoutMs: number } | null) => void;
   setAvailableSeats: (seats: Seat[]) => void;
 
+  /* --- Player Vote (REQ-F-PV01–PV28) --- */
+  activeVote: {
+    voteId: string;
+    voteType: 'kick' | 'restart';
+    initiatorSeat: Seat;
+    targetSeat?: Seat;
+    votes: Record<string, boolean | null>;
+    timeoutMs: number;
+  } | null;
+  voteResult: {
+    voteType: 'kick' | 'restart';
+    passed: boolean;
+    message: string;
+  } | null;
+  kickTargetMode: boolean;
+  voteCountdown: number;
+  setActiveVote: (vote: UiStore['activeVote']) => void;
+  setVoteResult: (result: UiStore['voteResult']) => void;
+  setKickTargetMode: (active: boolean) => void;
+  setVoteCountdown: (seconds: number) => void;
+  clearPlayerVoteState: () => void;
+
   /* --- Error Toast --- */
   errorToast: string | null;
   showErrorToast: (message: string) => void;
@@ -209,6 +231,18 @@ export const useUiStore = create<UiStore>()((set) => ({
   clearSeatOffer: () => set({ seatOffer: null }),
   setQueueStatus: (status) => set({ queueStatus: status, seatOffer: null }),
   setAvailableSeats: (seats) => set({ availableSeats: seats, seatOffer: null, queueStatus: null }),
+
+  /* --- Player Vote --- */
+  activeVote: null,
+  voteResult: null,
+  kickTargetMode: false,
+  voteCountdown: 0,
+  setActiveVote: (vote) => set({ activeVote: vote }),
+  setVoteResult: (result) => set({ voteResult: result }),
+  setKickTargetMode: (active) => set({ kickTargetMode: active }),
+  setVoteCountdown: (seconds) => set({ voteCountdown: seconds }),
+  clearPlayerVoteState: () =>
+    set({ activeVote: null, voteResult: null, kickTargetMode: false, voteCountdown: 0 }),
 
   /* --- Error Toast --- */
   errorToast: null,

@@ -25,6 +25,7 @@ export function projectGameState(
   vacatedSeats: readonly Seat[] = [],
   choosingSeats: readonly Seat[] = [],
   disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
+  activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
 ): ClientGameView {
   const round = context.currentRound;
 
@@ -70,6 +71,8 @@ export function projectGameState(
       // REQ-F-ES02: Game halted when seats are vacant or a disconnect vote is active
       gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
       winner: context.winner,
+      // REQ-F-PV23: Active player-initiated vote
+      activeVote: activeVote ?? null,
     };
   }
 
@@ -115,6 +118,8 @@ export function projectGameState(
     // REQ-F-ES02: Game halted when seats are vacant or a disconnect vote is active
     gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
     winner: context.winner,
+    // REQ-F-PV23: Active player-initiated vote
+    activeVote: activeVote ?? null,
     receivedCards: myPlayer.passedCards.received
       ? SEATS_IN_ORDER.reduce((acc, fromSeat) => {
           acc[fromSeat] = fromSeat === forSeat
@@ -153,6 +158,7 @@ export function projectSpectatorView(
   machineState: string,
   vacatedSeats: readonly Seat[] = [],
   disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
+  activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
 ): ClientGameView {
   const round = context.currentRound;
   const phase = mapMachineStateToPhase(machineState);
@@ -191,6 +197,7 @@ export function projectSpectatorView(
       disconnectVotes: disconnectVoteStatus?.votes ?? {},
       gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
       winner: context.winner,
+      activeVote: activeVote ?? null,
     };
   }
 
@@ -230,6 +237,7 @@ export function projectSpectatorView(
     disconnectVotes: disconnectVoteStatus?.votes ?? {},
     gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
     winner: context.winner,
+    activeVote: activeVote ?? null,
   };
 }
 
