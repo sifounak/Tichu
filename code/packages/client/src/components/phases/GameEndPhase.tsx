@@ -10,6 +10,7 @@
 import { memo, useMemo } from 'react';
 import type { Seat, Team, RoundScore } from '@tichu/shared';
 import { getTeam } from '@tichu/shared';
+import { LeaveConfirmDialog } from '../game/LeaveConfirmDialog';
 import styles from './GameEndPhase.module.css';
 
 export interface GameEndPhaseProps {
@@ -153,9 +154,18 @@ export const GameEndPhase = memo(function GameEndPhase({
 
         {/* REQ-F-GS09, REQ-F-GS10: Action buttons */}
         <div className={styles.buttons}>
-          <button className={styles.leaveButton} onClick={onLeaveRoom}>
-            Leave Room
-          </button>
+          {/* REQ-F-LRC02: Confirmation dialog before leaving room at game end */}
+          <LeaveConfirmDialog
+            title="Leave Room?"
+            subtitle=""
+            onConfirm={onLeaveRoom}
+          >
+            {(openDialog) => (
+              <button className={styles.leaveButton} onClick={openDialog}>
+                Leave Room
+              </button>
+            )}
+          </LeaveConfirmDialog>
           <button className={styles.newGameButton} onClick={onNewGame}>
             Start New Game
           </button>

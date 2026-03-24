@@ -33,6 +33,7 @@ import { PreRoomView } from '@/components/game/PreRoomView';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import { ErrorToast } from '@/components/ui/ErrorToast';
 import { VoteOverlay } from '@/components/game/VoteOverlay';
+import { LeaveConfirmDialog } from '@/components/game/LeaveConfirmDialog';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 
@@ -62,7 +63,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   const readyPlayers = useRoomStore((s) => s.readyPlayers);
   const mySeatFromRoom = useRoomStore((s) => s.mySeat);
   const leaveRoom = useRoomStore((s) => s.leaveRoom);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  // Leave confirmation is now handled by LeaveConfirmDialog component
   const [showVoteDropdown, setShowVoteDropdown] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
 
@@ -743,7 +744,6 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
   const handleLeaveGame = () => {
     send({ type: 'LEAVE_ROOM' });
-    setShowLeaveConfirm(false);
   };
 
   return (
@@ -943,26 +943,34 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           </div>
         )}
 
-        {/* Leave Room button */}
-        <button
-          onClick={() => setShowLeaveConfirm(true)}
-          style={{
-            background: 'transparent',
-            border: '1px solid transparent',
-            borderRadius: 'var(--card-border-radius)',
-            color: 'var(--color-text-secondary)',
-            padding: 'var(--space-1) var(--space-3)',
-            fontSize: 'var(--font-xl)',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'border-color 0.2s',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
-          aria-label="Leave room"
+        {/* Leave Room button with confirmation dialog */}
+        <LeaveConfirmDialog
+          title={isSpectator ? 'Leave Room?' : 'Leave Game?'}
+          subtitle={isSpectator ? '' : 'This will count as a forfeit if you leave.'}
+          onConfirm={handleLeaveGame}
         >
-          Leave Room
-        </button>
+          {(openDialog) => (
+            <button
+              onClick={openDialog}
+              style={{
+                background: 'transparent',
+                border: '1px solid transparent',
+                borderRadius: 'var(--card-border-radius)',
+                color: 'var(--color-text-secondary)',
+                padding: 'var(--space-1) var(--space-3)',
+                fontSize: 'var(--font-xl)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'border-color 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+              aria-label="Leave room"
+            >
+              Leave Room
+            </button>
+          )}
+        </LeaveConfirmDialog>
 
         {/* Copy toast */}
         {codeCopied && (
@@ -993,72 +1001,6 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         />
       )}
 
-      {/* Leave confirmation dialog */}
-      {showLeaveConfirm && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(0,0,0,0.6)',
-          }}
-          onClick={() => setShowLeaveConfirm(false)}
-        >
-          <div
-            style={{
-              background: 'var(--color-bg-panel)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--space-3)',
-              padding: 'var(--space-6) var(--space-8)',
-              textAlign: 'center',
-              maxWidth: 'calc(360px * var(--scale))',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p style={{ fontSize: 'var(--font-base)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>
-              {isSpectator ? 'Leave Room?' : 'Leave Game?'}
-            </p>
-            <p style={{ fontSize: 'calc(13px * var(--scale))', color: 'var(--color-text-muted)', marginBottom: 'var(--space-5)' }}>
-              {isSpectator ? 'You will return to the lobby.' : 'You will forfeit this game and return to the lobby.'}
-            </p>
-            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
-              <button
-                onClick={() => setShowLeaveConfirm(false)}
-                style={{
-                  padding: 'var(--space-2) var(--space-5)',
-                  borderRadius: 'var(--space-2)',
-                  border: '1px solid var(--color-border)',
-                  background: 'rgba(255,255,255,0.1)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-md)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Stay
-              </button>
-              <button
-                onClick={handleLeaveGame}
-                style={{
-                  padding: 'var(--space-2) var(--space-5)',
-                  borderRadius: 'var(--space-2)',
-                  border: 'none',
-                  background: '#dc2626',
-                  color: 'white',
-                  fontSize: 'var(--font-md)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Leave
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* REQ-F-DI05: Score panel */}
       {gameStore.scores && (
