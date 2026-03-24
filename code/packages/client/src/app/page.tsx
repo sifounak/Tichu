@@ -1,6 +1,18 @@
+'use client';
+
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const handlePlayNow = () => {
+    setLoading(true);
+    router.push('/lobby');
+  };
+
   return (
     <main className="flex min-h-dvh items-center justify-center">
       <div className="text-center">
@@ -9,16 +21,19 @@ export default function Home() {
           A beautiful card game for four players
         </p>
         <div className="mt-8 flex flex-col items-center gap-3">
-          <Link
-            href="/lobby"
+          <button
+            onClick={handlePlayNow}
+            disabled={loading}
             className="px-6 py-3 rounded-lg font-semibold text-sm transition-colors"
             style={{
               background: 'var(--color-gold-accent)',
               color: 'var(--color-felt-green-dark)',
+              cursor: loading ? 'default' : 'pointer',
+              opacity: loading ? 0.7 : 1,
             }}
           >
             Play Now
-          </Link>
+          </button>
           <div className="flex gap-4">
             <Link href="/auth" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
               Sign In / Register
@@ -29,6 +44,31 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Loading overlay */}
+      {loading && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,0,0.6)',
+        }}>
+          <div style={{
+            background: 'rgb(0,0,0)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--space-3)',
+            padding: 'var(--space-6) var(--space-8)',
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 'var(--font-2xl)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+              Entering lobby...
+            </p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

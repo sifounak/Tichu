@@ -2,6 +2,7 @@
 'use client';
 
 import { memo, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 interface LeaveConfirmDialogProps {
   /** Title shown in the dialog (e.g. "Leave Room?" or "Leave Game?") */
@@ -32,7 +33,7 @@ export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
   return (
     <>
       {children(open)}
-      {show && (
+      {show && createPortal(
         <div
           style={{
             position: 'fixed',
@@ -47,33 +48,33 @@ export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
         >
           <div
             style={{
-              background: 'var(--color-bg-panel)',
+              background: 'rgb(0,0,0)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--space-3)',
-              padding: 'var(--space-6) var(--space-8)',
+              padding: 'var(--space-8) calc(var(--space-8) * 1.5)',
               textAlign: 'center',
-              maxWidth: 'calc(360px * var(--scale))',
+              maxWidth: 'calc(480px * var(--scale))',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <p style={{ fontSize: 'var(--font-base)', fontWeight: 600, marginBottom: subtitle ? 'var(--space-2)' : 'var(--space-5)' }}>
+            <p style={{ fontSize: 'var(--font-2xl)', fontWeight: 600, marginBottom: subtitle ? 'var(--space-3)' : 'var(--space-6)' }}>
               {title}
             </p>
             {subtitle && (
-              <p style={{ fontSize: 'calc(13px * var(--scale))', color: 'var(--color-text-muted)', marginBottom: 'var(--space-5)' }}>
+              <p style={{ fontSize: 'var(--font-base)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-6)' }}>
                 {subtitle}
               </p>
             )}
-            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'center' }}>
               <button
                 onClick={close}
                 style={{
-                  padding: 'var(--space-2) var(--space-5)',
+                  padding: 'var(--space-3) var(--space-6)',
                   borderRadius: 'var(--space-2)',
                   border: '1px solid var(--color-border)',
                   background: 'rgba(255,255,255,0.1)',
                   color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-md)',
+                  fontSize: 'var(--font-lg)',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
@@ -83,12 +84,12 @@ export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
               <button
                 onClick={confirm}
                 style={{
-                  padding: 'var(--space-2) var(--space-5)',
+                  padding: 'var(--space-3) var(--space-6)',
                   borderRadius: 'var(--space-2)',
                   border: 'none',
                   background: '#dc2626',
                   color: 'white',
-                  fontSize: 'var(--font-md)',
+                  fontSize: 'var(--font-lg)',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
@@ -97,7 +98,8 @@ export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

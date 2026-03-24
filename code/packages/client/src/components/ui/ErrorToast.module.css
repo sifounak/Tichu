@@ -1,10 +1,10 @@
 .toast {
   position: fixed;
-  bottom: calc(160px * var(--scale));
+  top: calc(50vh - 100px * var(--scale));
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   z-index: 50;
-  background: rgba(239, 68, 68, 0.2);
+  background: rgb(0, 0, 0);
   color: var(--color-error);
   border: 1px solid rgba(239, 68, 68, 0.4);
   border-radius: var(--space-2);
@@ -17,6 +17,6 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }

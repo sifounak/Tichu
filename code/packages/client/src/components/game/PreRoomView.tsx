@@ -810,7 +810,7 @@ export function PreRoomView({
           left: '50%',
           transform: 'translate(-50%, -50%)',
           zIndex: 100,
-          background: 'var(--color-bg-panel)',
+          background: 'rgb(0,0,0)',
           border: '1px solid var(--color-border)',
           borderRadius: 'var(--space-3)',
           padding: 'var(--space-4) var(--space-6)',

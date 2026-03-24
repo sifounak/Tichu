@@ -10,7 +10,7 @@
 }
 
 .popup {
-  background: var(--color-bg-panel);
+  background: rgb(0, 0, 0);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 24px 32px;
