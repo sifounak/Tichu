@@ -14,6 +14,7 @@ import type { ClientGameView } from '@tichu/shared';
 import { GameTable } from './GameTable';
 import { PlayerSeat } from './PlayerSeat';
 import { VoteOverlay } from './VoteOverlay';
+import { LeaveConfirmDialog } from './LeaveConfirmDialog';
 import { useUiStore } from '@/stores/uiStore';
 import styles from './PreRoomView.module.css';
 
@@ -628,25 +629,34 @@ export function PreRoomView({
           </div>
         )}
 
-        <button
-          onClick={onLeave}
-          style={{
-            background: 'transparent',
-            border: '1px solid transparent',
-            borderRadius: 'var(--card-border-radius)',
-            color: 'var(--color-text-secondary)',
-            padding: 'var(--space-1) var(--space-3)',
-            fontSize: 'var(--font-xl)',
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'border-color 0.2s',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
-          aria-label="Leave room"
+        {/* REQ-F-LRC01: Confirmation dialog before leaving room in pre-game */}
+        <LeaveConfirmDialog
+          title="Leave Room?"
+          subtitle=""
+          onConfirm={onLeave}
         >
-          Leave Room
-        </button>
+          {(openDialog) => (
+            <button
+              onClick={openDialog}
+              style={{
+                background: 'transparent',
+                border: '1px solid transparent',
+                borderRadius: 'var(--card-border-radius)',
+                color: 'var(--color-text-secondary)',
+                padding: 'var(--space-1) var(--space-3)',
+                fontSize: 'var(--font-xl)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'border-color 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
+              aria-label="Leave room"
+            >
+              Leave Room
+            </button>
+          )}
+        </LeaveConfirmDialog>
 
         {codeCopied && (
           <div style={{

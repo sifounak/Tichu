@@ -5,6 +5,7 @@
 
 import { memo, useEffect, useState } from 'react';
 import type { Seat } from '@tichu/shared';
+import { LeaveConfirmDialog } from './LeaveConfirmDialog';
 
 const SEAT_LABELS: Record<Seat, string> = {
   north: 'North', east: 'East', south: 'South', west: 'West',
@@ -124,9 +125,18 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
             <button onClick={onClaimSeat} style={buttonStyle('var(--color-gold-accent)', 'var(--color-felt-green-dark)')}>
               Join Game
             </button>
-            <button onClick={onLeaveRoom} style={buttonStyle('#dc2626', 'white')}>
-              Leave Room
-            </button>
+            {/* REQ-F-LRC03: Confirmation dialog before leaving room as spectator */}
+            <LeaveConfirmDialog
+              title="Leave Room?"
+              subtitle=""
+              onConfirm={onLeaveRoom}
+            >
+              {(openDialog) => (
+                <button onClick={openDialog} style={buttonStyle('#dc2626', 'white')}>
+                  Leave Room
+                </button>
+              )}
+            </LeaveConfirmDialog>
           </div>
         </div>
       </div>
