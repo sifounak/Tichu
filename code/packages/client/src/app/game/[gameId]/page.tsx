@@ -1335,10 +1335,11 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          paddingBottom: 'calc(200px * var(--scale))',
           pointerEvents: 'none',
         }}>
           <div style={{
-            background: 'var(--color-bg-panel)',
+            background: 'rgb(0,0,0)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--space-3)',
             padding: 'var(--space-6) var(--space-8)',

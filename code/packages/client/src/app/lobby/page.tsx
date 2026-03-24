@@ -35,6 +35,7 @@ export default function LobbyPage() {
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
   // REQ-F-CG01: Popup state for game creation settings
   const [showCreatePopup, setShowCreatePopup] = useState(false);
+  const [creatingGame, setCreatingGame] = useState(false);
 
   // Check for kicked message on mount
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function LobbyPage() {
         router.push(`/game/${msg.roomCode}`);
         break;
       case 'ERROR':
+        setCreatingGame(false);
         setError(msg.message);
         break;
     }
@@ -95,6 +97,7 @@ export default function LobbyPage() {
   // REQ-F-CG05: Create room with config from popup
   const handleCreateConfirm = (config: CreateGameConfig) => {
     setShowCreatePopup(false);
+    setCreatingGame(true);
     sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'CREATE_ROOM', playerName: playerName.trim(), roomName: roomName.trim(), config });
   };
@@ -461,6 +464,31 @@ export default function LobbyPage() {
           onCancel={() => setShowCreatePopup(false)}
           onCreate={handleCreateConfirm}
         />
+      )}
+
+      {/* Loading overlay while creating game */}
+      {creatingGame && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(0,0,0,0.6)',
+        }}>
+          <div style={{
+            background: 'rgb(0,0,0)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--space-3)',
+            padding: 'var(--space-6) var(--space-8)',
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 'var(--font-2xl)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
+              Creating game...
+            </p>
+          </div>
+        </div>
       )}
     </main>
   );

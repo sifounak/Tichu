@@ -69,13 +69,13 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
     return (
       <div style={overlayStyle}>
         <div style={panelStyle}>
-          <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
+          <h3 style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, marginBottom: 'var(--space-3)' }}>
             A seat has opened up!
           </h3>
-          <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-4)', fontSize: 'var(--font-sm)' }}>
+          <p style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-5)', fontSize: 'var(--font-base)' }}>
             {countdown}s remaining
           </p>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button onClick={onClaimSeat} style={buttonStyle('var(--color-gold-accent)', 'var(--color-felt-green-dark)')}>
               Join Game
             </button>
@@ -115,13 +115,13 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
     return (
       <div style={overlayStyle}>
         <div style={panelStyle}>
-          <h3 style={{ fontSize: 'var(--font-lg)', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
+          <h3 style={{ fontSize: 'var(--font-2xl)', fontWeight: 700, marginBottom: 'var(--space-3)' }}>
             Seats are up for Grabs!
           </h3>
-          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-4)' }}>
+          <p style={{ color: 'var(--color-text-secondary)', marginBottom: 'var(--space-5)', fontSize: 'var(--font-base)' }}>
             {availableSeats.map(s => SEAT_LABELS[s]).join(', ')} — first come, first served
           </p>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'center' }}>
             <button onClick={onClaimSeat} style={buttonStyle('var(--color-gold-accent)', 'var(--color-felt-green-dark)')}>
               Join Game
             </button>
@@ -153,16 +153,16 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: 'rgba(0,0,0,0.5)',
+  background: 'rgba(0,0,0,0.6)',
 };
 
 const panelStyle: React.CSSProperties = {
-  background: 'var(--color-bg-panel)',
+  background: 'rgb(0,0,0)',
   border: '1px solid var(--color-border)',
   borderRadius: 'var(--space-3)',
-  padding: 'var(--space-6) var(--space-8)',
+  padding: 'var(--space-8) calc(var(--space-8) * 1.5)',
   textAlign: 'center',
-  maxWidth: 'calc(420px * var(--scale))',
+  maxWidth: 'calc(540px * var(--scale))',
 };
 
 const infoBarStyle: React.CSSProperties = {
@@ -179,12 +179,12 @@ const infoBarStyle: React.CSSProperties = {
 
 function buttonStyle(bg: string, color: string, border?: string): React.CSSProperties {
   return {
-    padding: 'var(--space-2) var(--space-5)',
+    padding: 'var(--space-3) var(--space-6)',
     borderRadius: 'var(--space-2)',
     border: border ?? 'none',
     background: bg,
     color,
-    fontSize: 'var(--font-md)',
+    fontSize: 'var(--font-lg)',
     fontWeight: 600,
     cursor: 'pointer',
   };
