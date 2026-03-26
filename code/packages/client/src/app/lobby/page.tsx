@@ -36,6 +36,7 @@ export default function LobbyPage() {
   // REQ-F-CG01: Popup state for game creation settings
   const [showCreatePopup, setShowCreatePopup] = useState(false);
   const [creatingGame, setCreatingGame] = useState(false);
+  const [joiningGame, setJoiningGame] = useState(false);
 
   // Check for kicked message on mount
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function LobbyPage() {
         break;
       case 'ERROR':
         setCreatingGame(false);
+        setJoiningGame(false);
         setError(msg.message);
         break;
     }
@@ -106,6 +108,7 @@ export default function LobbyPage() {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
     if (joinCode.length !== 6) { setError('Room code must be 6 characters'); return; }
     setError('');
+    setJoiningGame(true);
     sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'JOIN_ROOM', roomCode: joinCode.toUpperCase(), playerName: playerName.trim() });
   };
@@ -113,6 +116,7 @@ export default function LobbyPage() {
   const handleJoinRoom = (roomCode: string) => {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
     setError('');
+    setJoiningGame(true);
     sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'JOIN_ROOM', roomCode, playerName: playerName.trim() });
   };
@@ -121,6 +125,7 @@ export default function LobbyPage() {
   const handleJoinAsSpectator = (roomCode: string) => {
     if (!playerName.trim()) { setError('Please enter a name'); return; }
     setError('');
+    setJoiningGame(true);
     sessionStorage.setItem('tichu_player_name', playerName.trim());
     send({ type: 'JOIN_ROOM', roomCode, playerName: playerName.trim(), asSpectator: true });
   };
@@ -466,8 +471,8 @@ export default function LobbyPage() {
         />
       )}
 
-      {/* Loading overlay while creating game */}
-      {creatingGame && (
+      {/* Loading overlay while creating or joining game */}
+      {(creatingGame || joiningGame) && (
         <div style={{
           position: 'fixed',
           inset: 0,
@@ -485,7 +490,7 @@ export default function LobbyPage() {
             textAlign: 'center',
           }}>
             <p style={{ fontSize: 'var(--font-2xl)', fontWeight: 600, color: 'var(--color-text-primary)' }}>
-              Creating game...
+              {joiningGame ? 'Joining game...' : 'Creating game...'}
             </p>
           </div>
         </div>
