@@ -162,6 +162,13 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+/* Locked slot — pass confirmed, no interaction allowed */
+.slotLocked {
+  pointer-events: none;
+  opacity: 0.7;
+  cursor: default;
+}
+
 .slotPlaceholder {
   font-size: var(--font-2xl);
   color: var(--color-text-muted);

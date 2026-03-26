@@ -33,6 +33,10 @@ export interface UiStore {
   animationSpeed: 'slow' | 'normal' | 'fast' | 'off';
   setAnimationSpeed: (speed: 'slow' | 'normal' | 'fast' | 'off') => void;
 
+  /* --- Auto-Pass (REQ-F-AP01–AP12) --- */
+  autoPassEnabled: boolean;
+  setAutoPassEnabled: (enabled: boolean) => void;
+
   /* --- Chat (REQ-F-MP07) --- */
   chatOpen: boolean;
   chatMessages: ChatMessage[];
@@ -160,6 +164,11 @@ export const useUiStore = create<UiStore>()((set) => ({
   /* --- Settings --- */
   animationSpeed: 'normal',
   setAnimationSpeed: (speed) => set({ animationSpeed: speed }),
+
+  /* --- Auto-Pass --- */
+  // REQ-F-AP03: Default state is off
+  autoPassEnabled: false,
+  setAutoPassEnabled: (enabled) => set({ autoPassEnabled: enabled }),
 
   /* --- Chat --- */
   chatOpen: true,

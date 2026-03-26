@@ -123,3 +123,46 @@
 .splitRight {
   justify-content: flex-start;
 }
+
+/* REQ-F-AP01: Auto-pass toggle */
+.autoPassLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.1;
+  font-family: var(--font-display);
+  font-size: calc(18px * var(--scale));
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: calc(6px * var(--scale)) calc(12px * var(--scale));
+  border-radius: calc(8px * var(--scale));
+  border: 1px solid var(--color-border);
+  background: transparent;
+  transition: all var(--duration-fast) var(--easing-smooth);
+  user-select: none;
+}
+
+.autoPassLabel:hover {
+  border-color: var(--color-gold-accent);
+  color: var(--color-text-primary);
+}
+
+/* REQ-F-AP01: Active state — gold accent to match game theme */
+.autoPassActive {
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
+  border-color: var(--color-gold-accent);
+}
+
+.autoPassActive:hover {
+  background: var(--color-gold-light);
+  border-color: var(--color-gold-light);
+  color: var(--color-felt-green-dark);
+}
+
+/* Hidden checkbox — label handles visual state */
+.autoPassCheckbox {
+  display: none;
+}

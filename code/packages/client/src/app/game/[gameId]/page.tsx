@@ -131,6 +131,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         }
 
         gameStore.applyGameState(view);
+        // REQ-F-AP12: Auto-pass resets naturally via trick-won detection and phase change.
+        // Do NOT reset here — GAME_STATE fires on every state transition, not just reconnect.
       } else if (msg.type === 'CHAT_RECEIVED') {
         // REQ-F-MP07: Chat message received
         uiStore.addChatMessage({
@@ -347,6 +349,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       return;
     }
     uiStore.clearSelection();
+    // REQ-F-AP08: Playing cards disables auto-pass
+    uiStore.setAutoPassEnabled(false);
   }, [selection, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive]);
 
   // REQ-F-BI09: Handle out-of-turn bomb play (selection-based)
@@ -358,6 +362,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       return;
     }
     uiStore.clearSelection();
+    // REQ-F-AP08: Playing cards (bomb) disables auto-pass
+    uiStore.setAutoPassEnabled(false);
   }, [selection, send, uiStore]);
 
   // REQ-F-BB01: Auto-detect all bombs in hand for the Bomb button
@@ -373,6 +379,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       if (!send({ type: 'PLAY_CARDS', cardIds })) {
         uiStore.showErrorToast('Not connected to server');
       }
+      // REQ-F-AP08: Playing cards (bomb) disables auto-pass
+      uiStore.setAutoPassEnabled(false);
     },
     [send, uiStore],
   );
@@ -397,6 +405,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         send({ type: 'PLAY_CARDS', cardIds, phoenixAs: value });
       }
       uiStore.clearSelection();
+      // REQ-F-AP08: Playing cards disables auto-pass
+      uiStore.setAutoPassEnabled(false);
     },
     [selection.selectedIds, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive],
   );
@@ -414,6 +424,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         send({ type: 'PLAY_CARDS', ...pending, wish });
       }
       uiStore.clearSelection();
+      // REQ-F-AP08: Playing cards disables auto-pass
+      uiStore.setAutoPassEnabled(false);
     },
     [send, uiStore, bombWindow.bombWindowActive],
   );
@@ -476,14 +488,16 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
   const handlePassCardClick = useCallback(
     (id: CardId) => {
+      if (passConfirmed) return;
       if (placedCardIds.has(id)) return;
       setActivePassCardId((prev) => (prev === id ? null : id));
     },
-    [placedCardIds],
+    [placedCardIds, passConfirmed],
   );
 
   const handleSlotClick = useCallback(
     (seat: Seat) => {
+      if (passConfirmed) return;
       if (activePassCardId === null) {
         // No card selected — clicking a filled slot removes it
         if (passSelection.has(seat)) {
@@ -501,17 +515,18 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       setPassSelection(next);
       setActivePassCardId(null);
     },
-    [activePassCardId, gameStore.myHand, passSelection],
+    [activePassCardId, gameStore.myHand, passSelection, passConfirmed],
   );
 
   const handleSlotRemove = useCallback(
     (seat: Seat) => {
+      if (passConfirmed) return;
       if (!passSelection.has(seat)) return;
       const next = new Map(passSelection);
       next.delete(seat);
       setPassSelection(next);
     },
-    [passSelection],
+    [passSelection, passConfirmed],
   );
 
   const handleConfirmPass = useCallback(() => {
@@ -593,6 +608,47 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [uiStore, showVoteDropdown]);
+
+  // REQ-F-AP01–AP12: Auto-pass until next trick
+  const autoPassEnabled = uiStore.autoPassEnabled;
+
+  // REQ-F-AP04: Reset auto-pass when trick is won (currentTrick transitions to null)
+  const prevTrickRef = useRef(gameStore.currentTrick);
+  useEffect(() => {
+    const prev = prevTrickRef.current;
+    prevTrickRef.current = gameStore.currentTrick;
+    if (prev && !gameStore.currentTrick && autoPassEnabled) {
+      uiStore.setAutoPassEnabled(false);
+    }
+  }, [gameStore.currentTrick, autoPassEnabled, uiStore]);
+
+  // REQ-F-AP05: Auto-send PASS_TURN when auto-pass is enabled and it's the player's turn
+  useEffect(() => {
+    if (!autoPassEnabled || phase !== 'playing' || !isMyTurnForSelection) return;
+
+    // REQ-F-AP10: Dragon gift pending → disable auto-pass
+    if (gameStore.dragonGiftPending) {
+      uiStore.setAutoPassEnabled(false);
+      return;
+    }
+
+    // REQ-F-AP09: Don't auto-pass when leading a new trick (no trick or empty plays)
+    const trick = gameStore.currentTrick;
+    if (!trick || trick.plays.length === 0) return;
+
+    // REQ-F-AP06: If player can't legally pass (wish enforcement), disable + notify
+    if (!selection.canPass) {
+      uiStore.setAutoPassEnabled(false);
+      uiStore.showErrorToast('Auto-pass disabled: you must play a card matching the wish');
+      return;
+    }
+
+    // REQ-NF-AP02: Visual delay before auto-passing
+    const timer = setTimeout(() => {
+      handlePass();
+    }, 750);
+    return () => clearTimeout(timer);
+  }, [autoPassEnabled, phase, isMyTurnForSelection, gameStore.dragonGiftPending, gameStore.currentTrick, selection.canPass, handlePass, uiStore]);
 
   // REQ-F-DR01: Compute Dragon gift targets — opponents the player can give the trick to
   // NOTE: Must be above early returns to respect Rules of Hooks
@@ -720,6 +776,13 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     phase === GamePhase.GrandTichuDecision ||
     phase === GamePhase.TichuDecision ||
     phase === GamePhase.CardPassing;
+
+  // REQ-F-AP01/AP02: Show auto-pass toggle during playing phase for active (non-finished) players
+  const showAutoPass = phase === 'playing'
+    && !isSpectator
+    && !!mySeat
+    && !gameStore.finishOrder.includes(mySeat)
+    && !showReceivedCards;
 
   // Player can select cards to pass once they have 14 cards (decided GT or in card passing phase)
   const canSelectPassCards =
@@ -1113,6 +1176,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                 hasPlayedCards={gameStore.hasPlayedCards}
                 hasBombReady={!isMyTurn && selection.isBombSelection}
                 playQueued={bombWindow.queuedPlay !== null}
+                autoPassEnabled={autoPassEnabled}
+                onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
+                showAutoPass={showAutoPass}
                 onPlay={handlePlay}
                 onPass={handlePass}
                 onTichu={handleTichu}

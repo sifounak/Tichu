@@ -31,6 +31,12 @@ export interface ActionBarProps {
   onBomb: () => void;
   /** REQ-F-BW01: Whether a play is queued during bomb window */
   playQueued?: boolean;
+  /** REQ-F-AP01: Auto-pass toggle state */
+  autoPassEnabled?: boolean;
+  /** REQ-F-AP01: Auto-pass toggle callback */
+  onAutoPassToggle?: (enabled: boolean) => void;
+  /** REQ-F-AP01/AP02: Whether to show the auto-pass toggle */
+  showAutoPass?: boolean;
   /** Layout mode: 'default' stacks vertically, 'split' puts Pass | playerSeat | Play in a row */
   layout?: 'default' | 'split';
   /** Player seat element to render between Pass and Play in split layout */
@@ -50,6 +56,9 @@ export const ActionBar = memo(function ActionBar({
   onTichu,
   onBomb,
   playQueued,
+  autoPassEnabled = false,
+  onAutoPassToggle,
+  showAutoPass = false,
   layout = 'default',
   playerSeat,
 }: ActionBarProps) {
@@ -69,7 +78,8 @@ export const ActionBar = memo(function ActionBar({
     onPlay();
   }, [canPlay, onPlay]);
 
-  const passButton = showActions && (
+  // REQ-F-AP01: Show standard Pass only when it's my turn AND auto-pass is off
+  const passButton = showActions && !autoPassEnabled && (
     <button
       className={`${styles.button} ${styles.passButton}`}
       onClick={onPass}
@@ -101,6 +111,25 @@ export const ActionBar = memo(function ActionBar({
     </button>
   );
 
+  // REQ-F-AP01: Auto-pass toggle replaces Pass button.
+  // Show when: not my turn (default position), OR my turn with auto-pass enabled (stays visible).
+  // Hidden when: my turn with auto-pass off (standard Pass button shown instead).
+  const showAutoPassToggle = showAutoPass && onAutoPassToggle && (!showActions || autoPassEnabled);
+  const autoPassToggle = showAutoPassToggle && (
+    <label
+      className={`${styles.autoPassLabel} ${autoPassEnabled ? styles.autoPassActive : ''}`}
+    >
+      <input
+        type="checkbox"
+        checked={autoPassEnabled}
+        onChange={(e) => onAutoPassToggle(e.target.checked)}
+        className={styles.autoPassCheckbox}
+        aria-label="Auto-pass until next trick"
+      />
+      Auto<br />Pass
+    </label>
+  );
+
   const tichuBtn = canCallTichu && (
     <button
       className={`${styles.button} ${styles.tichuButton}`}
@@ -119,6 +148,7 @@ export const ActionBar = memo(function ActionBar({
         aria-label="Game actions"
       >
         <div className={styles.splitLeft}>
+          {autoPassToggle}
           {passButton}
           {tichuBtn}
         </div>
@@ -137,6 +167,7 @@ export const ActionBar = memo(function ActionBar({
       role="toolbar"
       aria-label="Game actions"
     >
+      {autoPassToggle}
       {passButton}
       {playButton}
       {bombButton}
