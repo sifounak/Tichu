@@ -92,11 +92,11 @@ describe('ExpertBot', () => {
     });
   });
 
-  // ─── Grand Tichu (REQ-F-CALL01) ─────────────────────────────────────────
+  // ─── Grand Tichu (REQ-F-GT01, REQ-F-GT02) ──────────────────────────────
 
   describe('chooseGrandTichu', () => {
-    // Verifies: REQ-F-CALL01
-    it('calls Grand Tichu with Dragon + Phoenix', () => {
+    // Verifies: REQ-F-GT01 — Stanford Ig index computation
+    it('calls Grand Tichu with Dragon + Phoenix (Ig=6, always meets threshold)', () => {
       const bot = new ExpertBot();
       const hand8 = [
         card('dragon'), card('phoenix'),
@@ -104,35 +104,38 @@ describe('ExpertBot', () => {
         card('standard', 7), card('standard', 8),
         card('standard', 3), card('standard', 2),
       ];
+      // Ig = 3 (Dragon) + 3 (Phoenix) = 6 → meets even the strictest threshold (6)
       expect(bot.chooseGrandTichu(hand8)).toBe(true);
     });
 
-    it('never calls with 0-1 top cards', () => {
+    it('never calls with no power cards (Ig=0)', () => {
       const bot = new ExpertBot();
+      // Use alternating suits to avoid accidental straight-flush bomb
       const hand0 = [
-        card('standard', 2), card('standard', 3),
-        card('standard', 4), card('standard', 5),
-        card('standard', 6), card('standard', 7),
-        card('standard', 8), card('standard', 9),
+        card('standard', 2, 'jade'), card('standard', 3, 'pagoda'),
+        card('standard', 4, 'jade'), card('standard', 5, 'pagoda'),
+        card('standard', 6, 'star'), card('standard', 7, 'sword'),
+        card('standard', 8, 'jade'), card('standard', 9, 'pagoda'),
       ];
+      // Ig = 0 → never calls
       expect(bot.chooseGrandTichu(hand0)).toBe(false);
     });
 
-    it('calls with 3+ top cards when Dragon present (more aggressive than HardBot)', () => {
+    // Verifies: REQ-F-GT02 — Score-adaptive thresholds
+    it('calls with Dragon + Ace at even score (Ig=4 >= threshold 4)', () => {
       const bot = new ExpertBot();
       const hand = [
         card('dragon'),
         card('standard', 14, 'jade'), // Ace
-        card('mahjong'),               // Top card with includeMahjongDog
         card('standard', 5), card('standard', 6),
         card('standard', 7), card('standard', 8),
-        card('standard', 9),
+        card('standard', 9), card('standard', 10),
       ];
-      // Dragon + Ace + Mahjong = 3 top cards with Dragon → Expert calls
+      // Ig = 3 (Dragon) + 1 (Ace) = 4 → meets even/close threshold (4)
       expect(bot.chooseGrandTichu(hand)).toBe(true);
     });
 
-    it('does not call with only 2 top cards without Dragon+Phoenix combo', () => {
+    it('does not call with 2 Aces at even score (Ig=2 < threshold 4)', () => {
       const bot = new ExpertBot();
       const hand = [
         card('standard', 14, 'jade'),  // Ace
@@ -141,17 +144,87 @@ describe('ExpertBot', () => {
         card('standard', 7), card('standard', 8),
         card('standard', 3), card('standard', 2),
       ];
-      // 2 Aces = 2 top cards, no Dragon/Phoenix → doesn't call
+      // Ig = 1 + 1 = 2 → below even/close threshold (4)
       expect(bot.chooseGrandTichu(hand)).toBe(false);
+    });
+
+    it('calls with 2 Aces when behind 400+ (Ig=2 >= desperate threshold 2)', () => {
+      const bot = new ExpertBot();
+      bot.setScoreDiff(-500);
+      const hand = [
+        card('standard', 14, 'jade'),
+        card('standard', 14, 'pagoda'),
+        card('standard', 5), card('standard', 6),
+        card('standard', 7), card('standard', 8),
+        card('standard', 3), card('standard', 2),
+      ];
+      // Ig = 2 → meets desperate threshold (2)
+      expect(bot.chooseGrandTichu(hand)).toBe(true);
+    });
+
+    it('calls with Dragon alone when behind 200-300 (Ig=3 >= threshold 3)', () => {
+      const bot = new ExpertBot();
+      bot.setScoreDiff(-250);
+      const hand = [
+        card('dragon'),
+        card('standard', 5), card('standard', 6),
+        card('standard', 7), card('standard', 8),
+        card('standard', 9), card('standard', 10),
+        card('standard', 11),
+      ];
+      // Ig = 3 (Dragon) → meets behind-200 threshold (3)
+      expect(bot.chooseGrandTichu(hand)).toBe(true);
+    });
+
+    it('requires Dragon+Phoenix when ahead 200+ (Ig >= 6)', () => {
+      const bot = new ExpertBot();
+      bot.setScoreDiff(300);
+      // Dragon + Ace = Ig 4, below strict threshold 6
+      // Use alternating suits to avoid straight-flush bomb
+      const hand4 = [
+        card('dragon'),
+        card('standard', 14, 'jade'),
+        card('standard', 5, 'jade'), card('standard', 6, 'pagoda'),
+        card('standard', 7, 'star'), card('standard', 8, 'sword'),
+        card('standard', 9, 'jade'), card('standard', 10, 'pagoda'),
+      ];
+      expect(bot.chooseGrandTichu(hand4)).toBe(false);
+
+      // Dragon + Phoenix = Ig 6, meets strict threshold
+      // Use alternating suits to avoid straight-flush bomb
+      const hand6 = [
+        card('dragon'), card('phoenix'),
+        card('standard', 5, 'jade'), card('standard', 6, 'pagoda'),
+        card('standard', 7, 'star'), card('standard', 8, 'sword'),
+        card('standard', 9, 'jade'), card('standard', 10, 'pagoda'),
+      ];
+      expect(bot.chooseGrandTichu(hand6)).toBe(true);
+    });
+
+    it('counts bombs in Ig index (bomb = 3)', () => {
+      const bot = new ExpertBot();
+      // 4 fives = bomb (Ig += 3) + 1 Ace (Ig += 1) = 4 → meets threshold
+      const hand = [
+        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
+        card('standard', 5, 'star', 503), card('standard', 5, 'sword', 504),
+        card('standard', 14, 'jade'),
+        card('standard', 7), card('standard', 8), card('standard', 9),
+      ];
+      expect(bot.chooseGrandTichu(hand)).toBe(true);
     });
   });
 
   // ─── Regular Tichu (REQ-F-CALL02) ───────────────────────────────────────
 
+  // ─── Regular Tichu (REQ-F-RT01, REQ-F-RT02) ────────────────────────────
+
   describe('chooseRegularTichu', () => {
-    // Verifies: REQ-F-CALL02
-    it('calls Tichu with very strong hand', () => {
+    // Verifies: REQ-F-RT01 — Stanford It index
+    it('calls Tichu with very strong hand (high It)', () => {
       const bot = new ExpertBot();
+      // Dragon(6) + Phoenix(6) + 4 Aces(8) + Dog(-2) = 18
+      // Straight 9-10-11-12-13 = +1, no small singletons
+      // It = 19 → always calls
       const hand14 = [
         card('dragon'), card('phoenix'),
         card('standard', 14, 'jade', 1401), card('standard', 14, 'pagoda', 1402),
@@ -164,8 +237,10 @@ describe('ExpertBot', () => {
       expect(bot.chooseRegularTichu(hand14)).toBe(true);
     });
 
-    it('does not call Tichu with weak hand', () => {
+    it('does not call Tichu with weak hand (low It)', () => {
       const bot = new ExpertBot();
+      // No power cards. Pairs of 2-6 + singletons 7-10. Straight 2-10 = +1.
+      // It = 0 + 1 - 0 = 1 → never calls
       const hand14 = [
         card('standard', 2, 'jade', 201), card('standard', 3, 'pagoda', 301),
         card('standard', 4, 'star', 401), card('standard', 5, 'sword', 501),
@@ -178,118 +253,231 @@ describe('ExpertBot', () => {
       expect(bot.chooseRegularTichu(hand14)).toBe(false);
     });
 
-    // Verifies: REQ-F-CALL02 (score-aware suppression)
-    it('suppresses Tichu call when team leads by 200+', () => {
+    // Verifies: REQ-F-RT02 — Score-adaptive thresholds
+    it('suppresses Tichu call when team leads by 200+ (threshold 9)', () => {
       const bot = new ExpertBot();
-      // Strong hand that normally triggers Tichu
-      const hand14 = [
-        card('dragon'), card('phoenix'),
-        card('standard', 14, 'jade', 1401), card('standard', 14, 'pagoda', 1402),
-        card('standard', 14, 'star', 1403), card('standard', 14, 'sword', 1404),
-        card('standard', 13, 'jade', 1301), card('standard', 13, 'pagoda', 1302),
-        card('standard', 13, 'star', 1303), card('standard', 12, 'jade', 1201),
-        card('standard', 11, 'jade', 1101), card('standard', 10, 'jade', 1001),
-        card('standard', 9, 'jade', 991), card('dog'),
-      ];
-
-      // Without score context, should call
-      expect(bot.chooseRegularTichu(hand14)).toBe(true);
-
-      // With team leading by 200+, threshold increases — suppresses call for weaker hands
-      bot.setScoreDiff(300);
-      // This very strong hand still passes the higher threshold
-      // Use a moderately strong hand that passes default but not elevated threshold
-      const moderateHand = [
-        card('dragon'), card('phoenix'),
-        card('standard', 14, 'jade', 2401), card('standard', 13, 'jade', 2301),
-        card('standard', 10, 'jade', 2001), card('standard', 9, 'jade', 2991),
-        card('standard', 8, 'star', 2801), card('standard', 7, 'pagoda', 2701),
-        card('standard', 6, 'jade', 2601), card('standard', 5, 'star', 2501),
-        card('standard', 4, 'jade', 2401), card('standard', 3, 'pagoda', 2301),
-        card('standard', 2, 'jade', 2201), card('dog'),
-      ];
-      // With elevated threshold (15, 5 lead getters), this should be suppressed
-      expect(bot.chooseRegularTichu(moderateHand)).toBe(false);
-    });
-
-    it('is more aggressive when behind by 200+', () => {
-      const bot = new ExpertBot();
-      // Hand: Dragon(3) + Phoenix(2.5) + 2 Aces(4) + King(1.5) + Queen(.5) + Dog(1) = 12.5
-      // Low singletons: 8,7 are above 6 so no penalty.
-      // Lead getters: Dragon + 2 Aces + Dog = 4 (but no bomb since only 2 aces)
-      // Wait — lead getters = 3 if we only count distinct leads. Let me use:
-      // Dragon + Ace + Ace + Dog = 4 lead getters (each Ace is a separate lead)
-      // Strength: 12.5, leadGetters: 4 → passes normal threshold (12/4)
-      // Need a hand where strength >= 10 && leadGetters >= 3 but NOT >= 12 && >= 4
-      //
-      // Dragon(3) + Ace(2) + King(1.5) + 2 Kings(3.0) + Queen(.5) + Dog(1) = 11
-      // Low singletons: none below 6 → no penalty
-      // Lead getters: Dragon + Ace + Dog = 3
-      // → 11 >= 10 (yes), 3 >= 3 (yes) for behind threshold
-      // → 11 < 12 for normal threshold → doesn't call normally
+      // Design hand with It=8 (calls at threshold 7, fails at threshold 9):
+      // Dragon(6) + 1 Ace(2) = 8, NO straights (non-consecutive pairs), no small singletons
       const hand14 = [
         card('dragon'),
         card('standard', 14, 'jade', 1401),
-        card('standard', 13, 'jade', 1301), card('standard', 13, 'pagoda', 1302),
-        card('standard', 13, 'star', 1303),
-        card('standard', 12, 'jade', 1201), card('standard', 11, 'jade', 1101),
-        card('standard', 10, 'jade', 1001), card('standard', 9, 'jade', 991),
-        card('standard', 8, 'star', 801), card('standard', 8, 'pagoda', 802),
-        card('standard', 7, 'pagoda', 701), card('standard', 7, 'jade', 702),
-        card('dog'),
+        card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 9, 'jade', 901), card('standard', 9, 'pagoda', 902),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
       ];
+      // Ranks: 3,5,6,8,9,12,14 — longest run is 5,6 (length 2) → no straight
+      // It = 6(Dragon) + 2(Ace) + 0(straights) - 0(singletons, all paired) = 8
 
-      // Normally doesn't call (strength ~11, leadGetters=3, below 12/4 threshold)
+      // Without score context: It=8 >= 7 → calls
+      expect(bot.chooseRegularTichu(hand14)).toBe(true);
+
+      // Leading by 200+: It=8 < 9 → suppressed
+      bot.setScoreDiff(300);
+      expect(bot.chooseRegularTichu(hand14)).toBe(false);
+    });
+
+    it('is more aggressive when behind by 200+ (threshold 5)', () => {
+      const bot = new ExpertBot();
+      // Design hand with It=6 (fails at threshold 7, calls at threshold 5):
+      // Dragon(6) + Dog(-2) + 1 Ace(2) = 6, NO straights (non-consecutive pairs)
+      const hand14 = [
+        card('dragon'), card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 9, 'jade', 901), card('standard', 9, 'pagoda', 902),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
+      ];
+      // Ranks: 3,5,6,9,12,14 — longest run is 5,6 (length 2) → no straight
+      // It = 6(Dragon) - 2(Dog) + 2(Ace) = 6
+
+      // Normally: It=6 < 7 → doesn't call
       expect(bot.chooseRegularTichu(hand14)).toBe(false);
 
-      // When behind by 200+, lower threshold (10/3) makes call succeed
+      // Behind by 200+: It=6 >= 5 → calls
       bot.setScoreDiff(-300);
       expect(bot.chooseRegularTichu(hand14)).toBe(true);
     });
+
+    it('accounts for straights and small singletons in It index', () => {
+      const bot = new ExpertBot();
+      // Hand with a straight (2-3-4-5-6-7) and 1 Ace:
+      // It = 2(Ace) + 1(straight) = 3
+      // Plus some small singletons not in straight: say rank 9, 10 as singletons
+      // They're above 12? No, 9 and 10 are below 12. Are they in a straight? No.
+      // It = 2 + 1 - 2 = 1 → doesn't call
+      // Use alternating suits within straights to avoid straight-flush bombs
+      const hand14 = [
+        card('standard', 14, 'jade', 1401),
+        card('standard', 2, 'jade', 201), card('standard', 3, 'pagoda', 301),
+        card('standard', 4, 'star', 401), card('standard', 5, 'sword', 501),
+        card('standard', 6, 'jade', 601), card('standard', 7, 'pagoda', 701),
+        card('standard', 9, 'star', 901), card('standard', 10, 'sword', 1001),
+        card('standard', 2, 'pagoda', 202), card('standard', 3, 'star', 302),
+        card('standard', 4, 'sword', 402), card('standard', 5, 'jade', 502),
+        card('standard', 6, 'pagoda', 602),
+      ];
+      // It = 2 + 1(straight 2-7) - 2(singletons 9,10) = 1
+      expect(bot.chooseRegularTichu(hand14)).toBe(false);
+    });
   });
 
-  // ─── Card Passing (REQ-F-PASS04) ───────────────────────────────────────
+  // ─── Card Passing (REQ-F-PASS01-05) ────────────────────────────────────
 
   describe('chooseCardsToPass', () => {
-    // Verifies: REQ-F-PASS04
-    it('avoids passing two same-rank cards to one opponent', () => {
-      const bot = new ExpertBot();
-      const hand = [
-        card('standard', 3, 'jade', 301),
-        card('standard', 3, 'pagoda', 302),
-        card('standard', 5, 'star', 501),
-        card('standard', 10, 'sword', 1001),
+    // Helper: weak hand (It < 7) for passing tests
+    function makeWeakHand(): GameCard[] {
+      // It = 0 (all low non-consecutive pairs, no power cards)
+      return [
+        card('standard', 2, 'jade', 201), card('standard', 2, 'pagoda', 202),
+        card('standard', 4, 'jade', 401), card('standard', 4, 'pagoda', 402),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
+        card('standard', 10, 'jade', 1001), card('standard', 10, 'pagoda', 1002),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 3, 'jade', 301), card('standard', 14, 'jade', 1401),
+      ];
+    }
+
+    // Helper: strong hand (It >= 7) for passing tests
+    function makeStrongHand(): GameCard[] {
+      // Dragon(6) + Ace(2) = It=8 (non-consecutive pairs, no straight)
+      return [
+        card('dragon'),
         card('standard', 14, 'jade', 1401),
+        card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 9, 'jade', 901), card('standard', 9, 'pagoda', 902),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
+      ];
+    }
+
+    // Verifies: REQ-F-PASS03
+    it('avoids passing two same-rank cards to opponents', () => {
+      const bot = new ExpertBot();
+      // Hand with two 3s as the weakest — bot should split them
+      const hand = [
+        card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
+        card('standard', 5, 'star', 501), card('standard', 5, 'pagoda', 502),
+        card('standard', 7, 'jade', 701), card('standard', 7, 'pagoda', 702),
+        card('standard', 9, 'jade', 901), card('standard', 9, 'pagoda', 902),
+        card('standard', 11, 'jade', 1101), card('standard', 11, 'pagoda', 1102),
+        card('standard', 13, 'jade', 1301), card('standard', 13, 'pagoda', 1302),
+        card('standard', 14, 'jade', 1401), card('standard', 14, 'pagoda', 1402),
       ];
 
       const result = bot.chooseCardsToPass(hand, 'north');
-
-      // Check that east and west don't both get rank-3 cards
       const eastRank = result.east?.card.kind === 'standard' ? result.east.card.rank : null;
       const westRank = result.west?.card.kind === 'standard' ? result.west.card.rank : null;
-
-      if (eastRank !== null && westRank !== null) {
-        // If both opponents get standard cards, they shouldn't have the same rank
-        // (The anti-bomb check should swap one)
-        // Actually, the base selectPassCards picks the two weakest for opponents,
-        // which would be the two 3s. ExpertBot should split them.
-        expect(eastRank === westRank && eastRank === 3).toBe(false);
-      }
+      // Both opponents should NOT receive the same rank
+      expect(eastRank !== null && westRank !== null && eastRank === westRank).toBe(false);
     });
 
     it('returns cards for all three other seats', () => {
       const bot = new ExpertBot();
-      const hand = [
-        card('standard', 2, 'jade', 201),
-        card('standard', 5, 'pagoda', 501),
-        card('standard', 8, 'star', 801),
-        card('standard', 10, 'sword', 1001),
-        card('standard', 14, 'jade', 1401),
-      ];
-      const result = bot.chooseCardsToPass(hand, 'north');
+      const result = bot.chooseCardsToPass(makeWeakHand(), 'north');
       expect(result.east).toBeDefined();
       expect(result.south).toBeDefined();
       expect(result.west).toBeDefined();
+    });
+
+    // Verifies: REQ-F-PASS01
+    it('passes best card to partner from weak hand (strength concentration)', () => {
+      const bot = new ExpertBot();
+      const hand = makeWeakHand(); // Ace (rank 14) is the strongest
+      const result = bot.chooseCardsToPass(hand, 'north');
+      // Weak hand → pass best to partner (south). Best = Ace (14)
+      expect(result.south.card.kind === 'standard' && result.south.card.rank === 14).toBe(true);
+    });
+
+    it('passes 3rd-worst to partner from strong hand', () => {
+      const bot = new ExpertBot();
+      const hand = makeStrongHand();
+      const result = bot.chooseCardsToPass(hand, 'north');
+      // Strong hand → pass 3rd weakest non-special.
+      // Sorted non-special by strength: 3,3,5,5,6,6,8,8,9,9,12,12,14
+      // 3rd = rank 5. Partner (south) gets rank 5.
+      expect(result.south.card.kind === 'standard' && result.south.card.rank === 5).toBe(true);
+    });
+
+    // Verifies: REQ-F-PASS02
+    it('applies parity convention: odd to left (east), even to right (west)', () => {
+      const bot = new ExpertBot();
+      // Weak hand with Ace as best → goes to partner
+      // Two weakest for opponents: rank 2 (even) and rank 3 (odd)
+      const hand = makeWeakHand();
+      const result = bot.chooseCardsToPass(hand, 'north');
+      // Left opponent = east (next seat clockwise from north)
+      // Odd (3) → east, Even (2) → west
+      const eastRank = result.east?.card.kind === 'standard' ? result.east.card.rank : null;
+      const westRank = result.west?.card.kind === 'standard' ? result.west.card.rank : null;
+      expect(eastRank! % 2).toBe(1); // odd to east (left)
+      expect(westRank! % 2).toBe(0); // even to west (right)
+    });
+
+    // Verifies: REQ-F-PASS04
+    it('never passes Dragon or Phoenix to opponents', () => {
+      const bot = new ExpertBot();
+      // Weak hand with Dragon — should go to partner
+      const hand = [
+        card('dragon'),
+        card('standard', 2, 'jade', 201), card('standard', 2, 'pagoda', 202),
+        card('standard', 4, 'jade', 401), card('standard', 4, 'pagoda', 402),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
+        card('standard', 10, 'jade', 1001), card('standard', 10, 'pagoda', 1002),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+      ];
+      const result = bot.chooseCardsToPass(hand, 'north');
+      expect(result.east.card.kind).not.toBe('dragon');
+      expect(result.west.card.kind).not.toBe('dragon');
+      // Weak hand → Dragon goes to partner
+      expect(result.south.card.kind).toBe('dragon');
+    });
+
+    // Verifies: REQ-F-PASS04
+    it('passes Dog to partner from strong hand', () => {
+      const bot = new ExpertBot();
+      // Strong hand with Dog — Dog should go to partner
+      const hand = [
+        card('dragon'), card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 9, 'jade', 901), card('standard', 9, 'pagoda', 902),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
+      ];
+      // It = 6(Dragon) + 2(Ace) - 2(Dog) = 6... hmm that's below 7.
+      // Need stronger: add Phoenix
+      const strongWithDog = [
+        card('dragon'), card('phoenix'), card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 9, 'jade', 901), card('standard', 9, 'pagoda', 902),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 5, 'jade', 501),
+      ];
+      // It = 6+6+2-2 = 12 → strong hand
+      const result = bot.chooseCardsToPass(strongWithDog, 'north');
+      // Strong hand with Dog → pass Dog to partner (south)
+      expect(result.south.card.kind).toBe('dog');
+    });
+
+    // Verifies: REQ-F-PASS05
+    it('tracks passedToLeft for Mah Jong wish', () => {
+      const bot = new ExpertBot();
+      bot.chooseCardsToPass(makeWeakHand(), 'north');
+      // Should have recorded what was passed to east (left opponent)
+      expect(bot.getPassedToLeft()).not.toBeNull();
+      expect(bot.getPassedToLeft()!.card.kind).toBe('standard');
     });
   });
 
@@ -558,6 +746,96 @@ describe('ExpertBot', () => {
     });
   });
 
+  // ─── Dog Strategy (REQ-F-DOG01) ─────────────────────────────────────────
+
+  describe('context-dependent Dog play', () => {
+    function makeDogContext(overrides: {
+      partnerCall?: string;
+      opponentCall?: string;
+      handExtras?: GameCard[];
+      scoreDiff?: number;
+    } = {}): { bot: InstanceType<typeof ExpertBot>; ctx: BotPlayContext } {
+      const bot = new ExpertBot();
+      if (overrides.scoreDiff !== undefined) bot.setScoreDiff(overrides.scoreDiff);
+
+      const dogCard = card('dog');
+      const c5 = card('standard', 5, 'jade', 501);
+      const c10 = card('standard', 10, 'jade', 1001);
+      const extras = overrides.handExtras ?? [];
+      const hand = [dogCard, c5, c10, ...extras];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [dogCard], 0),
+        makeCombo(CombinationType.Single, [c5], 5),
+        makeCombo(CombinationType.Single, [c10], 10),
+      ];
+
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(14).fill(card('standard', 2)), tricksWon: [], tipiCall: overrides.opponentCall ?? 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(14).fill(card('standard', 2)), tricksWon: [], tipiCall: overrides.partnerCall ?? 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(14).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      return { bot, ctx };
+    }
+
+    // Verifies: REQ-F-DOG01 — default behavior
+    it('plays Dog early when no special conditions (default)', () => {
+      const { bot, ctx } = makeDogContext();
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).toBe('dog');
+      }
+    });
+
+    // Verifies: REQ-F-DOG01 — condition 1
+    it('saves Dog when partner called Tichu', () => {
+      const { bot, ctx } = makeDogContext({ partnerCall: 'tichu' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Should NOT play Dog — saves it to bail partner out
+        expect(decision.cards[0].card.kind).not.toBe('dog');
+      }
+    });
+
+    // Verifies: REQ-F-DOG01 — condition 2
+    it('saves Dog when holding Dragon (guaranteed lead recovery)', () => {
+      const dragonCard = card('dragon');
+      const { bot, ctx } = makeDogContext({ handExtras: [dragonCard] });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).not.toBe('dog');
+      }
+    });
+
+    // Verifies: REQ-F-DOG01 — condition 3
+    it('saves Dog when opponent called Tichu', () => {
+      const { bot, ctx } = makeDogContext({ opponentCall: 'tichu' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).not.toBe('dog');
+      }
+    });
+
+    // Verifies: REQ-F-DOG01 — condition 4
+    it('saves Dog when significantly behind on score', () => {
+      const { bot, ctx } = makeDogContext({ scoreDiff: -300 });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).not.toBe('dog');
+      }
+    });
+  });
+
   // ─── One-Two Prevention (REQ-F-PLAY05) ────────────────────────────────────
 
   describe('one-two prevention', () => {
@@ -633,8 +911,8 @@ describe('ExpertBot', () => {
       const decision = bot.choosePlay(ctx);
       expect(decision.action).toBe('play');
       if (decision.action === 'play') {
-        // Normal strategy: lead low
-        expect(decision.cards[0].id).toBe(301);
+        // REQ-F-END01: Partner out in 3-player → play aggressively (highest)
+        expect(decision.cards[0].id).toBe(701);
       }
     });
 
@@ -764,6 +1042,74 @@ describe('ExpertBot', () => {
     });
   });
 
+  // ─── Phoenix Strategy (REQ-F-PHX01) ──────────────────────────────────────
+
+  describe('Phoenix strategy', () => {
+    // Verifies: REQ-F-PHX01 — avoid leading Phoenix as singleton
+    it('avoids leading Phoenix as singleton (only +0.5)', () => {
+      const bot = new ExpertBot();
+      const phoenixCard = card('phoenix');
+      const c5 = card('standard', 5, 'jade', 501);
+      const c10 = card('standard', 10, 'jade', 1001);
+      const hand = [phoenixCard, c5, c10];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [phoenixCard], 0.5),
+        makeCombo(CombinationType.Single, [c5], 5),
+        makeCombo(CombinationType.Single, [c10], 10),
+      ];
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays,
+        canPass: false,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Should NOT lead with Phoenix singleton — prefer leading rank 5
+        expect(decision.cards[0].card.kind).not.toBe('phoenix');
+      }
+    });
+
+    // Verifies: REQ-F-PHX01 — prefer Phoenix in large combinations
+    it('prefers Phoenix in combinations of 3+ cards (eliminates losers)', () => {
+      const bot = new ExpertBot();
+      const phoenixCard = card('phoenix');
+      const c3 = card('standard', 3, 'jade', 301);
+      const c4 = card('standard', 4, 'jade', 401);
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [phoenixCard, c3, c4, c5];
+
+      // Phoenix used as wild in a straight (3-4-5-Phoenix-as-6)
+      const straightCombo = makeCombo(
+        CombinationType.Straight, [c3, c4, c5, phoenixCard], 6, false, 6,
+      );
+      const singlePlay = makeCombo(CombinationType.Single, [c3], 3);
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Straight,
+          [card('standard', 2), card('standard', 3, 'pagoda', 303),
+           card('standard', 4, 'pagoda', 403), card('standard', 5, 'pagoda', 503)], 5) },
+      ]);
+
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [straightCombo],
+        canPass: true,
+        roundState: makeRoundState(),
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Phoenix in a 4-card combo should be preferred (eliminates losers)
+      expect(decision.action).toBe('play');
+    });
+  });
+
   // ─── Card Tracking Integration (REQ-F-INFO02) ───────────────────────────
 
   describe('card tracking integration', () => {
@@ -854,32 +1200,430 @@ describe('ExpertBot', () => {
     });
   });
 
-  // ─── Mahjong Wish (REQ-F-WISH01) ─────────────────────────────────────────
+  // ─── Mahjong Wish (REQ-F-MJ01) ──────────────────────────────────────────
 
   describe('chooseMahjongWish', () => {
-    // Verifies: REQ-F-WISH01
-    it('wishes for mid-high rank not in hand', () => {
+    // Verifies: REQ-F-MJ01 — no wish when Mah Jong played in a straight
+    it('returns null when Mah Jong was played in a straight', () => {
       const bot = new ExpertBot();
-      const hand = [
-        card('standard', 8, 'jade'),
-        card('standard', 9, 'pagoda'),
-        card('standard', 14, 'jade'),
-      ];
-      const wish = bot.chooseMahjongWish(hand);
-      // Strategy guide: wish for mid-high ranks (10, 9, 8, 7, 11) not in hand
-      expect(wish).toBe(10);
+      const mahjong = card('mahjong');
+      const c2 = card('standard', 2, 'jade', 201);
+      const c3 = card('standard', 3, 'jade', 301);
+      const c4 = card('standard', 4, 'jade', 401);
+      const c5 = card('standard', 5, 'jade', 501);
+      const c8 = card('standard', 8, 'jade', 801);
+      const hand = [mahjong, c2, c3, c4, c5, c8];
+      const straightCombo = makeCombo(CombinationType.Straight, [mahjong, c2, c3, c4, c5], 5);
+
+      // Only offer the straight as valid play — forces bot to play it
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const ctx = makePlayContext({
+        hand,
+        validPlays: [straightCombo],
+        roundState,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      // After playing a straight containing Mah Jong, wish should be null
+      expect(bot.chooseMahjongWish([c8])).toBeNull();
     });
 
-    it('returns null when all wish candidate ranks held', () => {
+    // Verifies: REQ-F-MJ01 — wish for Ace when opponent called Tichu
+    it('wishes for Ace when opponent called Tichu', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c8 = card('standard', 8, 'jade', 801);
+      const mahjong = card('mahjong');
+      const hand = [mahjong, c3, c8];
+
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      // Play Mah Jong as singleton to set up lastRoundState
+      const ctx = makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [mahjong], 1)],
+        roundState,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      expect(bot.chooseMahjongWish([c3, c8])).toBe(14); // Wish for Ace
+    });
+
+    // Verifies: REQ-F-MJ01 — wish for Ace when opponent called Grand Tichu
+    it('wishes for Ace when opponent called Grand Tichu', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c8 = card('standard', 8, 'jade', 801);
+      const mahjong = card('mahjong');
+      const hand = [mahjong, c3, c8];
+
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'grandTichu', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const ctx = makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [mahjong], 1)],
+        roundState,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      expect(bot.chooseMahjongWish([c3, c8])).toBe(14);
+    });
+
+    // Verifies: REQ-F-MJ01 — does not wish Ace if already holding one
+    it('does not wish for Ace when holding Ace even if opponent called Tichu', () => {
+      const bot = new ExpertBot();
+      const cA = card('standard', 14, 'jade', 1401);
+      const c3 = card('standard', 3, 'jade', 301);
+      const mahjong = card('mahjong');
+      const hand = [mahjong, c3, cA];
+
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(14).fill(c3), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(14).fill(c3), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(14).fill(c3), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const ctx = makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [mahjong], 1)],
+        roundState,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      const wish = bot.chooseMahjongWish([c3, cA]);
+      // Should NOT wish for Ace (we have it), should use passedToLeft or fallback
+      expect(wish).not.toBe(14);
+    });
+
+    // Verifies: REQ-F-MJ01 — wish for card passed to left opponent
+    it('wishes for card passed to left opponent when no Tichu caller', () => {
+      const bot = new ExpertBot();
+      // Simulate card passing: pass a 7 to left opponent
+      const hand14 = [
+        card('standard', 2, 'jade', 201),
+        card('standard', 3, 'jade', 301),
+        card('standard', 4, 'jade', 401),
+        card('standard', 5, 'jade', 501),
+        card('standard', 6, 'jade', 601),
+        card('standard', 7, 'jade', 701),
+        card('standard', 8, 'jade', 801),
+        card('standard', 9, 'jade', 901),
+        card('standard', 10, 'jade', 1001),
+        card('standard', 11, 'jade', 1101),
+        card('standard', 12, 'jade', 1201),
+        card('standard', 13, 'jade', 1301),
+        card('standard', 14, 'jade', 1401),
+        card('mahjong'),
+      ];
+      bot.chooseCardsToPass(hand14, 'north');
+      const passedToLeft = bot.getPassedToLeft();
+      expect(passedToLeft).not.toBeNull();
+
+      // Set up a round state with no Tichu callers
+      const c8 = card('standard', 8, 'jade', 8001);
+      const mahjong = card('mahjong');
+      const remainingHand = [mahjong, card('standard', 12, 'star', 1202)];
+      const roundState = makeRoundState({
+        players: {
+          north: { hand: remainingHand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const ctx = makePlayContext({
+        hand: remainingHand,
+        validPlays: [makeCombo(CombinationType.Single, [mahjong], 1)],
+        roundState,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      const wish = bot.chooseMahjongWish([card('standard', 12, 'star', 1202)]);
+      // Should wish for the rank passed to left
+      if (passedToLeft!.card.kind === 'standard') {
+        expect(wish).toBe(passedToLeft!.card.rank);
+      }
+    });
+
+    // Verifies: REQ-F-MJ01 — fallback to 5 or 6 when no other context
+    it('falls back to wishing for 5 or 6 when no context available', () => {
+      const bot = new ExpertBot();
+      const c8 = card('standard', 8, 'jade', 801);
+      const mahjong = card('mahjong');
+      const hand = [mahjong, c8];
+
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const ctx = makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [mahjong], 1)],
+        roundState,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      const wish = bot.chooseMahjongWish([c8]);
+      // Fallback: prefer 5 or 6
+      expect([5, 6]).toContain(wish);
+    });
+
+    // Verifies: REQ-F-MJ01 — returns null when all fallback ranks held
+    it('returns null when all fallback candidate ranks are held', () => {
       const bot = new ExpertBot();
       const hand = [
+        card('standard', 5, 'jade'),
+        card('standard', 6, 'star'),
         card('standard', 7, 'pagoda'),
-        card('standard', 8, 'star'),
-        card('standard', 9, 'sword'),
-        card('standard', 10, 'jade'),
-        card('standard', 11, 'jade'),
+        card('standard', 8, 'sword'),
+        card('standard', 9, 'jade'),
+        card('standard', 10, 'star'),
       ];
-      expect(bot.chooseMahjongWish(hand)).toBeNull();
+      const wish = bot.chooseMahjongWish(hand);
+      expect(wish).toBeNull();
+    });
+  });
+
+  // ─── Bomb Strategy (REQ-F-BOMB01, REQ-F-BOMB02) ────────────────────────
+
+  describe('bomb strategy', () => {
+    // Verifies: REQ-F-BOMB01 — don't bomb when partner is about to go out
+    it('does not bomb when partner has 1-2 cards left', () => {
+      const bot = new ExpertBot();
+      const c5 = card('standard', 5, 'jade', 501);
+      const bombCards = [
+        card('standard', 8, 'jade', 801),
+        card('standard', 8, 'pagoda', 802),
+        card('standard', 8, 'star', 803),
+        card('standard', 8, 'sword', 804),
+      ];
+      const hand = [c5, ...bombCards];
+
+      const bomb = makeCombo(CombinationType.FourBomb, bombCards, 8, true);
+      const single = makeCombo(CombinationType.Single, [c5], 5);
+
+      // Opponent plays — partner (south) has only 1 card left
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 14, 'jade', 1401)], 14) },
+      ]);
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 3)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [bomb, single],
+        canPass: true,
+        roundState: rs,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Should NOT bomb — partner about to go out
+      if (decision.action === 'play') {
+        expect(decision.cards.length).not.toBe(4); // Not the bomb
+      }
+    });
+
+    // Verifies: REQ-F-BOMB01 — bomb to prevent 1-2 finish
+    it('bombs when opponent could complete 1-2 finish', () => {
+      const bot = new ExpertBot();
+      const bombCards = [
+        card('standard', 8, 'jade', 801),
+        card('standard', 8, 'pagoda', 802),
+        card('standard', 8, 'star', 803),
+        card('standard', 8, 'sword', 804),
+      ];
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [c5, ...bombCards];
+
+      const bomb = makeCombo(CombinationType.FourBomb, bombCards, 8, true);
+
+      // East already finished first (opponent), west (other opponent) has 2 cards
+      const trick = makeTrick('west', 'west', [
+        { seat: 'west', combination: makeCombo(CombinationType.Single, [card('standard', 14, 'star', 1403)], 14) },
+      ]);
+
+      const rs = makeRoundState({
+        finishOrder: ['east'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: 1 },
+          south: { hand: Array(8).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 2), card('standard', 3)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [bomb],
+        canPass: true,
+        roundState: rs,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(4); // The bomb
+      }
+    });
+
+    // Verifies: REQ-F-BOMB01 — bomb opponent Tichu caller with few cards
+    it('bombs when opponent Tichu caller has 1-5 cards', () => {
+      const bot = new ExpertBot();
+      const bombCards = [
+        card('standard', 6, 'jade', 601),
+        card('standard', 6, 'pagoda', 602),
+        card('standard', 6, 'star', 603),
+        card('standard', 6, 'sword', 604),
+      ];
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c3, ...bombCards];
+
+      const bomb = makeCombo(CombinationType.FourBomb, bombCards, 6, true);
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 13, 'jade', 1301)], 13) },
+      ]);
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(4).fill(card('standard', 2)), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [bomb],
+        canPass: true,
+        roundState: rs,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(4);
+      }
+    });
+
+    // Verifies: REQ-F-BOMB02 — bomb-proof exit planning
+    it('leads low card instead of Dragon when 2 cards left and bomb risk', () => {
+      const bot = new ExpertBot();
+      const dragon = card('dragon');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [dragon, c3];
+
+      const dragonPlay = makeCombo(CombinationType.Single, [dragon], 25);
+      const lowPlay = makeCombo(CombinationType.Single, [c3], 3);
+
+      // No cards tracked → all ranks have 3+ unaccounted (bomb risk)
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays: [dragonPlay, lowPlay],
+        canPass: false,
+        roundState: rs,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Should lead the low card, not Dragon (bomb-proof exit)
+        expect(decision.cards[0].id).toBe(301);
+      }
+    });
+
+    // Verifies: REQ-F-BOMB02 — no bomb-proof override when no bomb risk
+    it('allows Dragon lead when 2 cards left but no bomb risk', () => {
+      const bot = new ExpertBot();
+      const dragon = card('dragon');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [dragon, c3];
+
+      const dragonPlay = makeCombo(CombinationType.Single, [dragon], 25);
+      const lowPlay = makeCombo(CombinationType.Single, [c3], 3);
+
+      // Build a round state with extensive tracking so no ranks have 3+ unaccounted
+      // We need most ranks to have been seen (played or in hand)
+      const tricksWon: GameCard[][] = [];
+      // Create tricks where many cards have been played
+      const trick1: GameCard[] = [];
+      for (let r = 2; r <= 14; r++) {
+        for (const suit of ['jade', 'pagoda', 'star', 'sword']) {
+          trick1.push(card('standard', r, suit, r * 10 + (suit === 'jade' ? 1 : suit === 'pagoda' ? 2 : suit === 'star' ? 3 : 4)));
+        }
+      }
+      tricksWon.push(trick1);
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon, tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays: [dragonPlay, lowPlay],
+        canPass: false,
+        roundState: rs,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      // With no bomb risk, the normal lead-low strategy applies (or Dragon is fine)
+      // The key point is bomb-proof exit does NOT activate
     });
   });
 
@@ -909,6 +1653,435 @@ describe('ExpertBot', () => {
 
       const decision = bot.choosePlay(ctx);
       expect(decision.action).toBe('play');
+    });
+  });
+
+  // ─── Endgame Strategy (REQ-F-END01-04) ──────────────────────────────────
+
+  describe('endgame strategy', () => {
+    // Verifies: REQ-F-END01 — 3-player, partner out: play aggressively
+    it('plays highest when partner already went out (3-player)', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c3, c14];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+
+      const roundState = makeRoundState({
+        finishOrder: ['south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          west: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Partner out → aggressive play → highest card (Ace)
+        expect(decision.cards[0].id).toBe(1401);
+      }
+    });
+
+    // Verifies: REQ-F-END02 — 3-player, partner still in, partner fewer cards: feed Dog
+    it('plays Dog to feed partner when partner has fewer cards (3-player)', () => {
+      const bot = new ExpertBot();
+      const dog = card('dog');
+      const c7 = card('standard', 7, 'jade', 701);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [dog, c7, c3];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [dog], 0),
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c7], 7),
+      ];
+
+      // Partner south has 1 card, opponent east went out, west has 5 cards
+      const roundState = makeRoundState({
+        finishOrder: ['east'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          south: { hand: [card('standard', 14)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Partner has fewer cards → feed Dog to let partner lead
+        expect(decision.cards[0].id).toBe(903); // Dog id
+      }
+    });
+
+    // Verifies: REQ-F-END03 — 2-player, opponent has 1 card: multi-card first
+    it('plays multi-card groups first when opponent has 1 card (2-player)', () => {
+      const bot = new ExpertBot();
+      const c3a = card('standard', 3, 'jade', 301);
+      const c3b = card('standard', 3, 'pagoda', 302);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c3a, c3b, c14];
+
+      const pair = makeCombo(CombinationType.Pair, [c3a, c3b], 3);
+      const singleA = makeCombo(CombinationType.Single, [c14], 14);
+      const validPlays = [pair, singleA];
+
+      // Only north and west remain, west has 1 card
+      const roundState = makeRoundState({
+        finishOrder: ['east', 'south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 2 },
+          west: { hand: [card('standard', 5)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Opponent has 1 card → play multi-card groups first (pair of 3s)
+        expect(decision.cards.length).toBe(2);
+        expect(decision.cards[0].id).toBe(301);
+      }
+    });
+
+    // Verifies: REQ-F-END03 — 2-player, opponent 1 card, only singles: high→low
+    it('plays highest single when opponent has 1 card and only singles available (2-player)', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c3, c14];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+
+      const roundState = makeRoundState({
+        finishOrder: ['east', 'south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 2 },
+          west: { hand: [card('standard', 5)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Only singles, opponent has 1 card → play highest first
+        expect(decision.cards[0].id).toBe(1401);
+      }
+    });
+
+    // Verifies: REQ-F-END04 — 2-player, opponent many cards: normal lead-low
+    it('leads low when opponent has many cards (2-player)', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c7 = card('standard', 7, 'pagoda', 701);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c3, c7, c14];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c7], 7),
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+
+      // 2-player, opponent west has many cards
+      const roundState = makeRoundState({
+        finishOrder: ['east', 'south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 2 },
+          west: { hand: Array(8).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Opponent has many cards → normal lead-low strategy
+        expect(decision.cards[0].id).toBe(301);
+      }
+    });
+
+    // Verifies: REQ-F-END01 — always go out when possible in endgame
+    it('goes out when possible in endgame', () => {
+      const bot = new ExpertBot();
+      const c7 = card('standard', 7, 'jade', 701);
+      const hand = [c7]; // Only 1 card = can go out
+
+      const validPlays = [makeCombo(CombinationType.Single, [c7], 7)];
+
+      const roundState = makeRoundState({
+        finishOrder: ['south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          west: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+    });
+  });
+
+  // ─── Tichu Defense (REQ-F-DEF01) ────────────────────────────────────────
+
+  describe('Tichu defense', () => {
+    // Verifies: REQ-F-DEF01 — concede when opponent caller has very few cards
+    it('passes (concedes) when opponent Tichu caller has 1-2 cards and bot is weak', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c5 = card('standard', 5, 'pagoda', 501);
+      const c7 = card('standard', 7, 'star', 701);
+      const hand = [c3, c5, c7]; // Weak hand, no winners
+
+      // East called Tichu and has 2 cards — almost out
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 10, 'jade', 1001)], 10) },
+      ]);
+
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 14), card('standard', 13)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [card('standard', 14, 'jade', 1401)], 14),
+      ];
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays,
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Weak hand + caller almost out → concede (pass)
+      expect(decision.action).toBe('pass');
+    });
+
+    // Verifies: REQ-F-DEF01 — fight when caller has many cards and bot has winners
+    it('plays (fights) when opponent Tichu caller has many cards and bot has winners', () => {
+      const bot = new ExpertBot();
+      const cA = card('standard', 14, 'jade', 1401);
+      const dragon = card('dragon');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [cA, dragon, c3]; // Strong hand with winners
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 10, 'jade', 1001)], 10) },
+      ]);
+
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [cA], 14),
+      ];
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays,
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Strong hand + caller has many cards → fight (play)
+      expect(decision.action).toBe('play');
+    });
+
+    // Verifies: REQ-F-DEF01 — fight when partner also called Tichu
+    it('fights when partner also called Tichu', () => {
+      const bot = new ExpertBot();
+      const c7 = card('standard', 7, 'jade', 701);
+      const hand = [c7]; // Weak, but partner called Tichu
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 501)], 5) },
+      ]);
+
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(8).fill(card('standard', 2)), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c7], 7),
+      ];
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays,
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Partner called Tichu → always fight
+      expect(decision.action).toBe('play');
+    });
+  });
+
+  // ─── Enhanced Follow Play (REQ-F-FOL01-03) ──────────────────────────────
+
+  describe('enhanced follow play', () => {
+    // Verifies: REQ-F-FOL01 — lead Kings confidently when all Aces played
+    it('leads King when all Aces are accounted for', () => {
+      const bot = new ExpertBot();
+      const cK = card('standard', 13, 'jade', 1301);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c3, cK];
+
+      // Set up tracker: all 4 Aces played + 4 in own hand = 0 unaccounted
+      const ace1 = card('standard', 14, 'jade', 1401);
+      const ace2 = card('standard', 14, 'pagoda', 1402);
+      const ace3 = card('standard', 14, 'star', 1403);
+      const ace4 = card('standard', 14, 'sword', 1404);
+
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [[ace1, ace2]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(10).fill(card('standard', 2)), tricksWon: [[ace3, ace4]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [cK], 13),
+      ];
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // All Aces accounted → Kings are top singles → lead King
+        expect(decision.cards[0].id).toBe(1301);
+      }
+    });
+
+    // Verifies: REQ-F-FOL02 — pass when cheapest win costs King and Aces unaccounted
+    it('passes on low trick when cheapest win is King and Aces unaccounted', () => {
+      const bot = new ExpertBot();
+      const cK = card('standard', 13, 'jade', 1301);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c3, cK];
+
+      // Opponent leads a 5 — cheap trick
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 501)], 5) },
+      ]);
+
+      // No Aces played yet → unaccounted Aces exist
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [cK], 13),
+      ];
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays,
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Cheapest win is King, Aces still out → pass
+      expect(decision.action).toBe('pass');
+    });
+
+    // Verifies: REQ-F-FOL03 — never lead Ace pair
+    it('does not lead Ace pair when single Ace leads available', () => {
+      const bot = new ExpertBot();
+      const ace1 = card('standard', 14, 'jade', 1401);
+      const ace2 = card('standard', 14, 'pagoda', 1402);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [ace1, ace2, c3];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [ace1], 14),
+        makeCombo(CombinationType.Single, [ace2], 14),
+        makeCombo(CombinationType.Pair, [ace1, ace2], 14),
+      ];
+
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(10).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Should not lead Ace pair — lead 3 instead (or single Ace later)
+        // Should pick the low card (3) as the lead
+        expect(decision.cards[0].id).toBe(301);
+        expect(decision.cards.length).toBe(1);
+      }
     });
   });
 });

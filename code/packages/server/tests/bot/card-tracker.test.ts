@@ -325,4 +325,75 @@ describe('CardTracker', () => {
       expect(tracker.getUnaccountedTop10Count()).toBe(4);
     });
   });
+
+  // ─── Point Tracking (REQ-F-TRK01) ────────────────────────────────────────
+
+  describe('getApproxTeamPoints', () => {
+    // Verifies: REQ-F-TRK01
+    it('computes points for 5s, 10s, Kings, Dragon, Phoenix', () => {
+      const tracker = new CardTracker();
+      const rs = makeRoundState({
+        players: {
+          north: {
+            hand: [],
+            tricksWon: [
+              [card('standard', 5, 'jade', 51), card('standard', 10, 'jade', 101)], // 5 + 10 = 15
+              [card('dragon')], // 25
+            ],
+            tipiCall: 'none', hasPlayed: false, finishOrder: null,
+          },
+          east: {
+            hand: [],
+            tricksWon: [
+              [card('standard', 13, 'jade', 131), card('phoenix')], // 10 + (-25) = -15
+            ],
+            tipiCall: 'none', hasPlayed: false, finishOrder: null,
+          },
+          south: {
+            hand: [],
+            tricksWon: [
+              [card('standard', 5, 'pagoda', 52)], // 5
+            ],
+            tipiCall: 'none', hasPlayed: false, finishOrder: null,
+          },
+          west: {
+            hand: [],
+            tricksWon: [],
+            tipiCall: 'none', hasPlayed: false, finishOrder: null,
+          },
+        },
+      });
+
+      // northSouth: north(15+25) + south(5) = 45
+      expect(tracker.getApproxTeamPoints(rs, 'northSouth')).toBe(45);
+      // eastWest: east(-15) + west(0) = -15
+      expect(tracker.getApproxTeamPoints(rs, 'eastWest')).toBe(-15);
+    });
+
+    it('returns 0 when no tricks won', () => {
+      const tracker = new CardTracker();
+      const rs = makeRoundState();
+      expect(tracker.getApproxTeamPoints(rs, 'northSouth')).toBe(0);
+      expect(tracker.getApproxTeamPoints(rs, 'eastWest')).toBe(0);
+    });
+
+    it('counts cards with no point value as 0', () => {
+      const tracker = new CardTracker();
+      const rs = makeRoundState({
+        players: {
+          north: {
+            hand: [],
+            tricksWon: [
+              [card('standard', 2, 'jade', 21), card('standard', 8, 'jade', 81), card('mahjong')],
+            ],
+            tipiCall: 'none', hasPlayed: false, finishOrder: null,
+          },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      expect(tracker.getApproxTeamPoints(rs, 'northSouth')).toBe(0);
+    });
+  });
 });
