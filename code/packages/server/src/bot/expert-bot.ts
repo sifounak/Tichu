@@ -20,8 +20,6 @@ import type {
   BotPlayDecision,
 } from './bot-interface.js';
 import {
-  countTopCards,
-  countLeadGetters,
   evaluateHandStrength,
   computeGrandTichuIndex,
   computeTichuIndex,
@@ -340,14 +338,7 @@ export class ExpertBot implements BotStrategy {
       return selectDragonRecipient(opponents, this.lastRoundState);
     }
 
-    // Give Dragon to opponent on the lower-scoring team (maximize damage)
-    // Both opponents are on the same team in Tichu, so compare card counts as tiebreaker
-    const team0 = getTeam(opponents[0]);
-    const points0 = this.cardTracker.getApproxTeamPoints(this.lastRoundState, team0);
-
-    // If we can differentiate by individual pile points, give to the one with fewer points
-    // (they benefit more from the Dragon's 25 points going to the wrong pile)
-    // Both opponents are same team, so use card count as before
+    // Both opponents are on the same team in Tichu, so compare card counts
     const cards0 = this.lastRoundState.players[opponents[0]].hand.length;
     const cards1 = this.lastRoundState.players[opponents[1]].hand.length;
 
@@ -557,7 +548,7 @@ export class ExpertBot implements BotStrategy {
   private evaluatePhoenixPlay(
     combo: Combination,
     currentTrick: import('@tichu/shared').TrickState | null,
-    hand: GameCard[],
+    _hand: GameCard[],
   ): 'prefer' | 'avoid' | 'neutral' {
     const hasPhoenix = combo.cards.some((gc) => isPhoenix(gc.card));
     if (!hasPhoenix) return 'neutral';
@@ -978,7 +969,7 @@ export class ExpertBot implements BotStrategy {
    */
   private choose3PlayerPartnerOutPlay(
     plays: Combination[],
-    hand: GameCard[],
+    _hand: GameCard[],
     currentTrick: import('@tichu/shared').TrickState | null,
     seat: Seat,
     canPass: boolean,
@@ -1013,7 +1004,7 @@ export class ExpertBot implements BotStrategy {
    */
   private choose3PlayerPartnerInPlay(
     plays: Combination[],
-    hand: GameCard[],
+    _hand: GameCard[],
     currentTrick: import('@tichu/shared').TrickState | null,
     seat: Seat,
     roundState: RoundState,
@@ -1057,7 +1048,7 @@ export class ExpertBot implements BotStrategy {
    */
   private choose2PlayerPlay(
     plays: Combination[],
-    hand: GameCard[],
+    _hand: GameCard[],
     currentTrick: import('@tichu/shared').TrickState | null,
     seat: Seat,
     roundState: RoundState,

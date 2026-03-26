@@ -18,7 +18,6 @@ import {
   isPhoenix,
   isDog,
   isMahjong,
-  detectCombination,
   detectAllBombs,
 } from '@tichu/shared';
 import type { BotPlayContext } from './bot-interface.js';
