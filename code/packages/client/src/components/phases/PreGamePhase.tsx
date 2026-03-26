@@ -101,8 +101,8 @@ export const PreGamePhase = memo(function PreGamePhase({
         <div className={styles.slotWrapper}>
           <span className={styles.slotLabel}>{seatNames?.[seat] ?? SEAT_LABELS[seat]}</span>
           <div
-            className={`${styles.slot} ${placed ? styles.slotFilled : ''} ${!placed && activeCardId !== null ? styles.slotReady : ''}`}
-            onClick={() => (placed && activeCardId === null) ? onSlotRemove(seat) : onSlotClick(seat)}
+            className={`${styles.slot} ${placed ? styles.slotFilled : ''} ${!placed && activeCardId !== null && !passConfirmed ? styles.slotReady : ''} ${passConfirmed ? styles.slotLocked : ''}`}
+            onClick={passConfirmed ? undefined : () => (placed && activeCardId === null) ? onSlotRemove(seat) : onSlotClick(seat)}
             role="button"
             aria-label={placed ? `Remove card from ${seatNames?.[seat] ?? SEAT_LABELS[seat]} slot` : `Pass card to ${seatNames?.[seat] ?? SEAT_LABELS[seat]}`}
           >
