@@ -5,6 +5,7 @@ import type { GameCard, Seat, Rank, RoundState, TrickState } from '@tichu/shared
 import {
   isDragon,
   isPhoenix,
+  getTeam,
   SEATS_IN_ORDER,
 } from '@tichu/shared';
 
@@ -267,5 +268,40 @@ export class CardTracker {
     count += this.getUnaccountedAces();
     count += this.getUnaccountedKings();
     return count;
+  }
+
+  // ─── Point Tracking ─────────────────────────────────────────────────────
+
+  // REQ-F-TRK01: Rough point tracking per team
+  /**
+   * Compute approximate card points won by a team.
+   * Point values: 5s=5pts, 10s/Ks=10pts, Dragon=25pts, Phoenix=-25pts.
+   * Computed from tricksWon in the round state.
+   */
+  getApproxTeamPoints(roundState: RoundState, team: 'northSouth' | 'eastWest'): number {
+    let points = 0;
+    for (const seat of SEATS_IN_ORDER) {
+      if (getTeam(seat) !== team) continue;
+      for (const trickCards of roundState.players[seat].tricksWon) {
+        for (const gc of trickCards) {
+          points += this.getCardPointValue(gc);
+        }
+      }
+    }
+    return points;
+  }
+
+  /**
+   * Get the point value of a single card.
+   * 5s = 5, 10s = 10, Kings = 10, Dragon = 25, Phoenix = -25, others = 0.
+   */
+  private getCardPointValue(gc: GameCard): number {
+    if (isDragon(gc.card)) return 25;
+    if (isPhoenix(gc.card)) return -25;
+    if (gc.card.kind === 'standard') {
+      if (gc.card.rank === 5) return 5;
+      if (gc.card.rank === 10 || gc.card.rank === 13) return 10;
+    }
+    return 0;
   }
 }

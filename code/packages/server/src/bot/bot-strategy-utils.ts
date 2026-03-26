@@ -19,8 +19,145 @@ import {
   isDog,
   isMahjong,
   detectCombination,
+  detectAllBombs,
 } from '@tichu/shared';
 import type { BotPlayContext } from './bot-interface.js';
+
+// ─── Stanford Index Computations ─────────────────────────────────────────────
+
+// REQ-F-GT01: Stanford Grand Tichu index from CS229 paper (Eric Yang 2018)
+// Ig = N_Ace + 3*N_dragon + 3*N_phoenix + 3*N_bomb
+/**
+ * Compute the Grand Tichu index from an 8-card hand.
+ * Based on Stanford CS229 research: Dragon/Phoenix are ~3x more important than Ace.
+ * Bombs count as 3 (equivalent to Dragon/Phoenix in weight).
+ */
+export function computeGrandTichuIndex(hand8: GameCard[]): number {
+  let ig = 0;
+  for (const gc of hand8) {
+    if (isDragon(gc.card)) ig += 3;
+    else if (isPhoenix(gc.card)) ig += 3;
+    else if (gc.card.kind === 'standard' && gc.card.rank === 14) ig += 1;
+  }
+  ig += findBombs(hand8).length * 3;
+  return ig;
+}
+
+// REQ-F-RT01: Stanford Tichu index from CS229 paper
+// It = 2*N_Ace - 2*N_dog + 6*N_dragon + 6*N_phoenix + 5*N_bomb + N_straight - N_small
+// N_small = singleton cards below Queen not in any straight, pair, or triple
+/**
+ * Compute the Tichu index from a 14-card hand.
+ * Accounts for straights (positive) and weak singletons (negative).
+ */
+export function computeTichuIndex(hand14: GameCard[]): number {
+  let it = 0;
+
+  // Count power cards
+  for (const gc of hand14) {
+    if (isDragon(gc.card)) it += 6;
+    else if (isPhoenix(gc.card)) it += 6;
+    else if (isDog(gc.card)) it -= 2;
+    else if (gc.card.kind === 'standard' && gc.card.rank === 14) it += 2;
+  }
+
+  // Bombs
+  it += findBombs(hand14).length * 5;
+
+  // Count straights: find longest possible straight in the hand
+  it += countStraights(hand14);
+
+  // Count small singletons (below Queen, not in pair/triple/straight)
+  it -= countSmallSingletons(hand14);
+
+  return it;
+}
+
+/**
+ * Count straights available in hand. Returns number of straights of 5+ cards.
+ * A straight uses each rank once; longer straights count as 1 straight.
+ */
+export function countStraights(hand: GameCard[]): number {
+  // Collect distinct ranks in hand (standard cards + mahjong as rank 1)
+  const ranks = new Set<number>();
+  for (const gc of hand) {
+    if (gc.card.kind === 'standard') ranks.add(gc.card.rank);
+    else if (isMahjong(gc.card)) ranks.add(1);
+  }
+  // Phoenix acts as wild card for one missing rank
+  const hasPhoenix = hand.some((gc) => isPhoenix(gc.card));
+
+  // Find consecutive runs of 5+
+  let straights = 0;
+  const sorted = [...ranks].sort((a, b) => a - b);
+
+  let runLength = 1;
+  let usedWild = false;
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = sorted[i] - sorted[i - 1];
+    if (gap === 1) {
+      runLength++;
+    } else if (gap === 2 && hasPhoenix && !usedWild) {
+      // Phoenix fills one gap: +1 for Phoenix rank, +1 for current rank
+      runLength += 2;
+      usedWild = true;
+    } else {
+      if (runLength >= 5) straights++;
+      runLength = 1;
+      usedWild = false;
+    }
+  }
+  if (runLength >= 5) straights++;
+
+  return straights;
+}
+
+/**
+ * Count singleton cards below Queen (rank < 12) that are not part of
+ * any pair, triple, or detectable straight of 5+ cards.
+ * These are "dead weight" cards that hurt the Tichu index.
+ */
+export function countSmallSingletons(hand: GameCard[]): number {
+  // Count cards by rank
+  const rankCounts = new Map<number, number>();
+  for (const gc of hand) {
+    if (gc.card.kind === 'standard') {
+      const r = gc.card.rank;
+      rankCounts.set(r, (rankCounts.get(r) ?? 0) + 1);
+    }
+  }
+
+  // Find ranks that are in a straight of 5+
+  const ranksInStraight = new Set<number>();
+  const allRanks = new Set<number>();
+  for (const gc of hand) {
+    if (gc.card.kind === 'standard') allRanks.add(gc.card.rank);
+    else if (isMahjong(gc.card)) allRanks.add(1);
+  }
+  const sorted = [...allRanks].sort((a, b) => a - b);
+
+  // Find runs of 5+ consecutive ranks
+  let runStart = 0;
+  for (let i = 1; i <= sorted.length; i++) {
+    if (i < sorted.length && sorted[i] - sorted[i - 1] === 1) continue;
+    const runLen = i - runStart;
+    if (runLen >= 5) {
+      for (let j = runStart; j < i; j++) {
+        ranksInStraight.add(sorted[j]);
+      }
+    }
+    runStart = i;
+  }
+
+  // Count singletons below Queen not in any straight
+  let count = 0;
+  for (const [rank, qty] of rankCounts) {
+    if (rank < 12 && qty === 1 && !ranksInStraight.has(rank)) {
+      count++;
+    }
+  }
+  return count;
+}
 
 // ─── Hand Evaluation ────────────────────────────────────────────────────────
 
@@ -102,36 +239,13 @@ export function evaluateHandStrength(hand: GameCard[]): number {
   return score;
 }
 
+// REQ-F-BOMB03: Find all four-of-a-kind AND straight-flush bombs in the hand.
 /**
- * Find all four-of-a-kind and straight-flush bombs in the hand.
+ * Find all bombs in the hand: four-of-a-kind and straight-flush (5+ consecutive same-suit).
+ * Delegates to shared detectAllBombs() which handles both types.
  */
 export function findBombs(hand: GameCard[]): Combination[] {
-  const bombs: Combination[] = [];
-
-  // Group standard cards by rank
-  const byRank = new Map<number, GameCard[]>();
-  for (const gc of hand) {
-    if (gc.card.kind === 'standard') {
-      const r = gc.card.rank;
-      if (!byRank.has(r)) byRank.set(r, []);
-      byRank.get(r)!.push(gc);
-    }
-  }
-
-  // Four-of-a-kind bombs
-  for (const [, cards] of byRank) {
-    if (cards.length === 4) {
-      const combo = detectCombination(cards);
-      if (combo?.isBomb) bombs.push(combo);
-    }
-  }
-
-  // Straight-flush bombs: check consecutive same-suit groups of 5+
-  // (simplified: let detectCombination handle the detection)
-  // We'd need to enumerate subsets, which is expensive. For now, just find four-of-a-kinds.
-  // Full straight-flush bomb detection can be added if needed.
-
-  return bombs;
+  return detectAllBombs(hand);
 }
 
 /**
@@ -509,6 +623,31 @@ export function isEndgame(roundState: RoundState): boolean {
     (s) => roundState.players[s].finishOrder === null,
   );
   return active.length <= 2;
+}
+
+// REQ-F-END01-04: Endgame phase detection
+export type EndgamePhase = 'normal' | '3p-partner-out' | '3p-partner-in' | '2p';
+
+/**
+ * Determine the endgame phase based on how many players remain and partner status.
+ */
+export function getEndgamePhase(roundState: RoundState, seat: Seat): EndgamePhase {
+  const active = SEATS_IN_ORDER.filter(
+    (s) => roundState.players[s].finishOrder === null,
+  );
+
+  if (active.length > 3) return 'normal';
+
+  const partner = getPartner(seat);
+  const partnerOut = roundState.players[partner].finishOrder !== null;
+
+  if (active.length === 3) {
+    return partnerOut ? '3p-partner-out' : '3p-partner-in';
+  }
+
+  if (active.length <= 2) return '2p';
+
+  return 'normal';
 }
 
 /**

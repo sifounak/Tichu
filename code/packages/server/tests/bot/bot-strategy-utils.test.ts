@@ -1,12 +1,16 @@
 // Verifies: REQ-NF-MAINT01, REQ-F-INFO01
 
 import { describe, it, expect } from 'vitest';
-import type { GameCard, Rank, Seat, Combination } from '@tichu/shared';
+import type { GameCard, Rank, Seat, Combination, RoundState } from '@tichu/shared';
 import { CombinationType, Suit } from '@tichu/shared';
 import {
   countTopCards,
   countLeadGetters,
   evaluateHandStrength,
+  computeGrandTichuIndex,
+  computeTichuIndex,
+  countStraights,
+  countSmallSingletons,
   findBombs,
   findSingletons,
   getCardStrength,
@@ -24,6 +28,7 @@ import {
   getOpponentTichuCallers,
   getHandSizes,
   isEndgame,
+  getEndgamePhase,
   selectMahjongWish,
   selectDragonRecipient,
 } from '../../src/bot/bot-strategy-utils.js';
@@ -43,6 +48,29 @@ function card(kind: string, rank?: number, suit?: string, id?: number): GameCard
 
 function makeCombo(type: CombinationType, cards: GameCard[], rank: number, isBomb = false): Combination {
   return { type, cards, rank, length: cards.length, isBomb };
+}
+
+function makeRoundState(overrides: Partial<Record<string, any>> = {}): RoundState {
+  return {
+    roundNumber: 1,
+    phase: 'playing',
+    currentTrick: null,
+    currentTurn: 'north',
+    mahjongWish: null,
+    wishFulfilled: false,
+    finishOrder: [],
+    dragonGiftPending: null,
+    dragonGiftedTo: null,
+    lastDogPlay: null,
+    bombsPerTeam: { northSouth: 0, eastWest: 0 },
+    players: {
+      north: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+      east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+      south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+      west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+    },
+    ...overrides,
+  } as any;
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -143,6 +171,60 @@ describe('Hand Evaluation', () => {
         card('standard', 3, 'jade'),
       ];
       expect(findBombs(hand)).toHaveLength(0);
+    });
+
+    // Verifies: REQ-F-BOMB03 — straight-flush bomb detection
+    it('detects straight-flush bombs (5+ consecutive same suit)', () => {
+      const hand = [
+        card('standard', 3, 'jade', 301),
+        card('standard', 4, 'jade', 401),
+        card('standard', 5, 'jade', 501),
+        card('standard', 6, 'jade', 601),
+        card('standard', 7, 'jade', 701),
+        card('standard', 10, 'pagoda', 1002),
+      ];
+      const bombs = findBombs(hand);
+      expect(bombs.length).toBeGreaterThanOrEqual(1);
+      const sfBomb = bombs.find((b) => b.type === CombinationType.StraightFlushBomb);
+      expect(sfBomb).toBeDefined();
+      expect(sfBomb!.isBomb).toBe(true);
+      expect(sfBomb!.cards.length).toBe(5);
+    });
+
+    // Verifies: REQ-F-BOMB03 — does not false-positive on non-flush straights
+    it('does not detect straight of different suits as straight-flush bomb', () => {
+      const hand = [
+        card('standard', 3, 'jade', 301),
+        card('standard', 4, 'pagoda', 402),
+        card('standard', 5, 'jade', 501),
+        card('standard', 6, 'star', 603),
+        card('standard', 7, 'jade', 701),
+      ];
+      const bombs = findBombs(hand);
+      const sfBombs = bombs.filter((b) => b.type === CombinationType.StraightFlushBomb);
+      expect(sfBombs).toHaveLength(0);
+    });
+
+    // Verifies: REQ-F-BOMB03 — finds both four-of-a-kind and straight-flush bombs
+    it('finds both bomb types when both exist', () => {
+      const hand = [
+        // Four-of-a-kind bomb: 4x 9s
+        card('standard', 9, 'jade', 901),
+        card('standard', 9, 'pagoda', 902),
+        card('standard', 9, 'star', 903),
+        card('standard', 9, 'sword', 904),
+        // Straight-flush bomb: 3-4-5-6-7 of pagoda
+        card('standard', 3, 'pagoda', 302),
+        card('standard', 4, 'pagoda', 402),
+        card('standard', 5, 'pagoda', 502),
+        card('standard', 6, 'pagoda', 602),
+        card('standard', 7, 'pagoda', 702),
+      ];
+      const bombs = findBombs(hand);
+      const fourBombs = bombs.filter((b) => b.type === CombinationType.FourBomb);
+      const sfBombs = bombs.filter((b) => b.type === CombinationType.StraightFlushBomb);
+      expect(fourBombs.length).toBeGreaterThanOrEqual(1);
+      expect(sfBombs.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -391,6 +473,313 @@ describe('State Analysis', () => {
       } as any;
       const sizes = getHandSizes(roundState);
       expect(sizes).toEqual({ north: 3, east: 1, south: 0, west: 2 });
+    });
+  });
+});
+
+// ─── Stanford Index Computations (REQ-F-GT01, REQ-F-RT01) ──────────────────
+
+describe('Stanford Index Computations', () => {
+  // Verifies: REQ-F-GT01
+  describe('computeGrandTichuIndex', () => {
+    it('returns 0 for hand with no power cards', () => {
+      // Alternating suits to avoid straight-flush bomb
+      const hand = [
+        card('standard', 2, 'jade'), card('standard', 3, 'pagoda'), card('standard', 4, 'star'),
+        card('standard', 5, 'sword'), card('standard', 6, 'jade'), card('standard', 7, 'pagoda'),
+        card('standard', 8, 'star'), card('standard', 9, 'sword'),
+      ];
+      expect(computeGrandTichuIndex(hand)).toBe(0);
+    });
+
+    it('counts Dragon as 3', () => {
+      const hand = [
+        card('dragon'),
+        card('standard', 2, 'jade'), card('standard', 3, 'pagoda'), card('standard', 4, 'star'),
+        card('standard', 5, 'sword'), card('standard', 6, 'jade'), card('standard', 7, 'pagoda'),
+        card('standard', 8, 'star'),
+      ];
+      expect(computeGrandTichuIndex(hand)).toBe(3);
+    });
+
+    it('counts Phoenix as 3', () => {
+      const hand = [
+        card('phoenix'),
+        card('standard', 2, 'jade'), card('standard', 3, 'pagoda'), card('standard', 4, 'star'),
+        card('standard', 5, 'sword'), card('standard', 6, 'jade'), card('standard', 7, 'pagoda'),
+        card('standard', 8, 'star'),
+      ];
+      expect(computeGrandTichuIndex(hand)).toBe(3);
+    });
+
+    it('counts each Ace as 1', () => {
+      const hand = [
+        card('standard', 14, 'jade', 1401), card('standard', 14, 'pagoda', 1402),
+        card('standard', 3, 'jade'), card('standard', 4, 'pagoda'),
+        card('standard', 5, 'star'), card('standard', 6, 'sword'),
+        card('standard', 7, 'jade'), card('standard', 8, 'pagoda'),
+      ];
+      expect(computeGrandTichuIndex(hand)).toBe(2);
+    });
+
+    it('counts Dragon + Phoenix + Ace correctly', () => {
+      const hand = [
+        card('dragon'), card('phoenix'), card('standard', 14, 'jade'),
+        card('standard', 5, 'jade'), card('standard', 6, 'pagoda'), card('standard', 7, 'star'),
+        card('standard', 8, 'sword'), card('standard', 9, 'jade'),
+      ];
+      // 3 + 3 + 1 = 7
+      expect(computeGrandTichuIndex(hand)).toBe(7);
+    });
+
+    it('counts four-of-a-kind bomb as 3', () => {
+      const hand = [
+        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
+        card('standard', 5, 'star', 503), card('standard', 5, 'sword', 504),
+        card('standard', 6, 'jade'), card('standard', 7, 'pagoda'),
+        card('standard', 8, 'star'), card('standard', 9, 'sword'),
+      ];
+      expect(computeGrandTichuIndex(hand)).toBe(3);
+    });
+
+    it('does not count Kings, Dog, or Mahjong', () => {
+      const hand = [
+        card('standard', 13, 'jade'), card('standard', 13, 'pagoda'),
+        card('dog'), card('mahjong'),
+        card('standard', 5, 'jade'), card('standard', 6, 'pagoda'),
+        card('standard', 7, 'star'), card('standard', 8, 'sword'),
+      ];
+      expect(computeGrandTichuIndex(hand)).toBe(0);
+    });
+  });
+
+  // Verifies: REQ-F-RT01
+  describe('computeTichuIndex', () => {
+    it('returns 0 for a hand of all low non-consecutive pairs', () => {
+      // 7 pairs at non-consecutive ranks: no straights, no singletons
+      const hand = [
+        card('standard', 2, 'jade', 201), card('standard', 2, 'pagoda', 202),
+        card('standard', 4, 'jade', 401), card('standard', 4, 'pagoda', 402),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
+        card('standard', 10, 'jade', 1001), card('standard', 10, 'pagoda', 1002),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
+      ];
+      expect(computeTichuIndex(hand)).toBe(0);
+    });
+
+    it('weights Dragon at 6', () => {
+      // Dragon + non-consecutive pairs → no straights, no singletons
+      const hand = [
+        card('dragon'),
+        card('standard', 2, 'jade', 201), card('standard', 2, 'pagoda', 202),
+        card('standard', 4, 'jade', 401), card('standard', 4, 'pagoda', 402),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
+        card('standard', 10, 'jade', 1001), card('standard', 10, 'pagoda', 1002),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+      ];
+      expect(computeTichuIndex(hand)).toBe(6);
+    });
+
+    it('weights Dog at -2', () => {
+      // Dog + non-consecutive pairs → no straights, no singletons
+      const hand = [
+        card('dog'),
+        card('standard', 2, 'jade', 201), card('standard', 2, 'pagoda', 202),
+        card('standard', 4, 'jade', 401), card('standard', 4, 'pagoda', 402),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
+        card('standard', 10, 'jade', 1001), card('standard', 10, 'pagoda', 1002),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+      ];
+      expect(computeTichuIndex(hand)).toBe(-2);
+    });
+
+    it('includes straight bonus (+1 per straight of 5+)', () => {
+      // Hand: 2-3-4-5-6 = straight of 5 (alternating suits), + non-consecutive paired filler
+      const hand = [
+        card('standard', 2, 'jade', 201), card('standard', 3, 'pagoda', 301),
+        card('standard', 4, 'star', 401), card('standard', 5, 'sword', 501),
+        card('standard', 6, 'jade', 601),
+        // Non-consecutive paired filler (no more straight extension)
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
+        card('standard', 10, 'star', 1001), card('standard', 10, 'sword', 1002),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 13, 'star', 1301), card('standard', 13, 'sword', 1302),
+        card('standard', 14, 'jade', 1401),
+      ];
+      // Straight: 2-3-4-5-6 = run of 5 → 1 straight (+1)
+      // No small singletons not in straight (2-6 in straight, 8,10,12,13 paired, 14 Ace)
+      // Ace: 2 points
+      // It = 2(Ace) + 1(straight) = 3
+      expect(computeTichuIndex(hand)).toBe(3);
+    });
+
+    it('penalizes small singletons not in straights (-1 each)', () => {
+      // Hand with no power cards, no straights, and small singletons
+      const hand = [
+        card('standard', 2, 'jade', 201),  // singleton below Q, not in straight → -1
+        card('standard', 4, 'star', 401),  // singleton below Q, not in straight → -1
+        card('standard', 9, 'sword', 901),  // singleton below Q, not in straight → -1
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 13, 'jade', 1301), card('standard', 13, 'pagoda', 1302),
+        card('standard', 10, 'jade', 1001), card('standard', 10, 'pagoda', 1002),
+        card('standard', 11, 'star', 1101), card('standard', 11, 'pagoda', 1102),
+        card('standard', 8, 'jade', 801), card('standard', 8, 'pagoda', 802),
+        card('standard', 7, 'sword', 701),  // singleton below Q, not in straight → -1
+      ];
+      // 7,8,9,10,11,12,13 = 7 consecutive → straight! So 7 and 9 NOT penalized.
+      // Only 2 and 4 are singletons below Q not in straight → -2
+      // It = 0(no power cards) + 1(straight) - 2(singletons) = -1
+      expect(computeTichuIndex(hand)).toBe(-1);
+    });
+
+    it('computes full index: Dragon + Ace + bomb + straight - Dog - singletons', () => {
+      // Dragon(6) + Ace(2) + Dog(-2) + bomb(5) + straight(1) - 0 singletons = 12
+      // Use alternating suits for non-bomb cards to avoid straight-flush bombs
+      const hand = [
+        card('dragon'), card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
+        card('standard', 5, 'star', 503), card('standard', 5, 'sword', 504),
+        card('standard', 6, 'pagoda', 601), card('standard', 7, 'star', 701),
+        card('standard', 8, 'sword', 801), card('standard', 9, 'jade', 901),
+        card('standard', 10, 'pagoda', 1001),
+        card('standard', 11, 'star', 1101), card('standard', 11, 'pagoda', 1102),
+      ];
+      // Bombs: four 5s = 1 bomb (5), no straight-flush bombs (mixed suits)
+      // Straight: 5,6,7,8,9,10,11 = 7 consecutive (+1)
+      // Small singletons: 6,7,8,9,10 are singletons below 12 but they're in the straight
+      // It = 6 + 2 - 2 + 5 + 1 - 0 = 12
+      expect(computeTichuIndex(hand)).toBe(12);
+    });
+  });
+
+  describe('countStraights', () => {
+    it('returns 0 when no 5+ consecutive ranks', () => {
+      const hand = [
+        card('standard', 2), card('standard', 4), card('standard', 6),
+        card('standard', 8), card('standard', 10),
+      ];
+      expect(countStraights(hand)).toBe(0);
+    });
+
+    it('returns 1 for a run of exactly 5', () => {
+      const hand = [
+        card('standard', 3), card('standard', 4), card('standard', 5),
+        card('standard', 6), card('standard', 7),
+      ];
+      expect(countStraights(hand)).toBe(1);
+    });
+
+    it('counts Mahjong as rank 1', () => {
+      const hand = [
+        card('mahjong'), card('standard', 2), card('standard', 3),
+        card('standard', 4), card('standard', 5),
+      ];
+      expect(countStraights(hand)).toBe(1);
+    });
+
+    it('Phoenix fills one gap in a run', () => {
+      // 3,4,_,6,7 with Phoenix = 3,4,5,6,7 → straight
+      const hand = [
+        card('phoenix'), card('standard', 3), card('standard', 4),
+        card('standard', 6), card('standard', 7),
+      ];
+      expect(countStraights(hand)).toBe(1);
+    });
+
+    it('returns 0 when run of 4 with no Phoenix', () => {
+      const hand = [
+        card('standard', 3), card('standard', 4),
+        card('standard', 5), card('standard', 6),
+      ];
+      expect(countStraights(hand)).toBe(0);
+    });
+  });
+
+  describe('countSmallSingletons', () => {
+    it('returns 0 when all cards are paired', () => {
+      const hand = [
+        card('standard', 3, 'jade', 31), card('standard', 3, 'pagoda', 32),
+        card('standard', 5, 'jade', 51), card('standard', 5, 'pagoda', 52),
+      ];
+      expect(countSmallSingletons(hand)).toBe(0);
+    });
+
+    it('counts singletons below rank 12', () => {
+      const hand = [
+        card('standard', 3, 'jade', 31),  // singleton, below 12 → counted
+        card('standard', 7, 'jade', 71),  // singleton, below 12 → counted
+        card('standard', 12, 'jade', 121), // singleton, but rank 12 → NOT counted
+        card('standard', 14, 'jade', 141), // singleton, but rank 14 → NOT counted
+      ];
+      expect(countSmallSingletons(hand)).toBe(2);
+    });
+
+    it('excludes singletons that are in a 5+ straight', () => {
+      const hand = [
+        card('standard', 3, 'jade', 31), card('standard', 4, 'jade', 41),
+        card('standard', 5, 'jade', 51), card('standard', 6, 'jade', 61),
+        card('standard', 7, 'jade', 71),
+        card('standard', 10, 'jade', 101), // singleton below 12, NOT in straight → counted
+      ];
+      // 3-4-5-6-7 is a straight → those singletons excluded
+      // 10 is a singleton not in straight → counted
+      expect(countSmallSingletons(hand)).toBe(1);
+    });
+  });
+
+  // ─── Endgame Phase Detection (REQ-F-END01-04) ─────────────────────────────
+
+  describe('getEndgamePhase', () => {
+    // Verifies: REQ-F-END01
+    it('returns 3p-partner-out when partner already went out', () => {
+      const rs = makeRoundState({
+        finishOrder: ['south'],
+        players: {
+          north: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          west: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      expect(getEndgamePhase(rs, 'north')).toBe('3p-partner-out');
+    });
+
+    // Verifies: REQ-F-END02
+    it('returns 3p-partner-in when partner still playing', () => {
+      const rs = makeRoundState({
+        finishOrder: ['east'],
+        players: {
+          north: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          south: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      expect(getEndgamePhase(rs, 'north')).toBe('3p-partner-in');
+    });
+
+    // Verifies: REQ-F-END03, REQ-F-END04
+    it('returns 2p when only 2 players remain', () => {
+      const rs = makeRoundState({
+        finishOrder: ['east', 'south'],
+        players: {
+          north: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 2 },
+          west: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      expect(getEndgamePhase(rs, 'north')).toBe('2p');
+    });
+
+    it('returns normal when all 4 players active', () => {
+      const rs = makeRoundState();
+      expect(getEndgamePhase(rs, 'north')).toBe('normal');
     });
   });
 });
