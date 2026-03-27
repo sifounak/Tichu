@@ -2,7 +2,9 @@
 
 ## Specification
 - Source: `specifications/2026-03-26-expert-bot-strategy-update.md`
-- Plan: `plans/tranquil-twirling-wreath.md` (`.claude/plans/`)
+- Source (M13-M14): `specifications/2026-03-27-expert-bot-partner-support.md`
+- Plan (M1-M4): `plans/tranquil-twirling-wreath.md` (`.claude/plans/`)
+- Plan (M5-M7): `plans/2026-03-27-expert-bot-partner-support.md`
 
 ## Requirements
 
@@ -51,3 +53,13 @@
 | REQ-F-FOL01 | King safety: treat Kings as Aces when all Aces accounted | M12 | 3 | expert-bot.ts:chooseFollowPlay | expert-bot.test.ts | Passed |
 | REQ-F-FOL02 | Smart pass on low tricks (unchanged) | M12 | — | expert-bot.ts | expert-bot.test.ts | Passed |
 | REQ-F-FOL03 | Split Aces exceptions: over Queen+ pairs or one-more-control | M12 | 3 | expert-bot.ts:chooseLeadPlay,chooseFollowPlay | expert-bot.test.ts | Passed |
+| REQ-F-USD01 | Track per-opponent uncontested single trick wins | M13 | 5 | expert-bot.ts:updateUncontestedSingleTracking | expert-bot.test.ts | Not Started |
+| REQ-F-USD02 | Break weakest combo to contest 2+ uncontested singles < Jack | M13 | 5 | expert-bot.ts:getUSDComboBreak | expert-bot.test.ts | Not Started |
+| REQ-F-USD03 | Stricter threshold (1 win, < Queen) when partner called GT/T | M13 | 5 | expert-bot.ts:getUSDComboBreak | expert-bot.test.ts | Not Started |
+| REQ-F-PTS01 | Lead Dog when partner called GT/T | M14 | 6 | expert-bot.ts:choosePTSLeadPlay | expert-bot.test.ts | Not Started |
+| REQ-F-PTS02 | Lead lowest single if no Dog when partner GT/T | M14 | 6 | expert-bot.ts:choosePTSLeadPlay | expert-bot.test.ts | Not Started |
+| REQ-F-PTS03 | Escalate lead type on consecutive PTS leads | M14 | 6 | expert-bot.ts:choosePTSLeadPlay | expert-bot.test.ts | Not Started |
+| REQ-F-PTS04 | Aggressive follow to win tricks for partner GT/T | M14 | 7 | expert-bot.ts:chooseFollowPlay | expert-bot.test.ts | Not Started |
+| REQ-F-PTS05 | Suppress go-out-first when partner called GT/T | M14 | 7 | expert-bot.ts:shouldSuppressGoOut | expert-bot.test.ts | Not Started |
+| REQ-F-PTS06 | Nullification exception — go out to nullify both Tichus | M14 | 7 | expert-bot.ts:shouldSuppressGoOut,isVeryHighGoOutChance | expert-bot.test.ts | Not Started |
+| REQ-F-PTS07 | Low-trick overplay when partner has NOT called GT/T | M14 | 7 | expert-bot.ts:chooseFollowPlay | expert-bot.test.ts | Not Started |
