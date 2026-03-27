@@ -789,14 +789,15 @@ describe('ExpertBot', () => {
       }
     });
 
-    // Verifies: REQ-F-DOG01 — condition 1
-    it('saves Dog when partner called Tichu', () => {
+    // Verifies: REQ-F-PTS01 overrides REQ-F-DOG01 condition 1
+    // PTS01: When partner called Tichu, play Dog to give them control (overrides DOG01 save)
+    it('plays Dog when partner called Tichu (PTS01 overrides DOG01)', () => {
       const { bot, ctx } = makeDogContext({ partnerCall: 'tichu' });
       const decision = bot.choosePlay(ctx);
       expect(decision.action).toBe('play');
       if (decision.action === 'play') {
-        // Should NOT play Dog — saves it to bail partner out
-        expect(decision.cards[0].card.kind).not.toBe('dog');
+        // PTS01: Dog is played to transfer control to partner
+        expect(decision.cards[0].card.kind).toBe('dog');
       }
     });
 
@@ -2664,6 +2665,350 @@ describe('ExpertBot', () => {
       const decision = bot.choosePlay(ctx);
       // No valid plays, so must pass — USD can't help
       expect(decision.action).toBe('pass');
+    });
+  });
+
+  // ─── Partner Tichu Lead Support (REQ-F-PTS01, PTS02, PTS03) ────────────
+
+  describe('partner Tichu lead support', () => {
+    // Verifies: REQ-F-PTS01 — leads Dog when partner called Tichu
+    it('leads Dog when partner called Tichu', () => {
+      const bot = new ExpertBot();
+      const cDog = card('dog');
+      const c3 = card('standard', 3, 'jade', 301);
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [cDog, c3, c5];
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [cDog], 0),
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c5], 5),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: null,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).toBe('dog');
+      }
+    });
+
+    // Verifies: REQ-F-PTS01 — leads Dog when partner called Grand Tichu
+    it('leads Dog when partner called Grand Tichu', () => {
+      const bot = new ExpertBot();
+      const cDog = card('dog');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [cDog, c3];
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'grandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [cDog], 0),
+        makeCombo(CombinationType.Single, [c3], 3),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: null,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).toBe('dog');
+      }
+    });
+
+    // Verifies: REQ-F-PTS02 — leads lowest single when no Dog
+    it('leads lowest single when partner called Tichu and no Dog', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c5 = card('standard', 5, 'jade', 501);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c3, c5, c14];
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c5], 5),
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: null,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(1);
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(3);
+        }
+      }
+    });
+
+    // Verifies: REQ-F-PTS03 — escalates to pair on 2nd consecutive lead
+    it('escalates to pair on second consecutive PTS lead', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c5a = card('standard', 5, 'jade', 501);
+      const c5b = card('standard', 5, 'pagoda', 502);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c3, c5a, c5b, c14];
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      // First lead: should play single (gets ptsConsecutiveLeads = 1)
+      const validPlays1 = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c5a], 5),
+        makeCombo(CombinationType.Pair, [c5a, c5b], 5),
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+      bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: null,
+        validPlays: validPlays1,
+        roundState: rs,
+        seat: 'north' as Seat,
+      }));
+      expect(bot.getPtsConsecutiveLeads()).toBe(1);
+
+      // Second lead: should escalate to pair
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: null,
+        validPlays: validPlays1,
+        roundState: rs,
+        seat: 'north' as Seat,
+      }));
+      expect(bot.getPtsConsecutiveLeads()).toBe(2);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(2); // Pair
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(5);
+        }
+      }
+    });
+
+    // Verifies: REQ-F-PTS03 — escalates to triple on 3rd consecutive lead
+    it('escalates to triple on third consecutive PTS lead', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c5a = card('standard', 5, 'jade', 501);
+      const c5b = card('standard', 5, 'pagoda', 502);
+      const c5c = card('standard', 5, 'star', 503);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c3, c5a, c5b, c5c, c14];
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c5a], 5),
+        makeCombo(CombinationType.Pair, [c5a, c5b], 5),
+        makeCombo(CombinationType.Triple, [c5a, c5b, c5c], 5),
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+
+      // Lead 1: single, Lead 2: pair, Lead 3: triple
+      bot.choosePlay(makePlayContext({ hand, currentTrick: null, validPlays, roundState: rs, seat: 'north' as Seat }));
+      bot.choosePlay(makePlayContext({ hand, currentTrick: null, validPlays, roundState: rs, seat: 'north' as Seat }));
+      const decision = bot.choosePlay(makePlayContext({ hand, currentTrick: null, validPlays, roundState: rs, seat: 'north' as Seat }));
+
+      expect(bot.getPtsConsecutiveLeads()).toBe(3);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(3); // Triple
+      }
+    });
+
+    // Verifies: REQ-F-PTS03 — resets on round change
+    it('resets PTS escalation on round change', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c3];
+
+      const rs1 = makeRoundState({
+        roundNumber: 1,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.choosePlay(makePlayContext({
+        hand, currentTrick: null,
+        validPlays: [makeCombo(CombinationType.Single, [c3], 3)],
+        roundState: rs1, seat: 'north' as Seat,
+      }));
+      expect(bot.getPtsConsecutiveLeads()).toBe(1);
+
+      // New round — should reset
+      const rs2 = makeRoundState({
+        roundNumber: 2,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.choosePlay(makePlayContext({
+        hand, currentTrick: null,
+        validPlays: [makeCombo(CombinationType.Single, [c3], 3)],
+        roundState: rs2, seat: 'north' as Seat,
+      }));
+      // Should be 1 again (reset to 0, then incremented to 1)
+      expect(bot.getPtsConsecutiveLeads()).toBe(1);
+    });
+
+    // Verifies: REQ-F-PTS03 — falls through to normal if no combo of escalated type
+    it('falls through to lowest single if no pair available for escalation', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c7 = card('standard', 7, 'jade', 701);
+      const hand = [c3, c7];
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c7], 7),
+      ];
+
+      // First lead: single 3
+      bot.choosePlay(makePlayContext({ hand, currentTrick: null, validPlays, roundState: rs, seat: 'north' as Seat }));
+
+      // Second lead: wants to escalate to pair, but no pairs available → falls through to lowest single
+      const decision = bot.choosePlay(makePlayContext({ hand, currentTrick: null, validPlays, roundState: rs, seat: 'north' as Seat }));
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(1);
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(3);
+        }
+      }
+    });
+
+    // Verifies: PTS Dog overrides shouldSaveDog behavior
+    it('PTS Dog play overrides shouldSaveDog save-for-partner logic', () => {
+      const bot = new ExpertBot();
+      const cDog = card('dog');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [cDog, c3];
+
+      // Without partner Tichu: shouldSaveDog would save Dog (partner called Tichu condition)
+      // But with PTS active, Dog should be played immediately
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [cDog], 0),
+        makeCombo(CombinationType.Single, [c3], 3),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: null,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS should override shouldSaveDog and play Dog
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).toBe('dog');
+      }
+    });
+
+    // Verifies: No PTS behavior without partner GT/T call
+    it('does not activate PTS when partner has no call', () => {
+      const bot = new ExpertBot();
+      const cDog = card('dog');
+      const c3 = card('standard', 3, 'jade', 301);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [cDog, c3, c14];
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [cDog], 0),
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: null,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Without partner call, normal Dog logic applies (shouldSaveDog decides)
+      // PTS escalation counter should NOT increment
+      expect(bot.getPtsConsecutiveLeads()).toBe(0);
     });
   });
 });
