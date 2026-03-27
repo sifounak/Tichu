@@ -8,6 +8,7 @@ import type {
   Combination,
   TrickState,
   RoundState,
+  Team,
 } from '@tichu/shared';
 
 /** Context provided to the bot when choosing a play */
@@ -65,4 +66,8 @@ export interface BotStrategy {
 
   /** Choose a Mahjong wish rank, or null for no wish */
   chooseMahjongWish(hand: GameCard[]): Rank | null;
+
+  // REQ-F-CTX01: Optional context setter for advanced bots (scores, targetScore, roundState)
+  /** Provide game context before each decision phase (scores, target, round state) */
+  setContext?(roundState: RoundState, scores: Record<Team, number>, targetScore: number): void;
 }

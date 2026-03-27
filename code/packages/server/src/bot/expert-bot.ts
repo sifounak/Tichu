@@ -2,7 +2,7 @@
 // Key sources: BGA Tips_tichu — Passing Cards, Leading, Following, Bombing,
 // Tichu Calling, Grand Tichu, special card usage, defensive play, point tracking.
 
-import type { GameCard, Seat, Rank, Combination, RoundState } from '@tichu/shared';
+import type { GameCard, Seat, Rank, Combination, RoundState, Team } from '@tichu/shared';
 import {
   CombinationType,
   SEATS_IN_ORDER,
@@ -21,7 +21,6 @@ import type {
 } from './bot-interface.js';
 import {
   evaluateHandStrength,
-  computeGrandTichuIndex,
   computeTichuIndex,
   sortByStrength,
   isPartnerWinning,
@@ -33,6 +32,12 @@ import {
   findSingletons,
   getEndgamePhase,
   getHandSizes,
+  hasStrength,
+  hasStrongMultiCardHand,
+  getRightOpponent,
+  findBombs,
+  getThirdWorstNonBreaking,
+  isCardInMultiCardCombo,
 } from './bot-strategy-utils.js';
 import { CardTracker } from './card-tracker.js';
 
@@ -77,35 +82,76 @@ export class ExpertBot implements BotStrategy {
   private lastRoundState: RoundState | null = null;
   private currentRound = -1;
   private scoreDiff: number | null = null;
-  // REQ-F-PASS05: Track card passed to left opponent for Mah Jong wish
-  private passedToLeft: GameCard | null = null;
+  // REQ-F-PASS08: Track card passed to right opponent for Mahjong wish
+  private passedToRight: GameCard | null = null;
   // REQ-F-MJ01: Track whether Mah Jong was played in a straight (no wish)
   private mahjongPlayedInStraight = false;
   // Track bot's seat for context in methods that don't receive it
   private mySeat: Seat = 'north';
 
+  // REQ-F-CTX01: Game context from bot-runner
+  private gameScores: Record<Team, number> | null = null;
+  private targetScore = 1000;
+
+  // REQ-F-STR02: Partner strength signal detection
+  private partnerPassedCard: GameCard | null = null;
+  private partnerStrengthDetected = false;
+  private partnerStrengthChecked = false;
+
+  // REQ-F-USD01: Track per-opponent uncontested single trick wins
+  private uncontestedSingleCounts: Record<Seat, number> = { north: 0, east: 0, south: 0, west: 0 };
+  private uncontestedSingleLastRank: Record<Seat, number> = { north: 0, east: 0, south: 0, west: 0 };
+  private lastTricksWonCounts: Record<Seat, number> = { north: 0, east: 0, south: 0, west: 0 };
+  private lastSeenTrickType: CombinationType | null = null;
+
+  // REQ-F-PTS01-03: Partner Tichu support — lead escalation
+  private ptsConsecutiveLeads = 0;
+  // Track who led the last trick (for detecting if partner took over)
+  private lastLeadSeat: Seat | null = null;
+
   // ─── Grand Tichu ──────────────────────────────────────────────────────────
 
-  // REQ-F-GT01, REQ-F-GT02: Stanford Grand Tichu index with score-adaptive thresholds
+  // REQ-F-GT01, REQ-F-GT02, REQ-F-GT03: Grand Tichu with concrete criteria
   /**
-   * Grand Tichu evaluation using Stanford CS229 Ig index + score context.
+   * Grand Tichu evaluation using power card count + hand quality.
    *
-   * Ig = N_Ace + 3*N_dragon + 3*N_phoenix + 3*N_bomb
-   *
-   * Score-adaptive thresholds (shifted upward from Stanford baseline for strong play):
-   * - Ahead 200+: Ig >= 6 (Dragon+Phoenix only)
-   * - Even/close: Ig >= 4 (Dragon+Ace, Phoenix+Ace, Dragon+Phoenix)
-   * - Behind 200-300: Ig >= 3 (Dragon alone, Phoenix alone, 3 Aces)
-   * - Behind 400+: Ig >= 2 (2 Aces, 1 Ace+bomb)
+   * Call Grand Tichu when:
+   * 1. 3+ power cards AND a bomb in hand
+   * 2. 3+ power cards AND a strong (rank > 10) multi-card hand
+   * 3. 2+ power cards AND a strong multi-card hand AND opponents near winning
    */
   chooseGrandTichu(hand8: GameCard[]): boolean {
-    const ig = computeGrandTichuIndex(hand8);
-    const deficit = this.scoreDiff !== null ? -this.scoreDiff : 0;
+    // Count power cards: Ace, Dragon, Phoenix
+    let powerCards = 0;
+    for (const gc of hand8) {
+      if (isDragon(gc.card) || isPhoenix(gc.card)) powerCards++;
+      else if (gc.card.kind === 'standard' && gc.card.rank === 14) powerCards++;
+    }
 
-    if (deficit >= 400) return ig >= 2;
-    if (deficit >= 200) return ig >= 3;
-    if (this.scoreDiff !== null && this.scoreDiff >= 200) return ig >= 6;
-    return ig >= 4;
+    const hasBomb = findBombs(hand8).length > 0;
+    const hasStrongMulti = hasStrongMultiCardHand(hand8);
+
+    // REQ-F-GT01: 3+ power cards AND bomb
+    if (powerCards >= 3 && hasBomb) return true;
+
+    // REQ-F-GT02: 3+ power cards AND strong multi-card hand
+    if (powerCards >= 3 && hasStrongMulti) return true;
+
+    // REQ-F-GT03: 2+ power + strong multi + opponents near winning
+    if (powerCards >= 2 && hasStrongMulti) {
+      const opponentsNearWinning = this.areOpponentsNearWinning();
+      if (opponentsNearWinning) return true;
+    }
+
+    return false;
+  }
+
+  /** Check if opponents are within 1 game of winning (score >= targetScore - 100) */
+  private areOpponentsNearWinning(): boolean {
+    if (!this.gameScores) return false;
+    const myTeam = getTeam(this.mySeat);
+    const oppTeam = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
+    return this.gameScores[oppTeam] >= this.targetScore - 100;
   }
 
   // ─── Regular Tichu ────────────────────────────────────────────────────────
@@ -134,33 +180,92 @@ export class ExpertBot implements BotStrategy {
     this.scoreDiff = diff;
   }
 
+  // REQ-F-CTX01: Receive game context from bot-runner before each decision phase
+  setContext(roundState: RoundState, scores: Record<Team, number>, targetScore: number): void {
+    this.lastRoundState = roundState;
+    this.gameScores = scores;
+    this.targetScore = targetScore;
+    // Compute score diff: positive = our team ahead
+    const myTeam = getTeam(this.mySeat);
+    const oppTeam = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
+    this.scoreDiff = scores[myTeam] - scores[oppTeam];
+  }
+
+  // REQ-F-STR02: Detect partner strength from the card they passed to us
+  private detectPartnerStrength(roundState: RoundState, seat: Seat): void {
+    if (this.partnerStrengthChecked) return;
+    this.partnerStrengthChecked = true;
+
+    const partner = getPartner(seat);
+    const passedCards = roundState.players[partner]?.passedCards;
+    const passedCard = passedCards?.to?.[seat] ?? null;
+    if (!passedCard) return;
+
+    this.partnerPassedCard = passedCard;
+    // Partner signaled strength if they passed a low card (rank < 10) or the Dog
+    if (isDog(passedCard.card)) {
+      this.partnerStrengthDetected = true;
+    } else if (passedCard.card.kind === 'standard' && passedCard.card.rank < 10) {
+      this.partnerStrengthDetected = true;
+    } else {
+      this.partnerStrengthDetected = false;
+    }
+  }
+
   // ─── Card Passing ─────────────────────────────────────────────────────────
 
-  // REQ-F-PASS01-05: Card passing with strength concentration + parity convention
+  // REQ-F-PASS01-08: Card passing with strength concentration + parity convention
   /**
-   * Card passing based on strategy research:
-   * - REQ-F-PASS01: Strength concentration — weak hand passes best to partner,
-   *   strong hand passes 3rd-worst
-   * - REQ-F-PASS02: Parity convention — odd ranks to left, even ranks to right
-   * - REQ-F-PASS03: Anti-bomb — never same rank to both opponents
-   * - REQ-F-PASS04: Special card rules — Dragon/Phoenix team-only, Dog to partner if strong
-   * - REQ-F-PASS05: Track passedToLeft for Mah Jong wish
+   * Card passing based on updated strategy:
+   * - REQ-F-PASS01: Strength concentration using hasStrength (2+ power cards)
+   * - REQ-F-PASS02: Strong hand passes 3rd-worst non-breaking card to partner
+   * - REQ-F-PASS03: Parity convention — odd ranks to left, even ranks to right
+   * - REQ-F-PASS04: Anti-bomb — split low pair if no 2 singles below 8
+   * - REQ-F-PASS05: Never pass Dragon/Phoenix/Mahjong to opponents
+   * - REQ-F-PASS06: Dog routing — opponent GT/T → Dog to opponent
+   * - REQ-F-PASS07: Dog routing — strong hand → Dog to partner/right, weak → left
+   * - REQ-F-PASS08: Track passedToRight for Mahjong wish
    */
   chooseCardsToPass(hand: GameCard[], seat: Seat): Record<Seat, GameCard> {
     this.mySeat = seat;
     const partner = getPartner(seat);
     const leftOpp = getNextSeat(seat); // clockwise = left-hand opponent
-    const rightOpp = SEATS_IN_ORDER.find(
-      (s) => s !== seat && s !== partner && s !== leftOpp,
-    )!;
+    const rightOpp = getRightOpponent(seat);
     const sorted = sortByStrength(hand);
 
     const hasDragon = hand.some((gc) => isDragon(gc.card));
-    const hasPhoenix = hand.some((gc) => isPhoenix(gc.card));
-    const it = computeTichuIndex(hand);
-    const isStrongHand = it >= 7; // Can potentially call Tichu
+    const hasPhoenixCard = hand.some((gc) => isPhoenix(gc.card));
+    const hasDog = hand.some((gc) => isDog(gc.card));
+    // REQ-F-PASS01: Use M1 strength definition (2+ power cards)
+    const isStrongHand = hasStrength(hand);
 
-    // ─ REQ-F-PASS01: Partner card selection (strength concentration) ─
+    // ─ REQ-F-PASS06/07: Dog routing ─
+    let dogRecipient: Seat | null = null;
+    if (hasDog) {
+      // Check if any opponent called GT/T (available from lastRoundState set by setContext)
+      const opponentWithCall = this.getOpponentWithTichuCall(seat);
+      if (opponentWithCall) {
+        // REQ-F-PASS06: Dog to opponent who called GT/T
+        dogRecipient = opponentWithCall;
+      } else if (isStrongHand) {
+        // REQ-F-PASS07: Strong hand — Dog to partner if may need help regaining control,
+        // otherwise Dog to right opponent
+        const leadGetters = hand.filter((gc) =>
+          isDragon(gc.card) ||
+          (gc.card.kind === 'standard' && gc.card.rank === 14),
+        ).length + findBombs(hand).length;
+        if (leadGetters < 3) {
+          dogRecipient = partner; // May need help regaining control
+        } else {
+          dogRecipient = rightOpp; // Self-sufficient → Dog to right
+        }
+      } else {
+        // Weak hand — Dog to left opponent
+        dogRecipient = leftOpp;
+      }
+    }
+
+    // ─ REQ-F-PASS01/02: Partner card selection (strength concentration) ─
     let partnerCard: GameCard | null = null;
 
     if (!isStrongHand) {
@@ -168,59 +273,79 @@ export class ExpertBot implements BotStrategy {
       // Dragon > Phoenix > Ace > highest standard
       if (hasDragon) {
         partnerCard = hand.find((gc) => isDragon(gc.card))!;
-      } else if (hasPhoenix) {
+      } else if (hasPhoenixCard) {
         partnerCard = hand.find((gc) => isPhoenix(gc.card))!;
       } else {
         // Pass highest card (last in sorted = strongest)
         partnerCard = sorted[sorted.length - 1];
       }
     } else {
-      // Strong hand: pass 3rd-worst card to partner
-      // But still pass Dog to partner if we have it (signal strength)
-      const hasDog = hand.some((gc) => isDog(gc.card));
-      if (hasDog) {
-        // REQ-F-PASS04: Pass Dog to partner from strong hand
+      // REQ-F-PASS02: Strong hand: 3rd-worst card that doesn't break a combo
+      if (dogRecipient === partner) {
         partnerCard = hand.find((gc) => isDog(gc.card))!;
       } else {
-        // 3rd-worst non-special card
-        const nonSpecial = sorted.filter(
-          (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card),
-        );
-        partnerCard = nonSpecial[2] ?? nonSpecial[nonSpecial.length - 1] ?? sorted[2];
+        const nonBreaking = getThirdWorstNonBreaking(hand.filter(
+          (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
+        ));
+        if (nonBreaking) {
+          partnerCard = nonBreaking;
+        } else {
+          // Fallback: 3rd-weakest non-special
+          const nonSpecial = sorted.filter(
+            (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
+          );
+          partnerCard = nonSpecial[2] ?? nonSpecial[nonSpecial.length - 1] ?? sorted[2];
+        }
       }
     }
 
-    // ─ REQ-F-PASS02: Opponent card selection with parity convention ─
-    // Pick 2 weakest non-special cards (excluding partner card)
+    // ─ REQ-F-PASS04: Anti-bomb — opponent card selection ─
     const usedIds = new Set([partnerCard.id]);
+    if (dogRecipient && dogRecipient !== partner) {
+      // Dog going to an opponent — mark it as used
+      const dogCard = hand.find((gc) => isDog(gc.card))!;
+      usedIds.add(dogCard.id);
+    }
+
+    // REQ-F-PASS05: Filter out Dragon, Phoenix, Mahjong, Dog for opponent candidates
     const opponentCandidates = sorted.filter(
       (gc) =>
         !usedIds.has(gc.id) &&
-        !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card),
+        !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
     );
 
-    // Pick 2 weakest
-    let oppCard1 = opponentCandidates[0]
-      ?? sorted.find((gc) => !usedIds.has(gc.id))!;
-    usedIds.add(oppCard1.id);
-    let oppCard2 = opponentCandidates.find((gc) => !usedIds.has(gc.id))
-      ?? sorted.find((gc) => !usedIds.has(gc.id))!;
+    // REQ-F-PASS04: Anti-bomb — if we don't have 2 single cards below 8,
+    // split a low pair (rank 2-4) and give one to each opponent
+    const singlesBelow8 = opponentCandidates.filter(
+      (gc) => gc.card.kind === 'standard' && gc.card.rank < 8 && !isCardInMultiCardCombo(gc, hand),
+    );
 
-    // REQ-F-PASS03: Anti-bomb check
-    if (
-      oppCard1.card.kind === 'standard' && oppCard2.card.kind === 'standard' &&
-      oppCard1.card.rank === oppCard2.card.rank
-    ) {
-      const alt = opponentCandidates.find(
-        (gc) =>
-          !usedIds.has(gc.id) &&
-          gc.card.kind === 'standard' &&
-          (gc.card as { rank: number }).rank !== (oppCard1.card as { rank: number }).rank,
-      );
-      if (alt) oppCard2 = alt;
+    let oppCard1: GameCard;
+    let oppCard2: GameCard;
+
+    if (singlesBelow8.length < 2) {
+      // Try to split a low pair (rank 2-4)
+      const lowPairCard = this.findLowPairToSplit(hand, usedIds);
+      if (lowPairCard) {
+        // Found a low pair — give one card from it to each opponent
+        oppCard1 = lowPairCard[0];
+        oppCard2 = lowPairCard[1];
+      } else {
+        // No low pair to split — fall back to 2 weakest
+        oppCard1 = opponentCandidates[0] ?? sorted.find((gc) => !usedIds.has(gc.id))!;
+        usedIds.add(oppCard1.id);
+        oppCard2 = opponentCandidates.find((gc) => !usedIds.has(gc.id))
+          ?? sorted.find((gc) => !usedIds.has(gc.id))!;
+      }
+    } else {
+      // Have 2+ singles below 8 — use them
+      oppCard1 = singlesBelow8[0];
+      usedIds.add(oppCard1.id);
+      oppCard2 = singlesBelow8[1] ?? opponentCandidates.find((gc) => !usedIds.has(gc.id))
+        ?? sorted.find((gc) => !usedIds.has(gc.id))!;
     }
 
-    // Apply parity convention: odd → left, even → right
+    // REQ-F-PASS03: Apply parity convention: odd → left, even → right
     let leftCard: GameCard;
     let rightCard: GameCard;
 
@@ -243,8 +368,15 @@ export class ExpertBot implements BotStrategy {
       rightCard = rank1 <= rank2 ? oppCard2 : oppCard1;
     }
 
-    // REQ-F-PASS05: Track what was passed to left for Mah Jong wish
-    this.passedToLeft = leftCard;
+    // Override for Dog routing to specific opponent
+    if (dogRecipient === leftOpp) {
+      leftCard = hand.find((gc) => isDog(gc.card))!;
+    } else if (dogRecipient === rightOpp) {
+      rightCard = hand.find((gc) => isDog(gc.card))!;
+    }
+
+    // REQ-F-PASS08: Track what was passed to right for Mahjong wish
+    this.passedToRight = rightCard;
 
     const result = {} as Record<Seat, GameCard>;
     result[leftOpp] = leftCard;
@@ -254,9 +386,45 @@ export class ExpertBot implements BotStrategy {
     return result;
   }
 
-  /** Get the card passed to the left opponent (for Mah Jong wish context) */
-  getPassedToLeft(): GameCard | null {
-    return this.passedToLeft;
+  /** Find an opponent who called Grand Tichu or Tichu (from cached round state) */
+  private getOpponentWithTichuCall(seat: Seat): Seat | null {
+    const rs = this.lastRoundState;
+    if (!rs) return null;
+    const myTeam = getTeam(seat);
+    for (const s of SEATS_IN_ORDER) {
+      if (getTeam(s) === myTeam) continue;
+      const call = rs.players[s].tipiCall;
+      if (call === 'tichu' || call === 'grandTichu') return s;
+    }
+    return null;
+  }
+
+  /** REQ-F-PASS04: Find a low pair (rank 2-4) to split between opponents */
+  private findLowPairToSplit(hand: GameCard[], usedIds: Set<number>): [GameCard, GameCard] | null {
+    const rankCounts = new Map<number, GameCard[]>();
+    for (const gc of hand) {
+      if (usedIds.has(gc.id)) continue;
+      if (gc.card.kind !== 'standard') continue;
+      const r = gc.card.rank;
+      if (r > 4) continue; // Only ranks 2-4
+      if (!rankCounts.has(r)) rankCounts.set(r, []);
+      rankCounts.get(r)!.push(gc);
+    }
+    // Find first pair
+    for (const [, cards] of rankCounts) {
+      if (cards.length >= 2) return [cards[0], cards[1]];
+    }
+    return null;
+  }
+
+  /** Get the card passed to the right opponent (for Mahjong wish context) */
+  getPassedToRight(): GameCard | null {
+    return this.passedToRight;
+  }
+
+  /** Whether partner signaled strength via card pass */
+  getPartnerStrengthDetected(): boolean {
+    return this.partnerStrengthDetected;
   }
 
   // ─── Play Selection ───────────────────────────────────────────────────────
@@ -282,10 +450,32 @@ export class ExpertBot implements BotStrategy {
       this.cardTracker.reset();
       this.handPlan = null;
       this.planCreated = false;
+      this.partnerStrengthChecked = false;
+      this.partnerPassedCard = null;
+      this.partnerStrengthDetected = false;
+      // REQ-F-USD01: Reset uncontested singles tracking
+      this.uncontestedSingleCounts = { north: 0, east: 0, south: 0, west: 0 };
+      this.uncontestedSingleLastRank = { north: 0, east: 0, south: 0, west: 0 };
+      this.lastTricksWonCounts = { north: 0, east: 0, south: 0, west: 0 };
+      this.lastSeenTrickType = null;
+      // REQ-F-PTS03: Reset partner Tichu lead escalation
+      this.ptsConsecutiveLeads = 0;
+      this.lastLeadSeat = null;
     }
+
+    // REQ-F-STR02: Detect partner strength on first play of round
+    this.detectPartnerStrength(roundState, seat);
 
     // Update card tracker
     this.cardTracker.update(roundState, seat, hand);
+
+    // REQ-F-USD01: Track uncontested single wins
+    this.updateUncontestedSingleTracking(roundState, seat);
+
+    // REQ-F-PTS03: Track who led the current trick for escalation reset
+    if (currentTrick && currentTrick.plays.length > 0) {
+      this.lastLeadSeat = currentTrick.leadSeat;
+    }
 
     // Create hand plan on first play
     if (!this.planCreated && validPlays.length > 0) {
@@ -353,38 +543,60 @@ export class ExpertBot implements BotStrategy {
 
   // ─── Mahjong Wish ─────────────────────────────────────────────────────────
 
-  // REQ-F-MJ01: Context-adaptive Mah Jong wish
+  // REQ-F-MJ01-04: Context-adaptive Mahjong wish with partner strength awareness
   /**
-   * Mah Jong wish selection with 4-priority context:
-   * 1. Mah Jong played in a straight → no wish
-   * 2. Opponent called Tichu/Grand Tichu → wish for Ace (force out power card)
-   * 3. Default → wish for card passed to left opponent (parity convention)
-   * 4. Fallback → wish for rank not in hand, preferring 5 or 6
+   * Mahjong wish selection with 4-priority system:
+   * 1. Mahjong in straight: no wish if Ace/partner strength; wish Ace if right opp GT/T + no strength
+   * 2. Right opponent called Grand Tichu → wish for Ace
+   * 3. Right opponent called Tichu AND no partner strength → wish for Ace
+   * 4. Fallback → wish for card passed to right opponent
    */
   chooseMahjongWish(hand: GameCard[]): Rank | null {
-    // Priority 1: Mah Jong in a straight → no wish
-    if (this.mahjongPlayedInStraight) return null;
-
     const haveRanks = new Set<number>();
     for (const gc of hand) {
       if (gc.card.kind === 'standard') haveRanks.add(gc.card.rank);
     }
+    const hasAce = haveRanks.has(14);
+    const rightOpp = getRightOpponent(this.mySeat);
 
-    // Priority 2: Opponent called Tichu or Grand Tichu → wish for Ace
+    // Get right opponent's call status
+    let rightOppCall: string = 'none';
     if (this.lastRoundState) {
-      const opponentCallers = getOpponentTichuCallers(this.lastRoundState, this.mySeat);
-      if (opponentCallers.length > 0 && !haveRanks.has(14)) {
+      rightOppCall = this.lastRoundState.players[rightOpp].tipiCall;
+    }
+    const rightOppCalledTichuOrGT = rightOppCall === 'tichu' || rightOppCall === 'grandTichu';
+    const rightOppCalledGT = rightOppCall === 'grandTichu';
+
+    // REQ-F-MJ01: Mahjong played in a straight
+    if (this.mahjongPlayedInStraight) {
+      if (hasAce || this.partnerStrengthDetected) {
+        // No wish — we have strength
+        return null;
+      }
+      // Wish for Ace if right opponent called GT/T AND no partner strength AND no Ace
+      if (rightOppCalledTichuOrGT && !this.partnerStrengthDetected && !hasAce) {
         return 14 as Rank;
       }
+      return null;
     }
 
-    // Priority 3: Wish for card passed to left opponent (parity convention)
-    if (this.passedToLeft && this.passedToLeft.card.kind === 'standard') {
-      const passedRank = this.passedToLeft.card.rank;
+    // REQ-F-MJ02: Right opponent called Grand Tichu → wish for Ace
+    if (rightOppCalledGT && !hasAce) {
+      return 14 as Rank;
+    }
+
+    // REQ-F-MJ03: Right opponent called Tichu AND no partner strength → wish for Ace
+    if (rightOppCall === 'tichu' && !this.partnerStrengthDetected && !hasAce) {
+      return 14 as Rank;
+    }
+
+    // REQ-F-MJ04: Fallback — wish for card passed to right opponent
+    if (this.passedToRight && this.passedToRight.card.kind === 'standard') {
+      const passedRank = this.passedToRight.card.rank;
       if (!haveRanks.has(passedRank)) return passedRank as Rank;
     }
 
-    // Priority 4: Fallback — wish for rank not in hand, preferring 5 or 6
+    // Final fallback — wish for rank not in hand, preferring 5 or 6
     const fallbackCandidates: Rank[] = [5, 6, 7, 8, 9, 10] as Rank[];
     for (const rank of fallbackCandidates) {
       if (!haveRanks.has(rank)) return rank;
@@ -541,38 +753,98 @@ export class ExpertBot implements BotStrategy {
    * Decision tree:
    * 1. Following on opponent's Ace → prefer (singleton-killer)
    * 2. Phoenix completes a combination eliminating 3+ cards → prefer (wild)
-   * 3. Leading with Phoenix as singleton → avoid (+0.5 is weak)
-   * 4. Unaccounted opponent Aces exist → avoid singleton use (save to beat Ace)
-   * 5. Otherwise → neutral
+   * Never play when:
+   * - REQ-F-PHX01: On single < Ace unless all Aces accounted for
+   * - REQ-F-PHX02: In low multi-card (rank < 7) unless going out
+   *
+   * Acceptable when:
+   * - REQ-F-PHX03: Over single Ace (prefer last unaccounted)
+   * - REQ-F-PHX04: Over King if all Aces played
+   * - REQ-F-PHX05: In straight (rank >= 10 or length >= 5)
+   * - REQ-F-PHX06: In consecutive pairs
+   * - REQ-F-PHX07: In triple (rank >= 8)
+   * - REQ-F-PHX08: In pair (rank > 10)
+   * - REQ-F-PHX09: As singleton lead if rest are Ace/King(if Aces played)/Dragon
    */
   private evaluatePhoenixPlay(
     combo: Combination,
     currentTrick: import('@tichu/shared').TrickState | null,
-    _hand: GameCard[],
-  ): 'prefer' | 'avoid' | 'neutral' {
+    hand: GameCard[],
+  ): 'never' | 'acceptable' | 'neutral' {
     const hasPhoenix = combo.cards.some((gc) => isPhoenix(gc.card));
     if (!hasPhoenix) return 'neutral';
 
-    // 1. Following on opponent's Ace with Phoenix singleton → prefer (singleton-killer)
+    const allAcesAccountedFor = this.cardTracker.allAcesAccountedFor();
+    const allAcesPlayed = this.cardTracker.allAcesPlayed();
+
+    // ─── NEVER rules ───
+
+    // REQ-F-PHX01: Phoenix as singleton on top of single < Ace, unless all Aces accounted
+    if (currentTrick && combo.cards.length === 1) {
+      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+      if (lastPlay && lastPlay.combination.cards.length === 1) {
+        const lastCard = lastPlay.combination.cards[0];
+        if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14 && !allAcesAccountedFor) {
+          return 'never';
+        }
+      }
+    }
+
+    // REQ-F-PHX02: Phoenix in low multi-card hand (rank < 7), unless going out
+    if (combo.cards.length > 1 && combo.rank < 7) {
+      if (hand.length !== combo.cards.length) { // Not going out
+        return 'never';
+      }
+    }
+
+    // ─── ACCEPTABLE scenarios ───
+
+    // REQ-F-PHX03: Over single Ace
     if (currentTrick && combo.cards.length === 1) {
       const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
       if (lastPlay && lastPlay.combination.cards.length === 1) {
         const lastCard = lastPlay.combination.cards[0];
         if (lastCard.card.kind === 'standard' && lastCard.card.rank === 14) {
-          return 'prefer'; // Beat the Ace with Phoenix
+          return 'acceptable';
         }
       }
     }
 
-    // 2. Phoenix in combination of 3+ cards → prefer (eliminates losers)
-    if (combo.cards.length >= 3) return 'prefer';
+    // REQ-F-PHX04: Over King if all Aces already played
+    if (currentTrick && combo.cards.length === 1 && allAcesPlayed) {
+      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+      if (lastPlay && lastPlay.combination.cards.length === 1) {
+        const lastCard = lastPlay.combination.cards[0];
+        if (lastCard.card.kind === 'standard' && lastCard.card.rank === 13) {
+          return 'acceptable';
+        }
+      }
+    }
 
-    // 3. Leading with Phoenix as singleton → avoid
-    if (!currentTrick && combo.cards.length === 1) return 'avoid';
+    // REQ-F-PHX05: In straight with high rank (>= 10) or length >= 5
+    if (combo.type === CombinationType.Straight) {
+      if (combo.rank >= 10 || combo.cards.length >= 5) return 'acceptable';
+    }
 
-    // 4. Unaccounted Aces exist → avoid singleton use (save for Ace-beating)
-    if (combo.cards.length === 1 && this.cardTracker.getUnaccountedAces() > 0) {
-      return 'avoid';
+    // REQ-F-PHX06: In consecutive pairs (PairSequence)
+    if (combo.type === CombinationType.PairSequence) return 'acceptable';
+
+    // REQ-F-PHX07: In triple with rank >= 8
+    if (combo.type === CombinationType.Triple && combo.rank >= 8) return 'acceptable';
+
+    // REQ-F-PHX08: In pair with rank > 10
+    if (combo.type === CombinationType.Pair && combo.rank > 10) return 'acceptable';
+
+    // REQ-F-PHX09: As singleton lead if all remaining are Ace/King(if Aces played)/Dragon
+    if (!currentTrick && combo.cards.length === 1) {
+      const otherCards = hand.filter((gc) => !isPhoenix(gc.card));
+      const allWinners = otherCards.every((gc) => {
+        if (isDragon(gc.card)) return true;
+        if (gc.card.kind === 'standard' && gc.card.rank === 14) return true;
+        if (allAcesPlayed && gc.card.kind === 'standard' && gc.card.rank === 13) return true;
+        return false;
+      });
+      if (otherCards.length > 0 && allWinners) return 'acceptable';
     }
 
     return 'neutral';
@@ -653,9 +925,10 @@ export class ExpertBot implements BotStrategy {
 
     if (this.handPlan) this.handPlan.valid = false;
 
-    // Can go out? Always do it.
+    // Can go out? Always do it (unless PTS05 suppresses).
+    const suppress12GoOut = this.shouldSuppressGoOut(context.roundState, seat, hand);
     for (const combo of plays) {
-      if (canGoOut(hand, combo)) return this.toDecision(combo);
+      if (canGoOut(hand, combo) && !suppress12GoOut) return this.toDecision(combo);
     }
 
     if (!currentTrick) {
@@ -672,6 +945,91 @@ export class ExpertBot implements BotStrategy {
     // Play highest to win the trick
     const ranked = rankCombinationsForFollow(plays);
     return this.toDecision(ranked[ranked.length - 1] ?? ranked[0]);
+  }
+
+  // ─── Partner Tichu Support — Leading ─────────────────────────────────────
+
+  // REQ-F-PTS01-03: Helper to check if partner called GT/T
+  private hasPartnerTichuCall(roundState: RoundState, seat: Seat): boolean {
+    const partner = getPartner(seat);
+    const call = roundState.players[partner].tipiCall;
+    return call === 'tichu' || call === 'grandTichu';
+  }
+
+  // REQ-F-PTS01-03: Partner Tichu lead strategy with escalation
+  /**
+   * When partner called GT/T:
+   * - PTS01: Play Dog to transfer control
+   * - PTS02: If no Dog, lead lowest single
+   * - PTS03: If bot keeps leading (partner didn't take over), escalate:
+   *   1st re-lead → lowest pair, 2nd → lowest triple, 3rd → lowest straight
+   */
+  private choosePTSLeadPlay(
+    validPlays: Combination[],
+    _hand: GameCard[],
+    _roundState: RoundState,
+    _seat: Seat,
+  ): BotPlayDecision | null {
+    const ranked = rankCombinationsForLead(validPlays);
+
+    // REQ-F-PTS01: Play Dog to give partner control
+    const dogPlay = ranked.find((c) => c.cards.length === 1 && isDog(c.cards[0].card));
+    if (dogPlay) {
+      this.ptsConsecutiveLeads++;
+      return this.toDecision(dogPlay);
+    }
+
+    // REQ-F-PTS03: Escalate combo type on consecutive leads
+    if (this.ptsConsecutiveLeads >= 1) {
+      // Escalation order: pair → triple → straight → any multi-card
+      const escalationTypes = [
+        CombinationType.Pair,
+        CombinationType.Triple,
+        CombinationType.Straight,
+        CombinationType.PairSequence,
+        CombinationType.FullHouse,
+      ];
+
+      // Start from the appropriate escalation level
+      const startIdx = Math.min(this.ptsConsecutiveLeads - 1, escalationTypes.length - 1);
+
+      for (let i = startIdx; i < escalationTypes.length; i++) {
+        const targetType = escalationTypes[i];
+        // Find lowest combo of target type (ranked is already low-to-high)
+        const match = ranked.find(
+          (c) => c.type === targetType && !c.isBomb &&
+            !c.cards.some((gc) => isDragon(gc.card)),
+        );
+        if (match) {
+          this.ptsConsecutiveLeads++;
+          return this.toDecision(match);
+        }
+      }
+
+      // No combo of escalated type — fall through to lowest single
+    }
+
+    // REQ-F-PTS02: No Dog → lead lowest single
+    const lowestSingle = ranked.find(
+      (c) => c.type === CombinationType.Single &&
+        !isDragon(c.cards[0].card) &&
+        !c.cards.some((gc) => isPhoenix(gc.card)),
+    );
+    if (lowestSingle) {
+      this.ptsConsecutiveLeads++;
+      return this.toDecision(lowestSingle);
+    }
+
+    // Fallback: lead lowest available (excluding Dragon)
+    const fallback = ranked.find(
+      (c) => !c.cards.some((gc) => isDragon(gc.card)),
+    );
+    if (fallback) {
+      this.ptsConsecutiveLeads++;
+      return this.toDecision(fallback);
+    }
+
+    return null;
   }
 
   // ─── Lead Play ────────────────────────────────────────────────────────────
@@ -696,6 +1054,20 @@ export class ExpertBot implements BotStrategy {
     // REQ-F-BOMB02: Bomb-proof exit planning when 2-3 cards remain
     const bombProofPlay = this.getBombProofExitPlay(ranked, hand);
     if (bombProofPlay) return this.toDecision(bombProofPlay);
+
+    // REQ-F-PTS01-03: Partner Tichu lead support (BEFORE Dog/shouldSaveDog)
+    // PTS overrides shouldSaveDog — when partner called GT/T, play Dog immediately
+    if (this.hasPartnerTichuCall(roundState, seat)) {
+      // Reset escalation if partner led last trick (partner took over briefly)
+      if (this.lastLeadSeat !== null && this.lastLeadSeat !== seat) {
+        this.ptsConsecutiveLeads = 0;
+      }
+      const ptsLead = this.choosePTSLeadPlay(validPlays, hand, roundState, seat);
+      if (ptsLead) {
+        this.lastLeadSeat = seat;
+        return ptsLead;
+      }
+    }
 
     // REQ-F-DOG01: Context-dependent Dog play (checked BEFORE hand plan)
     const dogPlay = ranked.find((c) => c.cards.length === 1 && isDog(c.cards[0].card));
@@ -727,21 +1099,69 @@ export class ExpertBot implements BotStrategy {
       }
     }
 
-    // Can go out? Always do it.
+    // Can go out? Always do it (unless PTS05 suppresses).
+    const suppressGoOutLead = this.shouldSuppressGoOut(roundState, seat, hand);
     for (const combo of ranked) {
-      if (canGoOut(hand, combo)) return this.toDecision(combo);
+      if (canGoOut(hand, combo) && !suppressGoOutLead) return this.toDecision(combo);
     }
 
-    // Lead with lowest non-winner (save winners)
-    // REQ-F-PHX01: Also skip Phoenix singleton leads (only +0.5, weak lead)
-    // REQ-F-FOL03: Skip Ace pairs — each Ace should win a separate lead
+    // REQ-F-DEF03: Determine if Aces should be played for control
+    const opponentNearExit = SEATS_IN_ORDER.some((s) =>
+      getTeam(s) !== getTeam(seat) &&
+      roundState.players[s].finishOrder === null &&
+      roundState.players[s].hand.length <= 3,
+    );
+    const needsDogPlay = hand.some((gc) => isDog(gc.card)) && !this.shouldSaveDog(roundState, seat, hand);
+
+    // REQ-F-DEF04: Prefer multi-card combos over breaking pairs to play as singles
+    // REQ-F-DEF05: Low-to-high rank order (already sorted by rankCombinationsForLead)
+    // REQ-F-DEF01: Keep Aces as singletons, skip Ace pairs
+    // REQ-F-DEF06: Prefer combos where we have a high follow-up of same type
     for (const combo of ranked) {
+      // Skip Dragon singleton (save it)
       if (combo.cards.length === 1 && isDragon(combo.cards[0].card)) continue;
+      // REQ-F-DEF02/DEF03: Skip Ace singletons unless needed for control or disruption
       if (combo.type === CombinationType.Single &&
-        combo.cards[0].card.kind === 'standard' && combo.cards[0].card.rank === 14) continue;
+        combo.cards[0].card.kind === 'standard' && combo.cards[0].card.rank === 14 &&
+        !opponentNearExit && !needsDogPlay) continue;
+      // Skip Phoenix singleton (weak lead)
       if (combo.cards.length === 1 && isPhoenix(combo.cards[0].card)) continue;
-      // REQ-F-FOL03: Never lead Ace pairs — split them for individual wins
-      if (combo.type === CombinationType.Pair && combo.rank === 14) continue;
+      // REQ-F-DEF01/FOL03: Avoid leading Ace pairs — split for individual wins
+      if (combo.type === CombinationType.Pair && combo.rank === 14) {
+        const remaining = hand.filter((gc) => !combo.cards.some((c) => c.id === gc.id));
+        const allWinners = remaining.every((gc) =>
+          isDragon(gc.card) || (gc.card.kind === 'standard' && gc.card.rank >= 14),
+        );
+        if (!allWinners) continue;
+      }
+      // REQ-F-DEF04: Skip singles that are part of a multi-card combo in hand
+      if (combo.type === CombinationType.Single && combo.cards[0].card.kind === 'standard') {
+        if (isCardInMultiCardCombo(combo.cards[0], hand)) {
+          // Check if there's a multi-card combo of this rank available
+          const multiCardOfSameRank = ranked.find(
+            (c) => c.cards.length > 1 && !c.isBomb &&
+              c.cards.some((gc) => gc.card.kind === 'standard' && gc.card.rank === combo.rank),
+          );
+          if (multiCardOfSameRank) continue; // Skip the single, prefer the multi-card
+        }
+      }
+      // REQ-F-DEF06: For low multi-card combos, prefer those where we have a high follow-up
+      if (combo.cards.length > 1 && combo.rank <= 8 && !combo.isBomb) {
+        const hasHighFollowUp = ranked.some(
+          (c) => c.type === combo.type && c.cards.length === combo.cards.length &&
+            c.rank >= 12 && c !== combo,
+        );
+        if (!hasHighFollowUp) {
+          // No high follow-up of same type — try to find a combo type with follow-up first
+          const betterLead = ranked.find(
+            (c) => c.cards.length > 1 && c.rank <= 8 && !c.isBomb && c !== combo &&
+              ranked.some(
+                (h) => h.type === c.type && h.cards.length === c.cards.length && h.rank >= 12 && h !== c,
+              ),
+          );
+          if (betterLead) return this.toDecision(betterLead);
+        }
+      }
       return this.toDecision(combo);
     }
 
@@ -771,6 +1191,11 @@ export class ExpertBot implements BotStrategy {
 
     const hasDragon = hand.some((gc) => isDragon(gc.card));
     if (!hasDragon) return null;
+
+    // REQ-F-BOMB02: Exception — if a play would make us go out, skip bomb-proof avoidance
+    for (const combo of ranked) {
+      if (canGoOut(hand, combo)) return null; // Let normal go-out logic handle it
+    }
 
     // Check if there's bomb risk (any rank with 3+ unaccounted cards)
     const absentRanks = this.cardTracker.getAbsentRanks();
@@ -850,6 +1275,225 @@ export class ExpertBot implements BotStrategy {
     return fightScore >= 0 ? 'fight' : 'concede';
   }
 
+  // ─── Uncontested Singles Defense ─────────────────────────────────────────
+
+  // REQ-F-USD01: Track per-opponent uncontested single trick wins
+  /**
+   * Detect newly completed tricks by comparing tricksWon counts.
+   * An uncontested single has exactly 1 card in the tricksWon entry.
+   * Reset counters when trick type changes (non-single trick played).
+   */
+  private updateUncontestedSingleTracking(roundState: RoundState, seat: Seat): void {
+    const myTeam = getTeam(seat);
+
+    // Track current trick type for counter reset
+    const currentTrickType = roundState.currentTrick?.plays[0]?.combination.type ?? null;
+    if (currentTrickType !== null && currentTrickType !== CombinationType.Single) {
+      if (this.lastSeenTrickType === null || this.lastSeenTrickType === CombinationType.Single) {
+        // Trick type changed from single to non-single — reset counters
+        for (const s of SEATS_IN_ORDER) {
+          this.uncontestedSingleCounts[s] = 0;
+          this.uncontestedSingleLastRank[s] = 0;
+        }
+      }
+    }
+    this.lastSeenTrickType = currentTrickType;
+
+    // Detect newly completed tricks by comparing tricksWon counts
+    for (const s of SEATS_IN_ORDER) {
+      if (getTeam(s) === myTeam) continue; // Only track opponents
+      const currentCount = roundState.players[s].tricksWon.length;
+      const previousCount = this.lastTricksWonCounts[s];
+
+      if (currentCount > previousCount) {
+        // New trick(s) won — check each new entry
+        for (let i = previousCount; i < currentCount; i++) {
+          const trickCards = roundState.players[s].tricksWon[i];
+          if (trickCards.length === 1) {
+            // Exactly 1 card = uncontested single
+            const wonCard = trickCards[0];
+            const rank = wonCard.card.kind === 'standard' ? wonCard.card.rank : 0;
+            this.uncontestedSingleCounts[s]++;
+            this.uncontestedSingleLastRank[s] = rank;
+          } else {
+            // Contested or non-single trick — reset this opponent's counter
+            this.uncontestedSingleCounts[s] = 0;
+            this.uncontestedSingleLastRank[s] = 0;
+          }
+        }
+      }
+
+      this.lastTricksWonCounts[s] = currentCount;
+    }
+  }
+
+  // REQ-F-USD02, USD03: Break weakest combo to contest uncontested singles
+  /**
+   * Check if any opponent meets the uncontested singles threshold.
+   * If so, find the weakest multi-card hand whose freed card can beat
+   * the current trick rank. Break priority: pairs > triples > longer.
+   */
+  private getUSDComboBreak(
+    hand: GameCard[],
+    validPlays: Combination[],
+    roundState: RoundState,
+    seat: Seat,
+    currentTrickRank: number,
+  ): Combination | null {
+    const myTeam = getTeam(seat);
+    const partner = getPartner(seat);
+    const partnerCall = roundState.players[partner].tipiCall;
+    const partnerHasCall = partnerCall === 'tichu' || partnerCall === 'grandTichu';
+
+    // REQ-F-USD02: threshold 2, rank < 11 (Jack)
+    // REQ-F-USD03: threshold 1, rank < 12 (Queen) when partner GT/T
+    const threshold = partnerHasCall ? 1 : 2;
+    const rankLimit = partnerHasCall ? 12 : 11;
+
+    // Check if any opponent meets threshold
+    let qualifyingOpponent = false;
+    for (const s of SEATS_IN_ORDER) {
+      if (getTeam(s) === myTeam) continue;
+      if (
+        this.uncontestedSingleCounts[s] >= threshold &&
+        this.uncontestedSingleLastRank[s] < rankLimit
+      ) {
+        qualifyingOpponent = true;
+        break;
+      }
+    }
+
+    if (!qualifyingOpponent) return null;
+
+    // Find singles in validPlays that come from breaking a multi-card combo
+    // and can beat the current trick rank
+    const breakableSingles: Array<{ combo: Combination; comboSize: number }> = [];
+
+    for (const play of validPlays) {
+      if (play.type !== CombinationType.Single) continue;
+      if (play.cards[0].card.kind !== 'standard') continue;
+      if (play.rank <= currentTrickRank) continue; // Must beat the trick
+
+      // Check if this card is part of a multi-card combo in hand
+      const gc = play.cards[0];
+      if (!isCardInMultiCardCombo(gc, hand)) continue;
+
+      // Determine the size of the combo being broken
+      const rank = gc.card.kind === 'standard' ? gc.card.rank : 0;
+      const sameRankCount = hand.filter(
+        (h) => h.card.kind === 'standard' && h.card.rank === rank,
+      ).length;
+
+      breakableSingles.push({ combo: play, comboSize: sameRankCount });
+    }
+
+    if (breakableSingles.length === 0) return null;
+
+    // Break priority: pairs (2) before triples (3) before larger (4+)
+    // Among same size, prefer lowest rank
+    breakableSingles.sort((a, b) => {
+      if (a.comboSize !== b.comboSize) return a.comboSize - b.comboSize;
+      return a.combo.rank - b.combo.rank;
+    });
+
+    return breakableSingles[0].combo;
+  }
+
+  // ─── Partner Tichu Support — Go-Out Suppression ─────────────────────────
+
+  // REQ-F-PTS05, PTS06: Determine if go-out should be suppressed
+  /**
+   * Suppress going out first when partner called GT/T, unless:
+   * - Partner is already out (no need to protect)
+   * - PTS06 nullification exception applies
+   */
+  private shouldSuppressGoOut(roundState: RoundState, seat: Seat, hand: GameCard[]): boolean {
+    if (!this.hasPartnerTichuCall(roundState, seat)) return false;
+
+    const partner = getPartner(seat);
+    // If partner is already out, no need to suppress
+    if (roundState.players[partner].finishOrder !== null) return false;
+
+    // REQ-F-PTS06: Nullification exception
+    const myTeam = getTeam(seat);
+    const partnerCall = roundState.players[partner].tipiCall;
+    const partnerCards = roundState.players[partner].hand.length;
+
+    // Check if any opponent also called Tichu
+    let opponentCallerSeat: Seat | null = null;
+    let opponentCards = 0;
+    for (const s of SEATS_IN_ORDER) {
+      if (getTeam(s) === myTeam) continue;
+      if (roundState.players[s].finishOrder !== null) continue;
+      const call = roundState.players[s].tipiCall;
+      if (call === 'tichu' || call === 'grandTichu') {
+        opponentCallerSeat = s;
+        opponentCards = roundState.players[s].hand.length;
+        break;
+      }
+    }
+
+    if (
+      opponentCallerSeat &&
+      (partnerCall === 'tichu' || partnerCall === 'grandTichu') &&
+      partnerCards >= 8 &&
+      opponentCards <= 3
+    ) {
+      // Check if bot has very high chance of going out
+      if (this.isVeryHighGoOutChance(hand, opponentCards)) {
+        return false; // Allow go-out to nullify both Tichus
+      }
+    }
+
+    return true; // Suppress go-out to protect partner's Tichu
+  }
+
+  // REQ-F-PTS06: Assess if bot has very high chance of going out first
+  /**
+   * (a) 3 or fewer cards AND all are winners (Ace, Dragon, bomb cards)
+   * (b) Winners + multi-card combo rank >= 10 or length > opponent cards, with backup
+   */
+  private isVeryHighGoOutChance(hand: GameCard[], opponentCardCount: number): boolean {
+    if (hand.length === 0) return false;
+
+    // Count winners: Aces, Dragon
+    let winnerCount = 0;
+    for (const gc of hand) {
+      if (isDragon(gc.card)) winnerCount++;
+      else if (gc.card.kind === 'standard' && gc.card.rank === 14) winnerCount++;
+    }
+
+    // Check for bombs
+    const hasBomb = findBombs(hand).length > 0;
+    if (hasBomb) winnerCount++;
+
+    // (a) 3 or fewer cards, all winners
+    if (hand.length <= 3 && winnerCount >= hand.length) return true;
+
+    // (b) Winners + strong multi-card combo + backup
+    if (winnerCount >= 1) {
+      // Check for multi-card combos with rank >= 10 or length > opponent cards
+      const handRanks = new Map<number, number>();
+      for (const gc of hand) {
+        if (gc.card.kind === 'standard') {
+          handRanks.set(gc.card.rank, (handRanks.get(gc.card.rank) ?? 0) + 1);
+        }
+      }
+
+      for (const [rank, count] of handRanks) {
+        if (count >= 2) {
+          // Multi-card combo found
+          if (rank >= 10 || count > opponentCardCount) {
+            // Has strong multi-card + winners as backup
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
   // ─── Follow Play ──────────────────────────────────────────────────────────
 
   /**
@@ -865,23 +1509,74 @@ export class ExpertBot implements BotStrategy {
     const { currentTrick, seat, roundState, hand, canPass } = context;
     const partnerWinning = isPartnerWinning(currentTrick, seat);
     const opponentCallers = getOpponentTichuCallers(roundState, seat);
+    const partnerHasCall = this.hasPartnerTichuCall(roundState, seat);
+    const suppressGoOut = this.shouldSuppressGoOut(roundState, seat, hand);
 
     // REQ-F-DEF01: Evaluate Tichu defense stance
     const defenseStance = opponentCallers.length > 0
       ? this.evaluateTichuDefense(roundState, seat)
       : null;
 
-    // Partner winning — pass (don't overplay partner)
+    // Partner winning — handle overplay and pass logic
     if (partnerWinning && canPass) {
+      // REQ-F-PTS05: Suppress go-out when partner called GT/T
       for (const combo of plays) {
-        if (canGoOut(hand, combo)) return this.toDecision(combo);
+        if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
       }
+
+      // REQ-F-PTS07: Low-trick overplay when partner has NOT called GT/T
+      if (!partnerHasCall && currentTrick) {
+        const partnerPlay = currentTrick.plays.find((p) => p.seat === currentTrick.currentWinner);
+        if (partnerPlay) {
+          const partnerRank = partnerPlay.combination.rank;
+          if (partnerRank < 10) {
+            const ranked = rankCombinationsForFollow(plays);
+            if (ranked.length > 0) {
+              const cheapest = ranked[0];
+              if (cheapest.rank - partnerRank <= 4) {
+                return this.toDecision(cheapest);
+              }
+            }
+          }
+        }
+      }
+
       return { action: 'pass' };
     }
 
-    // Can go out? Always play.
+    // REQ-F-PTS04: Aggressive follow when partner GT/T and opponent winning
+    if (partnerHasCall && !partnerWinning && currentTrick) {
+      const ranked = rankCombinationsForFollow(plays);
+      // REQ-F-PTS05: Check go-out suppression
+      for (const combo of ranked) {
+        if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
+      }
+      // Play to win with minimum force (don't pass even on low tricks)
+      // But be cautious: if winning would leave us with cards that could
+      // all go out on the next play, and go-out is suppressed, pass instead
+      // to avoid getting stuck (PTS05 would block the go-out lead)
+      if (ranked.length > 0) {
+        if (suppressGoOut && canPass) {
+          const remainingCards = hand.filter(
+            (gc) => !ranked[0].cards.some((c) => c.id === gc.id),
+          );
+          // Would go out next if: 1 card left, or all same rank (pair/triple)
+          const wouldGoOutNext = remainingCards.length === 1 ||
+            (remainingCards.length >= 2 && remainingCards.every((gc) =>
+              gc.card.kind === 'standard' && remainingCards[0].card.kind === 'standard' &&
+              gc.card.rank === (remainingCards[0].card as { rank: number }).rank,
+            ));
+          if (wouldGoOutNext) {
+            return { action: 'pass' };
+          }
+        }
+        return this.toDecision(ranked[0]);
+      }
+    }
+
+    // Can go out? Always play (unless suppressed by PTS05).
     for (const combo of plays) {
-      if (canGoOut(hand, combo)) return this.toDecision(combo);
+      if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
     }
 
     const ranked = rankCombinationsForFollow(plays);
@@ -889,6 +1584,15 @@ export class ExpertBot implements BotStrategy {
     // REQ-F-DEF01: When conceding opponent's Tichu, pass more freely
     if (defenseStance === 'concede' && canPass) {
       return { action: 'pass' };
+    }
+
+    // REQ-F-USD02, USD03: Break combos to contest uncontested singles
+    if (currentTrick && currentTrick.plays.length > 0) {
+      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+      if (lastPlay.combination.type === CombinationType.Single && !isPartnerWinning(currentTrick, seat)) {
+        const usdBreak = this.getUSDComboBreak(hand, plays, roundState, seat, lastPlay.combination.rank);
+        if (usdBreak) return this.toDecision(usdBreak);
+      }
     }
 
     // Strategy guide: "save high cards for later" — if opponent didn't call Tichu
@@ -901,20 +1605,21 @@ export class ExpertBot implements BotStrategy {
         if (cheapestWin.rank >= 14 || (cheapestWin.cards.length === 1 && isDragon(cheapestWin.cards[0].card))) {
           return { action: 'pass' };
         }
-        // REQ-F-FOL02: Smart pass — don't spend King on low trick when Aces unaccounted
-        if (cheapestWin.rank === 13 && this.cardTracker.getUnaccountedAces() > 0) {
+        // REQ-F-FOL01: King safety — treat Kings as top-tier when Aces unaccounted,
+        // but play them confidently when all Aces are accounted for
+        if (cheapestWin.rank === 13 && !this.cardTracker.allAcesAccountedFor()) {
           return { action: 'pass' };
         }
       }
     }
 
-    // REQ-F-PHX01: Win with minimum force, but evaluate Phoenix plays
+    // REQ-F-PHX01-09: Win with minimum force, evaluate Phoenix plays
     if (ranked.length > 0) {
       const cheapest = ranked[0];
       const phoenixEval = this.evaluatePhoenixPlay(cheapest, currentTrick, hand);
 
-      // If cheapest win uses Phoenix and we should avoid it, try next non-Phoenix play
-      if (phoenixEval === 'avoid' && ranked.length > 1) {
+      // If cheapest win uses Phoenix and it's 'never', try next non-Phoenix play
+      if (phoenixEval === 'never') {
         const nonPhoenixPlay = ranked.find(
           (c) => !c.cards.some((gc) => isPhoenix(gc.card)),
         );
@@ -922,9 +1627,6 @@ export class ExpertBot implements BotStrategy {
         // If all plays use Phoenix, pass if we can
         if (canPass) return { action: 'pass' };
       }
-
-      // If Phoenix play is preferred (e.g., beating Ace), prioritize it
-      if (phoenixEval === 'prefer') return this.toDecision(cheapest);
 
       return this.toDecision(cheapest);
     }
@@ -1122,5 +1824,31 @@ export class ExpertBot implements BotStrategy {
 
   getHandPlan(): HandPlan | null {
     return this.handPlan;
+  }
+
+  getGameScores(): Record<Team, number> | null {
+    return this.gameScores;
+  }
+
+  getTargetScore(): number {
+    return this.targetScore;
+  }
+
+  getPartnerPassedCard(): GameCard | null {
+    return this.partnerPassedCard;
+  }
+
+  getScoreDiff(): number | null {
+    return this.scoreDiff;
+  }
+
+  // REQ-F-USD01: Accessor for uncontested single counts (testing)
+  getUncontestedSingleCounts(): Record<Seat, number> {
+    return { ...this.uncontestedSingleCounts };
+  }
+
+  // REQ-F-PTS03: Accessor for PTS consecutive leads (testing)
+  getPtsConsecutiveLeads(): number {
+    return this.ptsConsecutiveLeads;
   }
 }
