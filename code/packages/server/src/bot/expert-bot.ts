@@ -104,6 +104,11 @@ export class ExpertBot implements BotStrategy {
   private lastTricksWonCounts: Record<Seat, number> = { north: 0, east: 0, south: 0, west: 0 };
   private lastSeenTrickType: CombinationType | null = null;
 
+  // REQ-F-PTS01-03: Partner Tichu support — lead escalation
+  private ptsConsecutiveLeads = 0;
+  // Track who led the last trick (for detecting if partner took over)
+  private lastLeadSeat: Seat | null = null;
+
   // ─── Grand Tichu ──────────────────────────────────────────────────────────
 
   // REQ-F-GT01, REQ-F-GT02, REQ-F-GT03: Grand Tichu with concrete criteria
@@ -453,6 +458,9 @@ export class ExpertBot implements BotStrategy {
       this.uncontestedSingleLastRank = { north: 0, east: 0, south: 0, west: 0 };
       this.lastTricksWonCounts = { north: 0, east: 0, south: 0, west: 0 };
       this.lastSeenTrickType = null;
+      // REQ-F-PTS03: Reset partner Tichu lead escalation
+      this.ptsConsecutiveLeads = 0;
+      this.lastLeadSeat = null;
     }
 
     // REQ-F-STR02: Detect partner strength on first play of round
@@ -463,6 +471,11 @@ export class ExpertBot implements BotStrategy {
 
     // REQ-F-USD01: Track uncontested single wins
     this.updateUncontestedSingleTracking(roundState, seat);
+
+    // REQ-F-PTS03: Track who led the current trick for escalation reset
+    if (currentTrick && currentTrick.plays.length > 0) {
+      this.lastLeadSeat = currentTrick.leadSeat;
+    }
 
     // Create hand plan on first play
     if (!this.planCreated && validPlays.length > 0) {
@@ -933,6 +946,91 @@ export class ExpertBot implements BotStrategy {
     return this.toDecision(ranked[ranked.length - 1] ?? ranked[0]);
   }
 
+  // ─── Partner Tichu Support — Leading ─────────────────────────────────────
+
+  // REQ-F-PTS01-03: Helper to check if partner called GT/T
+  private hasPartnerTichuCall(roundState: RoundState, seat: Seat): boolean {
+    const partner = getPartner(seat);
+    const call = roundState.players[partner].tipiCall;
+    return call === 'tichu' || call === 'grandTichu';
+  }
+
+  // REQ-F-PTS01-03: Partner Tichu lead strategy with escalation
+  /**
+   * When partner called GT/T:
+   * - PTS01: Play Dog to transfer control
+   * - PTS02: If no Dog, lead lowest single
+   * - PTS03: If bot keeps leading (partner didn't take over), escalate:
+   *   1st re-lead → lowest pair, 2nd → lowest triple, 3rd → lowest straight
+   */
+  private choosePTSLeadPlay(
+    validPlays: Combination[],
+    _hand: GameCard[],
+    _roundState: RoundState,
+    _seat: Seat,
+  ): BotPlayDecision | null {
+    const ranked = rankCombinationsForLead(validPlays);
+
+    // REQ-F-PTS01: Play Dog to give partner control
+    const dogPlay = ranked.find((c) => c.cards.length === 1 && isDog(c.cards[0].card));
+    if (dogPlay) {
+      this.ptsConsecutiveLeads++;
+      return this.toDecision(dogPlay);
+    }
+
+    // REQ-F-PTS03: Escalate combo type on consecutive leads
+    if (this.ptsConsecutiveLeads >= 1) {
+      // Escalation order: pair → triple → straight → any multi-card
+      const escalationTypes = [
+        CombinationType.Pair,
+        CombinationType.Triple,
+        CombinationType.Straight,
+        CombinationType.PairSequence,
+        CombinationType.FullHouse,
+      ];
+
+      // Start from the appropriate escalation level
+      const startIdx = Math.min(this.ptsConsecutiveLeads - 1, escalationTypes.length - 1);
+
+      for (let i = startIdx; i < escalationTypes.length; i++) {
+        const targetType = escalationTypes[i];
+        // Find lowest combo of target type (ranked is already low-to-high)
+        const match = ranked.find(
+          (c) => c.type === targetType && !c.isBomb &&
+            !c.cards.some((gc) => isDragon(gc.card)),
+        );
+        if (match) {
+          this.ptsConsecutiveLeads++;
+          return this.toDecision(match);
+        }
+      }
+
+      // No combo of escalated type — fall through to lowest single
+    }
+
+    // REQ-F-PTS02: No Dog → lead lowest single
+    const lowestSingle = ranked.find(
+      (c) => c.type === CombinationType.Single &&
+        !isDragon(c.cards[0].card) &&
+        !c.cards.some((gc) => isPhoenix(gc.card)),
+    );
+    if (lowestSingle) {
+      this.ptsConsecutiveLeads++;
+      return this.toDecision(lowestSingle);
+    }
+
+    // Fallback: lead lowest available (excluding Dragon)
+    const fallback = ranked.find(
+      (c) => !c.cards.some((gc) => isDragon(gc.card)),
+    );
+    if (fallback) {
+      this.ptsConsecutiveLeads++;
+      return this.toDecision(fallback);
+    }
+
+    return null;
+  }
+
   // ─── Lead Play ────────────────────────────────────────────────────────────
 
   /**
@@ -955,6 +1053,20 @@ export class ExpertBot implements BotStrategy {
     // REQ-F-BOMB02: Bomb-proof exit planning when 2-3 cards remain
     const bombProofPlay = this.getBombProofExitPlay(ranked, hand);
     if (bombProofPlay) return this.toDecision(bombProofPlay);
+
+    // REQ-F-PTS01-03: Partner Tichu lead support (BEFORE Dog/shouldSaveDog)
+    // PTS overrides shouldSaveDog — when partner called GT/T, play Dog immediately
+    if (this.hasPartnerTichuCall(roundState, seat)) {
+      // Reset escalation if partner led last trick (partner took over briefly)
+      if (this.lastLeadSeat !== null && this.lastLeadSeat !== seat) {
+        this.ptsConsecutiveLeads = 0;
+      }
+      const ptsLead = this.choosePTSLeadPlay(validPlays, hand, roundState, seat);
+      if (ptsLead) {
+        this.lastLeadSeat = seat;
+        return ptsLead;
+      }
+    }
 
     // REQ-F-DOG01: Context-dependent Dog play (checked BEFORE hand plan)
     const dogPlay = ranked.find((c) => c.cards.length === 1 && isDog(c.cards[0].card));
@@ -1585,5 +1697,10 @@ export class ExpertBot implements BotStrategy {
   // REQ-F-USD01: Accessor for uncontested single counts (testing)
   getUncontestedSingleCounts(): Record<Seat, number> {
     return { ...this.uncontestedSingleCounts };
+  }
+
+  // REQ-F-PTS03: Accessor for PTS consecutive leads (testing)
+  getPtsConsecutiveLeads(): number {
+    return this.ptsConsecutiveLeads;
   }
 }
