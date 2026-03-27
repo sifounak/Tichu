@@ -968,22 +968,62 @@ export class ExpertBot implements BotStrategy {
       if (canGoOut(hand, combo)) return this.toDecision(combo);
     }
 
-    // Lead with lowest non-winner (save winners)
-    // REQ-F-PHX01: Also skip Phoenix singleton leads (only +0.5, weak lead)
-    // REQ-F-FOL03: Skip Ace pairs — each Ace should win a separate lead
+    // REQ-F-DEF03: Determine if Aces should be played for control
+    const opponentNearExit = SEATS_IN_ORDER.some((s) =>
+      getTeam(s) !== getTeam(seat) &&
+      roundState.players[s].finishOrder === null &&
+      roundState.players[s].hand.length <= 3,
+    );
+    const needsDogPlay = hand.some((gc) => isDog(gc.card)) && !this.shouldSaveDog(roundState, seat, hand);
+
+    // REQ-F-DEF04: Prefer multi-card combos over breaking pairs to play as singles
+    // REQ-F-DEF05: Low-to-high rank order (already sorted by rankCombinationsForLead)
+    // REQ-F-DEF01: Keep Aces as singletons, skip Ace pairs
+    // REQ-F-DEF06: Prefer combos where we have a high follow-up of same type
     for (const combo of ranked) {
+      // Skip Dragon singleton (save it)
       if (combo.cards.length === 1 && isDragon(combo.cards[0].card)) continue;
+      // REQ-F-DEF02/DEF03: Skip Ace singletons unless needed for control or disruption
       if (combo.type === CombinationType.Single &&
-        combo.cards[0].card.kind === 'standard' && combo.cards[0].card.rank === 14) continue;
+        combo.cards[0].card.kind === 'standard' && combo.cards[0].card.rank === 14 &&
+        !opponentNearExit && !needsDogPlay) continue;
+      // Skip Phoenix singleton (weak lead)
       if (combo.cards.length === 1 && isPhoenix(combo.cards[0].card)) continue;
-      // REQ-F-FOL03: Avoid leading Ace pairs — split for individual wins
-      // Exception: OK if playing Ace pair leaves only winners (one more control to go out)
+      // REQ-F-DEF01/FOL03: Avoid leading Ace pairs — split for individual wins
       if (combo.type === CombinationType.Pair && combo.rank === 14) {
         const remaining = hand.filter((gc) => !combo.cards.some((c) => c.id === gc.id));
         const allWinners = remaining.every((gc) =>
           isDragon(gc.card) || (gc.card.kind === 'standard' && gc.card.rank >= 14),
         );
         if (!allWinners) continue;
+      }
+      // REQ-F-DEF04: Skip singles that are part of a multi-card combo in hand
+      if (combo.type === CombinationType.Single && combo.cards[0].card.kind === 'standard') {
+        if (isCardInMultiCardCombo(combo.cards[0], hand)) {
+          // Check if there's a multi-card combo of this rank available
+          const multiCardOfSameRank = ranked.find(
+            (c) => c.cards.length > 1 && !c.isBomb &&
+              c.cards.some((gc) => gc.card.kind === 'standard' && gc.card.rank === combo.rank),
+          );
+          if (multiCardOfSameRank) continue; // Skip the single, prefer the multi-card
+        }
+      }
+      // REQ-F-DEF06: For low multi-card combos, prefer those where we have a high follow-up
+      if (combo.cards.length > 1 && combo.rank <= 8 && !combo.isBomb) {
+        const hasHighFollowUp = ranked.some(
+          (c) => c.type === combo.type && c.cards.length === combo.cards.length &&
+            c.rank >= 12 && c !== combo,
+        );
+        if (!hasHighFollowUp) {
+          // No high follow-up of same type — try to find a combo type with follow-up first
+          const betterLead = ranked.find(
+            (c) => c.cards.length > 1 && c.rank <= 8 && !c.isBomb && c !== combo &&
+              ranked.some(
+                (h) => h.type === c.type && h.cards.length === c.cards.length && h.rank >= 12 && h !== c,
+              ),
+          );
+          if (betterLead) return this.toDecision(betterLead);
+        }
       }
       return this.toDecision(combo);
     }
