@@ -17,17 +17,17 @@
 | REQ-F-DEF04 | Prefer multi-card hands over breaking combos | M2 | 4 | | | Pending |
 | REQ-F-DEF05 | Low-to-high rank order | M2 | 4 | | | Pending |
 | REQ-F-DEF06 | Control probability for low multi-card leads | M2 | 4 | | | Pending |
-| REQ-F-GT01 | Grand Tichu: 3+ power cards AND bomb | M3 | 2 | | | Pending |
-| REQ-F-GT02 | Grand Tichu: 3+ power cards AND strong multi-card hand | M3 | 2 | | | Pending |
-| REQ-F-GT03 | Grand Tichu: 2+ power + strong multi + opponents near winning | M3 | 2 | | | Pending |
-| REQ-F-PASS01 | Strength concentration with hasStrength (2+ power cards) | M4 | 2 | | | Pending |
-| REQ-F-PASS02 | 3rd-worst non-breaking card for strong hand partner pass | M4 | 2 | | | Pending |
-| REQ-F-PASS03 | Parity convention (odd→left, even→right) | M4 | 2 | | | Pending |
-| REQ-F-PASS04 | Anti-bomb: split low pair if no 2 singles below 8 | M4 | 2 | | | Pending |
-| REQ-F-PASS05 | Never pass Dragon/Phoenix/Mahjong to opponents | M4 | 2 | | | Pending |
-| REQ-F-PASS06 | Dog routing: opponent GT/T → Dog to opponent | M4 | 2 | | | Pending |
-| REQ-F-PASS07 | Dog routing: strong hand → Dog to partner or right | M4 | 2 | | | Pending |
-| REQ-F-PASS08 | Track passed-to-right for Mahjong wish | M4 | 2 | | | Pending |
+| REQ-F-GT01 | Grand Tichu: 3+ power cards AND bomb | M3 | 2 | expert-bot.ts:chooseGrandTichu | expert-bot.test.ts | Passed |
+| REQ-F-GT02 | Grand Tichu: 3+ power cards AND strong multi-card hand | M3 | 2 | expert-bot.ts:chooseGrandTichu | expert-bot.test.ts | Passed |
+| REQ-F-GT03 | Grand Tichu: 2+ power + strong multi + opponents near winning | M3 | 2 | expert-bot.ts:chooseGrandTichu,areOpponentsNearWinning | expert-bot.test.ts | Passed |
+| REQ-F-PASS01 | Strength concentration with hasStrength (2+ power cards) | M4 | 2 | expert-bot.ts:chooseCardsToPass | expert-bot.test.ts | Passed |
+| REQ-F-PASS02 | 3rd-worst non-breaking card for strong hand partner pass | M4 | 2 | expert-bot.ts:chooseCardsToPass | expert-bot.test.ts | Passed |
+| REQ-F-PASS03 | Parity convention (odd→left, even→right) | M4 | 2 | expert-bot.ts:chooseCardsToPass | expert-bot.test.ts | Passed |
+| REQ-F-PASS04 | Anti-bomb: split low pair if no 2 singles below 8 | M4 | 2 | expert-bot.ts:findLowPairToSplit | expert-bot.test.ts | Passed |
+| REQ-F-PASS05 | Never pass Dragon/Phoenix/Mahjong to opponents | M4 | 2 | expert-bot.ts:chooseCardsToPass | expert-bot.test.ts | Passed |
+| REQ-F-PASS06 | Dog routing: opponent GT/T → Dog to opponent | M4 | 2 | expert-bot.ts:getOpponentWithTichuCall | expert-bot.test.ts | Passed |
+| REQ-F-PASS07 | Dog routing: strong hand → Dog to partner or right | M4 | 2 | expert-bot.ts:chooseCardsToPass | expert-bot.test.ts | Passed |
+| REQ-F-PASS08 | Track passed-to-right for Mahjong wish | M4 | 2 | expert-bot.ts:chooseCardsToPass | expert-bot.test.ts | Passed |
 | REQ-F-DOG01 | Context-dependent Dog play (unchanged) | M5 | — | expert-bot.ts | expert-bot.test.ts | Passed |
 | REQ-F-PHX01 | Never play Phoenix over single < Ace unless all Aces accounted | M6 | 3 | | | Pending |
 | REQ-F-PHX02 | Never play Phoenix in low multi-card (rank < 7) unless going out | M6 | 3 | | | Pending |
@@ -40,10 +40,10 @@
 | REQ-F-PHX09 | Phoenix acceptable as singleton lead if rest are Ace/King/Dragon | M6 | 3 | | | Pending |
 | REQ-F-BOMB01 | Never bomb against partner (broader rule) | M7 | 3 | | | Pending |
 | REQ-F-BOMB02 | Bomb-proof exit exception: skip if can go out | M7 | 3 | | | Pending |
-| REQ-F-MJ01 | Mahjong wish: straight + Ace/partner strength → no wish | M8 | 2 | | | Pending |
-| REQ-F-MJ02 | Mahjong wish: right opponent GT → wish Ace | M8 | 2 | | | Pending |
-| REQ-F-MJ03 | Mahjong wish: right opponent T + no partner strength → wish Ace | M8 | 2 | | | Pending |
-| REQ-F-MJ04 | Mahjong wish: fallback → passed-to-right rank | M8 | 2 | | | Pending |
+| REQ-F-MJ01 | Mahjong wish: straight + Ace/partner strength → no wish | M8 | 2 | expert-bot.ts:chooseMahjongWish | expert-bot.test.ts | Passed |
+| REQ-F-MJ02 | Mahjong wish: right opponent GT → wish Ace | M8 | 2 | expert-bot.ts:chooseMahjongWish | expert-bot.test.ts | Passed |
+| REQ-F-MJ03 | Mahjong wish: right opponent T + no partner strength → wish Ace | M8 | 2 | expert-bot.ts:chooseMahjongWish | expert-bot.test.ts | Passed |
+| REQ-F-MJ04 | Mahjong wish: fallback → passed-to-right rank | M8 | 2 | expert-bot.ts:chooseMahjongWish | expert-bot.test.ts | Passed |
 | REQ-F-END01 | Endgame strategy (unchanged) | M9 | — | expert-bot.ts | expert-bot.test.ts | Passed |
 | REQ-F-TDEF01 | Risk-based Tichu defense (unchanged) | M10 | — | expert-bot.ts | expert-bot.test.ts | Passed |
 | REQ-F-TRK01 | Card tracker + point tracking (unchanged) | M11 | — | card-tracker.ts | card-tracker.test.ts | Passed |
