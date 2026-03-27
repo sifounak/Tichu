@@ -2,7 +2,7 @@
 // Key sources: BGA Tips_tichu — Passing Cards, Leading, Following, Bombing,
 // Tichu Calling, Grand Tichu, special card usage, defensive play, point tracking.
 
-import type { GameCard, Seat, Rank, Combination, RoundState } from '@tichu/shared';
+import type { GameCard, Seat, Rank, Combination, RoundState, Team } from '@tichu/shared';
 import {
   CombinationType,
   SEATS_IN_ORDER,
@@ -77,12 +77,21 @@ export class ExpertBot implements BotStrategy {
   private lastRoundState: RoundState | null = null;
   private currentRound = -1;
   private scoreDiff: number | null = null;
-  // REQ-F-PASS05: Track card passed to left opponent for Mah Jong wish
-  private passedToLeft: GameCard | null = null;
+  // REQ-F-PASS08: Track card passed to right opponent for Mahjong wish
+  private passedToRight: GameCard | null = null;
   // REQ-F-MJ01: Track whether Mah Jong was played in a straight (no wish)
   private mahjongPlayedInStraight = false;
   // Track bot's seat for context in methods that don't receive it
   private mySeat: Seat = 'north';
+
+  // REQ-F-CTX01: Game context from bot-runner
+  private gameScores: Record<Team, number> | null = null;
+  private targetScore = 1000;
+
+  // REQ-F-STR02: Partner strength signal detection
+  private partnerPassedCard: GameCard | null = null;
+  private partnerStrengthDetected = false;
+  private partnerStrengthChecked = false;
 
   // ─── Grand Tichu ──────────────────────────────────────────────────────────
 
@@ -134,6 +143,38 @@ export class ExpertBot implements BotStrategy {
     this.scoreDiff = diff;
   }
 
+  // REQ-F-CTX01: Receive game context from bot-runner before each decision phase
+  setContext(roundState: RoundState, scores: Record<Team, number>, targetScore: number): void {
+    this.lastRoundState = roundState;
+    this.gameScores = scores;
+    this.targetScore = targetScore;
+    // Compute score diff: positive = our team ahead
+    const myTeam = getTeam(this.mySeat);
+    const oppTeam = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
+    this.scoreDiff = scores[myTeam] - scores[oppTeam];
+  }
+
+  // REQ-F-STR02: Detect partner strength from the card they passed to us
+  private detectPartnerStrength(roundState: RoundState, seat: Seat): void {
+    if (this.partnerStrengthChecked) return;
+    this.partnerStrengthChecked = true;
+
+    const partner = getPartner(seat);
+    const passedCards = roundState.players[partner]?.passedCards;
+    const passedCard = passedCards?.to?.[seat] ?? null;
+    if (!passedCard) return;
+
+    this.partnerPassedCard = passedCard;
+    // Partner signaled strength if they passed a low card (rank < 10) or the Dog
+    if (isDog(passedCard.card)) {
+      this.partnerStrengthDetected = true;
+    } else if (passedCard.card.kind === 'standard' && passedCard.card.rank < 10) {
+      this.partnerStrengthDetected = true;
+    } else {
+      this.partnerStrengthDetected = false;
+    }
+  }
+
   // ─── Card Passing ─────────────────────────────────────────────────────────
 
   // REQ-F-PASS01-05: Card passing with strength concentration + parity convention
@@ -144,7 +185,7 @@ export class ExpertBot implements BotStrategy {
    * - REQ-F-PASS02: Parity convention — odd ranks to left, even ranks to right
    * - REQ-F-PASS03: Anti-bomb — never same rank to both opponents
    * - REQ-F-PASS04: Special card rules — Dragon/Phoenix team-only, Dog to partner if strong
-   * - REQ-F-PASS05: Track passedToLeft for Mah Jong wish
+   * - REQ-F-PASS08: Track passedToRight for Mahjong wish
    */
   chooseCardsToPass(hand: GameCard[], seat: Seat): Record<Seat, GameCard> {
     this.mySeat = seat;
@@ -243,8 +284,8 @@ export class ExpertBot implements BotStrategy {
       rightCard = rank1 <= rank2 ? oppCard2 : oppCard1;
     }
 
-    // REQ-F-PASS05: Track what was passed to left for Mah Jong wish
-    this.passedToLeft = leftCard;
+    // REQ-F-PASS08: Track what was passed to right for Mahjong wish
+    this.passedToRight = rightCard;
 
     const result = {} as Record<Seat, GameCard>;
     result[leftOpp] = leftCard;
@@ -254,9 +295,14 @@ export class ExpertBot implements BotStrategy {
     return result;
   }
 
-  /** Get the card passed to the left opponent (for Mah Jong wish context) */
-  getPassedToLeft(): GameCard | null {
-    return this.passedToLeft;
+  /** Get the card passed to the right opponent (for Mahjong wish context) */
+  getPassedToRight(): GameCard | null {
+    return this.passedToRight;
+  }
+
+  /** Whether partner signaled strength via card pass */
+  getPartnerStrengthDetected(): boolean {
+    return this.partnerStrengthDetected;
   }
 
   // ─── Play Selection ───────────────────────────────────────────────────────
@@ -282,7 +328,13 @@ export class ExpertBot implements BotStrategy {
       this.cardTracker.reset();
       this.handPlan = null;
       this.planCreated = false;
+      this.partnerStrengthChecked = false;
+      this.partnerPassedCard = null;
+      this.partnerStrengthDetected = false;
     }
+
+    // REQ-F-STR02: Detect partner strength on first play of round
+    this.detectPartnerStrength(roundState, seat);
 
     // Update card tracker
     this.cardTracker.update(roundState, seat, hand);
@@ -378,9 +430,9 @@ export class ExpertBot implements BotStrategy {
       }
     }
 
-    // Priority 3: Wish for card passed to left opponent (parity convention)
-    if (this.passedToLeft && this.passedToLeft.card.kind === 'standard') {
-      const passedRank = this.passedToLeft.card.rank;
+    // Priority 3: Wish for card passed to right opponent (parity convention)
+    if (this.passedToRight && this.passedToRight.card.kind === 'standard') {
+      const passedRank = this.passedToRight.card.rank;
       if (!haveRanks.has(passedRank)) return passedRank as Rank;
     }
 
@@ -1122,5 +1174,21 @@ export class ExpertBot implements BotStrategy {
 
   getHandPlan(): HandPlan | null {
     return this.handPlan;
+  }
+
+  getGameScores(): Record<Team, number> | null {
+    return this.gameScores;
+  }
+
+  getTargetScore(): number {
+    return this.targetScore;
+  }
+
+  getPartnerPassedCard(): GameCard | null {
+    return this.partnerPassedCard;
+  }
+
+  getScoreDiff(): number | null {
+    return this.scoreDiff;
   }
 }

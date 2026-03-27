@@ -396,4 +396,84 @@ describe('CardTracker', () => {
       expect(tracker.getApproxTeamPoints(rs, 'northSouth')).toBe(0);
     });
   });
+
+  // ─── Convenience Methods (REQ-F-TRK02) ──────────────────────────────────
+
+  describe('allAcesPlayed', () => {
+    // Verifies: REQ-F-TRK02
+    it('returns false initially (Aces unplayed)', () => {
+      tracker.update(makeRoundState(), 'north', []);
+      expect(tracker.allAcesPlayed()).toBe(false);
+    });
+
+    it('returns false when Aces in own hand', () => {
+      const ownHand = [
+        card('standard', 14, 'jade', 2001),
+        card('standard', 14, 'pagoda', 2002),
+        card('standard', 14, 'star', 2003),
+        card('standard', 14, 'sword', 2004),
+      ];
+      tracker.update(makeRoundState(), 'north', ownHand);
+      expect(tracker.allAcesPlayed()).toBe(false); // In hand, not played
+    });
+
+    it('returns true when all 4 Aces have been played by others', () => {
+      const aces = [
+        card('standard', 14, 'jade', 3001),
+        card('standard', 14, 'pagoda', 3002),
+        card('standard', 14, 'star', 3003),
+        card('standard', 14, 'sword', 3004),
+      ];
+      const rs = makeRoundState({
+        players: {
+          north: { hand: [card('standard', 5, 'jade', 5001)], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          east: { hand: [], tricksWon: [aces.slice(0, 2)], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [aces.slice(2, 4)], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      tracker.update(rs, 'north', [card('standard', 5, 'jade', 5001)]);
+      expect(tracker.allAcesPlayed()).toBe(true);
+    });
+  });
+
+  describe('allAcesAccountedFor', () => {
+    it('returns true when all Aces in own hand', () => {
+      const ownHand = [
+        card('standard', 14, 'jade', 4001),
+        card('standard', 14, 'pagoda', 4002),
+        card('standard', 14, 'star', 4003),
+        card('standard', 14, 'sword', 4004),
+      ];
+      tracker.update(makeRoundState(), 'north', ownHand);
+      expect(tracker.allAcesAccountedFor()).toBe(true);
+    });
+
+    it('returns false when some Aces unaccounted', () => {
+      const ownHand = [card('standard', 14, 'jade', 4001)];
+      tracker.update(makeRoundState(), 'north', ownHand);
+      expect(tracker.allAcesAccountedFor()).toBe(false);
+    });
+  });
+
+  describe('isDragonPlayed', () => {
+    it('returns false initially', () => {
+      tracker.update(makeRoundState(), 'north', []);
+      expect(tracker.isDragonPlayed()).toBe(false);
+    });
+
+    it('returns true after Dragon appears in tricks', () => {
+      const dragonCard = card('dragon');
+      const rs = makeRoundState({
+        players: {
+          north: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          east: { hand: [], tricksWon: [[dragonCard]], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      tracker.update(rs, 'north', []);
+      expect(tracker.isDragonPlayed()).toBe(true);
+    });
+  });
 });

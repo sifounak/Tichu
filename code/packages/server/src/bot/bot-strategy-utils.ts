@@ -697,3 +697,112 @@ export function selectDragonRecipient(
   }
   return recipient;
 }
+
+// ─── M1: Strength Detection ──────────────────────────────────────────────
+
+// REQ-F-STR01: Hand has 2+ power cards (Ace, Dragon, Phoenix)
+/**
+ * Determine if a hand has "strength" — 2 or more power cards.
+ * Power cards: Ace (rank 14), Dragon, Phoenix.
+ */
+export function hasStrength(hand: GameCard[]): boolean {
+  let powerCount = 0;
+  for (const gc of hand) {
+    if (isDragon(gc.card) || isPhoenix(gc.card)) {
+      powerCount++;
+    } else if (gc.card.kind === 'standard' && gc.card.rank === 14) {
+      powerCount++;
+    }
+  }
+  return powerCount >= 2;
+}
+
+// REQ-F-PASS02: Check if a card is part of a pair, triple, or higher combo in the hand
+/**
+ * Check whether removing a card would break a multi-card combination.
+ * A card is "in a combo" if its rank appears 2+ times in the hand (pair/triple/quad).
+ * Special cards (Dragon, Phoenix, Dog, Mahjong) are never considered part of a combo.
+ */
+export function isCardInMultiCardCombo(card: GameCard, hand: GameCard[]): boolean {
+  if (card.card.kind !== 'standard') return false;
+  const rank = card.card.rank;
+  let count = 0;
+  for (const gc of hand) {
+    if (gc.card.kind === 'standard' && gc.card.rank === rank) count++;
+  }
+  return count >= 2;
+}
+
+// REQ-F-PASS02: Get the 3rd-weakest card that doesn't break a multi-card combo
+/**
+ * Find the 3rd-weakest non-special card that is NOT part of a pair/triple.
+ * Used for strong-hand partner passing (pass something weak without breaking combos).
+ * Returns null if fewer than 3 qualifying cards exist.
+ */
+export function getThirdWorstNonBreaking(hand: GameCard[]): GameCard | null {
+  // Sort non-special cards by strength ascending
+  const nonSpecial = hand.filter(
+    (gc) => gc.card.kind === 'standard',
+  );
+  const sorted = sortByStrength(nonSpecial);
+
+  // Find singletons (not in pair/triple) in ascending order
+  let found = 0;
+  for (const gc of sorted) {
+    if (!isCardInMultiCardCombo(gc, hand)) {
+      found++;
+      if (found === 3) return gc;
+    }
+  }
+  // If fewer than 3 non-combo cards, fall back to 3rd weakest overall
+  return sorted[2] ?? sorted[sorted.length - 1] ?? null;
+}
+
+/**
+ * Get the right opponent (counter-clockwise neighbor).
+ * In SEATS_IN_ORDER = [N, E, S, W] clockwise, right = 3 seats forward = (idx+3)%4.
+ */
+export function getRightOpponent(seat: Seat): Seat {
+  const idx = SEATS_IN_ORDER.indexOf(seat);
+  return SEATS_IN_ORDER[(idx + 3) % 4];
+}
+
+// REQ-F-GT01-03: Check if hand contains a strong multi-card combo (rank > 10)
+/**
+ * Detect if a hand has at least one multi-card combination (pair, triple,
+ * full house, straight, consecutive pairs) with primary rank > 10.
+ * Used for Grand Tichu evaluation.
+ */
+export function hasStrongMultiCardHand(hand: GameCard[]): boolean {
+  // Count standard cards by rank
+  const rankCounts = new Map<number, number>();
+  for (const gc of hand) {
+    if (gc.card.kind === 'standard') {
+      const r = gc.card.rank;
+      rankCounts.set(r, (rankCounts.get(r) ?? 0) + 1);
+    }
+  }
+
+  // Check for pair or triple with rank > 10
+  for (const [rank, count] of rankCounts) {
+    if (rank > 10 && count >= 2) return true;
+  }
+
+  // Check for straight containing ranks > 10
+  // Find consecutive runs of 5+ that include a rank > 10
+  const ranks = [...rankCounts.keys()].sort((a, b) => a - b);
+  let runStart = 0;
+  for (let i = 1; i <= ranks.length; i++) {
+    if (i < ranks.length && ranks[i] - ranks[i - 1] === 1) continue;
+    const runLen = i - runStart;
+    if (runLen >= 5) {
+      // Check if any rank in this run is > 10
+      for (let j = runStart; j < i; j++) {
+        if (ranks[j] > 10) return true;
+      }
+    }
+    runStart = i;
+  }
+
+  return false;
+}
