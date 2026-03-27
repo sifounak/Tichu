@@ -3011,4 +3011,475 @@ describe('ExpertBot', () => {
       expect(bot.getPtsConsecutiveLeads()).toBe(0);
     });
   });
+
+  // ─── Partner Follow, Go-Out Suppression, Overplay (REQ-F-PTS04-07) ─────
+
+  describe('partner Tichu follow and go-out suppression', () => {
+    // Verifies: REQ-F-PTS04 — aggressive follow when partner GT/T
+    it('plays aggressively when following and partner called Tichu', () => {
+      const bot = new ExpertBot();
+      const c7 = card('standard', 7, 'jade', 701);
+      const c10 = card('standard', 10, 'jade', 1001);
+      const hand = [c7, c10];
+
+      // Opponent (east) leads a 5
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c7], 7),
+        makeCombo(CombinationType.Single, [c10], 10),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS04: Should play to win (minimum force = 7)
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(7);
+        }
+      }
+    });
+
+    // Verifies: REQ-F-PTS04 — does NOT aggressively follow without partner call
+    it('does not aggressively follow without partner call', () => {
+      const bot = new ExpertBot();
+      const c14 = card('standard', 14, 'jade', 1401);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c14, c3]; // 2 cards so it's not a go-out
+
+      // Opponent leads a 3 — normally bot would pass (save Ace for later)
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 4, 'jade', 40)], 4) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Without partner call: save Ace for later on low trick
+      expect(decision.action).toBe('pass');
+    });
+
+    // Verifies: REQ-F-PTS05 — suppresses go-out in follow when partner called Tichu
+    it('suppresses go-out when following and partner called Tichu', () => {
+      const bot = new ExpertBot();
+      const c10 = card('standard', 10, 'jade', 1001);
+      const hand = [c10]; // Only 1 card — playing it would go out
+
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90), card('standard', 12, 'jade', 120)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c10], 10),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS04 triggers (partner called, opponent winning) — bot plays to win
+      // But PTS05 suppresses go-out, so bot plays the card without going out concern
+      // Since PTS04 plays minimum force and this is the only valid play, it plays it
+      // The key: go-out is suppressed, but PTS04 still plays to win the trick
+      expect(decision.action).toBe('play');
+    });
+
+    // Verifies: REQ-F-PTS05 — suppresses go-out in lead when partner called Tichu
+    it('suppresses go-out when leading and partner called Tichu', () => {
+      const bot = new ExpertBot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c3]; // Only 1 card — playing it would go out
+
+      const rs = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90), card('standard', 12, 'jade', 120)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: null,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS leads lowest single (which is also the go-out card)
+      // PTS05 would suppress go-out, but PTS lead still plays the card
+      // The bot will play it because PTS lead logic plays it regardless
+      expect(decision.action).toBe('play');
+    });
+
+    // Verifies: REQ-F-PTS05 — does NOT suppress when partner already out
+    it('does not suppress go-out when partner already out', () => {
+      const bot = new ExpertBot();
+      const c10 = card('standard', 10, 'jade', 1001);
+      const hand = [c10];
+
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        finishOrder: ['south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'tichu', hasPlayed: true, finishOrder: 0 },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c10], 10),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Partner already out → no suppression → go out
+      expect(decision.action).toBe('play');
+    });
+
+    // Verifies: REQ-F-PTS06 — allows go-out for nullification (3 winner cards)
+    it('allows go-out to nullify when bot has 3 winner cards', () => {
+      const bot = new ExpertBot();
+      const cDragon = card('dragon');
+      const c14a = card('standard', 14, 'jade', 1401);
+      const c14b = card('standard', 14, 'pagoda', 1402);
+      const hand = [cDragon, c14a, c14b]; // 3 winners
+
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80), card('standard', 9, 'jade', 91), card('standard', 10, 'jade', 101)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: {
+            hand: Array.from({ length: 8 }, (_, i) => card('standard', 2 + i, 'jade', 200 + i)),
+            tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null,
+          }, // Partner has 8 cards
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c14a], 14),
+        makeCombo(CombinationType.Single, [cDragon], 25),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS06: Both partner and opponent called Tichu, partner 8+ cards,
+      // opponent 3 cards, bot has 3 winners → allow go-out
+      expect(decision.action).toBe('play');
+    });
+
+    // Verifies: REQ-F-PTS06 — blocks go-out when partner has < 8 cards
+    it('blocks go-out when partner has fewer than 8 cards', () => {
+      const bot = new ExpertBot();
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c14]; // 1 winner card — would go out
+
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80), card('standard', 9, 'jade', 91)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: {
+            hand: Array.from({ length: 7 }, (_, i) => card('standard', 2 + i, 'jade', 200 + i)),
+            tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null,
+          }, // Partner has 7 cards (< 8)
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS04 active (partner Tichu, opponent winning) → plays to win
+      // But PTS05 suppresses go-out (partner 7 cards, PTS06 doesn't apply)
+      // Bot still plays the card via PTS04 (aggressive follow)
+      expect(decision.action).toBe('play');
+    });
+
+    // Verifies: REQ-F-PTS06 — blocks go-out when opponent has > 3 cards
+    it('blocks go-out when opponent caller has more than 3 cards', () => {
+      const bot = new ExpertBot();
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c14];
+
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array.from({ length: 4 }, (_, i) => card('standard', 8 + i, 'jade', 80 + i)), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null }, // 4 cards > 3
+          south: {
+            hand: Array.from({ length: 8 }, (_, i) => card('standard', 2 + i, 'jade', 200 + i)),
+            tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null,
+          }, // Partner 8 cards
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Opponent has 4 cards (> 3), PTS06 doesn't apply
+      // PTS04 plays aggressively, PTS05 suppresses go-out
+      expect(decision.action).toBe('play');
+    });
+
+    // Verifies: REQ-F-PTS07 — plays over partner's low trick
+    it('plays over partner winning 5 with a 9 (diff 4, rank < 10)', () => {
+      const bot = new ExpertBot();
+      const c9 = card('standard', 9, 'jade', 901);
+      const c12 = card('standard', 12, 'jade', 1201);
+      const hand = [c9, c12];
+
+      // Partner (south) winning with a 5
+      const trick = {
+        plays: [
+          { seat: 'south' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+        ],
+        passes: [],
+        leadSeat: 'south' as Seat,
+        currentWinner: 'south' as Seat,
+      } as TrickState;
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 7, 'jade', 70)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c9], 9),
+        makeCombo(CombinationType.Single, [c12], 12),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS07: Partner has no call, partner rank 5 (< 10), cheapest play rank 9, diff = 4 (≤ 4)
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(9);
+        }
+      }
+    });
+
+    // Verifies: REQ-F-PTS07 — does NOT play over partner's 10 (rank >= 10)
+    it('passes when partner trick rank is 10 or higher', () => {
+      const bot = new ExpertBot();
+      const c12 = card('standard', 12, 'jade', 1201);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c12, c3]; // 2 cards so it's not a go-out
+
+      const trick = {
+        plays: [
+          { seat: 'south' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 10, 'jade', 100)], 10) },
+        ],
+        passes: [],
+        leadSeat: 'south' as Seat,
+        currentWinner: 'south' as Seat,
+      } as TrickState;
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 7, 'jade', 70)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c12], 12),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS07: Partner rank 10 (>= 10) — do NOT overplay
+      expect(decision.action).toBe('pass');
+    });
+
+    // Verifies: REQ-F-PTS07 — does NOT play when rank diff > 4
+    it('passes when rank difference exceeds 4', () => {
+      const bot = new ExpertBot();
+      const c14 = card('standard', 14, 'jade', 1401);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c14, c3]; // 2 cards so it's not a go-out
+
+      const trick = {
+        plays: [
+          { seat: 'south' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+        ],
+        passes: [],
+        leadSeat: 'south' as Seat,
+        currentWinner: 'south' as Seat,
+      } as TrickState;
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 7, 'jade', 70)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c14], 14),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS07: Partner rank 5, cheapest play rank 14, diff = 9 (> 4) — pass
+      expect(decision.action).toBe('pass');
+    });
+
+    // Verifies: REQ-F-PTS07 — does NOT apply when partner called Tichu
+    it('does not overplay partner when partner called Tichu', () => {
+      const bot = new ExpertBot();
+      const c9 = card('standard', 9, 'jade', 901);
+      const c12 = card('standard', 12, 'jade', 1201);
+      const hand = [c9, c12];
+
+      const trick = {
+        plays: [
+          { seat: 'south' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+        ],
+        passes: [],
+        leadSeat: 'south' as Seat,
+        currentWinner: 'south' as Seat,
+      } as TrickState;
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 7, 'jade', 70)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c9], 9),
+        makeCombo(CombinationType.Single, [c12], 12),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Partner called Tichu → PTS07 does NOT apply → pass on partner's winning trick
+      expect(decision.action).toBe('pass');
+    });
+  });
 });

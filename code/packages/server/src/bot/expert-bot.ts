@@ -925,9 +925,10 @@ export class ExpertBot implements BotStrategy {
 
     if (this.handPlan) this.handPlan.valid = false;
 
-    // Can go out? Always do it.
+    // Can go out? Always do it (unless PTS05 suppresses).
+    const suppress12GoOut = this.shouldSuppressGoOut(context.roundState, seat, hand);
     for (const combo of plays) {
-      if (canGoOut(hand, combo)) return this.toDecision(combo);
+      if (canGoOut(hand, combo) && !suppress12GoOut) return this.toDecision(combo);
     }
 
     if (!currentTrick) {
@@ -1098,9 +1099,10 @@ export class ExpertBot implements BotStrategy {
       }
     }
 
-    // Can go out? Always do it.
+    // Can go out? Always do it (unless PTS05 suppresses).
+    const suppressGoOutLead = this.shouldSuppressGoOut(roundState, seat, hand);
     for (const combo of ranked) {
-      if (canGoOut(hand, combo)) return this.toDecision(combo);
+      if (canGoOut(hand, combo) && !suppressGoOutLead) return this.toDecision(combo);
     }
 
     // REQ-F-DEF03: Determine if Aces should be played for control
@@ -1397,6 +1399,101 @@ export class ExpertBot implements BotStrategy {
     return breakableSingles[0].combo;
   }
 
+  // ─── Partner Tichu Support — Go-Out Suppression ─────────────────────────
+
+  // REQ-F-PTS05, PTS06: Determine if go-out should be suppressed
+  /**
+   * Suppress going out first when partner called GT/T, unless:
+   * - Partner is already out (no need to protect)
+   * - PTS06 nullification exception applies
+   */
+  private shouldSuppressGoOut(roundState: RoundState, seat: Seat, hand: GameCard[]): boolean {
+    if (!this.hasPartnerTichuCall(roundState, seat)) return false;
+
+    const partner = getPartner(seat);
+    // If partner is already out, no need to suppress
+    if (roundState.players[partner].finishOrder !== null) return false;
+
+    // REQ-F-PTS06: Nullification exception
+    const myTeam = getTeam(seat);
+    const partnerCall = roundState.players[partner].tipiCall;
+    const partnerCards = roundState.players[partner].hand.length;
+
+    // Check if any opponent also called Tichu
+    let opponentCallerSeat: Seat | null = null;
+    let opponentCards = 0;
+    for (const s of SEATS_IN_ORDER) {
+      if (getTeam(s) === myTeam) continue;
+      if (roundState.players[s].finishOrder !== null) continue;
+      const call = roundState.players[s].tipiCall;
+      if (call === 'tichu' || call === 'grandTichu') {
+        opponentCallerSeat = s;
+        opponentCards = roundState.players[s].hand.length;
+        break;
+      }
+    }
+
+    if (
+      opponentCallerSeat &&
+      (partnerCall === 'tichu' || partnerCall === 'grandTichu') &&
+      partnerCards >= 8 &&
+      opponentCards <= 3
+    ) {
+      // Check if bot has very high chance of going out
+      if (this.isVeryHighGoOutChance(hand, opponentCards)) {
+        return false; // Allow go-out to nullify both Tichus
+      }
+    }
+
+    return true; // Suppress go-out to protect partner's Tichu
+  }
+
+  // REQ-F-PTS06: Assess if bot has very high chance of going out first
+  /**
+   * (a) 3 or fewer cards AND all are winners (Ace, Dragon, bomb cards)
+   * (b) Winners + multi-card combo rank >= 10 or length > opponent cards, with backup
+   */
+  private isVeryHighGoOutChance(hand: GameCard[], opponentCardCount: number): boolean {
+    if (hand.length === 0) return false;
+
+    // Count winners: Aces, Dragon
+    let winnerCount = 0;
+    for (const gc of hand) {
+      if (isDragon(gc.card)) winnerCount++;
+      else if (gc.card.kind === 'standard' && gc.card.rank === 14) winnerCount++;
+    }
+
+    // Check for bombs
+    const hasBomb = findBombs(hand).length > 0;
+    if (hasBomb) winnerCount++;
+
+    // (a) 3 or fewer cards, all winners
+    if (hand.length <= 3 && winnerCount >= hand.length) return true;
+
+    // (b) Winners + strong multi-card combo + backup
+    if (winnerCount >= 1) {
+      // Check for multi-card combos with rank >= 10 or length > opponent cards
+      const handRanks = new Map<number, number>();
+      for (const gc of hand) {
+        if (gc.card.kind === 'standard') {
+          handRanks.set(gc.card.rank, (handRanks.get(gc.card.rank) ?? 0) + 1);
+        }
+      }
+
+      for (const [rank, count] of handRanks) {
+        if (count >= 2) {
+          // Multi-card combo found
+          if (rank >= 10 || count > opponentCardCount) {
+            // Has strong multi-card + winners as backup
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
   // ─── Follow Play ──────────────────────────────────────────────────────────
 
   /**
@@ -1412,23 +1509,55 @@ export class ExpertBot implements BotStrategy {
     const { currentTrick, seat, roundState, hand, canPass } = context;
     const partnerWinning = isPartnerWinning(currentTrick, seat);
     const opponentCallers = getOpponentTichuCallers(roundState, seat);
+    const partnerHasCall = this.hasPartnerTichuCall(roundState, seat);
+    const suppressGoOut = this.shouldSuppressGoOut(roundState, seat, hand);
 
     // REQ-F-DEF01: Evaluate Tichu defense stance
     const defenseStance = opponentCallers.length > 0
       ? this.evaluateTichuDefense(roundState, seat)
       : null;
 
-    // Partner winning — pass (don't overplay partner)
+    // Partner winning — handle overplay and pass logic
     if (partnerWinning && canPass) {
+      // REQ-F-PTS05: Suppress go-out when partner called GT/T
       for (const combo of plays) {
-        if (canGoOut(hand, combo)) return this.toDecision(combo);
+        if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
       }
+
+      // REQ-F-PTS07: Low-trick overplay when partner has NOT called GT/T
+      if (!partnerHasCall && currentTrick) {
+        const partnerPlay = currentTrick.plays.find((p) => p.seat === currentTrick.currentWinner);
+        if (partnerPlay) {
+          const partnerRank = partnerPlay.combination.rank;
+          if (partnerRank < 10) {
+            const ranked = rankCombinationsForFollow(plays);
+            if (ranked.length > 0) {
+              const cheapest = ranked[0];
+              if (cheapest.rank - partnerRank <= 4) {
+                return this.toDecision(cheapest);
+              }
+            }
+          }
+        }
+      }
+
       return { action: 'pass' };
     }
 
-    // Can go out? Always play.
+    // REQ-F-PTS04: Aggressive follow when partner GT/T and opponent winning
+    if (partnerHasCall && !partnerWinning && currentTrick) {
+      const ranked = rankCombinationsForFollow(plays);
+      // REQ-F-PTS05: Check go-out suppression
+      for (const combo of ranked) {
+        if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
+      }
+      // Play to win with minimum force (don't pass even on low tricks)
+      if (ranked.length > 0) return this.toDecision(ranked[0]);
+    }
+
+    // Can go out? Always play (unless suppressed by PTS05).
     for (const combo of plays) {
-      if (canGoOut(hand, combo)) return this.toDecision(combo);
+      if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
     }
 
     const ranked = rankCombinationsForFollow(plays);

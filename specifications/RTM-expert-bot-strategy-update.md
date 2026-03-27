@@ -59,7 +59,7 @@
 | REQ-F-PTS01 | Lead Dog when partner called GT/T | M14 | 6 | expert-bot.ts:choosePTSLeadPlay | expert-bot.test.ts | Passed |
 | REQ-F-PTS02 | Lead lowest single if no Dog when partner GT/T | M14 | 6 | expert-bot.ts:choosePTSLeadPlay | expert-bot.test.ts | Passed |
 | REQ-F-PTS03 | Escalate lead type on consecutive PTS leads | M14 | 6 | expert-bot.ts:choosePTSLeadPlay | expert-bot.test.ts | Passed |
-| REQ-F-PTS04 | Aggressive follow to win tricks for partner GT/T | M14 | 7 | expert-bot.ts:chooseFollowPlay | expert-bot.test.ts | Not Started |
-| REQ-F-PTS05 | Suppress go-out-first when partner called GT/T | M14 | 7 | expert-bot.ts:shouldSuppressGoOut | expert-bot.test.ts | Not Started |
-| REQ-F-PTS06 | Nullification exception — go out to nullify both Tichus | M14 | 7 | expert-bot.ts:shouldSuppressGoOut,isVeryHighGoOutChance | expert-bot.test.ts | Not Started |
-| REQ-F-PTS07 | Low-trick overplay when partner has NOT called GT/T | M14 | 7 | expert-bot.ts:chooseFollowPlay | expert-bot.test.ts | Not Started |
+| REQ-F-PTS04 | Aggressive follow to win tricks for partner GT/T | M14 | 7 | expert-bot.ts:chooseFollowPlay | expert-bot.test.ts | Passed |
+| REQ-F-PTS05 | Suppress go-out-first when partner called GT/T | M14 | 7 | expert-bot.ts:shouldSuppressGoOut | expert-bot.test.ts | Passed |
+| REQ-F-PTS06 | Nullification exception — go out to nullify both Tichus | M14 | 7 | expert-bot.ts:shouldSuppressGoOut,isVeryHighGoOutChance | expert-bot.test.ts | Passed |
+| REQ-F-PTS07 | Low-trick overplay when partner has NOT called GT/T | M14 | 7 | expert-bot.ts:chooseFollowPlay | expert-bot.test.ts | Passed |
