@@ -3020,7 +3020,9 @@ describe('ExpertBot', () => {
       const bot = new ExpertBot();
       const c7 = card('standard', 7, 'jade', 701);
       const c10 = card('standard', 10, 'jade', 1001);
-      const hand = [c7, c10];
+      const c3 = card('standard', 3, 'jade', 301);
+      const c4 = card('standard', 4, 'jade', 401);
+      const hand = [c7, c10, c3, c4]; // Multiple cards so winning doesn't trigger go-out caution
 
       // Opponent (east) leads a 5
       const trick = makeTrick('east' as Seat, 'east' as Seat, [
@@ -3479,6 +3481,78 @@ describe('ExpertBot', () => {
       });
       const decision = bot.choosePlay(ctx);
       // Partner called Tichu → PTS07 does NOT apply → pass on partner's winning trick
+      expect(decision.action).toBe('pass');
+    });
+
+    // Verifies: PTS04+PTS05 — cautious aggression when winning would lead to go-out
+    it('passes instead of winning when it would leave 1 card (go-out suppressed)', () => {
+      const bot = new ExpertBot();
+      const c10 = card('standard', 10, 'jade', 1001);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c10, c3]; // 2 cards: winning with 10 leaves 1 card → next play goes out
+
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90), card('standard', 12, 'jade', 120)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c10], 10),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // PTS04 would normally play aggressively, but winning leaves 1 card
+      // PTS05 suppresses go-out, so the bot would be stuck → pass instead
+      expect(decision.action).toBe('pass');
+    });
+
+    // Verifies: PTS04+PTS05 — cautious aggression when winning would leave a pair (go-out)
+    it('passes instead of winning when it would leave a pair that goes out', () => {
+      const bot = new ExpertBot();
+      const c10 = card('standard', 10, 'jade', 1001);
+      const c5a = card('standard', 5, 'jade', 501);
+      const c5b = card('standard', 5, 'pagoda', 502);
+      const hand = [c10, c5a, c5b]; // 3 cards: winning with 10 leaves pair of 5s → goes out
+
+      const trick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90), card('standard', 12, 'jade', 120)], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c10], 10),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Winning leaves pair of 5s → goes out on next play → PTS05 blocks → pass
       expect(decision.action).toBe('pass');
     });
   });
