@@ -1552,7 +1552,26 @@ export class ExpertBot implements BotStrategy {
         if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
       }
       // Play to win with minimum force (don't pass even on low tricks)
-      if (ranked.length > 0) return this.toDecision(ranked[0]);
+      // But be cautious: if winning would leave us with cards that could
+      // all go out on the next play, and go-out is suppressed, pass instead
+      // to avoid getting stuck (PTS05 would block the go-out lead)
+      if (ranked.length > 0) {
+        if (suppressGoOut && canPass) {
+          const remainingCards = hand.filter(
+            (gc) => !ranked[0].cards.some((c) => c.id === gc.id),
+          );
+          // Would go out next if: 1 card left, or all same rank (pair/triple)
+          const wouldGoOutNext = remainingCards.length === 1 ||
+            (remainingCards.length >= 2 && remainingCards.every((gc) =>
+              gc.card.kind === 'standard' && remainingCards[0].card.kind === 'standard' &&
+              gc.card.rank === (remainingCards[0].card as { rank: number }).rank,
+            ));
+          if (wouldGoOutNext) {
+            return { action: 'pass' };
+          }
+        }
+        return this.toDecision(ranked[0]);
+      }
     }
 
     // Can go out? Always play (unless suppressed by PTS05).
