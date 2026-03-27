@@ -10,7 +10,7 @@ The expert bot is implemented across 3 files with **10 strategy modules**, based
 
 ---
 
-## The 12 Strategy Modules
+## The 14 Strategy Modules
 
 ### M1: Determing if you and/or your partner have strength
 
@@ -153,6 +153,25 @@ Three refinements to follow/respond play:
 2. **Smart pass** — Don't spend a King on a low trick (rank <=8) when unaccounted Aces exist. Don't spend Aces/Dragon on low tricks at all.
 3. **Split Aces** — Never lead Ace pairs unless over opponents high rank  (>= Queen) pairs or you need one more control to go out. Otherwise, each Ace should win a separate trick for maximum value.
 
+### M13: Uncontested Singles Defense
+
+Tracks per-opponent uncontested single card trick wins (all active players passed). Counter resets when trick type changes or on new round.
+
+**Threshold without partner call:** 2+ uncontested wins with rank < Jack (< 11) triggers combo breaking.
+**Threshold with partner GT/T call:** 1 uncontested win with rank < Queen (< 12) triggers combo breaking.
+
+**Combo breaking priority:** Break weakest multi-card hand whose freed card can beat the opponent's single. Priority order: pairs > triples > full house > longer combos.
+
+### M14: Partner Tichu Support
+
+When partner called Grand Tichu or Tichu:
+
+1. **Lead transfer** — Play Dog to give partner control. If no Dog, lead lowest single. If partner passes, escalate: low pair, low triple, low straight, etc. Track escalation across tricks.
+2. **Aggressive follow** — Play more aggressively on opponent tricks to win control back for partner.
+3. **Go-out suppression** — Do not go out first (protect partner's call).
+4. **Nullification exception** — If partner AND opponent both called Tichu, partner has 8+ cards, opponent has 3 or fewer, and bot has very high chance of going out first → go out to nullify both Tichus.
+5. **Low-trick overplay (no partner call)** — When partner has NOT called GT/T, may play over partner's winning single/pair/triple if rank difference <= 4 and partner's rank < 10.
+
 ---
 
 ## Hand Planning
@@ -172,22 +191,27 @@ The plan is invalidated when 1-2 prevention mode activates.
 
 ```
 1. Update card tracker
-2. Create hand plan (first play only)
-3. Check for bomb opportunity (opponent near exit / Tichu caller low on cards)
-4. Check endgame phase (3-player or 2-player situations)
-5. Check 1-2 prevention mode (opponent already went out first)
-6. If leading:
-   a. Bomb-proof exit planning
-   b. Dog play (context-dependent)
-   c. King safety
-   d. Hand plan losers
-   e. Go-out check
-   f. Lead lowest non-winner
-7. If following:
-   a. Partner winning? Pass
-   b. Can go out? Play
-   c. Tichu defense evaluation
-   d. Smart pass (save winners for high tricks)
-   e. Phoenix evaluation
-   f. Win with minimum force
+2. Update uncontested singles tracker (M13)
+3. Create hand plan (first play only)
+4. Check for bomb opportunity (opponent near exit / Tichu caller low on cards)
+5. Check endgame phase (3-player or 2-player situations)
+6. Check 1-2 prevention mode (opponent already went out first)
+7. Check partner Tichu support mode (M14)
+8. If leading:
+   a. Partner GT/T? → Dog, then escalating low leads (M14)
+   b. Bomb-proof exit planning
+   c. Dog play (context-dependent)
+   d. King safety
+   e. Hand plan losers
+   f. Go-out check (suppressed if partner GT/T, unless nullification — M14)
+   g. Lead lowest non-winner
+9. If following:
+   a. Partner winning? Pass (or overplay low tricks per M14/PTS07)
+   b. Can go out? Play (suppressed if partner GT/T — M14)
+   c. Uncontested singles defense — break combos if needed (M13)
+   d. Partner GT/T? → aggressive follow (M14)
+   e. Tichu defense evaluation
+   f. Smart pass (save winners for high tricks)
+   g. Phoenix evaluation
+   h. Win with minimum force
 ```
