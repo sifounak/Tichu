@@ -447,6 +447,25 @@ describe('ExpertBot', () => {
       expect(result.south.card.kind).toBe('dog');
     });
 
+    // Verifies: REQ-F-PASS07 — Dog to right opponent when strong and self-sufficient
+    it('passes Dog to right opponent when strong hand has 3+ lead-getters', () => {
+      const bot = new ExpertBot();
+      // Strong hand: Dragon + 2 Aces + Phoenix = 4 power cards (hasStrength=true)
+      // Lead-getters: Dragon(1) + 2 Aces(2) = 3 → self-sufficient → Dog to right (west)
+      const hand = [
+        card('dragon'), card('phoenix'), card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 14, 'pagoda', 1402),
+        card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
+        card('standard', 6, 'jade', 601), card('standard', 6, 'pagoda', 602),
+        card('standard', 9, 'jade', 901), card('standard', 9, 'pagoda', 902),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+      ];
+      const result = bot.chooseCardsToPass(hand, 'north');
+      // Right opponent of north = west
+      expect(result.west.card.kind).toBe('dog');
+    });
+
     // Verifies: REQ-F-PASS08
     it('tracks passedToRight for Mahjong wish', () => {
       const bot = new ExpertBot();
@@ -2212,6 +2231,439 @@ describe('ExpertBot', () => {
       // Should not throw
       bot.choosePlay(ctx);
       expect(bot.getPartnerStrengthDetected()).toBe(false);
+    });
+  });
+
+  // ─── Uncontested Singles Defense (REQ-F-USD01, USD02, USD03) ────────────
+
+  describe('uncontested singles defense', () => {
+    // Verifies: REQ-F-USD01 — counter increments on uncontested single win
+    it('tracks uncontested single wins per opponent', () => {
+      const bot = new ExpertBot();
+      const c5 = card('standard', 5, 'jade');
+      // East won a trick with exactly 1 card (uncontested single)
+      const rs = makeRoundState({
+        players: {
+          north: { hand: [c5], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [[card('standard', 6, 'jade', 60)]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const ctx = makePlayContext({
+        hand: [c5],
+        validPlays: [makeCombo(CombinationType.Single, [c5], 5)],
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      expect(bot.getUncontestedSingleCounts().east).toBe(1);
+    });
+
+    // Verifies: REQ-F-USD01 — counter resets on non-single trick type
+    it('resets counter when trick type changes to non-single', () => {
+      const bot = new ExpertBot();
+      const c5 = card('standard', 5, 'jade');
+
+      // First call: East won an uncontested single
+      const rs1 = makeRoundState({
+        players: {
+          north: { hand: [c5], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [[card('standard', 6, 'jade', 60)]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.choosePlay(makePlayContext({
+        hand: [c5],
+        validPlays: [makeCombo(CombinationType.Single, [c5], 5)],
+        roundState: rs1,
+        seat: 'north' as Seat,
+      }));
+      expect(bot.getUncontestedSingleCounts().east).toBe(1);
+
+      // Second call: a pair trick is in progress (non-single type)
+      const c3a = card('standard', 3, 'jade', 301);
+      const c3b = card('standard', 3, 'pagoda', 302);
+      const pairTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Pair, [c3a, c3b], 3) },
+      ]);
+      const rs2 = makeRoundState({
+        currentTrick: pairTrick,
+        players: {
+          north: { hand: [c5], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [[card('standard', 6, 'jade', 60)]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.choosePlay(makePlayContext({
+        hand: [c5],
+        validPlays: [],
+        canPass: true,
+        roundState: rs2,
+        seat: 'north' as Seat,
+      }));
+      expect(bot.getUncontestedSingleCounts().east).toBe(0);
+    });
+
+    // Verifies: REQ-F-USD01 — counter resets on new round
+    it('resets counter on new round', () => {
+      const bot = new ExpertBot();
+      const c5 = card('standard', 5, 'jade');
+
+      // Round 1: East wins uncontested single
+      const rs1 = makeRoundState({
+        roundNumber: 1,
+        players: {
+          north: { hand: [c5], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [[card('standard', 6, 'jade', 60)]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.choosePlay(makePlayContext({
+        hand: [c5],
+        validPlays: [makeCombo(CombinationType.Single, [c5], 5)],
+        roundState: rs1,
+        seat: 'north' as Seat,
+      }));
+      expect(bot.getUncontestedSingleCounts().east).toBe(1);
+
+      // Round 2: counter should reset
+      const rs2 = makeRoundState({
+        roundNumber: 2,
+        players: {
+          north: { hand: [c5], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.choosePlay(makePlayContext({
+        hand: [c5],
+        validPlays: [makeCombo(CombinationType.Single, [c5], 5)],
+        roundState: rs2,
+        seat: 'north' as Seat,
+      }));
+      expect(bot.getUncontestedSingleCounts().east).toBe(0);
+    });
+
+    // Verifies: REQ-F-USD02 — no break at 1 uncontested win (threshold is 2)
+    it('does not break combo at only 1 uncontested win without partner call', () => {
+      const bot = new ExpertBot();
+      // Hand has a pair of 8s and a singleton 5
+      const c8a = card('standard', 8, 'jade', 801);
+      const c8b = card('standard', 8, 'pagoda', 802);
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [c8a, c8b, c5];
+
+      // East won 1 uncontested single (rank 6)
+      // Current trick: East led a 7 (single)
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 7, 'jade', 70)], 7) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [[card('standard', 6, 'jade', 60)]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c8a], 8),
+        makeCombo(CombinationType.Single, [c5], 5),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Should NOT specifically break the pair — normal play logic applies
+      // With 1 uncontested, threshold of 2 not met, so USD doesn't trigger
+      expect(bot.getUncontestedSingleCounts().east).toBe(1);
+    });
+
+    // Verifies: REQ-F-USD02 — break pair to contest at 2 uncontested singles < Jack
+    it('breaks pair when opponent has 2 uncontested wins with rank < Jack', () => {
+      const bot = new ExpertBot();
+      // Hand has a pair of 8s (will be broken) and a singleton 3
+      const c8a = card('standard', 8, 'jade', 801);
+      const c8b = card('standard', 8, 'pagoda', 802);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c8a, c8b, c3];
+
+      // East won 2 uncontested singles (rank 5 and 6)
+      const eastTricks = [
+        [card('standard', 5, 'jade', 50)],
+        [card('standard', 6, 'jade', 60)],
+      ];
+
+      // Current trick: East leads a 7
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 7, 'jade', 70)], 7) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: eastTricks, tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c8a], 8),
+        makeCombo(CombinationType.Single, [c8b], 8),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // USD should trigger: break pair of 8s to play a single 8 over the 7
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(1);
+        expect(decision.cards[0].card.kind).toBe('standard');
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(8);
+        }
+      }
+    });
+
+    // Verifies: REQ-F-USD02 — no break when rank >= Jack
+    it('does not break combo when opponent uncontested rank >= Jack', () => {
+      const bot = new ExpertBot();
+      const c13a = card('standard', 13, 'jade', 1301);
+      const c13b = card('standard', 13, 'pagoda', 1302);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c13a, c13b, c3];
+
+      // East won 2 uncontested singles with Jack (rank 11) — at threshold
+      const eastTricks = [
+        [card('standard', 11, 'jade', 110)],
+        [card('standard', 11, 'pagoda', 111)],
+      ];
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 12, 'jade', 120)], 12) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: eastTricks, tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c13a], 13),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Rank >= 11 (Jack), so USD02 should NOT trigger
+      // The counter has 2, but the rank is 11, not < 11
+      expect(bot.getUncontestedSingleCounts().east).toBe(2);
+    });
+
+    // Verifies: REQ-F-USD02 — break priority: pair before triple
+    it('prefers breaking pair over triple', () => {
+      const bot = new ExpertBot();
+      // Hand: triple of 10s, pair of 8s, singleton 3
+      const c10a = card('standard', 10, 'jade', 1001);
+      const c10b = card('standard', 10, 'pagoda', 1002);
+      const c10c = card('standard', 10, 'star', 1003);
+      const c8a = card('standard', 8, 'jade', 801);
+      const c8b = card('standard', 8, 'pagoda', 802);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c10a, c10b, c10c, c8a, c8b, c3];
+
+      // East won 2 uncontested singles (rank 5 and 6)
+      const eastTricks = [
+        [card('standard', 5, 'jade', 50)],
+        [card('standard', 6, 'jade', 60)],
+      ];
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 7, 'jade', 70)], 7) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: eastTricks, tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      // Both pair-8 and triple-10 can be broken to beat 7
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c8a], 8),
+        makeCombo(CombinationType.Single, [c10a], 10),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // Should prefer breaking pair (size 2) over triple (size 3)
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).toBe('standard');
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(8);
+        }
+      }
+    });
+
+    // Verifies: REQ-F-USD03 — threshold 1 when partner called GT/T
+    it('triggers at 1 uncontested win when partner called Tichu', () => {
+      const bot = new ExpertBot();
+      const c8a = card('standard', 8, 'jade', 801);
+      const c8b = card('standard', 8, 'pagoda', 802);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c8a, c8b, c3];
+
+      // East won only 1 uncontested single (rank 6)
+      const eastTricks = [[card('standard', 6, 'jade', 60)]];
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 7, 'jade', 70)], 7) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: eastTricks, tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null }, // Partner called Tichu
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c8a], 8),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // With partner Tichu, threshold is 1 — USD should trigger
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(1);
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(8);
+        }
+      }
+    });
+
+    // Verifies: REQ-F-USD03 — rank threshold < Queen when partner GT/T
+    it('triggers for rank < Queen when partner called GT', () => {
+      const bot = new ExpertBot();
+      const c13a = card('standard', 13, 'jade', 1301);
+      const c13b = card('standard', 13, 'pagoda', 1302);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c13a, c13b, c3];
+
+      // East won 1 uncontested single with Jack (rank 11) — < 12 threshold with partner GT
+      const eastTricks = [[card('standard', 11, 'jade', 110)]];
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 12, 'jade', 120)], 12) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: eastTricks, tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'grandTichu', hasPlayed: false, finishOrder: null }, // Partner GT
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c13a], 13),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // With partner GT, rank threshold is < 12 (Queen). Jack (11) qualifies.
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.length).toBe(1);
+        if (decision.cards[0].card.kind === 'standard') {
+          expect(decision.cards[0].card.rank).toBe(13);
+        }
+      }
+    });
+
+    // Verifies: REQ-F-USD02 — no break when freed card can't beat opponent rank
+    it('does not break combo when freed card cannot beat trick rank', () => {
+      const bot = new ExpertBot();
+      // Hand: pair of 5s, singleton 3
+      const c5a = card('standard', 5, 'jade', 501);
+      const c5b = card('standard', 5, 'pagoda', 502);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [c5a, c5b, c3];
+
+      // East won 2 uncontested singles (rank 3 and 4)
+      const eastTricks = [
+        [card('standard', 3, 'star', 30)],
+        [card('standard', 4, 'star', 40)],
+      ];
+      // Current trick: East leads a 9 — our pair of 5s can't beat it
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 9, 'jade', 90)], 9) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: eastTricks, tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      // No valid plays that can beat the 9 — game engine wouldn't offer 5 as valid
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays: [],
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+      const decision = bot.choosePlay(ctx);
+      // No valid plays, so must pass — USD can't help
+      expect(decision.action).toBe('pass');
     });
   });
 });

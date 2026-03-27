@@ -98,6 +98,12 @@ export class ExpertBot implements BotStrategy {
   private partnerStrengthDetected = false;
   private partnerStrengthChecked = false;
 
+  // REQ-F-USD01: Track per-opponent uncontested single trick wins
+  private uncontestedSingleCounts: Record<Seat, number> = { north: 0, east: 0, south: 0, west: 0 };
+  private uncontestedSingleLastRank: Record<Seat, number> = { north: 0, east: 0, south: 0, west: 0 };
+  private lastTricksWonCounts: Record<Seat, number> = { north: 0, east: 0, south: 0, west: 0 };
+  private lastSeenTrickType: CombinationType | null = null;
+
   // ─── Grand Tichu ──────────────────────────────────────────────────────────
 
   // REQ-F-GT01, REQ-F-GT02, REQ-F-GT03: Grand Tichu with concrete criteria
@@ -237,8 +243,17 @@ export class ExpertBot implements BotStrategy {
         // REQ-F-PASS06: Dog to opponent who called GT/T
         dogRecipient = opponentWithCall;
       } else if (isStrongHand) {
-        // REQ-F-PASS07: Strong hand — Dog to partner (may need help regaining control)
-        dogRecipient = partner;
+        // REQ-F-PASS07: Strong hand — Dog to partner if may need help regaining control,
+        // otherwise Dog to right opponent
+        const leadGetters = hand.filter((gc) =>
+          isDragon(gc.card) ||
+          (gc.card.kind === 'standard' && gc.card.rank === 14),
+        ).length + findBombs(hand).length;
+        if (leadGetters < 3) {
+          dogRecipient = partner; // May need help regaining control
+        } else {
+          dogRecipient = rightOpp; // Self-sufficient → Dog to right
+        }
       } else {
         // Weak hand — Dog to left opponent
         dogRecipient = leftOpp;
@@ -433,6 +448,11 @@ export class ExpertBot implements BotStrategy {
       this.partnerStrengthChecked = false;
       this.partnerPassedCard = null;
       this.partnerStrengthDetected = false;
+      // REQ-F-USD01: Reset uncontested singles tracking
+      this.uncontestedSingleCounts = { north: 0, east: 0, south: 0, west: 0 };
+      this.uncontestedSingleLastRank = { north: 0, east: 0, south: 0, west: 0 };
+      this.lastTricksWonCounts = { north: 0, east: 0, south: 0, west: 0 };
+      this.lastSeenTrickType = null;
     }
 
     // REQ-F-STR02: Detect partner strength on first play of round
@@ -440,6 +460,9 @@ export class ExpertBot implements BotStrategy {
 
     // Update card tracker
     this.cardTracker.update(roundState, seat, hand);
+
+    // REQ-F-USD01: Track uncontested single wins
+    this.updateUncontestedSingleTracking(roundState, seat);
 
     // Create hand plan on first play
     if (!this.planCreated && validPlays.length > 0) {
@@ -1138,6 +1161,130 @@ export class ExpertBot implements BotStrategy {
     return fightScore >= 0 ? 'fight' : 'concede';
   }
 
+  // ─── Uncontested Singles Defense ─────────────────────────────────────────
+
+  // REQ-F-USD01: Track per-opponent uncontested single trick wins
+  /**
+   * Detect newly completed tricks by comparing tricksWon counts.
+   * An uncontested single has exactly 1 card in the tricksWon entry.
+   * Reset counters when trick type changes (non-single trick played).
+   */
+  private updateUncontestedSingleTracking(roundState: RoundState, seat: Seat): void {
+    const myTeam = getTeam(seat);
+
+    // Track current trick type for counter reset
+    const currentTrickType = roundState.currentTrick?.plays[0]?.combination.type ?? null;
+    if (currentTrickType !== null && currentTrickType !== CombinationType.Single) {
+      if (this.lastSeenTrickType === null || this.lastSeenTrickType === CombinationType.Single) {
+        // Trick type changed from single to non-single — reset counters
+        for (const s of SEATS_IN_ORDER) {
+          this.uncontestedSingleCounts[s] = 0;
+          this.uncontestedSingleLastRank[s] = 0;
+        }
+      }
+    }
+    this.lastSeenTrickType = currentTrickType;
+
+    // Detect newly completed tricks by comparing tricksWon counts
+    for (const s of SEATS_IN_ORDER) {
+      if (getTeam(s) === myTeam) continue; // Only track opponents
+      const currentCount = roundState.players[s].tricksWon.length;
+      const previousCount = this.lastTricksWonCounts[s];
+
+      if (currentCount > previousCount) {
+        // New trick(s) won — check each new entry
+        for (let i = previousCount; i < currentCount; i++) {
+          const trickCards = roundState.players[s].tricksWon[i];
+          if (trickCards.length === 1) {
+            // Exactly 1 card = uncontested single
+            const wonCard = trickCards[0];
+            const rank = wonCard.card.kind === 'standard' ? wonCard.card.rank : 0;
+            this.uncontestedSingleCounts[s]++;
+            this.uncontestedSingleLastRank[s] = rank;
+          } else {
+            // Contested or non-single trick — reset this opponent's counter
+            this.uncontestedSingleCounts[s] = 0;
+            this.uncontestedSingleLastRank[s] = 0;
+          }
+        }
+      }
+
+      this.lastTricksWonCounts[s] = currentCount;
+    }
+  }
+
+  // REQ-F-USD02, USD03: Break weakest combo to contest uncontested singles
+  /**
+   * Check if any opponent meets the uncontested singles threshold.
+   * If so, find the weakest multi-card hand whose freed card can beat
+   * the current trick rank. Break priority: pairs > triples > longer.
+   */
+  private getUSDComboBreak(
+    hand: GameCard[],
+    validPlays: Combination[],
+    roundState: RoundState,
+    seat: Seat,
+    currentTrickRank: number,
+  ): Combination | null {
+    const myTeam = getTeam(seat);
+    const partner = getPartner(seat);
+    const partnerCall = roundState.players[partner].tipiCall;
+    const partnerHasCall = partnerCall === 'tichu' || partnerCall === 'grandTichu';
+
+    // REQ-F-USD02: threshold 2, rank < 11 (Jack)
+    // REQ-F-USD03: threshold 1, rank < 12 (Queen) when partner GT/T
+    const threshold = partnerHasCall ? 1 : 2;
+    const rankLimit = partnerHasCall ? 12 : 11;
+
+    // Check if any opponent meets threshold
+    let qualifyingOpponent = false;
+    for (const s of SEATS_IN_ORDER) {
+      if (getTeam(s) === myTeam) continue;
+      if (
+        this.uncontestedSingleCounts[s] >= threshold &&
+        this.uncontestedSingleLastRank[s] < rankLimit
+      ) {
+        qualifyingOpponent = true;
+        break;
+      }
+    }
+
+    if (!qualifyingOpponent) return null;
+
+    // Find singles in validPlays that come from breaking a multi-card combo
+    // and can beat the current trick rank
+    const breakableSingles: Array<{ combo: Combination; comboSize: number }> = [];
+
+    for (const play of validPlays) {
+      if (play.type !== CombinationType.Single) continue;
+      if (play.cards[0].card.kind !== 'standard') continue;
+      if (play.rank <= currentTrickRank) continue; // Must beat the trick
+
+      // Check if this card is part of a multi-card combo in hand
+      const gc = play.cards[0];
+      if (!isCardInMultiCardCombo(gc, hand)) continue;
+
+      // Determine the size of the combo being broken
+      const rank = gc.card.kind === 'standard' ? gc.card.rank : 0;
+      const sameRankCount = hand.filter(
+        (h) => h.card.kind === 'standard' && h.card.rank === rank,
+      ).length;
+
+      breakableSingles.push({ combo: play, comboSize: sameRankCount });
+    }
+
+    if (breakableSingles.length === 0) return null;
+
+    // Break priority: pairs (2) before triples (3) before larger (4+)
+    // Among same size, prefer lowest rank
+    breakableSingles.sort((a, b) => {
+      if (a.comboSize !== b.comboSize) return a.comboSize - b.comboSize;
+      return a.combo.rank - b.combo.rank;
+    });
+
+    return breakableSingles[0].combo;
+  }
+
   // ─── Follow Play ──────────────────────────────────────────────────────────
 
   /**
@@ -1177,6 +1324,15 @@ export class ExpertBot implements BotStrategy {
     // REQ-F-DEF01: When conceding opponent's Tichu, pass more freely
     if (defenseStance === 'concede' && canPass) {
       return { action: 'pass' };
+    }
+
+    // REQ-F-USD02, USD03: Break combos to contest uncontested singles
+    if (currentTrick && currentTrick.plays.length > 0) {
+      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+      if (lastPlay.combination.type === CombinationType.Single && !isPartnerWinning(currentTrick, seat)) {
+        const usdBreak = this.getUSDComboBreak(hand, plays, roundState, seat, lastPlay.combination.rank);
+        if (usdBreak) return this.toDecision(usdBreak);
+      }
     }
 
     // Strategy guide: "save high cards for later" — if opponent didn't call Tichu
@@ -1424,5 +1580,10 @@ export class ExpertBot implements BotStrategy {
 
   getScoreDiff(): number | null {
     return this.scoreDiff;
+  }
+
+  // REQ-F-USD01: Accessor for uncontested single counts (testing)
+  getUncontestedSingleCounts(): Record<Seat, number> {
+    return { ...this.uncontestedSingleCounts };
   }
 }
