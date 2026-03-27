@@ -29,17 +29,17 @@
 | REQ-F-PASS07 | Dog routing: strong hand → Dog to partner or right | M4 | 2 | expert-bot.ts:chooseCardsToPass | expert-bot.test.ts | Passed |
 | REQ-F-PASS08 | Track passed-to-right for Mahjong wish | M4 | 2 | expert-bot.ts:chooseCardsToPass | expert-bot.test.ts | Passed |
 | REQ-F-DOG01 | Context-dependent Dog play (unchanged) | M5 | — | expert-bot.ts | expert-bot.test.ts | Passed |
-| REQ-F-PHX01 | Never play Phoenix over single < Ace unless all Aces accounted | M6 | 3 | | | Pending |
-| REQ-F-PHX02 | Never play Phoenix in low multi-card (rank < 7) unless going out | M6 | 3 | | | Pending |
-| REQ-F-PHX03 | Phoenix acceptable over Ace (prefer last unaccounted) | M6 | 3 | | | Pending |
-| REQ-F-PHX04 | Phoenix acceptable over King if all Aces played | M6 | 3 | | | Pending |
-| REQ-F-PHX05 | Phoenix acceptable in straight (rank >= 10 or length >= 5) | M6 | 3 | | | Pending |
-| REQ-F-PHX06 | Phoenix acceptable in consecutive pairs | M6 | 3 | | | Pending |
-| REQ-F-PHX07 | Phoenix acceptable in triple (rank >= 8) | M6 | 3 | | | Pending |
-| REQ-F-PHX08 | Phoenix acceptable in pair (rank > 10) | M6 | 3 | | | Pending |
-| REQ-F-PHX09 | Phoenix acceptable as singleton lead if rest are Ace/King/Dragon | M6 | 3 | | | Pending |
-| REQ-F-BOMB01 | Never bomb against partner (broader rule) | M7 | 3 | | | Pending |
-| REQ-F-BOMB02 | Bomb-proof exit exception: skip if can go out | M7 | 3 | | | Pending |
+| REQ-F-PHX01 | Never play Phoenix over single < Ace unless all Aces accounted | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-PHX02 | Never play Phoenix in low multi-card (rank < 7) unless going out | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-PHX03 | Phoenix acceptable over Ace (prefer last unaccounted) | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-PHX04 | Phoenix acceptable over King if all Aces played | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-PHX05 | Phoenix acceptable in straight (rank >= 10 or length >= 5) | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-PHX06 | Phoenix acceptable in consecutive pairs | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-PHX07 | Phoenix acceptable in triple (rank >= 8) | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-PHX08 | Phoenix acceptable in pair (rank > 10) | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-PHX09 | Phoenix acceptable as singleton lead if rest are Ace/King/Dragon | M6 | 3 | expert-bot.ts:evaluatePhoenixPlay | expert-bot.test.ts | Passed |
+| REQ-F-BOMB01 | Never bomb against partner (broader rule) | M7 | 3 | expert-bot.ts:shouldBombNow+caller | expert-bot.test.ts | Passed |
+| REQ-F-BOMB02 | Bomb-proof exit exception: skip if can go out | M7 | 3 | expert-bot.ts:getBombProofExitPlay | expert-bot.test.ts | Passed |
 | REQ-F-MJ01 | Mahjong wish: straight + Ace/partner strength → no wish | M8 | 2 | expert-bot.ts:chooseMahjongWish | expert-bot.test.ts | Passed |
 | REQ-F-MJ02 | Mahjong wish: right opponent GT → wish Ace | M8 | 2 | expert-bot.ts:chooseMahjongWish | expert-bot.test.ts | Passed |
 | REQ-F-MJ03 | Mahjong wish: right opponent T + no partner strength → wish Ace | M8 | 2 | expert-bot.ts:chooseMahjongWish | expert-bot.test.ts | Passed |
@@ -48,6 +48,6 @@
 | REQ-F-TDEF01 | Risk-based Tichu defense (unchanged) | M10 | — | expert-bot.ts | expert-bot.test.ts | Passed |
 | REQ-F-TRK01 | Card tracker + point tracking (unchanged) | M11 | — | card-tracker.ts | card-tracker.test.ts | Passed |
 | REQ-F-TRK02 | Card tracker: allAcesPlayed, allAcesAccountedFor, isDragonPlayed | M11 | 1 | card-tracker.ts:allAcesPlayed,allAcesAccountedFor,isDragonPlayed | card-tracker.test.ts | Passed |
-| REQ-F-FOL01 | King safety: treat Kings as Aces when all Aces accounted | M12 | 3 | | | Pending |
+| REQ-F-FOL01 | King safety: treat Kings as Aces when all Aces accounted | M12 | 3 | expert-bot.ts:chooseFollowPlay | expert-bot.test.ts | Passed |
 | REQ-F-FOL02 | Smart pass on low tricks (unchanged) | M12 | — | expert-bot.ts | expert-bot.test.ts | Passed |
-| REQ-F-FOL03 | Split Aces exceptions: over Queen+ pairs or one-more-control | M12 | 3 | | | Pending |
+| REQ-F-FOL03 | Split Aces exceptions: over Queen+ pairs or one-more-control | M12 | 3 | expert-bot.ts:chooseLeadPlay,chooseFollowPlay | expert-bot.test.ts | Passed |
