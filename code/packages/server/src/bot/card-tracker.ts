@@ -270,6 +270,32 @@ export class CardTracker {
     return count;
   }
 
+  // ─── Convenience Methods ────────────────────────────────────────────────
+
+  // REQ-F-TRK02: Convenience methods for Phoenix/Follow play logic
+
+  /**
+   * All 4 Aces have been played (not in any hand — actually played).
+   * True when no Aces are unaccounted AND none are in own hand.
+   */
+  allAcesPlayed(): boolean {
+    return this.getUnaccountedAces() === 0 && (this.ownHandRankCounts.get(14) ?? 0) === 0;
+  }
+
+  /**
+   * All Aces either played or in own hand (none unaccounted for in opponents' hands).
+   */
+  allAcesAccountedFor(): boolean {
+    return this.getUnaccountedAces() === 0;
+  }
+
+  /**
+   * Whether the Dragon has been played.
+   */
+  isDragonPlayed(): boolean {
+    return this.dragonPlayed;
+  }
+
   // ─── Point Tracking ─────────────────────────────────────────────────────
 
   // REQ-F-TRK01: Rough point tracking per team

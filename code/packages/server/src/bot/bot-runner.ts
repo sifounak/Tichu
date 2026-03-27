@@ -5,7 +5,7 @@
 // REQ-F-GT06: Bot Grand Tichu decision at exactly 1000 ms
 // REQ-F-GT07: No duplicate Grand Tichu timers per bot per round
 
-import type { Seat } from '@tichu/shared';
+import type { Seat, RoundState } from '@tichu/shared';
 import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext } from './bot-interface.js';
 import type { GameActor, GameMachineContext, GameEvent } from '../game/game-state-machine.js';
@@ -196,6 +196,11 @@ export class BotRunner {
     this.afterActionCallback?.();
   }
 
+  // REQ-F-CTX01: Provide game context to advanced bots before each decision
+  private provideContext(bot: BotStrategy, round: RoundState, context: GameMachineContext): void {
+    bot.setContext?.(round, context.scores, context.config.targetScore);
+  }
+
   // ─── Phase Handlers ──────────────────────────────────────────────────────
 
   private handleGrandTichuPhase(context: GameMachineContext): void {
@@ -204,6 +209,7 @@ export class BotRunner {
 
       const round = context.currentRound;
       if (!round) continue;
+      this.provideContext(bot, round, context);
       const hand8 = round.players[seat].hand;
 
       this.scheduleGrandTichuAction(seat, () => {
@@ -222,6 +228,7 @@ export class BotRunner {
 
       const round = context.currentRound;
       if (!round) continue;
+      this.provideContext(bot, round, context);
       const hand14 = round.players[seat].hand;
 
       this.scheduleAction(() => {
@@ -240,6 +247,7 @@ export class BotRunner {
 
       const round = context.currentRound;
       if (!round) continue;
+      this.provideContext(bot, round, context);
       const hand = round.players[seat].hand;
 
       this.scheduleAction(() => {
@@ -257,6 +265,7 @@ export class BotRunner {
     const bot = this.bots.get(seat);
     if (!bot) return;
 
+    this.provideContext(bot, round, context);
     const player = round.players[seat];
     const activeWish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
     const validPlays = getValidPlays(player.hand, round.currentTrick, activeWish);

@@ -31,6 +31,11 @@ import {
   getEndgamePhase,
   selectMahjongWish,
   selectDragonRecipient,
+  hasStrength,
+  isCardInMultiCardCombo,
+  getThirdWorstNonBreaking,
+  getRightOpponent,
+  hasStrongMultiCardHand,
 } from '../../src/bot/bot-strategy-utils.js';
 
 // ─── Test Helpers ───────────────────────────────────────────────────────────
@@ -780,6 +785,234 @@ describe('Stanford Index Computations', () => {
     it('returns normal when all 4 players active', () => {
       const rs = makeRoundState();
       expect(getEndgamePhase(rs, 'north')).toBe('normal');
+    });
+  });
+
+  // ─── M1: Strength Detection (REQ-F-STR01) ──────────────────────────────
+
+  describe('hasStrength', () => {
+    // Verifies: REQ-F-STR01
+    it('returns true with 2+ power cards (Dragon + Ace)', () => {
+      const hand = [
+        card('dragon'),
+        card('standard', 14, 'jade'),
+        card('standard', 5, 'jade'),
+      ];
+      expect(hasStrength(hand)).toBe(true);
+    });
+
+    it('returns true with 2 Aces', () => {
+      const hand = [
+        card('standard', 14, 'jade', 1401),
+        card('standard', 14, 'pagoda', 1402),
+        card('standard', 5, 'jade'),
+      ];
+      expect(hasStrength(hand)).toBe(true);
+    });
+
+    it('returns true with Phoenix + Dragon', () => {
+      const hand = [card('phoenix'), card('dragon'), card('standard', 3, 'jade')];
+      expect(hasStrength(hand)).toBe(true);
+    });
+
+    it('returns false with only 1 power card', () => {
+      const hand = [
+        card('dragon'),
+        card('standard', 10, 'jade'),
+        card('standard', 5, 'jade'),
+      ];
+      expect(hasStrength(hand)).toBe(false);
+    });
+
+    it('returns false with no power cards', () => {
+      const hand = [
+        card('standard', 3, 'jade'),
+        card('standard', 5, 'pagoda'),
+        card('standard', 8, 'star'),
+      ];
+      expect(hasStrength(hand)).toBe(false);
+    });
+
+    it('counts Kings as non-power cards', () => {
+      const hand = [
+        card('standard', 13, 'jade'),
+        card('standard', 13, 'pagoda'),
+        card('standard', 5, 'jade'),
+      ];
+      expect(hasStrength(hand)).toBe(false);
+    });
+  });
+
+  // ─── isCardInMultiCardCombo (REQ-F-PASS02) ──────────────────────────────
+
+  describe('isCardInMultiCardCombo', () => {
+    it('returns true for a card in a pair', () => {
+      const hand = [
+        card('standard', 7, 'jade', 701),
+        card('standard', 7, 'pagoda', 702),
+        card('standard', 3, 'jade', 301),
+      ];
+      expect(isCardInMultiCardCombo(hand[0], hand)).toBe(true);
+    });
+
+    it('returns false for a singleton', () => {
+      const hand = [
+        card('standard', 7, 'jade', 701),
+        card('standard', 8, 'pagoda', 801),
+        card('standard', 3, 'jade', 301),
+      ];
+      expect(isCardInMultiCardCombo(hand[0], hand)).toBe(false);
+    });
+
+    it('returns true for a card in a triple', () => {
+      const hand = [
+        card('standard', 7, 'jade', 701),
+        card('standard', 7, 'pagoda', 702),
+        card('standard', 7, 'star', 703),
+      ];
+      expect(isCardInMultiCardCombo(hand[0], hand)).toBe(true);
+    });
+
+    it('returns false for special cards', () => {
+      const hand = [card('dragon'), card('phoenix'), card('standard', 7, 'jade')];
+      expect(isCardInMultiCardCombo(hand[0], hand)).toBe(false);
+    });
+  });
+
+  // ─── getThirdWorstNonBreaking (REQ-F-PASS02) ────────────────────────────
+
+  describe('getThirdWorstNonBreaking', () => {
+    it('returns 3rd weakest singleton when enough singletons exist', () => {
+      const hand = [
+        card('standard', 2, 'jade', 201),
+        card('standard', 4, 'jade', 401),
+        card('standard', 6, 'jade', 601),
+        card('standard', 8, 'jade', 801),
+        card('standard', 10, 'jade', 1001),
+      ];
+      const result = getThirdWorstNonBreaking(hand);
+      expect(result).not.toBeNull();
+      expect(result!.card.kind).toBe('standard');
+      if (result!.card.kind === 'standard') {
+        expect(result!.card.rank).toBe(6); // 3rd weakest singleton
+      }
+    });
+
+    it('skips cards in pairs', () => {
+      const hand = [
+        card('standard', 2, 'jade', 201),
+        card('standard', 4, 'jade', 401),
+        card('standard', 4, 'pagoda', 402), // pair of 4s — skip
+        card('standard', 6, 'jade', 601),
+        card('standard', 8, 'jade', 801),
+      ];
+      const result = getThirdWorstNonBreaking(hand);
+      expect(result).not.toBeNull();
+      if (result!.card.kind === 'standard') {
+        // Singletons: 2, 6, 8 → 3rd = 8
+        expect(result!.card.rank).toBe(8);
+      }
+    });
+
+    it('falls back to 3rd weakest overall when fewer than 3 singletons', () => {
+      const hand = [
+        card('standard', 3, 'jade', 301),
+        card('standard', 3, 'pagoda', 302),
+        card('standard', 5, 'jade', 501),
+        card('standard', 5, 'pagoda', 502),
+        card('standard', 7, 'jade', 701),
+      ];
+      const result = getThirdWorstNonBreaking(hand);
+      expect(result).not.toBeNull();
+      // Only 1 singleton (7), so falls back to 3rd weakest overall = rank 5
+      if (result!.card.kind === 'standard') {
+        expect(result!.card.rank).toBe(5);
+      }
+    });
+
+    it('returns null for empty hand', () => {
+      expect(getThirdWorstNonBreaking([])).toBeNull();
+    });
+  });
+
+  // ─── getRightOpponent ──────────────────────────────────────────────────
+
+  describe('getRightOpponent', () => {
+    it('returns west for north (counter-clockwise)', () => {
+      expect(getRightOpponent('north')).toBe('west');
+    });
+
+    it('returns north for east', () => {
+      expect(getRightOpponent('east')).toBe('north');
+    });
+
+    it('returns east for south', () => {
+      expect(getRightOpponent('south')).toBe('east');
+    });
+
+    it('returns south for west', () => {
+      expect(getRightOpponent('west')).toBe('south');
+    });
+  });
+
+  // ─── hasStrongMultiCardHand (REQ-F-GT01-03) ────────────────────────────
+
+  describe('hasStrongMultiCardHand', () => {
+    it('returns true for pair of Jacks (rank 11)', () => {
+      const hand = [
+        card('standard', 11, 'jade', 1101),
+        card('standard', 11, 'pagoda', 1102),
+        card('standard', 5, 'jade'),
+      ];
+      expect(hasStrongMultiCardHand(hand)).toBe(true);
+    });
+
+    it('returns true for pair of Kings', () => {
+      const hand = [
+        card('standard', 13, 'jade', 1301),
+        card('standard', 13, 'pagoda', 1302),
+      ];
+      expect(hasStrongMultiCardHand(hand)).toBe(true);
+    });
+
+    it('returns false for pair of 10s (rank = 10, not > 10)', () => {
+      const hand = [
+        card('standard', 10, 'jade', 1001),
+        card('standard', 10, 'pagoda', 1002),
+        card('standard', 5, 'jade'),
+      ];
+      expect(hasStrongMultiCardHand(hand)).toBe(false);
+    });
+
+    it('returns false when all cards are singletons', () => {
+      const hand = [
+        card('standard', 12, 'jade'),
+        card('standard', 13, 'pagoda'),
+        card('standard', 14, 'star'),
+      ];
+      expect(hasStrongMultiCardHand(hand)).toBe(false);
+    });
+
+    it('returns true for a straight containing high ranks', () => {
+      const hand = [
+        card('standard', 9, 'jade', 901),
+        card('standard', 10, 'jade', 1001),
+        card('standard', 11, 'jade', 1101),
+        card('standard', 12, 'jade', 1201),
+        card('standard', 13, 'jade', 1301),
+      ];
+      expect(hasStrongMultiCardHand(hand)).toBe(true);
+    });
+
+    it('returns false for low straight (5-9)', () => {
+      const hand = [
+        card('standard', 5, 'jade', 501),
+        card('standard', 6, 'jade', 601),
+        card('standard', 7, 'jade', 701),
+        card('standard', 8, 'jade', 801),
+        card('standard', 9, 'jade', 901),
+      ];
+      expect(hasStrongMultiCardHand(hand)).toBe(false);
     });
   });
 });

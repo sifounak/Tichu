@@ -471,13 +471,13 @@ describe('ExpertBot', () => {
       expect(result.south.card.kind).toBe('dog');
     });
 
-    // Verifies: REQ-F-PASS05
-    it('tracks passedToLeft for Mah Jong wish', () => {
+    // Verifies: REQ-F-PASS08
+    it('tracks passedToRight for Mahjong wish', () => {
       const bot = new ExpertBot();
       bot.chooseCardsToPass(makeWeakHand(), 'north');
-      // Should have recorded what was passed to east (left opponent)
-      expect(bot.getPassedToLeft()).not.toBeNull();
-      expect(bot.getPassedToLeft()!.card.kind).toBe('standard');
+      // Should have recorded what was passed to west (right opponent)
+      expect(bot.getPassedToRight()).not.toBeNull();
+      expect(bot.getPassedToRight()!.card.kind).toBe('standard');
     });
   });
 
@@ -1312,7 +1312,7 @@ describe('ExpertBot', () => {
       });
       bot.choosePlay(ctx);
       const wish = bot.chooseMahjongWish([c3, cA]);
-      // Should NOT wish for Ace (we have it), should use passedToLeft or fallback
+      // Should NOT wish for Ace (we have it), should use passedToRight or fallback
       expect(wish).not.toBe(14);
     });
 
@@ -1337,8 +1337,8 @@ describe('ExpertBot', () => {
         card('mahjong'),
       ];
       bot.chooseCardsToPass(hand14, 'north');
-      const passedToLeft = bot.getPassedToLeft();
-      expect(passedToLeft).not.toBeNull();
+      const passedToRight = bot.getPassedToRight();
+      expect(passedToRight).not.toBeNull();
 
       // Set up a round state with no Tichu callers
       const c8 = card('standard', 8, 'jade', 8001);
@@ -1360,9 +1360,9 @@ describe('ExpertBot', () => {
       });
       bot.choosePlay(ctx);
       const wish = bot.chooseMahjongWish([card('standard', 12, 'star', 1202)]);
-      // Should wish for the rank passed to left
-      if (passedToLeft!.card.kind === 'standard') {
-        expect(wish).toBe(passedToLeft!.card.rank);
+      // Should wish for the rank passed to right
+      if (passedToRight!.card.kind === 'standard') {
+        expect(wish).toBe(passedToRight!.card.rank);
       }
     });
 
@@ -2082,6 +2082,158 @@ describe('ExpertBot', () => {
         expect(decision.cards[0].id).toBe(301);
         expect(decision.cards.length).toBe(1);
       }
+    });
+  });
+
+  // ─── M1: setContext + Partner Strength Detection (REQ-F-CTX01, REQ-F-STR02) ──
+
+  describe('setContext', () => {
+    // Verifies: REQ-F-CTX01
+    it('stores score diff from game context', () => {
+      const bot = new ExpertBot();
+      const rs = makeRoundState();
+      bot.setContext(rs, { northSouth: 300, eastWest: 500 }, 1000);
+      // Bot is north (northSouth team), so diff = 300 - 500 = -200
+      expect(bot.getScoreDiff()).toBe(-200);
+    });
+
+    it('stores target score', () => {
+      const bot = new ExpertBot();
+      const rs = makeRoundState();
+      bot.setContext(rs, { northSouth: 0, eastWest: 0 }, 750);
+      expect(bot.getTargetScore()).toBe(750);
+    });
+
+    it('stores game scores', () => {
+      const bot = new ExpertBot();
+      const rs = makeRoundState();
+      bot.setContext(rs, { northSouth: 100, eastWest: 200 }, 1000);
+      expect(bot.getGameScores()).toEqual({ northSouth: 100, eastWest: 200 });
+    });
+  });
+
+  describe('partner strength detection', () => {
+    // Verifies: REQ-F-STR02
+    it('detects partner strength when partner passed a low card (rank < 10)', () => {
+      const bot = new ExpertBot();
+      const c8 = card('standard', 8, 'jade', 8001);
+      const rs = makeRoundState({
+        players: {
+          north: {
+            hand: [c8],
+            tricksWon: [],
+            tipiCall: 'none',
+            hasPlayed: false,
+            finishOrder: null,
+            passedCards: { to: { north: null, east: null, south: card('standard', 5, 'jade', 501), west: null }, received: true },
+          },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: {
+            hand: Array(14).fill(c8),
+            tricksWon: [],
+            tipiCall: 'none',
+            hasPlayed: false,
+            finishOrder: null,
+            passedCards: { to: { north: card('standard', 3, 'jade', 301), east: null, south: null, west: null }, received: true },
+          },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({
+        hand: [c8],
+        validPlays: [makeCombo(CombinationType.Single, [c8], 8)],
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      // Partner (south) passed rank 3 (< 10) → partner signaled strength
+      expect(bot.getPartnerStrengthDetected()).toBe(true);
+      expect(bot.getPartnerPassedCard()).not.toBeNull();
+    });
+
+    it('detects partner strength when partner passed Dog', () => {
+      const bot = new ExpertBot();
+      const c8 = card('standard', 8, 'jade', 8001);
+      const dogCard = card('dog');
+      const rs = makeRoundState({
+        players: {
+          north: {
+            hand: [c8],
+            tricksWon: [],
+            tipiCall: 'none',
+            hasPlayed: false,
+            finishOrder: null,
+          },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: {
+            hand: Array(14).fill(c8),
+            tricksWon: [],
+            tipiCall: 'none',
+            hasPlayed: false,
+            finishOrder: null,
+            passedCards: { to: { north: dogCard, east: null, south: null, west: null }, received: true },
+          },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const ctx = makePlayContext({
+        hand: [c8],
+        validPlays: [makeCombo(CombinationType.Single, [c8], 8)],
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      expect(bot.getPartnerStrengthDetected()).toBe(true);
+    });
+
+    it('does not detect strength when partner passed high card (rank >= 10)', () => {
+      const bot = new ExpertBot();
+      const c8 = card('standard', 8, 'jade', 8001);
+      const rs = makeRoundState({
+        players: {
+          north: {
+            hand: [c8],
+            tricksWon: [],
+            tipiCall: 'none',
+            hasPlayed: false,
+            finishOrder: null,
+          },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: {
+            hand: Array(14).fill(c8),
+            tricksWon: [],
+            tipiCall: 'none',
+            hasPlayed: false,
+            finishOrder: null,
+            passedCards: { to: { north: card('standard', 12, 'jade', 1201), east: null, south: null, west: null }, received: true },
+          },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const ctx = makePlayContext({
+        hand: [c8],
+        validPlays: [makeCombo(CombinationType.Single, [c8], 8)],
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      bot.choosePlay(ctx);
+      expect(bot.getPartnerStrengthDetected()).toBe(false);
+    });
+
+    it('handles missing passedCards gracefully', () => {
+      const bot = new ExpertBot();
+      const c8 = card('standard', 8, 'jade', 8001);
+      const rs = makeRoundState();
+      const ctx = makePlayContext({
+        hand: [c8],
+        validPlays: [makeCombo(CombinationType.Single, [c8], 8)],
+        roundState: rs,
+        seat: 'north' as Seat,
+      });
+      // Should not throw
+      bot.choosePlay(ctx);
+      expect(bot.getPartnerStrengthDetected()).toBe(false);
     });
   });
 });
