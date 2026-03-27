@@ -21,7 +21,6 @@ import type {
 } from './bot-interface.js';
 import {
   evaluateHandStrength,
-  computeGrandTichuIndex,
   computeTichuIndex,
   sortByStrength,
   isPartnerWinning,
@@ -33,6 +32,12 @@ import {
   findSingletons,
   getEndgamePhase,
   getHandSizes,
+  hasStrength,
+  hasStrongMultiCardHand,
+  getRightOpponent,
+  findBombs,
+  getThirdWorstNonBreaking,
+  isCardInMultiCardCombo,
 } from './bot-strategy-utils.js';
 import { CardTracker } from './card-tracker.js';
 
@@ -95,26 +100,47 @@ export class ExpertBot implements BotStrategy {
 
   // ─── Grand Tichu ──────────────────────────────────────────────────────────
 
-  // REQ-F-GT01, REQ-F-GT02: Stanford Grand Tichu index with score-adaptive thresholds
+  // REQ-F-GT01, REQ-F-GT02, REQ-F-GT03: Grand Tichu with concrete criteria
   /**
-   * Grand Tichu evaluation using Stanford CS229 Ig index + score context.
+   * Grand Tichu evaluation using power card count + hand quality.
    *
-   * Ig = N_Ace + 3*N_dragon + 3*N_phoenix + 3*N_bomb
-   *
-   * Score-adaptive thresholds (shifted upward from Stanford baseline for strong play):
-   * - Ahead 200+: Ig >= 6 (Dragon+Phoenix only)
-   * - Even/close: Ig >= 4 (Dragon+Ace, Phoenix+Ace, Dragon+Phoenix)
-   * - Behind 200-300: Ig >= 3 (Dragon alone, Phoenix alone, 3 Aces)
-   * - Behind 400+: Ig >= 2 (2 Aces, 1 Ace+bomb)
+   * Call Grand Tichu when:
+   * 1. 3+ power cards AND a bomb in hand
+   * 2. 3+ power cards AND a strong (rank > 10) multi-card hand
+   * 3. 2+ power cards AND a strong multi-card hand AND opponents near winning
    */
   chooseGrandTichu(hand8: GameCard[]): boolean {
-    const ig = computeGrandTichuIndex(hand8);
-    const deficit = this.scoreDiff !== null ? -this.scoreDiff : 0;
+    // Count power cards: Ace, Dragon, Phoenix
+    let powerCards = 0;
+    for (const gc of hand8) {
+      if (isDragon(gc.card) || isPhoenix(gc.card)) powerCards++;
+      else if (gc.card.kind === 'standard' && gc.card.rank === 14) powerCards++;
+    }
 
-    if (deficit >= 400) return ig >= 2;
-    if (deficit >= 200) return ig >= 3;
-    if (this.scoreDiff !== null && this.scoreDiff >= 200) return ig >= 6;
-    return ig >= 4;
+    const hasBomb = findBombs(hand8).length > 0;
+    const hasStrongMulti = hasStrongMultiCardHand(hand8);
+
+    // REQ-F-GT01: 3+ power cards AND bomb
+    if (powerCards >= 3 && hasBomb) return true;
+
+    // REQ-F-GT02: 3+ power cards AND strong multi-card hand
+    if (powerCards >= 3 && hasStrongMulti) return true;
+
+    // REQ-F-GT03: 2+ power + strong multi + opponents near winning
+    if (powerCards >= 2 && hasStrongMulti) {
+      const opponentsNearWinning = this.areOpponentsNearWinning();
+      if (opponentsNearWinning) return true;
+    }
+
+    return false;
+  }
+
+  /** Check if opponents are within 1 game of winning (score >= targetScore - 100) */
+  private areOpponentsNearWinning(): boolean {
+    if (!this.gameScores) return false;
+    const myTeam = getTeam(this.mySeat);
+    const oppTeam = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
+    return this.gameScores[oppTeam] >= this.targetScore - 100;
   }
 
   // ─── Regular Tichu ────────────────────────────────────────────────────────
@@ -177,31 +203,49 @@ export class ExpertBot implements BotStrategy {
 
   // ─── Card Passing ─────────────────────────────────────────────────────────
 
-  // REQ-F-PASS01-05: Card passing with strength concentration + parity convention
+  // REQ-F-PASS01-08: Card passing with strength concentration + parity convention
   /**
-   * Card passing based on strategy research:
-   * - REQ-F-PASS01: Strength concentration — weak hand passes best to partner,
-   *   strong hand passes 3rd-worst
-   * - REQ-F-PASS02: Parity convention — odd ranks to left, even ranks to right
-   * - REQ-F-PASS03: Anti-bomb — never same rank to both opponents
-   * - REQ-F-PASS04: Special card rules — Dragon/Phoenix team-only, Dog to partner if strong
+   * Card passing based on updated strategy:
+   * - REQ-F-PASS01: Strength concentration using hasStrength (2+ power cards)
+   * - REQ-F-PASS02: Strong hand passes 3rd-worst non-breaking card to partner
+   * - REQ-F-PASS03: Parity convention — odd ranks to left, even ranks to right
+   * - REQ-F-PASS04: Anti-bomb — split low pair if no 2 singles below 8
+   * - REQ-F-PASS05: Never pass Dragon/Phoenix/Mahjong to opponents
+   * - REQ-F-PASS06: Dog routing — opponent GT/T → Dog to opponent
+   * - REQ-F-PASS07: Dog routing — strong hand → Dog to partner/right, weak → left
    * - REQ-F-PASS08: Track passedToRight for Mahjong wish
    */
   chooseCardsToPass(hand: GameCard[], seat: Seat): Record<Seat, GameCard> {
     this.mySeat = seat;
     const partner = getPartner(seat);
     const leftOpp = getNextSeat(seat); // clockwise = left-hand opponent
-    const rightOpp = SEATS_IN_ORDER.find(
-      (s) => s !== seat && s !== partner && s !== leftOpp,
-    )!;
+    const rightOpp = getRightOpponent(seat);
     const sorted = sortByStrength(hand);
 
     const hasDragon = hand.some((gc) => isDragon(gc.card));
-    const hasPhoenix = hand.some((gc) => isPhoenix(gc.card));
-    const it = computeTichuIndex(hand);
-    const isStrongHand = it >= 7; // Can potentially call Tichu
+    const hasPhoenixCard = hand.some((gc) => isPhoenix(gc.card));
+    const hasDog = hand.some((gc) => isDog(gc.card));
+    // REQ-F-PASS01: Use M1 strength definition (2+ power cards)
+    const isStrongHand = hasStrength(hand);
 
-    // ─ REQ-F-PASS01: Partner card selection (strength concentration) ─
+    // ─ REQ-F-PASS06/07: Dog routing ─
+    let dogRecipient: Seat | null = null;
+    if (hasDog) {
+      // Check if any opponent called GT/T (available from lastRoundState set by setContext)
+      const opponentWithCall = this.getOpponentWithTichuCall(seat);
+      if (opponentWithCall) {
+        // REQ-F-PASS06: Dog to opponent who called GT/T
+        dogRecipient = opponentWithCall;
+      } else if (isStrongHand) {
+        // REQ-F-PASS07: Strong hand — Dog to partner (may need help regaining control)
+        dogRecipient = partner;
+      } else {
+        // Weak hand — Dog to left opponent
+        dogRecipient = leftOpp;
+      }
+    }
+
+    // ─ REQ-F-PASS01/02: Partner card selection (strength concentration) ─
     let partnerCard: GameCard | null = null;
 
     if (!isStrongHand) {
@@ -209,59 +253,79 @@ export class ExpertBot implements BotStrategy {
       // Dragon > Phoenix > Ace > highest standard
       if (hasDragon) {
         partnerCard = hand.find((gc) => isDragon(gc.card))!;
-      } else if (hasPhoenix) {
+      } else if (hasPhoenixCard) {
         partnerCard = hand.find((gc) => isPhoenix(gc.card))!;
       } else {
         // Pass highest card (last in sorted = strongest)
         partnerCard = sorted[sorted.length - 1];
       }
     } else {
-      // Strong hand: pass 3rd-worst card to partner
-      // But still pass Dog to partner if we have it (signal strength)
-      const hasDog = hand.some((gc) => isDog(gc.card));
-      if (hasDog) {
-        // REQ-F-PASS04: Pass Dog to partner from strong hand
+      // REQ-F-PASS02: Strong hand: 3rd-worst card that doesn't break a combo
+      if (dogRecipient === partner) {
         partnerCard = hand.find((gc) => isDog(gc.card))!;
       } else {
-        // 3rd-worst non-special card
-        const nonSpecial = sorted.filter(
-          (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card),
-        );
-        partnerCard = nonSpecial[2] ?? nonSpecial[nonSpecial.length - 1] ?? sorted[2];
+        const nonBreaking = getThirdWorstNonBreaking(hand.filter(
+          (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
+        ));
+        if (nonBreaking) {
+          partnerCard = nonBreaking;
+        } else {
+          // Fallback: 3rd-weakest non-special
+          const nonSpecial = sorted.filter(
+            (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
+          );
+          partnerCard = nonSpecial[2] ?? nonSpecial[nonSpecial.length - 1] ?? sorted[2];
+        }
       }
     }
 
-    // ─ REQ-F-PASS02: Opponent card selection with parity convention ─
-    // Pick 2 weakest non-special cards (excluding partner card)
+    // ─ REQ-F-PASS04: Anti-bomb — opponent card selection ─
     const usedIds = new Set([partnerCard.id]);
+    if (dogRecipient && dogRecipient !== partner) {
+      // Dog going to an opponent — mark it as used
+      const dogCard = hand.find((gc) => isDog(gc.card))!;
+      usedIds.add(dogCard.id);
+    }
+
+    // REQ-F-PASS05: Filter out Dragon, Phoenix, Mahjong, Dog for opponent candidates
     const opponentCandidates = sorted.filter(
       (gc) =>
         !usedIds.has(gc.id) &&
-        !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card),
+        !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
     );
 
-    // Pick 2 weakest
-    let oppCard1 = opponentCandidates[0]
-      ?? sorted.find((gc) => !usedIds.has(gc.id))!;
-    usedIds.add(oppCard1.id);
-    let oppCard2 = opponentCandidates.find((gc) => !usedIds.has(gc.id))
-      ?? sorted.find((gc) => !usedIds.has(gc.id))!;
+    // REQ-F-PASS04: Anti-bomb — if we don't have 2 single cards below 8,
+    // split a low pair (rank 2-4) and give one to each opponent
+    const singlesBelow8 = opponentCandidates.filter(
+      (gc) => gc.card.kind === 'standard' && gc.card.rank < 8 && !isCardInMultiCardCombo(gc, hand),
+    );
 
-    // REQ-F-PASS03: Anti-bomb check
-    if (
-      oppCard1.card.kind === 'standard' && oppCard2.card.kind === 'standard' &&
-      oppCard1.card.rank === oppCard2.card.rank
-    ) {
-      const alt = opponentCandidates.find(
-        (gc) =>
-          !usedIds.has(gc.id) &&
-          gc.card.kind === 'standard' &&
-          (gc.card as { rank: number }).rank !== (oppCard1.card as { rank: number }).rank,
-      );
-      if (alt) oppCard2 = alt;
+    let oppCard1: GameCard;
+    let oppCard2: GameCard;
+
+    if (singlesBelow8.length < 2) {
+      // Try to split a low pair (rank 2-4)
+      const lowPairCard = this.findLowPairToSplit(hand, usedIds);
+      if (lowPairCard) {
+        // Found a low pair — give one card from it to each opponent
+        oppCard1 = lowPairCard[0];
+        oppCard2 = lowPairCard[1];
+      } else {
+        // No low pair to split — fall back to 2 weakest
+        oppCard1 = opponentCandidates[0] ?? sorted.find((gc) => !usedIds.has(gc.id))!;
+        usedIds.add(oppCard1.id);
+        oppCard2 = opponentCandidates.find((gc) => !usedIds.has(gc.id))
+          ?? sorted.find((gc) => !usedIds.has(gc.id))!;
+      }
+    } else {
+      // Have 2+ singles below 8 — use them
+      oppCard1 = singlesBelow8[0];
+      usedIds.add(oppCard1.id);
+      oppCard2 = singlesBelow8[1] ?? opponentCandidates.find((gc) => !usedIds.has(gc.id))
+        ?? sorted.find((gc) => !usedIds.has(gc.id))!;
     }
 
-    // Apply parity convention: odd → left, even → right
+    // REQ-F-PASS03: Apply parity convention: odd → left, even → right
     let leftCard: GameCard;
     let rightCard: GameCard;
 
@@ -284,6 +348,13 @@ export class ExpertBot implements BotStrategy {
       rightCard = rank1 <= rank2 ? oppCard2 : oppCard1;
     }
 
+    // Override for Dog routing to specific opponent
+    if (dogRecipient === leftOpp) {
+      leftCard = hand.find((gc) => isDog(gc.card))!;
+    } else if (dogRecipient === rightOpp) {
+      rightCard = hand.find((gc) => isDog(gc.card))!;
+    }
+
     // REQ-F-PASS08: Track what was passed to right for Mahjong wish
     this.passedToRight = rightCard;
 
@@ -293,6 +364,37 @@ export class ExpertBot implements BotStrategy {
     result[partner] = partnerCard;
     result[seat] = sorted[0]; // Placeholder (not actually passed)
     return result;
+  }
+
+  /** Find an opponent who called Grand Tichu or Tichu (from cached round state) */
+  private getOpponentWithTichuCall(seat: Seat): Seat | null {
+    const rs = this.lastRoundState;
+    if (!rs) return null;
+    const myTeam = getTeam(seat);
+    for (const s of SEATS_IN_ORDER) {
+      if (getTeam(s) === myTeam) continue;
+      const call = rs.players[s].tipiCall;
+      if (call === 'tichu' || call === 'grandTichu') return s;
+    }
+    return null;
+  }
+
+  /** REQ-F-PASS04: Find a low pair (rank 2-4) to split between opponents */
+  private findLowPairToSplit(hand: GameCard[], usedIds: Set<number>): [GameCard, GameCard] | null {
+    const rankCounts = new Map<number, GameCard[]>();
+    for (const gc of hand) {
+      if (usedIds.has(gc.id)) continue;
+      if (gc.card.kind !== 'standard') continue;
+      const r = gc.card.rank;
+      if (r > 4) continue; // Only ranks 2-4
+      if (!rankCounts.has(r)) rankCounts.set(r, []);
+      rankCounts.get(r)!.push(gc);
+    }
+    // Find first pair
+    for (const [, cards] of rankCounts) {
+      if (cards.length >= 2) return [cards[0], cards[1]];
+    }
+    return null;
   }
 
   /** Get the card passed to the right opponent (for Mahjong wish context) */
@@ -405,38 +507,60 @@ export class ExpertBot implements BotStrategy {
 
   // ─── Mahjong Wish ─────────────────────────────────────────────────────────
 
-  // REQ-F-MJ01: Context-adaptive Mah Jong wish
+  // REQ-F-MJ01-04: Context-adaptive Mahjong wish with partner strength awareness
   /**
-   * Mah Jong wish selection with 4-priority context:
-   * 1. Mah Jong played in a straight → no wish
-   * 2. Opponent called Tichu/Grand Tichu → wish for Ace (force out power card)
-   * 3. Default → wish for card passed to left opponent (parity convention)
-   * 4. Fallback → wish for rank not in hand, preferring 5 or 6
+   * Mahjong wish selection with 4-priority system:
+   * 1. Mahjong in straight: no wish if Ace/partner strength; wish Ace if right opp GT/T + no strength
+   * 2. Right opponent called Grand Tichu → wish for Ace
+   * 3. Right opponent called Tichu AND no partner strength → wish for Ace
+   * 4. Fallback → wish for card passed to right opponent
    */
   chooseMahjongWish(hand: GameCard[]): Rank | null {
-    // Priority 1: Mah Jong in a straight → no wish
-    if (this.mahjongPlayedInStraight) return null;
-
     const haveRanks = new Set<number>();
     for (const gc of hand) {
       if (gc.card.kind === 'standard') haveRanks.add(gc.card.rank);
     }
+    const hasAce = haveRanks.has(14);
+    const rightOpp = getRightOpponent(this.mySeat);
 
-    // Priority 2: Opponent called Tichu or Grand Tichu → wish for Ace
+    // Get right opponent's call status
+    let rightOppCall: string = 'none';
     if (this.lastRoundState) {
-      const opponentCallers = getOpponentTichuCallers(this.lastRoundState, this.mySeat);
-      if (opponentCallers.length > 0 && !haveRanks.has(14)) {
+      rightOppCall = this.lastRoundState.players[rightOpp].tipiCall;
+    }
+    const rightOppCalledTichuOrGT = rightOppCall === 'tichu' || rightOppCall === 'grandTichu';
+    const rightOppCalledGT = rightOppCall === 'grandTichu';
+
+    // REQ-F-MJ01: Mahjong played in a straight
+    if (this.mahjongPlayedInStraight) {
+      if (hasAce || this.partnerStrengthDetected) {
+        // No wish — we have strength
+        return null;
+      }
+      // Wish for Ace if right opponent called GT/T AND no partner strength AND no Ace
+      if (rightOppCalledTichuOrGT && !this.partnerStrengthDetected && !hasAce) {
         return 14 as Rank;
       }
+      return null;
     }
 
-    // Priority 3: Wish for card passed to right opponent (parity convention)
+    // REQ-F-MJ02: Right opponent called Grand Tichu → wish for Ace
+    if (rightOppCalledGT && !hasAce) {
+      return 14 as Rank;
+    }
+
+    // REQ-F-MJ03: Right opponent called Tichu AND no partner strength → wish for Ace
+    if (rightOppCall === 'tichu' && !this.partnerStrengthDetected && !hasAce) {
+      return 14 as Rank;
+    }
+
+    // REQ-F-MJ04: Fallback — wish for card passed to right opponent
     if (this.passedToRight && this.passedToRight.card.kind === 'standard') {
       const passedRank = this.passedToRight.card.rank;
       if (!haveRanks.has(passedRank)) return passedRank as Rank;
     }
 
-    // Priority 4: Fallback — wish for rank not in hand, preferring 5 or 6
+    // Final fallback — wish for rank not in hand, preferring 5 or 6
     const fallbackCandidates: Rank[] = [5, 6, 7, 8, 9, 10] as Rank[];
     for (const rank of fallbackCandidates) {
       if (!haveRanks.has(rank)) return rank;

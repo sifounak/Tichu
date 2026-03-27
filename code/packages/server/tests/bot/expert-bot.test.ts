@@ -95,122 +95,89 @@ describe('ExpertBot', () => {
   // ─── Grand Tichu (REQ-F-GT01, REQ-F-GT02) ──────────────────────────────
 
   describe('chooseGrandTichu', () => {
-    // Verifies: REQ-F-GT01 — Stanford Ig index computation
-    it('calls Grand Tichu with Dragon + Phoenix (Ig=6, always meets threshold)', () => {
+    // Verifies: REQ-F-GT01 — 3+ power cards AND bomb
+    it('calls with 3 power cards and a bomb', () => {
       const bot = new ExpertBot();
       const hand8 = [
-        card('dragon'), card('phoenix'),
-        card('standard', 5), card('standard', 6),
-        card('standard', 7), card('standard', 8),
-        card('standard', 3), card('standard', 2),
+        card('dragon'), card('phoenix'), card('standard', 14, 'jade'), // 3 power cards
+        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
+        card('standard', 5, 'star', 503), card('standard', 5, 'sword', 504), // bomb
+        card('standard', 8, 'jade'),
       ];
-      // Ig = 3 (Dragon) + 3 (Phoenix) = 6 → meets even the strictest threshold (6)
       expect(bot.chooseGrandTichu(hand8)).toBe(true);
     });
 
-    it('never calls with no power cards (Ig=0)', () => {
+    // Verifies: REQ-F-GT02 — 3+ power cards AND strong multi-card hand
+    it('calls with 3 power cards and a strong pair (rank > 10)', () => {
       const bot = new ExpertBot();
-      // Use alternating suits to avoid accidental straight-flush bomb
+      const hand8 = [
+        card('dragon'), card('phoenix'), card('standard', 14, 'jade'), // 3 power cards
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202), // pair of Queens
+        card('standard', 3), card('standard', 4), card('standard', 6),
+      ];
+      expect(bot.chooseGrandTichu(hand8)).toBe(true);
+    });
+
+    it('does not call with only 2 power cards and no strong multi (normal game)', () => {
+      const bot = new ExpertBot();
+      const hand8 = [
+        card('dragon'), card('standard', 14, 'jade'), // 2 power cards
+        card('standard', 5), card('standard', 6),
+        card('standard', 7, 'jade'), card('standard', 8, 'pagoda'),
+        card('standard', 3), card('standard', 2),
+      ];
+      expect(bot.chooseGrandTichu(hand8)).toBe(false);
+    });
+
+    it('never calls with no power cards', () => {
+      const bot = new ExpertBot();
       const hand0 = [
         card('standard', 2, 'jade'), card('standard', 3, 'pagoda'),
         card('standard', 4, 'jade'), card('standard', 5, 'pagoda'),
         card('standard', 6, 'star'), card('standard', 7, 'sword'),
         card('standard', 8, 'jade'), card('standard', 9, 'pagoda'),
       ];
-      // Ig = 0 → never calls
       expect(bot.chooseGrandTichu(hand0)).toBe(false);
     });
 
-    // Verifies: REQ-F-GT02 — Score-adaptive thresholds
-    it('calls with Dragon + Ace at even score (Ig=4 >= threshold 4)', () => {
+    it('does not call with 2 Aces only (no bomb, no strong multi)', () => {
       const bot = new ExpertBot();
-      const hand = [
-        card('dragon'),
-        card('standard', 14, 'jade'), // Ace
-        card('standard', 5), card('standard', 6),
-        card('standard', 7), card('standard', 8),
-        card('standard', 9), card('standard', 10),
-      ];
-      // Ig = 3 (Dragon) + 1 (Ace) = 4 → meets even/close threshold (4)
-      expect(bot.chooseGrandTichu(hand)).toBe(true);
-    });
-
-    it('does not call with 2 Aces at even score (Ig=2 < threshold 4)', () => {
-      const bot = new ExpertBot();
-      const hand = [
-        card('standard', 14, 'jade'),  // Ace
-        card('standard', 14, 'pagoda'), // Ace
-        card('standard', 5), card('standard', 6),
-        card('standard', 7), card('standard', 8),
-        card('standard', 3), card('standard', 2),
-      ];
-      // Ig = 1 + 1 = 2 → below even/close threshold (4)
-      expect(bot.chooseGrandTichu(hand)).toBe(false);
-    });
-
-    it('calls with 2 Aces when behind 400+ (Ig=2 >= desperate threshold 2)', () => {
-      const bot = new ExpertBot();
-      bot.setScoreDiff(-500);
       const hand = [
         card('standard', 14, 'jade'),
         card('standard', 14, 'pagoda'),
         card('standard', 5), card('standard', 6),
-        card('standard', 7), card('standard', 8),
+        card('standard', 7, 'jade'), card('standard', 8, 'pagoda'),
         card('standard', 3), card('standard', 2),
       ];
-      // Ig = 2 → meets desperate threshold (2)
-      expect(bot.chooseGrandTichu(hand)).toBe(true);
+      expect(bot.chooseGrandTichu(hand)).toBe(false);
     });
 
-    it('calls with Dragon alone when behind 200-300 (Ig=3 >= threshold 3)', () => {
+    // Verifies: REQ-F-GT03 — 2+ power + strong multi + opponents near winning
+    it('calls with 2 power cards + strong multi when opponents near winning', () => {
       const bot = new ExpertBot();
-      bot.setScoreDiff(-250);
+      const rs = makeRoundState();
+      // Opponents at 950, target 1000 → near winning
+      bot.setContext(rs, { northSouth: 200, eastWest: 950 }, 1000);
       const hand = [
-        card('dragon'),
+        card('dragon'), card('standard', 14, 'jade'), // 2 power cards
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202), // pair of Queens
         card('standard', 5), card('standard', 6),
-        card('standard', 7), card('standard', 8),
-        card('standard', 9), card('standard', 10),
-        card('standard', 11),
+        card('standard', 7, 'jade'), card('standard', 8, 'pagoda'),
       ];
-      // Ig = 3 (Dragon) → meets behind-200 threshold (3)
       expect(bot.chooseGrandTichu(hand)).toBe(true);
     });
 
-    it('requires Dragon+Phoenix when ahead 200+ (Ig >= 6)', () => {
+    it('does not call with 2 power + strong multi when opponents not near winning', () => {
       const bot = new ExpertBot();
-      bot.setScoreDiff(300);
-      // Dragon + Ace = Ig 4, below strict threshold 6
-      // Use alternating suits to avoid straight-flush bomb
-      const hand4 = [
-        card('dragon'),
-        card('standard', 14, 'jade'),
-        card('standard', 5, 'jade'), card('standard', 6, 'pagoda'),
-        card('standard', 7, 'star'), card('standard', 8, 'sword'),
-        card('standard', 9, 'jade'), card('standard', 10, 'pagoda'),
-      ];
-      expect(bot.chooseGrandTichu(hand4)).toBe(false);
-
-      // Dragon + Phoenix = Ig 6, meets strict threshold
-      // Use alternating suits to avoid straight-flush bomb
-      const hand6 = [
-        card('dragon'), card('phoenix'),
-        card('standard', 5, 'jade'), card('standard', 6, 'pagoda'),
-        card('standard', 7, 'star'), card('standard', 8, 'sword'),
-        card('standard', 9, 'jade'), card('standard', 10, 'pagoda'),
-      ];
-      expect(bot.chooseGrandTichu(hand6)).toBe(true);
-    });
-
-    it('counts bombs in Ig index (bomb = 3)', () => {
-      const bot = new ExpertBot();
-      // 4 fives = bomb (Ig += 3) + 1 Ace (Ig += 1) = 4 → meets threshold
+      const rs = makeRoundState();
+      bot.setContext(rs, { northSouth: 200, eastWest: 300 }, 1000);
       const hand = [
-        card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
-        card('standard', 5, 'star', 503), card('standard', 5, 'sword', 504),
-        card('standard', 14, 'jade'),
-        card('standard', 7), card('standard', 8), card('standard', 9),
+        card('dragon'), card('standard', 14, 'jade'), // 2 power cards
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202), // pair of Queens
+        card('standard', 5), card('standard', 6),
+        card('standard', 7, 'jade'), card('standard', 8, 'pagoda'),
       ];
-      expect(bot.chooseGrandTichu(hand)).toBe(true);
+      expect(bot.chooseGrandTichu(hand)).toBe(false);
     });
   });
 
@@ -358,10 +325,10 @@ describe('ExpertBot', () => {
       ];
     }
 
-    // Verifies: REQ-F-PASS03
-    it('avoids passing two same-rank cards to opponents', () => {
+    // Verifies: REQ-F-PASS04
+    it('splits a low pair when no singles below 8 available', () => {
       const bot = new ExpertBot();
-      // Hand with two 3s as the weakest — bot should split them
+      // Hand with all pairs, no singletons below 8 → should split a low pair (rank 2-4)
       const hand = [
         card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
         card('standard', 5, 'star', 501), card('standard', 5, 'pagoda', 502),
@@ -375,8 +342,9 @@ describe('ExpertBot', () => {
       const result = bot.chooseCardsToPass(hand, 'north');
       const eastRank = result.east?.card.kind === 'standard' ? result.east.card.rank : null;
       const westRank = result.west?.card.kind === 'standard' ? result.west.card.rank : null;
-      // Both opponents should NOT receive the same rank
-      expect(eastRank !== null && westRank !== null && eastRank === westRank).toBe(false);
+      // Both opponents should receive one card from the split low pair (rank 3)
+      expect(eastRank).toBe(3);
+      expect(westRank).toBe(3);
     });
 
     it('returns cards for all three other seats', () => {
@@ -406,15 +374,23 @@ describe('ExpertBot', () => {
       expect(result.south.card.kind === 'standard' && result.south.card.rank === 5).toBe(true);
     });
 
-    // Verifies: REQ-F-PASS02
+    // Verifies: REQ-F-PASS03
     it('applies parity convention: odd to left (east), even to right (west)', () => {
       const bot = new ExpertBot();
-      // Weak hand with Ace as best → goes to partner
-      // Two weakest for opponents: rank 2 (even) and rank 3 (odd)
-      const hand = makeWeakHand();
+      // Hand with 2 singletons below 8 (rank 3 and rank 4) for clean parity test
+      const hand = [
+        card('standard', 3, 'jade', 301), // singleton odd
+        card('standard', 4, 'jade', 401), // singleton even
+        card('standard', 7, 'jade', 701), card('standard', 7, 'pagoda', 702),
+        card('standard', 9, 'jade', 901), card('standard', 9, 'pagoda', 902),
+        card('standard', 10, 'jade', 1001), card('standard', 10, 'pagoda', 1002),
+        card('standard', 11, 'jade', 1101), card('standard', 11, 'pagoda', 1102),
+        card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202),
+        card('standard', 13, 'jade', 1301), card('standard', 14, 'jade', 1401),
+      ];
       const result = bot.chooseCardsToPass(hand, 'north');
       // Left opponent = east (next seat clockwise from north)
-      // Odd (3) → east, Even (2) → west
+      // Odd (3) → east, Even (4) → west
       const eastRank = result.east?.card.kind === 'standard' ? result.east.card.rank : null;
       const westRank = result.west?.card.kind === 'standard' ? result.west.card.rank : null;
       expect(eastRank! % 2).toBe(1); // odd to east (left)
@@ -1235,20 +1211,21 @@ describe('ExpertBot', () => {
       expect(bot.chooseMahjongWish([c8])).toBeNull();
     });
 
-    // Verifies: REQ-F-MJ01 — wish for Ace when opponent called Tichu
-    it('wishes for Ace when opponent called Tichu', () => {
+    // Verifies: REQ-F-MJ03 — wish for Ace when RIGHT opponent called Tichu
+    it('wishes for Ace when right opponent called Tichu', () => {
       const bot = new ExpertBot();
       const c3 = card('standard', 3, 'jade', 301);
       const c8 = card('standard', 8, 'jade', 801);
       const mahjong = card('mahjong');
       const hand = [mahjong, c3, c8];
 
+      // Right opponent of north = west
       const roundState = makeRoundState({
         players: {
           north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
-          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
           south: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
-          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(14).fill(c8), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
         },
       });
       // Play Mah Jong as singleton to set up lastRoundState
