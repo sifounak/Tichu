@@ -717,38 +717,98 @@ export class ExpertBot implements BotStrategy {
    * Decision tree:
    * 1. Following on opponent's Ace → prefer (singleton-killer)
    * 2. Phoenix completes a combination eliminating 3+ cards → prefer (wild)
-   * 3. Leading with Phoenix as singleton → avoid (+0.5 is weak)
-   * 4. Unaccounted opponent Aces exist → avoid singleton use (save to beat Ace)
-   * 5. Otherwise → neutral
+   * Never play when:
+   * - REQ-F-PHX01: On single < Ace unless all Aces accounted for
+   * - REQ-F-PHX02: In low multi-card (rank < 7) unless going out
+   *
+   * Acceptable when:
+   * - REQ-F-PHX03: Over single Ace (prefer last unaccounted)
+   * - REQ-F-PHX04: Over King if all Aces played
+   * - REQ-F-PHX05: In straight (rank >= 10 or length >= 5)
+   * - REQ-F-PHX06: In consecutive pairs
+   * - REQ-F-PHX07: In triple (rank >= 8)
+   * - REQ-F-PHX08: In pair (rank > 10)
+   * - REQ-F-PHX09: As singleton lead if rest are Ace/King(if Aces played)/Dragon
    */
   private evaluatePhoenixPlay(
     combo: Combination,
     currentTrick: import('@tichu/shared').TrickState | null,
-    _hand: GameCard[],
-  ): 'prefer' | 'avoid' | 'neutral' {
+    hand: GameCard[],
+  ): 'never' | 'acceptable' | 'neutral' {
     const hasPhoenix = combo.cards.some((gc) => isPhoenix(gc.card));
     if (!hasPhoenix) return 'neutral';
 
-    // 1. Following on opponent's Ace with Phoenix singleton → prefer (singleton-killer)
+    const allAcesAccountedFor = this.cardTracker.allAcesAccountedFor();
+    const allAcesPlayed = this.cardTracker.allAcesPlayed();
+
+    // ─── NEVER rules ───
+
+    // REQ-F-PHX01: Phoenix as singleton on top of single < Ace, unless all Aces accounted
+    if (currentTrick && combo.cards.length === 1) {
+      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+      if (lastPlay && lastPlay.combination.cards.length === 1) {
+        const lastCard = lastPlay.combination.cards[0];
+        if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14 && !allAcesAccountedFor) {
+          return 'never';
+        }
+      }
+    }
+
+    // REQ-F-PHX02: Phoenix in low multi-card hand (rank < 7), unless going out
+    if (combo.cards.length > 1 && combo.rank < 7) {
+      if (hand.length !== combo.cards.length) { // Not going out
+        return 'never';
+      }
+    }
+
+    // ─── ACCEPTABLE scenarios ───
+
+    // REQ-F-PHX03: Over single Ace
     if (currentTrick && combo.cards.length === 1) {
       const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
       if (lastPlay && lastPlay.combination.cards.length === 1) {
         const lastCard = lastPlay.combination.cards[0];
         if (lastCard.card.kind === 'standard' && lastCard.card.rank === 14) {
-          return 'prefer'; // Beat the Ace with Phoenix
+          return 'acceptable';
         }
       }
     }
 
-    // 2. Phoenix in combination of 3+ cards → prefer (eliminates losers)
-    if (combo.cards.length >= 3) return 'prefer';
+    // REQ-F-PHX04: Over King if all Aces already played
+    if (currentTrick && combo.cards.length === 1 && allAcesPlayed) {
+      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+      if (lastPlay && lastPlay.combination.cards.length === 1) {
+        const lastCard = lastPlay.combination.cards[0];
+        if (lastCard.card.kind === 'standard' && lastCard.card.rank === 13) {
+          return 'acceptable';
+        }
+      }
+    }
 
-    // 3. Leading with Phoenix as singleton → avoid
-    if (!currentTrick && combo.cards.length === 1) return 'avoid';
+    // REQ-F-PHX05: In straight with high rank (>= 10) or length >= 5
+    if (combo.type === CombinationType.Straight) {
+      if (combo.rank >= 10 || combo.cards.length >= 5) return 'acceptable';
+    }
 
-    // 4. Unaccounted Aces exist → avoid singleton use (save for Ace-beating)
-    if (combo.cards.length === 1 && this.cardTracker.getUnaccountedAces() > 0) {
-      return 'avoid';
+    // REQ-F-PHX06: In consecutive pairs (PairSequence)
+    if (combo.type === CombinationType.PairSequence) return 'acceptable';
+
+    // REQ-F-PHX07: In triple with rank >= 8
+    if (combo.type === CombinationType.Triple && combo.rank >= 8) return 'acceptable';
+
+    // REQ-F-PHX08: In pair with rank > 10
+    if (combo.type === CombinationType.Pair && combo.rank > 10) return 'acceptable';
+
+    // REQ-F-PHX09: As singleton lead if all remaining are Ace/King(if Aces played)/Dragon
+    if (!currentTrick && combo.cards.length === 1) {
+      const otherCards = hand.filter((gc) => !isPhoenix(gc.card));
+      const allWinners = otherCards.every((gc) => {
+        if (isDragon(gc.card)) return true;
+        if (gc.card.kind === 'standard' && gc.card.rank === 14) return true;
+        if (allAcesPlayed && gc.card.kind === 'standard' && gc.card.rank === 13) return true;
+        return false;
+      });
+      if (otherCards.length > 0 && allWinners) return 'acceptable';
     }
 
     return 'neutral';
@@ -916,8 +976,15 @@ export class ExpertBot implements BotStrategy {
       if (combo.type === CombinationType.Single &&
         combo.cards[0].card.kind === 'standard' && combo.cards[0].card.rank === 14) continue;
       if (combo.cards.length === 1 && isPhoenix(combo.cards[0].card)) continue;
-      // REQ-F-FOL03: Never lead Ace pairs — split them for individual wins
-      if (combo.type === CombinationType.Pair && combo.rank === 14) continue;
+      // REQ-F-FOL03: Avoid leading Ace pairs — split for individual wins
+      // Exception: OK if playing Ace pair leaves only winners (one more control to go out)
+      if (combo.type === CombinationType.Pair && combo.rank === 14) {
+        const remaining = hand.filter((gc) => !combo.cards.some((c) => c.id === gc.id));
+        const allWinners = remaining.every((gc) =>
+          isDragon(gc.card) || (gc.card.kind === 'standard' && gc.card.rank >= 14),
+        );
+        if (!allWinners) continue;
+      }
       return this.toDecision(combo);
     }
 
@@ -947,6 +1014,11 @@ export class ExpertBot implements BotStrategy {
 
     const hasDragon = hand.some((gc) => isDragon(gc.card));
     if (!hasDragon) return null;
+
+    // REQ-F-BOMB02: Exception — if a play would make us go out, skip bomb-proof avoidance
+    for (const combo of ranked) {
+      if (canGoOut(hand, combo)) return null; // Let normal go-out logic handle it
+    }
 
     // Check if there's bomb risk (any rank with 3+ unaccounted cards)
     const absentRanks = this.cardTracker.getAbsentRanks();
@@ -1077,20 +1149,21 @@ export class ExpertBot implements BotStrategy {
         if (cheapestWin.rank >= 14 || (cheapestWin.cards.length === 1 && isDragon(cheapestWin.cards[0].card))) {
           return { action: 'pass' };
         }
-        // REQ-F-FOL02: Smart pass — don't spend King on low trick when Aces unaccounted
-        if (cheapestWin.rank === 13 && this.cardTracker.getUnaccountedAces() > 0) {
+        // REQ-F-FOL01: King safety — treat Kings as top-tier when Aces unaccounted,
+        // but play them confidently when all Aces are accounted for
+        if (cheapestWin.rank === 13 && !this.cardTracker.allAcesAccountedFor()) {
           return { action: 'pass' };
         }
       }
     }
 
-    // REQ-F-PHX01: Win with minimum force, but evaluate Phoenix plays
+    // REQ-F-PHX01-09: Win with minimum force, evaluate Phoenix plays
     if (ranked.length > 0) {
       const cheapest = ranked[0];
       const phoenixEval = this.evaluatePhoenixPlay(cheapest, currentTrick, hand);
 
-      // If cheapest win uses Phoenix and we should avoid it, try next non-Phoenix play
-      if (phoenixEval === 'avoid' && ranked.length > 1) {
+      // If cheapest win uses Phoenix and it's 'never', try next non-Phoenix play
+      if (phoenixEval === 'never') {
         const nonPhoenixPlay = ranked.find(
           (c) => !c.cards.some((gc) => isPhoenix(gc.card)),
         );
@@ -1098,9 +1171,6 @@ export class ExpertBot implements BotStrategy {
         // If all plays use Phoenix, pass if we can
         if (canPass) return { action: 'pass' };
       }
-
-      // If Phoenix play is preferred (e.g., beating Ace), prioritize it
-      if (phoenixEval === 'prefer') return this.toDecision(cheapest);
 
       return this.toDecision(cheapest);
     }

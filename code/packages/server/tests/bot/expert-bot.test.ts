@@ -648,14 +648,15 @@ describe('ExpertBot', () => {
     it('includes phoenixAs when playing Phoenix combination', () => {
       const bot = new ExpertBot();
       const phoenixCard = card('phoenix');
+      // Phoenix over an Ace — acceptable per REQ-F-PHX03
       const hand = [phoenixCard, card('standard', 3, 'jade', 301)];
 
       const trick = makeTrick('east', 'east', [
-        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 10)], 10) },
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 14, 'jade', 1401)], 14) },
       ]);
 
       const validPlays = [
-        makeCombo(CombinationType.Single, [phoenixCard], 10.5, false, 10),
+        makeCombo(CombinationType.Single, [phoenixCard], 14.5, false, 14),
       ];
 
       const ctx = makePlayContext({
@@ -677,7 +678,7 @@ describe('ExpertBot', () => {
       const decision = bot.choosePlay(ctx);
       expect(decision.action).toBe('play');
       if (decision.action === 'play') {
-        expect(decision.phoenixAs).toBe(10);
+        expect(decision.phoenixAs).toBe(14);
       }
     });
 
