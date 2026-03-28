@@ -52,7 +52,6 @@ export type GameEvent =
   | { type: 'GRAND_TICHU_CALL'; seat: Seat }
   | { type: 'GRAND_TICHU_PASS'; seat: Seat }
   | { type: 'REGULAR_TICHU_CALL'; seat: Seat }
-  | { type: 'REGULAR_TICHU_PASS'; seat: Seat }
   | { type: 'CARDS_PASSED'; seat: Seat; cards: Record<Seat, GameCard> }
   | { type: 'CARDS_PASS_CANCELLED'; seat: Seat }
   | { type: 'PLAY_CARDS'; seat: Seat; cards: GameCard[]; wish?: Rank }
@@ -73,8 +72,6 @@ export interface GameMachineContext {
   currentRound: RoundState | null;
   /** Tracks which seats have made their Grand Tichu decision */
   grandTichuDecisions: Set<Seat>;
-  /** Tracks which seats have made their Regular Tichu decision */
-  regularTichuDecisions: Set<Seat>;
   /** Tracks which seats have passed cards */
   cardPassDecisions: Set<Seat>;
   /** Winner of the game, if any */
@@ -93,7 +90,6 @@ export function createInitialContext(gameId: string, config?: Partial<GameConfig
     roundHistory: [],
     currentRound: null,
     grandTichuDecisions: new Set(),
-    regularTichuDecisions: new Set(),
     cardPassDecisions: new Set(),
     winner: null,
   };
@@ -282,11 +278,6 @@ export const gameMachine = setup({
       return context.grandTichuDecisions.size === 4;
     },
 
-    /** All players made Regular Tichu decision */
-    allRegularTichuDecided: ({ context }) => {
-      return context.regularTichuDecisions.size === 4;
-    },
-
     /** All players passed cards */
     allCardsPassed: ({ context }) => {
       return context.cardPassDecisions.size === 4;
@@ -352,13 +343,7 @@ export const gameMachine = setup({
       return !context.grandTichuDecisions.has(event.seat);
     },
 
-    /** Player hasn't already decided Regular Tichu */
-    hasNotDecidedRegularTichu: ({ context, event }) => {
-      if (!('seat' in event)) return false;
-      return !context.regularTichuDecisions.has(event.seat);
-    },
-
-    /** Player hasn't called any Tichu (regular or grand) — for mid-phase Tichu calls */
+    /** Player hasn't called any Tichu (regular or grand) */
     hasNotCalledTichu: ({ context, event }) => {
       if (!('seat' in event) || !context.currentRound) return false;
       return context.currentRound.players[event.seat].tipiCall === 'none';
@@ -409,7 +394,6 @@ export const gameMachine = setup({
       return {
         currentRound: round,
         grandTichuDecisions: new Set<Seat>(),
-        regularTichuDecisions: new Set<Seat>(),
         cardPassDecisions: new Set<Seat>(),
       };
     }),
@@ -449,7 +433,7 @@ export const gameMachine = setup({
     dealRemaining6: assign(({ context }) => {
       if (!context.currentRound) return {};
       const round = structuredClone(context.currentRound) as RoundState;
-      round.phase = GamePhase.TichuDecision;
+      round.phase = GamePhase.CardPassing;
 
       for (const seat of SEATS_IN_ORDER) {
         const player = round.players[seat] as PlayerState & { _remaining6?: GameCard[] };
@@ -470,17 +454,7 @@ export const gameMachine = setup({
       if (round.players[event.seat].tipiCall === 'none') {
         round.players[event.seat].tipiCall = 'tichu';
       }
-      const decisions = new Set(context.regularTichuDecisions);
-      decisions.add(event.seat);
-      return { currentRound: round, regularTichuDecisions: decisions };
-    }),
-
-    /** Record Regular Tichu pass */
-    recordRegularTichuPass: assign(({ context, event }) => {
-      if (event.type !== 'REGULAR_TICHU_PASS') return {};
-      const decisions = new Set(context.regularTichuDecisions);
-      decisions.add(event.seat);
-      return { regularTichuDecisions: decisions };
+      return { currentRound: round };
     }),
 
     /** Transition to card passing phase */
@@ -820,35 +794,8 @@ export const gameMachine = setup({
       },
       always: {
         guard: 'allGrandTichuDecided',
-        target: 'regularTichuDecision',
-        actions: 'dealRemaining6',
-      },
-    },
-
-    regularTichuDecision: {
-      on: {
-        REGULAR_TICHU_CALL: {
-          guard: 'hasNotDecidedRegularTichu',
-          actions: 'recordRegularTichuCall',
-        },
-        REGULAR_TICHU_PASS: {
-          guard: 'hasNotDecidedRegularTichu',
-          actions: 'recordRegularTichuPass',
-        },
-        // Allow early card passing for players who have already decided
-        CARDS_PASSED: {
-          guard: 'hasNotPassedCards',
-          actions: 'recordCardPass',
-        },
-        CARDS_PASS_CANCELLED: {
-          guard: 'hasPassedCards',
-          actions: 'cancelCardPass',
-        },
-      },
-      always: {
-        guard: 'allRegularTichuDecided',
         target: 'cardPassing',
-        actions: 'enterCardPassing',
+        actions: ['dealRemaining6', 'enterCardPassing'],
       },
     },
 

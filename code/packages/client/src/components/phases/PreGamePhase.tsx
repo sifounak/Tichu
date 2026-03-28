@@ -92,7 +92,7 @@ export const PreGamePhase = memo(function PreGamePhase({
     }
   }
 
-  if (phase === 'cardPassing' || phase === 'grandTichuDecision' || phase === 'tichuDecision') {
+  if (phase === 'cardPassing' || phase === 'grandTichuDecision') {
     const allFilled = passSelection.size === 3;
 
     function renderSlot(seat: Seat) {

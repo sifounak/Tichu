@@ -577,12 +577,6 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   // Auto-skip Tichu decision phase — player can call Tichu from the ActionBar during gameplay
   // NOTE: Must be above early returns to respect Rules of Hooks
   const phase = gameStore.phase;
-  useEffect(() => {
-    if (phase === GamePhase.TichuDecision && !isSpectator) {
-      send({ type: 'REGULAR_TICHU_PASS' });
-    }
-  }, [phase, send, isSpectator]);
-
 
 
   // REQ-F-ES03: Close WebSocket on browser tab close so server detects disconnect via 'close' event
@@ -784,7 +778,6 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
   const isPreGame =
     phase === GamePhase.GrandTichuDecision ||
-    phase === GamePhase.TichuDecision ||
     phase === GamePhase.CardPassing;
 
   // REQ-F-AP01/AP02: Show auto-pass toggle during playing phase for active (non-finished) players
@@ -796,7 +789,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   // Player can select cards to pass once they have 14 cards (decided GT or in card passing phase)
   const canSelectPassCards =
     phase === GamePhase.CardPassing ||
-    ((phase === GamePhase.GrandTichuDecision || phase === GamePhase.TichuDecision) &&
+    (phase === GamePhase.GrandTichuDecision &&
       gameStore.myHand.length >= 14);
 
   // Build tichu calls array for ScorePanel
@@ -1255,7 +1248,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
           {/* Card hand — always rendered for visual continuity */}
           <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
-            {(phase === 'playing' || phase === 'cardPassing' || phase === 'tichuDecision') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+            {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
               <button
                 onClick={handleTichu}
                 style={{
@@ -1296,7 +1289,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
               }
             />
             {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
-            {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'tichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
+            {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
               <div
                 style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 'calc(48px * var(--scale))', zIndex: 30 }}
                 onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}

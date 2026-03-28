@@ -79,53 +79,33 @@ export class MoveHandler {
     return { ok: true };
   }
 
-  /** Handle TICHU_DECLARATION */
+  /** Handle TICHU_DECLARATION — allowed during cardPassing and playing (before first play) */
   handleTichuDeclaration(seat: Seat): MoveResult {
     const state = this.stateValue;
-    if (state === 'regularTichuDecision') {
-      if (this.context.regularTichuDecisions.has(seat)) {
-        return { ok: false, error: 'Already made Tichu decision' };
-      }
-      this.actor.send({ type: 'REGULAR_TICHU_CALL', seat });
-      return { ok: true };
+    if (state !== 'cardPassing' && state !== 'playing') {
+      return { ok: false, error: 'Cannot call Tichu in current phase' };
     }
 
-    if (state === 'playing') {
-      const round = this.context.currentRound;
-      if (!round) return { ok: false, error: 'No active round' };
-      const player = round.players[seat];
-      if (player.hasPlayed) {
-        return { ok: false, error: 'Cannot call Tichu after first play' };
-      }
-      if (player.tipiCall !== 'none') {
-        return { ok: false, error: 'Already made a Tichu call' };
-      }
-      this.actor.send({ type: 'REGULAR_TICHU_CALL', seat });
-      return { ok: true };
+    const round = this.context.currentRound;
+    if (!round) return { ok: false, error: 'No active round' };
+    const player = round.players[seat];
+    if (player.hasPlayed) {
+      return { ok: false, error: 'Cannot call Tichu after first play' };
     }
-
-    return { ok: false, error: 'Cannot call Tichu in current phase' };
-  }
-
-  /** Handle passing on Regular Tichu decision */
-  handleRegularTichuPass(seat: Seat): MoveResult {
-    if (this.stateValue !== 'regularTichuDecision') {
-      return { ok: false, error: 'Not in Tichu decision phase' };
+    if (player.tipiCall !== 'none') {
+      return { ok: false, error: 'Already made a Tichu call' };
     }
-    if (this.context.regularTichuDecisions.has(seat)) {
-      return { ok: false, error: 'Already made Tichu decision' };
-    }
-    this.actor.send({ type: 'REGULAR_TICHU_PASS', seat });
+    this.actor.send({ type: 'REGULAR_TICHU_CALL', seat });
     return { ok: true };
   }
 
   /** Handle PASS_CARDS — allowed during cardPassing and earlier phases (once player has 14 cards) */
   handlePassCards(seat: Seat, cards: Record<Seat, GameCard>): MoveResult {
-    const allowedStates = ['cardPassing', 'grandTichuDecision', 'regularTichuDecision'];
+    const allowedStates = ['cardPassing', 'grandTichuDecision'];
     if (!allowedStates.includes(this.stateValue)) {
       return { ok: false, error: 'Not in card passing phase' };
     }
-    // During GT/Tichu decision, player must have decided (and received remaining 6 cards)
+    // During GT decision, player must have decided (and received remaining 6 cards)
     if (this.stateValue !== 'cardPassing') {
       const round = this.context.currentRound;
       if (!round || round.players[seat].hand.length < 14) {
@@ -161,7 +141,7 @@ export class MoveHandler {
 
   /** Handle CANCEL_PASS_CARDS — allowed during cardPassing and earlier phases */
   handleCancelPassCards(seat: Seat): MoveResult {
-    const allowedStates = ['cardPassing', 'grandTichuDecision', 'regularTichuDecision'];
+    const allowedStates = ['cardPassing', 'grandTichuDecision'];
     if (!allowedStates.includes(this.stateValue)) {
       return { ok: false, error: 'Not in card passing phase' };
     }
