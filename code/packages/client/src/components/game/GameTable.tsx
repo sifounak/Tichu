@@ -102,8 +102,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           isTrickLeader={trickLeader === seat}
           isMe={true}
           passConfirmed={isPassConfirmed}
-          seatChooserLabel={onChooseSeat ? 'Choose This Seat' : undefined}
-          onChooseSeat={onChooseSeat ? () => onChooseSeat(seat) : undefined}
+          seatChooserLabel={onChooseSeat && !view.gameHalted ? 'Choose This Seat' : undefined}
+          onChooseSeat={onChooseSeat && !view.gameHalted ? () => onChooseSeat(seat) : undefined}
           playerVoteStatus={myVoteStatus ?? undefined}
           playerVoteLabel={myPvLabel}
           hideNormalLabels={!!activeVote || kickTargetMode}
@@ -152,8 +152,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         emptySeat={vacatedSeats.includes(seat)}
         voteStatus={(view.disconnectVotes?.[seat] as 'wait' | 'kick' | null) ?? null}
         vacated={vacatedSeats.includes(seat)}
-        seatChooserLabel={onChooseSeat && vacatedSeats.includes(seat) ? 'Sit Here' : undefined}
-        onChooseSeat={onChooseSeat && vacatedSeats.includes(seat) ? () => onChooseSeat(seat) : undefined}
+        seatChooserLabel={onChooseSeat && !view.gameHalted && vacatedSeats.includes(seat) ? 'Sit Here' : undefined}
+        onChooseSeat={onChooseSeat && !view.gameHalted && vacatedSeats.includes(seat) ? () => onChooseSeat(seat) : undefined}
         kickVoteTarget={kickTargetMode && seat !== mySeat}
         playerVoteStatus={pvStatus ?? undefined}
         playerVoteLabel={pvLabel}
