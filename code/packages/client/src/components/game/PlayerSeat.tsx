@@ -1,9 +1,11 @@
 // REQ-F-DI01: Player seat showing avatar, card count, Tichu indicator, pass status
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import type { Seat, TichuCall } from '@tichu/shared';
 import { Card } from '../cards/Card';
+import { TurnTimer } from './TurnTimer';
+import { useTurnTimer } from '@/hooks/useTurnTimer';
 import styles from './PlayerSeat.module.css';
 
 export interface PlayerSeatProps {
@@ -51,6 +53,10 @@ export interface PlayerSeatProps {
   hideNormalLabels?: boolean;
   /** REQ-F-VI05: Host can add a bot to a vacated seat mid-game */
   onAddBot?: () => void;
+  /** REQ-F-TT05: Epoch ms when turn timer started, null when disabled/stopped */
+  turnTimerStartedAt?: number | null;
+  /** REQ-F-TT05: Total turn timer duration in ms, null when disabled/stopped */
+  turnTimerDurationMs?: number | null;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -87,14 +93,28 @@ export const PlayerSeat = memo(function PlayerSeat({
   playerVoteLabel,
   hideNormalLabels,
   onAddBot,
+  turnTimerStartedAt,
+  turnTimerDurationMs,
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
   const name = emptySeat ? 'Empty Seat' : (displayName ?? SEAT_LABELS[seat]);
   const [hovered, setHovered] = useState(false);
+  const seatRef = useRef<HTMLDivElement>(null);
+
+  // REQ-F-TT06: Client-side turn timer countdown
+  const timer = useTurnTimer(turnTimerStartedAt, turnTimerDurationMs);
 
   // dragonTarget = always-on purple glow; dragonHoverTarget = purple glow only on hover
   const isDragonActive = dragonTarget || (dragonHoverTarget && hovered);
   const isClickableDragon = dragonTarget || dragonHoverTarget;
+
+  // REQ-F-TT03: Timer stage determines seat glow class when active
+  const timerActive = isCurrentTurn && timer.isActive;
+  const timerGlowClass = timerActive
+    ? timer.stage === 'red' ? `${styles.timerRed} ${styles.timerRedPulse}`
+      : timer.stage === 'amber' ? styles.timerAmber
+      : styles.timerNoGlow // blue stage = no glow, let the ring be the indicator
+    : styles.active;
 
   const className = [
     styles.seat,
@@ -105,7 +125,7 @@ export const PlayerSeat = memo(function PlayerSeat({
     // REQ-F-ES04: Vote glow overrides normal turn/leader glows during active vote
     !kickVoteTarget && playerVoteStatus == null && voteStatus === 'wait' && styles.voteWait,
     !kickVoteTarget && playerVoteStatus == null && voteStatus === 'kick' && styles.voteKick,
-    !kickVoteTarget && playerVoteStatus == null && !voteStatus && isCurrentTurn && styles.active,
+    !kickVoteTarget && playerVoteStatus == null && !voteStatus && isCurrentTurn && timerGlowClass,
     !kickVoteTarget && playerVoteStatus == null && !voteStatus && isTrickLeader && styles.trickLeader,
     hasPassed && styles.passed,
     isMe && styles.me,
@@ -120,6 +140,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   if (customContent) {
     return (
       <div
+        ref={seatRef}
         className={className}
         data-seat={seat}
         aria-label={kickVoteTarget ? `Kick ${name}` : `${name}'s seat`}
@@ -127,6 +148,7 @@ export const PlayerSeat = memo(function PlayerSeat({
         role={kickVoteTarget ? 'button' : undefined}
         style={kickVoteTarget ? { cursor: 'pointer' } : undefined}
       >
+        {timerActive && <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />}
         {customContent}
       </div>
     );
@@ -134,6 +156,7 @@ export const PlayerSeat = memo(function PlayerSeat({
 
   return (
     <div
+      ref={seatRef}
       className={className}
       data-seat={seat}
       aria-label={kickVoteTarget ? `Kick ${name}` : isClickableDragon ? `Give Dragon trick to ${name}` : `${name}'s seat`}
@@ -143,6 +166,8 @@ export const PlayerSeat = memo(function PlayerSeat({
       onMouseEnter={dragonHoverTarget ? () => setHovered(true) : undefined}
       onMouseLeave={dragonHoverTarget ? () => setHovered(false) : undefined}
     >
+      {/* REQ-F-TT02: Depleting SVG border ring overlay */}
+      {timerActive && <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />}
       <span className={styles.name}>{name}</span>
       <div className={styles.seatRow}>
         {/* Avatar — REQ-F-ES01: Empty circle for empty seats */}
@@ -200,9 +225,18 @@ export const PlayerSeat = memo(function PlayerSeat({
         </span>
       )}
 
-      {/* Turn indicator */}
+      {/* Turn indicator — REQ-F-TT01: Countdown badge left of label */}
       {!hideNormalLabels && isCurrentTurn && !isDragonActive && (
-        <span className={styles.turnLabel}>{isMe ? 'Your Turn' : 'Their Turn'}</span>
+        <span className={`${styles.turnLabel} ${timerActive && timer.stage === 'red' ? styles.turnLabelRed : ''}`}>
+          {timerActive && (
+            <span className={`${styles.timerBadge} ${
+              timer.stage === 'red' ? styles.timerBadgeRed
+              : timer.stage === 'amber' ? styles.timerBadgeAmber
+              : styles.timerBadgeBlue
+            }`}>{timer.remainingSeconds}</span>
+          )}{' '}
+          {isMe ? 'Your Turn' : 'Their Turn'}
+        </span>
       )}
 
       {/* Dragon gift target label — shown for always-on targets and hovered targets */}

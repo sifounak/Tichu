@@ -209,4 +209,8 @@ export interface ClientGameView {
     votes: Record<string, boolean | null>;
     timeoutMs: number;
   } | null;
+  /** REQ-F-TT05: Epoch timestamp (ms) when the current turn timer started, null when disabled/stopped */
+  turnTimerStartedAt?: number | null;
+  /** REQ-F-TT05: Total turn timer duration in milliseconds, null when disabled/stopped */
+  turnTimerDurationMs?: number | null;
 }

@@ -54,6 +54,10 @@ export interface GameStore {
   disconnectVotes: Record<string, 'wait' | 'kick' | null>;
   /** REQ-F-ES02: True when game is halted due to empty seats or disconnect vote */
   gameHalted: boolean;
+  /** REQ-F-TT05: Epoch ms when turn timer started, null when disabled/stopped */
+  turnTimerStartedAt: number | null;
+  /** REQ-F-TT05: Total turn timer duration in ms, null when disabled/stopped */
+  turnTimerDurationMs: number | null;
 
   /* --- Actions --- */
   /** Apply a full GAME_STATE sync from the server */
@@ -91,6 +95,8 @@ const initialState = {
   choosingSeat: false,
   disconnectVotes: {} as Record<string, 'wait' | 'kick' | null>,
   gameHalted: false,
+  turnTimerStartedAt: null as number | null,
+  turnTimerDurationMs: null as number | null,
 };
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -127,6 +133,8 @@ export const useGameStore = create<GameStore>()((set) => ({
       choosingSeat: view.choosingSeat ?? false,
       disconnectVotes: view.disconnectVotes ?? {},
       gameHalted: view.gameHalted ?? false,
+      turnTimerStartedAt: view.turnTimerStartedAt ?? null,
+      turnTimerDurationMs: view.turnTimerDurationMs ?? null,
     }),
 
   applyServerMessage: (msg: ServerMessage) =>
