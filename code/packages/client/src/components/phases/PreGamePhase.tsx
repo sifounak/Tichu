@@ -173,7 +173,7 @@ export const PreGamePhase = memo(function PreGamePhase({
       return (
         <div className={styles.slotWrapper}>
           <span className={styles.slotLabel}>{seatNames?.[seat] ?? SEAT_LABELS[seat]}</span>
-          <div className={`${styles.slot} ${styles.slotFilled} ${styles.slotLocked}`}>
+          <div className={`${styles.slot} ${styles.slotFilled}`} style={{ pointerEvents: 'none', cursor: 'default' }}>
             <Card gameCard={card} state="normal" />
           </div>
         </div>
