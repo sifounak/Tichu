@@ -52,7 +52,7 @@ export interface PlayerSeatProps {
   /** REQ-F-PV09: Hide normal labels (turn/leader/pass) during active vote */
   hideNormalLabels?: boolean;
   /** REQ-F-VI05: Host can add a bot to a vacated seat mid-game */
-  onAddBot?: (difficulty: 'regular' | 'hard' | 'expert') => void;
+  onAddBot?: () => void;
   /** REQ-F-TT05: Epoch ms when turn timer started, null when disabled/stopped */
   turnTimerStartedAt?: number | null;
   /** REQ-F-TT05: Total turn timer duration in ms, null when disabled/stopped */
@@ -275,26 +275,22 @@ export const PlayerSeat = memo(function PlayerSeat({
           Waiting for player to join
           {/* REQ-F-VI05: Host can add a bot to fill vacated seat */}
           {onAddBot && (
-            <div style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
-              {(['regular', 'hard', 'expert'] as const).map((diff) => (
-                <button
-                  key={diff}
-                  onClick={(e) => { e.stopPropagation(); onAddBot(diff); }}
-                  style={{
-                    padding: 'var(--space-1) var(--space-2)',
-                    background: 'var(--color-gold-accent)',
-                    color: 'var(--color-felt-green-dark)',
-                    border: 'none',
-                    borderRadius: 'var(--card-border-radius)',
-                    fontSize: 'var(--font-sm)',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
-                >
-                  +{diff === 'regular' ? 'Easy' : diff === 'hard' ? 'Normal' : 'Expert'} Bot
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); onAddBot(); }}
+              style={{
+                marginTop: 'var(--space-2)',
+                padding: 'var(--space-1) var(--space-3)',
+                background: 'var(--color-gold-accent)',
+                color: 'var(--color-felt-green-dark)',
+                border: 'none',
+                borderRadius: 'var(--card-border-radius)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Add Bot
+            </button>
           )}
         </div>
       )}
