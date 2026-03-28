@@ -130,13 +130,6 @@ describe('projectGameState', () => {
       expect(view.phase).toBe(GamePhase.GrandTichuDecision);
     });
 
-    it('maps regularTichuDecision to TichuDecision phase', () => {
-      const context = createInitialContext('game-1');
-      context.currentRound = createTestRound();
-      const view = projectGameState(context, 'regularTichuDecision', 'north');
-      expect(view.phase).toBe(GamePhase.TichuDecision);
-    });
-
     it('maps cardPassing to CardPassing phase', () => {
       const context = createInitialContext('game-1');
       context.currentRound = createTestRound();

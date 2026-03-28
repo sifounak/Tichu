@@ -54,7 +54,6 @@ function passAllGrandTichu(actor: ReturnType<typeof createTestActor>) {
 
 function passAllRegularTichu(actor: ReturnType<typeof createTestActor>) {
   for (const seat of SEATS_IN_ORDER) {
-    actor.send({ type: 'REGULAR_TICHU_PASS', seat });
   }
 }
 

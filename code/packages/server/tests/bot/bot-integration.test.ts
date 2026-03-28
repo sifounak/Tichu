@@ -46,7 +46,7 @@ function flushTimers(): Promise<void> {
 }
 
 const VALID_GAME_STATES = [
-  'gameOver', 'playing', 'grandTichuDecision', 'regularTichuDecision',
+  'gameOver', 'playing', 'grandTichuDecision', 'cardPassing',
   'cardPassing', 'roundScoring', 'awaitingDragonGift',
 ];
 
