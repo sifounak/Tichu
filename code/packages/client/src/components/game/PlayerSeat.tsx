@@ -57,6 +57,8 @@ export interface PlayerSeatProps {
   turnTimerStartedAt?: number | null;
   /** REQ-F-TT05: Total turn timer duration in ms, null when disabled/stopped */
   turnTimerDurationMs?: number | null;
+  /** True when another player went out first, breaking this player's Tichu call */
+  tichuFailed?: boolean;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -95,6 +97,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   onAddBot,
   turnTimerStartedAt,
   turnTimerDurationMs,
+  tichuFailed,
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
   const name = emptySeat ? 'Empty Seat' : (displayName ?? SEAT_LABELS[seat]);
@@ -198,14 +201,18 @@ export const PlayerSeat = memo(function PlayerSeat({
       </div>
 
       {/* REQ-F-DI04: Tichu/Grand Tichu call indicator — red banner above box */}
-      {tichuCall !== 'none' && (
-        <div
-          className={`${styles.tichuBanner} ${tichuCall === 'grandTichu' ? styles.grandTichu : styles.tichu}`}
-          aria-label={tichuCall === 'grandTichu' ? 'Grand Tichu called' : 'Tichu called'}
-        >
-          {tichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}
-        </div>
-      )}
+      {tichuCall !== 'none' && (() => {
+        const tichuSucceeded = finishOrder === 1;
+        const label = tichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu';
+        return (
+          <div
+            className={`${styles.tichuBanner} ${tichuCall === 'grandTichu' ? styles.grandTichu : styles.tichu} ${tichuFailed ? styles.tichuFailed : ''}`}
+            aria-label={tichuFailed ? `${label} failed` : tichuSucceeded ? `${label} succeeded` : `${label} called`}
+          >
+            {tichuFailed ? <s>{label}</s> : tichuSucceeded ? `🎉 ${label} 🎉` : label}
+          </div>
+        );
+      })()}
 
       {/* REQ-F-PV03: Kick target selection label */}
       {kickVoteTarget && (

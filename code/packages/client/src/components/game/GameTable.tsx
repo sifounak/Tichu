@@ -57,6 +57,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const kickTargetMode = useUiStore((s) => s.kickTargetMode);
   const trickLeader = currentTrick?.currentWinner ?? null;
   const vacatedSeats = view.vacatedSeats ?? [];
+  // First player to go out — used to determine Tichu call success/failure
+  const firstOutSeat = view.finishOrder.length > 0 ? view.finishOrder[0] : null;
 
   // Determine layout: player (me) is always at the bottom
   // Partner is at the top, opponents on left and right
@@ -107,6 +109,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           hideNormalLabels={!!activeVote || kickTargetMode}
           turnTimerStartedAt={view.turnTimerStartedAt}
           turnTimerDurationMs={view.turnTimerDurationMs}
+          tichuFailed={view.myTichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
         />
       );
     }
@@ -158,6 +161,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         onAddBot={onAddBot && vacatedSeats.includes(seat) ? () => onAddBot(seat) : undefined}
         turnTimerStartedAt={view.turnTimerStartedAt}
         turnTimerDurationMs={view.turnTimerDurationMs}
+        tichuFailed={other.tichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
       />
     );
   }
