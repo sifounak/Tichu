@@ -305,8 +305,10 @@
   text-decoration-thickness: calc(3px * var(--scale));
 }
 
-/* Vacated seat — greyed out with overlay text */
-.vacated {
+/* Vacated seat — greyed out content (not the overlay) */
+.vacated .seatRow,
+.vacated .name,
+.vacated .tichuBanner {
   opacity: 0.5;
   filter: grayscale(0.8);
 }
@@ -315,6 +317,7 @@
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   z-index: 2;
   pointer-events: auto;
