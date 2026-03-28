@@ -105,6 +105,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           playerVoteStatus={myVoteStatus ?? undefined}
           playerVoteLabel={myPvLabel}
           hideNormalLabels={!!activeVote || kickTargetMode}
+          turnTimerStartedAt={view.turnTimerStartedAt}
+          turnTimerDurationMs={view.turnTimerDurationMs}
         />
       );
     }
@@ -154,6 +156,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         playerVoteLabel={pvLabel}
         hideNormalLabels={!!activeVote || kickTargetMode}
         onAddBot={onAddBot && vacatedSeats.includes(seat) ? () => onAddBot(seat) : undefined}
+        turnTimerStartedAt={view.turnTimerStartedAt}
+        turnTimerDurationMs={view.turnTimerDurationMs}
       />
     );
   }

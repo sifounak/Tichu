@@ -26,6 +26,7 @@ export function projectGameState(
   choosingSeats: readonly Seat[] = [],
   disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
   activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
+  timerInfo?: { startTime: number | null; durationMs: number | null },
 ): ClientGameView {
   const round = context.currentRound;
 
@@ -73,6 +74,9 @@ export function projectGameState(
       winner: context.winner,
       // REQ-F-PV23: Active player-initiated vote
       activeVote: activeVote ?? null,
+      // REQ-F-TT05: Turn timer data
+      turnTimerStartedAt: timerInfo?.startTime ?? null,
+      turnTimerDurationMs: timerInfo?.durationMs ?? null,
     };
   }
 
@@ -120,6 +124,9 @@ export function projectGameState(
     winner: context.winner,
     // REQ-F-PV23: Active player-initiated vote
     activeVote: activeVote ?? null,
+    // REQ-F-TT05: Turn timer data
+    turnTimerStartedAt: timerInfo?.startTime ?? null,
+    turnTimerDurationMs: timerInfo?.durationMs ?? null,
     receivedCards: myPlayer.passedCards.received
       ? SEATS_IN_ORDER.reduce((acc, fromSeat) => {
           acc[fromSeat] = fromSeat === forSeat
@@ -159,6 +166,7 @@ export function projectSpectatorView(
   vacatedSeats: readonly Seat[] = [],
   disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
   activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
+  timerInfo?: { startTime: number | null; durationMs: number | null },
 ): ClientGameView {
   const round = context.currentRound;
   const phase = mapMachineStateToPhase(machineState);
@@ -198,6 +206,9 @@ export function projectSpectatorView(
       gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
       winner: context.winner,
       activeVote: activeVote ?? null,
+      // REQ-F-TT05: Turn timer data
+      turnTimerStartedAt: timerInfo?.startTime ?? null,
+      turnTimerDurationMs: timerInfo?.durationMs ?? null,
     };
   }
 
@@ -238,6 +249,9 @@ export function projectSpectatorView(
     gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
     winner: context.winner,
     activeVote: activeVote ?? null,
+    // REQ-F-TT05: Turn timer data
+    turnTimerStartedAt: timerInfo?.startTime ?? null,
+    turnTimerDurationMs: timerInfo?.durationMs ?? null,
   };
 }
 

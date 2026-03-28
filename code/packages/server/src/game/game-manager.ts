@@ -9,9 +9,22 @@ import type {
   ClientMessage,
   GameCard,
   GameConfig,
+  Rank,
   Seat,
+  RoundState,
 } from '@tichu/shared';
-import { getValidPlays } from '@tichu/shared';
+import {
+  getValidPlays,
+  canPlayerPass,
+  isDog,
+  isMahjong,
+  isDragon,
+  isPhoenix,
+  isStandard,
+  detectAllBombs,
+  getTeam,
+  SEATS_IN_ORDER,
+} from '@tichu/shared';
 import type { Broadcaster } from '../ws/broadcaster.js';
 import {
   createGameActor,
@@ -78,8 +91,7 @@ export class GameManager {
     // Create turn timer with timeout callback
     const turnTimerSeconds = config?.turnTimerSeconds ?? null;
     this.timer = new TurnTimer(turnTimerSeconds, (seat) => {
-      this.actor.send({ type: 'TURN_TIMEOUT', seat });
-      this.broadcastState();
+      this.handleTurnTimeout(seat);
     });
 
     // Subscribe to actor state changes for automatic broadcasts
@@ -412,14 +424,18 @@ export class GameManager {
     if (this.destroyed) return;
     const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote);
+    // REQ-F-TT05: Include turn timer data in broadcast
+    const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
   private sendStateTo(seat: Seat): void {
     const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote);
+    // REQ-F-TT05: Include turn timer data in per-seat state
+    const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,
@@ -454,6 +470,9 @@ export class GameManager {
     // Manage turn timer
     if (state === 'playing' && round?.currentTurn) {
       this.timer.start(round.currentTurn);
+      // REQ-F-TT05: Broadcast immediately so clients receive timer data
+      // (bot runner only broadcasts after bot actions, not for human turns)
+      this.broadcastState();
 
       // Auto-pass for human players who have no valid plays
       const seat = round.currentTurn;
@@ -478,12 +497,176 @@ export class GameManager {
           }
         }
       }
+    } else if (state === 'awaitingDragonGift' && round?.dragonGiftPending) {
+      // REQ-F-TT05: Start timer for Dragon gift selection
+      this.timer.start(round.dragonGiftPending.from);
+      this.broadcastState();
     } else {
       this.timer.stop();
     }
 
     // REQ-F-MP01: Trigger bot decisions and broadcast after each bot action
     this.botRunner.onStateChange(() => this.broadcastState());
+  }
+
+  /**
+   * Handle turn timeout — auto-pass if possible, otherwise auto-play.
+   * Covers three "must play" scenarios:
+   * 1. Leading a trick: play lowest safe card (avoiding breaking bombs)
+   * 2. Must satisfy wish: play the wished card as a single
+   * 3. Dragon gift pending: give to optimal opponent
+   */
+  private handleTurnTimeout(seat: Seat): void {
+    if (this.destroyed) return;
+    const state = this.stateValue;
+    const round = this.context.currentRound;
+
+    // Dragon gift timeout — auto-gift to optimal opponent
+    if (state === 'awaitingDragonGift' && round?.dragonGiftPending) {
+      const recipient = this.pickDragonGiftRecipient(round, round.dragonGiftPending.from);
+      this.actor.send({ type: 'DRAGON_GIFT_CHOSEN', seat: round.dragonGiftPending.from, recipient });
+      this.broadcastState();
+      return;
+    }
+
+    if (state !== 'playing' || !round || round.currentTurn !== seat) return;
+
+    const hand = round.players[seat].hand;
+    const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
+
+    // If can pass, let the state machine handle it
+    if (canPlayerPass(hand, round.currentTrick, wish)) {
+      this.actor.send({ type: 'TURN_TIMEOUT', seat });
+      this.broadcastState();
+      return;
+    }
+
+    // Must play — pick the best auto-play card(s)
+    const autoPlay = this.pickAutoPlay(hand, round, wish);
+    if (autoPlay) {
+      this.actor.send({ type: 'PLAY_CARDS', seat, cards: autoPlay });
+      this.broadcastState();
+    }
+  }
+
+  /**
+   * Pick cards to auto-play when a player times out and must play.
+   * - Must satisfy wish: play the wished card as a single
+   * - Leading trick: play lowest card that doesn't break a bomb
+   */
+  private pickAutoPlay(hand: GameCard[], round: RoundState, wish: Rank | null): GameCard[] | null {
+    // Must satisfy wish — play the wished card as a single
+    if (wish !== null) {
+      const wishedCard = hand.find(gc => isStandard(gc.card) && (gc.card as { rank: number }).rank === wish);
+      if (wishedCard) return [wishedCard];
+    }
+
+    // Leading trick — play lowest card that doesn't break a bomb
+    const card = this.pickLowestSafeCard(hand);
+    if (card) return [card];
+
+    // Fallback: play the first valid single play
+    const validPlays = getValidPlays(hand, round.currentTrick, wish);
+    if (validPlays.length > 0) {
+      // Pick the play with fewest cards (prefer singles)
+      const simplest = validPlays.reduce((a, b) => a.cards.length <= b.cards.length ? a : b);
+      return simplest.cards;
+    }
+
+    return null;
+  }
+
+  /**
+   * Pick the lowest single card from a hand that doesn't break a bomb.
+   * Priority: Dog, Mahjong (no wish), then 2→A avoiding bomb cards,
+   * then Phoenix, Dragon, lowest bomb as last resort.
+   */
+  private pickLowestSafeCard(hand: GameCard[]): GameCard | null {
+    // Find all card IDs that participate in any bomb (four-of-a-kind or straight flush)
+    const bombs = detectAllBombs(hand);
+    const bombCardIds = new Set<number>();
+    for (const bomb of bombs) {
+      for (const gc of bomb.cards) {
+        bombCardIds.add(gc.id);
+      }
+    }
+
+    // 1. Dog (always lowest priority lead card)
+    const dog = hand.find(gc => isDog(gc.card));
+    if (dog) return dog;
+
+    // 2. Mahjong (rank 1, no wish declared)
+    const mahjong = hand.find(gc => isMahjong(gc.card));
+    if (mahjong) return mahjong;
+
+    // 3. Standard cards 2→Ace, skipping cards that participate in any bomb
+    const standards = hand
+      .filter(gc => isStandard(gc.card))
+      .sort((a, b) => (a.card as { rank: number }).rank - (b.card as { rank: number }).rank);
+
+    for (const gc of standards) {
+      if (!bombCardIds.has(gc.id)) return gc;
+    }
+
+    // 4. All standard cards are in bombs — prefer specials over breaking bombs
+    const phoenix = hand.find(gc => isPhoenix(gc.card));
+    if (phoenix) return phoenix;
+
+    const dragon = hand.find(gc => isDragon(gc.card));
+    if (dragon) return dragon;
+
+    // 5. Last resort: play lowest card from the lowest-ranked bomb
+    if (bombs.length > 0) {
+      const lowestBomb = bombs.sort((a, b) => a.rank - b.rank)[0];
+      return lowestBomb.cards[0];
+    }
+
+    return standards[0] ?? hand[0] ?? null;
+  }
+
+  /**
+   * Pick the optimal opponent to receive the Dragon gift on timeout.
+   * Preference: opponent without Tichu/Grand Tichu → fewer cards → left of trick winner.
+   */
+  private pickDragonGiftRecipient(round: RoundState, trickWinner: Seat): Seat {
+    const opponents = SEATS_IN_ORDER.filter(
+      s => getTeam(s) !== getTeam(trickWinner) && round.players[s].finishOrder === null,
+    );
+
+    if (opponents.length === 0) {
+      // All opponents finished — give to the one that finished last
+      return SEATS_IN_ORDER
+        .filter(s => getTeam(s) !== getTeam(trickWinner))
+        .sort((a, b) => (round.players[b].finishOrder ?? 0) - (round.players[a].finishOrder ?? 0))[0];
+    }
+
+    if (opponents.length === 1) return opponents[0];
+
+    // Sort by preference: no Tichu call > fewer cards > left of trick winner
+    const seatOrder = SEATS_IN_ORDER;
+    const winnerIdx = seatOrder.indexOf(trickWinner);
+
+    opponents.sort((a, b) => {
+      const aCall = round.players[a].tipiCall;
+      const bCall = round.players[b].tipiCall;
+      const aHasTichu = aCall === 'tichu' || aCall === 'grandTichu';
+      const bHasTichu = bCall === 'tichu' || bCall === 'grandTichu';
+
+      // Prefer opponent without Tichu call (give dragon to the one who didn't call)
+      if (aHasTichu !== bHasTichu) return aHasTichu ? 1 : -1;
+
+      // Prefer opponent with fewer cards
+      const aCards = round.players[a].hand.length;
+      const bCards = round.players[b].hand.length;
+      if (aCards !== bCards) return aCards - bCards;
+
+      // Prefer opponent on the left (next clockwise from trick winner)
+      const aIdx = (seatOrder.indexOf(a) - winnerIdx + 4) % 4;
+      const bIdx = (seatOrder.indexOf(b) - winnerIdx + 4) % 4;
+      return aIdx - bIdx;
+    });
+
+    return opponents[0];
   }
 
   /** Clean up resources */

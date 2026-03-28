@@ -937,6 +937,8 @@ export const gameMachine = setup({
           actions: 'giveDragonTrick',
           target: 'playing',
         },
+        // REQ-F-TT05: Timer runs during dragon gift; timeout handled by game-manager
+        TURN_TIMEOUT: {},
       },
     },
 

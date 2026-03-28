@@ -76,6 +76,16 @@ export class TurnTimer {
     return this.durationMs !== null;
   }
 
+  /** REQ-F-TT05: Get the timestamp when the current timer started */
+  getStartTime(): number | null {
+    return this.startTime;
+  }
+
+  /** REQ-F-TT05: Get the total timer duration in milliseconds */
+  getDurationMs(): number | null {
+    return this.durationMs;
+  }
+
   /** Dispose of the timer (call on cleanup) */
   dispose(): void {
     this.stop();

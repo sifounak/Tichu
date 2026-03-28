@@ -760,6 +760,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     disconnectVotes: gameStore.disconnectVotes,
     gameHalted: gameStore.gameHalted,
     winner: null,
+    turnTimerStartedAt: gameStore.turnTimerStartedAt,
+    turnTimerDurationMs: gameStore.turnTimerDurationMs,
   };
 
   const isMyTurn = gameStore.currentTurn === mySeat;
@@ -1117,6 +1119,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
               isTrickLeader={(view.currentTrick?.currentWinner ?? null) === view.mySeat}
               isMe={false}
               passConfirmed={hostPassConfirmed}
+              turnTimerStartedAt={view.turnTimerStartedAt}
+              turnTimerDurationMs={view.turnTimerDurationMs}
             />
           );
         })() : undefined}
@@ -1196,6 +1200,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                     isCurrentTurn={gameStore.currentTurn === mySeat}
                     isTrickLeader={view.currentTrick?.currentWinner === mySeat}
                     isMe={true}
+                    turnTimerStartedAt={view.turnTimerStartedAt}
+                    turnTimerDurationMs={view.turnTimerDurationMs}
                   />
                 }
               />
