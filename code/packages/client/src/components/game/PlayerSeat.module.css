@@ -292,7 +292,7 @@
 
 /* Tichu call succeeded — light green banner */
 .tichuSucceeded {
-  background: #66bb6a;
+  background: #81c784;
 }
 
 /* Tichu call failed — grey banner with thick strikethrough */
