@@ -797,6 +797,13 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     { seat: mySeat!, call: gameStore.myTichuCall },
     ...gameStore.otherPlayers.map((p) => ({ seat: p.seat, call: p.tichuCall })),
   ];
+  // Seats whose Tichu call has failed (another player went out first)
+  const firstOut = view.finishOrder.length > 0 ? view.finishOrder[0] : null;
+  const tichuFailedSeats = new Set(
+    tichuCalls
+      .filter((tc) => tc.call !== 'none' && firstOut !== null && firstOut !== tc.seat)
+      .map((tc) => tc.seat),
+  );
 
   // Build seat→name mapping from room store players
   const SEAT_LABELS: Record<string, string> = { north: 'North', east: 'East', south: 'South', west: 'West' };
@@ -1077,6 +1084,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             targetScore={gameStore.config?.targetScore ?? 1000}
             seatNames={seatNames}
             mySeat={mySeat!}
+            tichuFailedSeats={tichuFailedSeats}
           />
         </div>
       )}
