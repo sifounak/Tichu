@@ -1105,10 +1105,10 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
         onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat) => send({ type: 'ADD_BOT', seat }) : undefined}
         centerContent={gameStore.gameHalted ? (
-          <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 'calc(20px * var(--scale))', fontWeight: 600, padding: 'var(--space-6)' }}>
-            <div style={{ fontSize: 'calc(32px * var(--scale))', marginBottom: 'var(--space-2)' }}>⏸️</div>
+          <div style={{ textAlign: 'center', color: 'white', fontSize: 'calc(36px * var(--scale))', fontWeight: 700, padding: 'var(--space-8)', background: 'var(--color-bg-panel)', borderRadius: 'var(--space-3)', border: '2px solid var(--color-border)' }}>
+            <div style={{ fontSize: 'calc(56px * var(--scale))', marginBottom: 'var(--space-3)' }}>⏸️</div>
             Game Paused
-            <div style={{ fontSize: 'calc(14px * var(--scale))', fontWeight: 400, marginTop: 'var(--space-2)', opacity: 0.7 }}>
+            <div style={{ fontSize: 'calc(20px * var(--scale))', fontWeight: 400, marginTop: 'var(--space-3)', color: 'var(--color-text-secondary)' }}>
               Waiting for players to join...
             </div>
           </div>
