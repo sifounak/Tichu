@@ -1280,7 +1280,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
             {phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0 && (
               <div
-                style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 'calc(48px * var(--scale))', zIndex: 10 }}
+                style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 'calc(48px * var(--scale))', zIndex: 30 }}
                 onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
                 onMouseLeave={() => setBombPopupOpen(false)}
               >
