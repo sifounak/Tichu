@@ -61,22 +61,11 @@
   color: white;
 }
 
-/* Failed Tichu badge — X overlay */
+/* Failed Tichu badge — strikethrough */
 .tichuBadgeFailed {
-  position: relative;
   opacity: 0.6;
-}
-
-.tichuBadgeFailed::after {
-  content: '✕';
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-md);
-  color: white;
-  text-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
 }
 
 .historyToggle {
