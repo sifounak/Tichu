@@ -270,7 +270,7 @@ export const PlayerSeat = memo(function PlayerSeat({
       )}
 
       {/* Vacated seat overlay */}
-      {vacated && !emptySeat && !seatChooserLabel && (
+      {vacated && !seatChooserLabel && (
         <div className={styles.vacatedOverlay}>
           Waiting for player to join
           {/* REQ-F-VI05: Host can add a bot to fill vacated seat */}
