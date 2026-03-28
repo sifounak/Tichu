@@ -1299,7 +1299,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                   >
                     <div
                       style={{
-                        background: 'rgba(220, 38, 38, 0.5)',
+                        background: 'rgba(0, 0, 0, 0.5)',
                         border: 'none',
                         borderRadius: 'var(--space-3)',
                         padding: 'calc(4px * var(--scale))',
