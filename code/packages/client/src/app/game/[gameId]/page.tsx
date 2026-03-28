@@ -1255,7 +1255,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
           {/* Card hand — always rendered for visual continuity */}
           <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
-            {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+            {(phase === 'playing' || phase === 'cardPassing' || phase === 'tichuDecision' || phase === 'grandTichuDecision') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
               <button
                 onClick={handleTichu}
                 style={{
