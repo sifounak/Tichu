@@ -1235,6 +1235,24 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             </div>
           )}
 
+          {/* Tichu/Grand Tichu banner — shown between pass area and cards during pre-game / received cards */}
+          {(isPreGame || showReceivedCards) && gameStore.myTichuCall !== 'none' && (
+            <div style={{
+              background: gameStore.myTichuCall === 'grandTichu' ? '#b71c1c' : '#d32f2f',
+              color: 'white',
+              fontWeight: 800,
+              fontSize: 'var(--font-base)',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              padding: 'calc(3px * var(--scale)) calc(16px * var(--scale))',
+              borderRadius: 'var(--space-1)',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+            }}>
+              {gameStore.myTichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}
+            </div>
+          )}
+
           {/* Card hand — always rendered for visual continuity */}
           <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
             {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
