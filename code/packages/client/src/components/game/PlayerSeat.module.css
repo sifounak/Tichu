@@ -290,9 +290,9 @@
   color: white;
 }
 
-/* Tichu call failed — dimmed banner with thick strikethrough */
+/* Tichu call failed — grey banner with thick strikethrough */
 .tichuFailed {
-  opacity: 0.6;
+  background: #666;
 }
 
 .tichuStrike {
