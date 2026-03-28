@@ -290,9 +290,14 @@
   color: white;
 }
 
-/* Tichu call failed — dimmed banner */
+/* Tichu call failed — dimmed banner with thick strikethrough */
 .tichuFailed {
   opacity: 0.6;
+}
+
+.tichuStrike {
+  text-decoration: line-through;
+  text-decoration-thickness: calc(3px * var(--scale));
 }
 
 /* Vacated seat — greyed out with overlay text */
