@@ -1091,20 +1091,28 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
       <GameTable
         view={view}
-        onPlay={handlePlay}
-        canPlay={!isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)}
-        isMyTurn={!isPreGame && !showReceivedCards && isMyTurn}
+        onPlay={gameStore.gameHalted ? undefined : handlePlay}
+        canPlay={!gameStore.gameHalted && !isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)}
+        isMyTurn={!gameStore.gameHalted && !isPreGame && !showReceivedCards && isMyTurn}
         hideCenter={isPreGame && !isSpectator}
         hideEmptyTrick={showReceivedCards}
-        dragonGiftTargets={dragonGiftTargets}
-        onDragonGift={handleDragonGift}
+        dragonGiftTargets={gameStore.gameHalted ? undefined : dragonGiftTargets}
+        onDragonGift={gameStore.gameHalted ? undefined : handleDragonGift}
         seatNames={seatNames}
-        mustSatisfyWish={mustSatisfyWish}
+        mustSatisfyWish={!gameStore.gameHalted && mustSatisfyWish}
         compassLayout={isSpectator}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
         onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat) => send({ type: 'ADD_BOT', seat }) : undefined}
-        centerContent={isSpectator && isPreGame ? (
+        centerContent={gameStore.gameHalted ? (
+          <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 'calc(20px * var(--scale))', fontWeight: 600, padding: 'var(--space-6)' }}>
+            <div style={{ fontSize: 'calc(32px * var(--scale))', marginBottom: 'var(--space-2)' }}>⏸️</div>
+            Game Paused
+            <div style={{ fontSize: 'calc(14px * var(--scale))', fontWeight: 400, marginTop: 'var(--space-2)', opacity: 0.7 }}>
+              Waiting for players to join...
+            </div>
+          </div>
+        ) : isSpectator && isPreGame ? (
           <div style={{ textAlign: 'center', color: 'var(--color-text-muted)', fontSize: 'calc(18px * var(--scale))', fontWeight: 600 }}>
             Waiting for players to pass cards...
           </div>
@@ -1181,13 +1189,13 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           {!isPreGame && !showReceivedCards && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <ActionBar
-                canPlay={selection.canPlay}
-                canPass={selection.canPass}
-                isMyTurn={isMyTurn}
+                canPlay={!gameStore.gameHalted && selection.canPlay}
+                canPass={!gameStore.gameHalted && selection.canPass}
+                isMyTurn={!gameStore.gameHalted && isMyTurn}
                 phase={phase!}
                 myTichuCall={gameStore.myTichuCall}
                 hasPlayedCards={gameStore.hasPlayedCards}
-                hasBombReady={!isMyTurn && selection.isBombSelection}
+                hasBombReady={!gameStore.gameHalted && !isMyTurn && selection.isBombSelection}
                 playQueued={bombWindow.queuedPlay !== null}
                 autoPassEnabled={autoPassEnabled}
                 onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
@@ -1220,7 +1228,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
           {/* Card hand — always rendered for visual continuity */}
           <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
-            {phase === 'playing' && !showReceivedCards && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+            {phase === 'playing' && !showReceivedCards && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
               <button
                 onClick={handleTichu}
                 style={{
@@ -1250,18 +1258,20 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             )}
             <CardHand
               cards={gameStore.myHand}
-              selectedIds={canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : selection.selectedIds}
-              disabledIds={canSelectPassCards ? placedCardIds : undefined}
+              selectedIds={gameStore.gameHalted ? new Set<CardId>() : canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : selection.selectedIds}
+              disabledIds={gameStore.gameHalted ? new Set(gameStore.myHand.map(c => c.id)) : canSelectPassCards ? placedCardIds : undefined}
               onCardClick={
-                canSelectPassCards && !passConfirmed
-                  ? handlePassCardClick
-                  : phase === GamePhase.Playing
-                    ? selection.toggleCard
-                    : undefined
+                gameStore.gameHalted
+                  ? undefined
+                  : canSelectPassCards && !passConfirmed
+                    ? handlePassCardClick
+                    : phase === GamePhase.Playing
+                      ? selection.toggleCard
+                      : undefined
               }
             />
             {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
-            {phase === 'playing' && !showReceivedCards && handBombs.length > 0 && (
+            {phase === 'playing' && !showReceivedCards && !gameStore.gameHalted && handBombs.length > 0 && (
               <div
                 style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 'calc(48px * var(--scale))', zIndex: 10 }}
                 onMouseEnter={() => handBombs.length > 1 && setBombPopupOpen(true)}
