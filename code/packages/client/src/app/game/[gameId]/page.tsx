@@ -1330,15 +1330,14 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                             cursor: 'pointer',
                             padding: 'calc(6px * var(--scale))',
                             display: 'flex',
-                            gap: 'calc(2px * var(--scale))',
                             transition: 'background 0.15s, border-color 0.15s',
                           }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.borderColor = 'var(--color-gold-accent)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
                           aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
                         >
-                          {bomb.cards.map((gc) => (
-                            <div key={gc.id} style={{ pointerEvents: 'none', '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
+                          {bomb.cards.map((gc, j) => (
+                            <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
                               <Card gameCard={gc} state="normal" />
                             </div>
                           ))}
