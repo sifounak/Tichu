@@ -59,14 +59,7 @@ function advanceToPlaying(manager: GameManager, ws: WebSocket): void {
     manager.handleMessage(ws, seat, { type: 'GRAND_TICHU_DECISION', call: false } as ClientMessage);
   }
 
-  // All pass Regular Tichu (via passing — not calling)
-  // Since TICHU_DECLARATION calls Tichu and there's no explicit "pass Tichu" in the protocol,
-  // we need to use the internal approach. The protocol doesn't have a "pass regular tichu" message.
-  // Let's work around this by having the MoveHandler handle it.
-  // Actually the state machine needs REGULAR_TICHU_PASS events.
-  // The GameManager handleMessage doesn't route to handleRegularTichuPass directly.
-  // This is a gap in the protocol → game manager mapping.
-  // For now, let's send the events directly to advance.
+  // Now in cardPassing phase (no separate Tichu decision phase)
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -151,7 +144,7 @@ describe('GameManager', () => {
       for (const seat of SEATS_IN_ORDER) {
         manager.handleMessage(ws, seat, { type: 'GRAND_TICHU_DECISION', call: false } as ClientMessage);
       }
-      // Now in regularTichuDecision
+      // Now in cardPassing
       manager.handleMessage(ws, 'north', { type: 'TICHU_DECLARATION' } as ClientMessage);
       expect(manager.context.currentRound!.players.north.tipiCall).toBe('tichu');
     });
@@ -224,13 +217,12 @@ describe('GameManager', () => {
       for (const seat of SEATS_IN_ORDER) {
         manager.handleMessage(ws, seat, { type: 'GRAND_TICHU_DECISION', call: false } as ClientMessage);
       }
-      expect(manager.stateValue).toBe('regularTichuDecision');
+      expect(manager.stateValue).toBe('cardPassing');
 
       // Call Tichu for one player, then need to pass others
       manager.handleMessage(ws, 'north', { type: 'TICHU_DECLARATION' } as ClientMessage);
       // The rest need to pass — but we don't have a protocol message for "pass regular tichu"
       // The TICHU_DECLARATION is for calling, not passing. The state machine accepts
-      // REGULAR_TICHU_PASS events. The GameManager needs a way to handle this.
       // For now, GRAND_TICHU_DECISION handles both call/pass via the boolean.
       // TICHU_DECLARATION only calls. We need the game to auto-advance or handle passes.
       // This is a known protocol gap that will be addressed in the lobby/UI milestone.

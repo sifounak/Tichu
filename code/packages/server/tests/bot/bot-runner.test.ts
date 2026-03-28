@@ -183,13 +183,13 @@ describe('BotRunner', () => {
       for (const seat of SEATS_IN_ORDER) {
         actor.send({ type: 'GRAND_TICHU_PASS', seat });
       }
-      expect(getState(actor)).toBe('regularTichuDecision');
+      expect(getState(actor)).toBe('cardPassing');
 
       runner.onStateChange();
       await flushTimers();
 
       const ctx = getContext(actor);
-      expect(ctx.regularTichuDecisions.size).toBe(4);
+      expect(ctx.cardPassDecisions.size).toBe(4);
     });
   });
 
@@ -207,9 +207,6 @@ describe('BotRunner', () => {
       actor.send({ type: 'HOST_START_GAME' });
       for (const seat of SEATS_IN_ORDER) {
         actor.send({ type: 'GRAND_TICHU_PASS', seat });
-      }
-      for (const seat of SEATS_IN_ORDER) {
-        actor.send({ type: 'REGULAR_TICHU_PASS', seat });
       }
       expect(getState(actor)).toBe('cardPassing');
 
@@ -235,9 +232,6 @@ describe('BotRunner', () => {
       actor.send({ type: 'HOST_START_GAME' });
       for (const seat of SEATS_IN_ORDER) {
         actor.send({ type: 'GRAND_TICHU_PASS', seat });
-      }
-      for (const seat of SEATS_IN_ORDER) {
-        actor.send({ type: 'REGULAR_TICHU_PASS', seat });
       }
       // Bot runner handles card passing
       runner.onStateChange();
@@ -278,12 +272,6 @@ describe('BotRunner', () => {
       // Humans must make their own decisions
       for (const seat of SEATS_IN_ORDER) {
         actor.send({ type: 'GRAND_TICHU_PASS', seat });
-      }
-      for (const seat of SEATS_IN_ORDER) {
-        actor.send({ type: 'REGULAR_TICHU_PASS', seat });
-      }
-      for (const seat of SEATS_IN_ORDER) {
-        actor.send({ type: 'REGULAR_TICHU_PASS', seat });
       }
       // All pass cards (including humans for simplicity)
       const ctx = getContext(actor);
@@ -465,7 +453,7 @@ describe('BotRunner full game smoke test', () => {
 
     // The game should have progressed past lobby
     expect(ctx.roundHistory.length).toBeGreaterThanOrEqual(0);
-    expect(['gameOver', 'playing', 'grandTichuDecision', 'regularTichuDecision',
+    expect(['gameOver', 'playing', 'grandTichuDecision', 'cardPassing',
       'cardPassing', 'roundScoring', 'awaitingDragonGift']).toContain(finalState);
 
     runner.dispose();

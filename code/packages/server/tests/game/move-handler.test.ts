@@ -44,7 +44,6 @@ function advanceToPlaying(actor: ReturnType<typeof createTestActor>) {
 
   // All pass Regular Tichu
   for (const seat of SEATS_IN_ORDER) {
-    actor.send({ type: 'REGULAR_TICHU_PASS', seat });
   }
 
   // All pass cards (pass first 3 non-self cards from hand)
@@ -142,7 +141,7 @@ describe('MoveHandler', () => {
       }
     });
 
-    it('should accept Tichu call in regularTichuDecision phase', () => {
+    it('should accept Tichu call in cardPassing phase', () => {
       const result = handler.handleTichuDeclaration('north');
       expect(result.ok).toBe(true);
       const round = actor.getSnapshot().context.currentRound!;
@@ -162,9 +161,6 @@ describe('MoveHandler', () => {
       actor.send({ type: 'HOST_START_GAME' });
       for (const seat of SEATS_IN_ORDER) {
         actor.send({ type: 'GRAND_TICHU_PASS', seat });
-      }
-      for (const seat of SEATS_IN_ORDER) {
-        actor.send({ type: 'REGULAR_TICHU_PASS', seat });
       }
     });
 
@@ -509,7 +505,6 @@ describe('MoveHandler', () => {
         freshActor.send({ type: 'GRAND_TICHU_PASS', seat: s });
       }
       for (const s of SEATS_IN_ORDER) {
-        freshActor.send({ type: 'REGULAR_TICHU_PASS', seat: s });
       }
       const ctx = freshActor.getSnapshot().context;
       for (const s of SEATS_IN_ORDER) {

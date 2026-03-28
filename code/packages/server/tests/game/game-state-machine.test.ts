@@ -73,13 +73,6 @@ function passAllGrandTichu(actor: ReturnType<typeof createTestActor>) {
   }
 }
 
-/** Complete all Regular Tichu decisions (all pass) */
-function passAllRegularTichu(actor: ReturnType<typeof createTestActor>) {
-  for (const seat of SEATS_IN_ORDER) {
-    actor.send({ type: 'REGULAR_TICHU_PASS', seat });
-  }
-}
-
 /** Pass cards for all players (each passes their first 3 cards to others) */
 function passAllCards(actor: ReturnType<typeof createTestActor>) {
   const ctx = actor.getSnapshot().context;
@@ -102,7 +95,6 @@ function passAllCards(actor: ReturnType<typeof createTestActor>) {
 function getToPlayingPhase(actor: ReturnType<typeof createTestActor>) {
   startGame(actor);
   passAllGrandTichu(actor);
-  passAllRegularTichu(actor);
   passAllCards(actor);
 }
 
@@ -218,7 +210,7 @@ describe('GameStateMachine', () => {
       actor.start();
       startGame(actor);
       passAllGrandTichu(actor);
-      expect(actor.getSnapshot().value).toBe('regularTichuDecision');
+      expect(actor.getSnapshot().value).toBe('cardPassing');
       actor.stop();
     });
 
@@ -233,7 +225,7 @@ describe('GameStateMachine', () => {
       actor.send({ type: 'GRAND_TICHU_PASS', seat: 'east' });
       actor.send({ type: 'GRAND_TICHU_PASS', seat: 'south' });
       actor.send({ type: 'GRAND_TICHU_PASS', seat: 'west' });
-      expect(actor.getSnapshot().value).toBe('regularTichuDecision');
+      expect(actor.getSnapshot().value).toBe('cardPassing');
       actor.stop();
     });
 
@@ -297,7 +289,6 @@ describe('GameStateMachine', () => {
       actor.start();
       startGame(actor);
       passAllGrandTichu(actor);
-      passAllRegularTichu(actor);
       expect(actor.getSnapshot().value).toBe('cardPassing');
       actor.stop();
     });
@@ -310,7 +301,6 @@ describe('GameStateMachine', () => {
       actor.start();
       startGame(actor);
       passAllGrandTichu(actor);
-      passAllRegularTichu(actor);
       expect(actor.getSnapshot().value).toBe('cardPassing');
 
       // Pass cards
@@ -326,7 +316,6 @@ describe('GameStateMachine', () => {
       actor.start();
       startGame(actor);
       passAllGrandTichu(actor);
-      passAllRegularTichu(actor);
 
       const ctx = actor.getSnapshot().context;
       const round = ctx.currentRound!;
@@ -352,7 +341,6 @@ describe('GameStateMachine', () => {
       actor.start();
       startGame(actor);
       passAllGrandTichu(actor);
-      passAllRegularTichu(actor);
 
       const round = actor.getSnapshot().context.currentRound!;
 
@@ -539,10 +527,9 @@ describe('GameStateMachine', () => {
 
       // Grand Tichu → Regular Tichu
       passAllGrandTichu(actor);
-      expect(actor.getSnapshot().value).toBe('regularTichuDecision');
+      expect(actor.getSnapshot().value).toBe('cardPassing');
 
       // Regular Tichu → Card Passing
-      passAllRegularTichu(actor);
       expect(actor.getSnapshot().value).toBe('cardPassing');
 
       // Card Passing → Playing
