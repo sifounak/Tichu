@@ -1192,7 +1192,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           )}
 
           {/* Action bar (playing phase only, hidden while viewing received cards) */}
-          {!isPreGame && (
+          {!isPreGame && !showReceivedCards && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <ActionBar
                 canPlay={!gameStore.gameHalted && selection.canPlay}
