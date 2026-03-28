@@ -1106,7 +1106,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
         onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat) => send({ type: 'ADD_BOT', seat, difficulty: 'expert' }) : undefined}
-        centerContent={gameStore.gameHalted ? (
+        centerContent={gameStore.gameHalted && !isPreGame ? (
           <div style={{ textAlign: 'center', color: 'white', fontSize: 'calc(36px * var(--scale))', fontWeight: 700, padding: 'var(--space-8)', background: 'var(--color-bg-panel)', borderRadius: 'var(--space-3)', border: '2px solid var(--color-border)' }}>
             <div style={{ fontSize: 'calc(56px * var(--scale))', marginBottom: 'var(--space-3)' }}>⏸️</div>
             Game Paused
@@ -1201,7 +1201,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                 playQueued={bombWindow.queuedPlay !== null}
                 autoPassEnabled={autoPassEnabled}
                 onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
-                showAutoPass={showAutoPass}
+                showAutoPass={!gameStore.gameHalted && showAutoPass}
                 onPlay={handlePlay}
                 onPass={handlePass}
                 onTichu={handleTichu}
@@ -1260,16 +1260,14 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             )}
             <CardHand
               cards={gameStore.myHand}
-              selectedIds={gameStore.gameHalted ? new Set<CardId>() : canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : selection.selectedIds}
-              disabledIds={gameStore.gameHalted ? new Set(gameStore.myHand.map(c => c.id)) : canSelectPassCards ? placedCardIds : undefined}
+              selectedIds={canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : (gameStore.gameHalted ? new Set<CardId>() : selection.selectedIds)}
+              disabledIds={canSelectPassCards ? placedCardIds : undefined}
               onCardClick={
-                gameStore.gameHalted
-                  ? undefined
-                  : canSelectPassCards && !passConfirmed
-                    ? handlePassCardClick
-                    : phase === GamePhase.Playing
-                      ? selection.toggleCard
-                      : undefined
+                canSelectPassCards && !passConfirmed
+                  ? handlePassCardClick
+                  : phase === GamePhase.Playing && !gameStore.gameHalted
+                    ? selection.toggleCard
+                    : undefined
               }
             />
             {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
