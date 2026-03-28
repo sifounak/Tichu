@@ -97,9 +97,6 @@ export class BotRunner {
       case 'grandTichuDecision':
         this.handleGrandTichuPhase(context);
         break;
-      case 'regularTichuDecision':
-        this.handleRegularTichuPhase(context);
-        break;
       case 'cardPassing':
         this.handleCardPassingPhase(context);
         break;
@@ -222,33 +219,24 @@ export class BotRunner {
     }
   }
 
-  private handleRegularTichuPhase(context: GameMachineContext): void {
-    for (const [seat, bot] of this.bots) {
-      if (context.regularTichuDecisions.has(seat)) continue;
-
-      const round = context.currentRound;
-      if (!round) continue;
-      this.provideContext(bot, round, context);
-      const hand14 = round.players[seat].hand;
-
-      this.scheduleAction(() => {
-        const call = bot.chooseRegularTichu(hand14);
-        this.send(call
-          ? { type: 'REGULAR_TICHU_CALL', seat }
-          : { type: 'REGULAR_TICHU_PASS', seat },
-        );
-      });
-    }
-  }
-
   private handleCardPassingPhase(context: GameMachineContext): void {
     for (const [seat, bot] of this.bots) {
-      if (context.cardPassDecisions.has(seat)) continue;
-
       const round = context.currentRound;
       if (!round) continue;
       this.provideContext(bot, round, context);
       const hand = round.players[seat].hand;
+
+      // Bot decides on regular Tichu before passing cards
+      if (round.players[seat].tipiCall === 'none') {
+        const callTichu = bot.chooseRegularTichu(hand);
+        if (callTichu) {
+          this.scheduleAction(() => {
+            this.send({ type: 'REGULAR_TICHU_CALL', seat });
+          });
+        }
+      }
+
+      if (context.cardPassDecisions.has(seat)) continue;
 
       this.scheduleAction(() => {
         const cards = bot.chooseCardsToPass(hand, seat);

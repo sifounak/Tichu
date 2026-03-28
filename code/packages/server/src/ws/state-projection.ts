@@ -143,7 +143,6 @@ function mapMachineStateToPhase(machineState: string): GamePhase {
   const mapping: Record<string, GamePhase> = {
     lobby: 'waitingForPlayers' as GamePhase,
     grandTichuDecision: 'grandTichuDecision' as GamePhase,
-    regularTichuDecision: 'tichuDecision' as GamePhase,
     cardPassing: 'cardPassing' as GamePhase,
     playing: 'playing' as GamePhase,
     awaitingDragonGift: 'playing' as GamePhase, // Client sees this as still in playing phase

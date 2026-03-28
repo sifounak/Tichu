@@ -53,7 +53,6 @@ describe('GamePhase enum', () => {
   it('has all expected phases', () => {
     expect(GamePhase.WaitingForPlayers).toBe('waitingForPlayers');
     expect(GamePhase.GrandTichuDecision).toBe('grandTichuDecision');
-    expect(GamePhase.TichuDecision).toBe('tichuDecision');
     expect(GamePhase.CardPassing).toBe('cardPassing');
     expect(GamePhase.Playing).toBe('playing');
     expect(GamePhase.RoundScoring).toBe('roundScoring');

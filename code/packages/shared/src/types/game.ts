@@ -40,8 +40,6 @@ export enum GamePhase {
   WaitingForPlayers = 'waitingForPlayers',
   /** First 8 cards dealt; players decide on Grand Tichu */
   GrandTichuDecision = 'grandTichuDecision',
-  /** Remaining 6 cards dealt; players decide on Tichu */
-  TichuDecision = 'tichuDecision',
   /** Players pass 1 card to each other player */
   CardPassing = 'cardPassing',
   /** Active gameplay — tricks are played */

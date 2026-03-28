@@ -13,7 +13,6 @@ import type { GameStore } from './game-store.js';
 const GAME_MESSAGE_TYPES = [
   'GRAND_TICHU_DECISION',
   'TICHU_DECLARATION',
-  'REGULAR_TICHU_PASS',
   'PASS_CARDS',
   'CANCEL_PASS_CARDS',
   'PLAY_CARDS',
