@@ -206,7 +206,7 @@ export const PlayerSeat = memo(function PlayerSeat({
         const label = tichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu';
         return (
           <div
-            className={`${styles.tichuBanner} ${tichuCall === 'grandTichu' ? styles.grandTichu : styles.tichu} ${tichuFailed ? styles.tichuFailed : ''}`}
+            className={`${styles.tichuBanner} ${tichuCall === 'grandTichu' ? styles.grandTichu : styles.tichu} ${tichuFailed ? styles.tichuFailed : tichuSucceeded ? styles.tichuSucceeded : ''}`}
             aria-label={tichuFailed ? `${label} failed` : tichuSucceeded ? `${label} succeeded` : `${label} called`}
           >
             {tichuFailed ? <>😩 <span className={styles.tichuStrike}>{label}</span> 😩</> : tichuSucceeded ? `🎉 ${label} 🎉` : label}
