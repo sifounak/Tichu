@@ -1322,12 +1322,12 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                       }).map((bomb, i) => (
                         <button
                           key={i}
-                          onClick={() => { handleBombPlay(bomb); setBombPopupOpen(false); }}
+                          onClick={phase === 'playing' ? () => { handleBombPlay(bomb); setBombPopupOpen(false); } : undefined}
                           style={{
                             background: 'transparent',
                             border: 'none',
                             borderRadius: 'var(--space-2)',
-                            cursor: 'pointer',
+                            cursor: phase === 'playing' ? 'pointer' : 'default',
                             padding: 'calc(6px * var(--scale))',
                             display: 'flex',
                             transition: 'background 0.15s',
@@ -1348,7 +1348,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                 )}
                 {/* REQ-F-BB04: Single bomb plays immediately on click */}
                 <button
-                  onClick={() => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined}
+                  onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
                   style={{
                     width: 'calc(84px * var(--scale))',
                     height: 'calc(84px * var(--scale))',
