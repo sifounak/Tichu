@@ -387,8 +387,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       }
       // REQ-F-AP08: Playing cards (bomb) disables auto-pass
       uiStore.setAutoPassEnabled(false);
+      if (showReceivedCards) setShowReceivedCards(false);
     },
-    [send, uiStore],
+    [send, uiStore, showReceivedCards],
   );
 
   const [bombPopupOpen, setBombPopupOpen] = useState(false);
@@ -413,8 +414,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       uiStore.clearSelection();
       // REQ-F-AP08: Playing cards disables auto-pass
       uiStore.setAutoPassEnabled(false);
+      if (showReceivedCards) setShowReceivedCards(false);
     },
-    [selection.selectedIds, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive],
+    [selection.selectedIds, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive, showReceivedCards],
   );
 
   // REQ-F-WP01: Handle wish choice from WishPicker
@@ -432,8 +434,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       uiStore.clearSelection();
       // REQ-F-AP08: Playing cards disables auto-pass
       uiStore.setAutoPassEnabled(false);
+      if (showReceivedCards) setShowReceivedCards(false);
     },
-    [send, uiStore, bombWindow.bombWindowActive],
+    [send, uiStore, bombWindow.bombWindowActive, showReceivedCards],
   );
 
   const handlePass = useCallback(() => {
