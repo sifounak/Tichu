@@ -1299,8 +1299,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                   >
                     <div
                       style={{
-                        background: 'var(--color-bg-panel)',
-                        border: '1px solid var(--color-border)',
+                        background: 'rgba(255,255,255,0.15)',
+                        border: 'none',
                         borderRadius: 'var(--space-3)',
                         padding: 'calc(10px * var(--scale))',
                         display: 'flex',
@@ -1324,16 +1324,16 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                           key={i}
                           onClick={() => { handleBombPlay(bomb); setBombPopupOpen(false); }}
                           style={{
-                            background: 'rgba(255,255,255,0.08)',
-                            border: '1px solid var(--color-border)',
+                            background: 'transparent',
+                            border: 'none',
                             borderRadius: 'var(--space-2)',
                             cursor: 'pointer',
                             padding: 'calc(6px * var(--scale))',
                             display: 'flex',
-                            transition: 'background 0.15s, border-color 0.15s',
+                            transition: 'background 0.15s',
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; e.currentTarget.style.borderColor = 'var(--color-gold-accent)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                           aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
                         >
                           {bomb.cards.map((gc, j) => (
