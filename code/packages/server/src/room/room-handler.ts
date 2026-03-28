@@ -406,7 +406,7 @@ export class RoomHandler {
         if (game) {
           const difficulty = msg.difficulty ?? room.config.botDifficulty;
           game.registerBot(msg.seat, difficulty);
-          game.handleSeatFilled(msg.seat);
+          game.handleSeatFilled(msg.seat, true);
         }
       } else if (room) {
         // REQ-F-SP30: Bots auto-ready immediately when added (before game starts)
