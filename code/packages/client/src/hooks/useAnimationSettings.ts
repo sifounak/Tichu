@@ -1,16 +1,5 @@
-// REQ-NF-U02: Configurable animation speed + prefers-reduced-motion
+// Animation durations (fixed at normal speed)
 'use client';
-
-import { useMemo } from 'react';
-import { useUiStore } from '@/stores/uiStore';
-
-/** Speed multipliers for each setting */
-const SPEED_MULTIPLIERS: Record<string, number> = {
-  slow: 1.5,
-  normal: 1.0,
-  fast: 0.5,
-  off: 0,
-};
 
 export interface AnimationDurations {
   cardDeal: number;      // 300ms base, 80ms stagger
@@ -19,7 +8,7 @@ export interface AnimationDurations {
   cardLift: number;      // 150ms
   trickSweep: number;    // 400ms
   tichuBanner: number;   // 500ms
-  tichuDismiss: number;  // 2000ms
+  tichuDismiss: number;  // 1000ms
   scoreTally: number;    // 1000ms
   invalidShake: number;  // 300ms
   bombEffect: number;    // 600ms
@@ -27,14 +16,14 @@ export interface AnimationDurations {
   bombWindow: number;    // REQ-F-BW01: 2000ms bomb consideration window
 }
 
-const BASE_DURATIONS: AnimationDurations = {
+const DURATIONS: AnimationDurations = {
   cardDeal: 0.3,
   cardDealStagger: 0.08,
   cardPlay: 0.25,
   cardLift: 0.15,
   trickSweep: 0.4,
   tichuBanner: 0.5,
-  tichuDismiss: 1,    // REQ-NF-DL04: Reduced from 2s to 1s
+  tichuDismiss: 1,
   scoreTally: 1,
   invalidShake: 0.3,
   bombEffect: 0.6,
@@ -42,19 +31,8 @@ const BASE_DURATIONS: AnimationDurations = {
   bombWindow: 2.0,
 };
 
-export function useAnimationSettings() {
-  const animationSpeed = useUiStore((s) => s.animationSpeed);
+const RESULT = { durations: DURATIONS, enabled: true, multiplier: 1 };
 
-  return useMemo(() => {
-    const mul = SPEED_MULTIPLIERS[animationSpeed] ?? 1;
-    const durations = {} as AnimationDurations;
-    for (const [key, base] of Object.entries(BASE_DURATIONS)) {
-      (durations as unknown as Record<string, number>)[key] = base * mul;
-    }
-    return {
-      durations,
-      enabled: animationSpeed !== 'off',
-      multiplier: mul,
-    };
-  }, [animationSpeed]);
+export function useAnimationSettings() {
+  return RESULT;
 }

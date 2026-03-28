@@ -2,7 +2,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { AnimatedScore } from '@/components/game/AnimatedScore';
-import { useUiStore } from '@/stores/uiStore';
 
 describe('AnimatedScore (REQ-NF-U02)', () => {
   it('renders the initial value immediately', () => {
@@ -25,11 +24,4 @@ describe('AnimatedScore (REQ-NF-U02)', () => {
     expect(container.querySelector('.test-class')).not.toBeNull();
   });
 
-  it('renders value directly when animations are off', () => {
-    useUiStore.setState({ animationSpeed: 'off' });
-    const { rerender } = render(<AnimatedScore value={0} />);
-    rerender(<AnimatedScore value={500} />);
-    expect(screen.getByText('500')).toBeInTheDocument();
-    useUiStore.setState({ animationSpeed: 'normal' });
-  });
 });

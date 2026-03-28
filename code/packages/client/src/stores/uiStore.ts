@@ -29,10 +29,6 @@ export interface UiStore {
   connectionStatus: ConnectionStatus;
   setConnectionStatus: (status: ConnectionStatus) => void;
 
-  /* --- Settings --- */
-  animationSpeed: 'slow' | 'normal' | 'fast' | 'off';
-  setAnimationSpeed: (speed: 'slow' | 'normal' | 'fast' | 'off') => void;
-
   /* --- Auto-Pass (REQ-F-AP01–AP12) --- */
   autoPassEnabled: boolean;
   setAutoPassEnabled: (enabled: boolean) => void;
@@ -162,8 +158,6 @@ export const useUiStore = create<UiStore>()((set) => ({
   setConnectionStatus: (status) => set({ connectionStatus: status }),
 
   /* --- Settings --- */
-  animationSpeed: 'normal',
-  setAnimationSpeed: (speed) => set({ animationSpeed: speed }),
 
   /* --- Auto-Pass --- */
   // REQ-F-AP03: Default state is off

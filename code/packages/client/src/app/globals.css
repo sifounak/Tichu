@@ -109,25 +109,6 @@
   --easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* REQ-NF-U02: Animation speed override via data attribute */
-[data-animation-speed="slow"] {
-  --duration-fast: 225ms;
-  --duration-normal: 375ms;
-  --duration-slow: 600ms;
-}
-
-[data-animation-speed="fast"] {
-  --duration-fast: 75ms;
-  --duration-normal: 125ms;
-  --duration-slow: 200ms;
-}
-
-[data-animation-speed="off"] {
-  --duration-fast: 0ms;
-  --duration-normal: 0ms;
-  --duration-slow: 0ms;
-}
-
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-fast: 0ms;

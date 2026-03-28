@@ -8,7 +8,6 @@ describe('uiStore', () => {
       selectedCardIds: new Set(),
       phoenixPickerOptions: null,
       connectionStatus: 'disconnected',
-      animationSpeed: 'normal',
     });
   });
 
@@ -67,15 +66,4 @@ describe('uiStore', () => {
     });
   });
 
-  describe('animation speed', () => {
-    it('setAnimationSpeed updates speed', () => {
-      useUiStore.getState().setAnimationSpeed('fast');
-      expect(useUiStore.getState().animationSpeed).toBe('fast');
-    });
-
-    it('supports off setting', () => {
-      useUiStore.getState().setAnimationSpeed('off');
-      expect(useUiStore.getState().animationSpeed).toBe('off');
-    });
-  });
 });

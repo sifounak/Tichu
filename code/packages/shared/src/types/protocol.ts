@@ -30,7 +30,6 @@ const roomConfigSchema = z.object({
   targetScore: z.number().int().min(100).max(10000).optional(),
   turnTimerSeconds: z.union([z.literal(null), z.literal(30), z.literal(60), z.literal(90)]).optional(),
   botDifficulty: z.enum(['regular', 'hard', 'expert']).optional(),
-  animationSpeed: z.enum(['slow', 'normal', 'fast', 'off']).optional(),
   spectatorsAllowed: z.boolean().optional(),
   isPrivate: z.boolean().optional(),
 });

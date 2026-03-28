@@ -1,5 +1,5 @@
 // REQ-F-CG01: Settings popup for game creation
-// REQ-F-CG02: Target score, turn timer, animation speed, private room, spectators (no bot difficulty)
+// REQ-F-CG02: Target score, turn timer, private room, spectators (no bot difficulty)
 // REQ-F-CG03: Create Game + Cancel buttons
 // REQ-F-CG04: Cancel dismisses with no side effects
 'use client';
@@ -10,7 +10,6 @@ import styles from './CreateGamePopup.module.css';
 export interface CreateGameConfig {
   targetScore: number;
   turnTimerSeconds: 30 | 60 | 90 | null;
-  animationSpeed: 'slow' | 'normal' | 'fast' | 'off';
   isPrivate: boolean;
   spectatorsAllowed: boolean;
 }
@@ -24,7 +23,6 @@ interface CreateGamePopupProps {
 const DEFAULTS: CreateGameConfig = {
   targetScore: 1000,
   turnTimerSeconds: null,
-  animationSpeed: 'normal',
   isPrivate: false,
   spectatorsAllowed: true,
 };
@@ -75,26 +73,6 @@ export function CreateGamePopup({ onCancel, onCreate }: CreateGamePopupProps) {
               <option value="90">90s</option>
             </select>
           </label>
-
-          {/* Animation Speed */}
-          <label className={styles.field}>
-            <span className={styles.label}>Animation Speed</span>
-            <select
-              value={config.animationSpeed}
-              onChange={(e) =>
-                setConfig({ ...config, animationSpeed: e.target.value as 'slow' | 'normal' | 'fast' | 'off' })
-              }
-              className={styles.select}
-            >
-              <option value="slow">Slow</option>
-              <option value="normal">Normal</option>
-              <option value="fast">Fast</option>
-              <option value="off">Off</option>
-            </select>
-          </label>
-
-          {/* Spacer for grid alignment */}
-          <div />
 
           {/* Private Room */}
           <label className={styles.checkboxRow}>
