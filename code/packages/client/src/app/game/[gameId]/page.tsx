@@ -1121,6 +1121,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
               passConfirmed={hostPassConfirmed}
               turnTimerStartedAt={view.turnTimerStartedAt}
               turnTimerDurationMs={view.turnTimerDurationMs}
+              tichuFailed={hostPlayer.tichuCall !== 'none' && view.finishOrder.length > 0 && view.finishOrder[0] !== view.mySeat}
             />
           );
         })() : undefined}
@@ -1202,6 +1203,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                     isMe={true}
                     turnTimerStartedAt={view.turnTimerStartedAt}
                     turnTimerDurationMs={view.turnTimerDurationMs}
+                    tichuFailed={gameStore.myTichuCall !== 'none' && view.finishOrder.length > 0 && view.finishOrder[0] !== mySeat}
                   />
                 }
               />

@@ -290,6 +290,11 @@
   color: white;
 }
 
+/* Tichu call failed — dimmed banner */
+.tichuFailed {
+  opacity: 0.6;
+}
+
 /* Vacated seat — greyed out with overlay text */
 .vacated {
   opacity: 0.5;
