@@ -1290,12 +1290,11 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                     style={{
                       position: 'absolute',
                       bottom: '100%',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
+                      left: 0,
                       paddingBottom: 'calc(4px * var(--scale))',
                       display: 'flex',
                       flexDirection: 'column',
-                      alignItems: 'center',
+                      alignItems: 'flex-start',
                     }}
                   >
                     <div
