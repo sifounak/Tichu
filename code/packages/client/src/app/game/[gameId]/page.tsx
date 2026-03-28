@@ -1281,11 +1281,11 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             {phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0 && (
               <div
                 style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 'calc(48px * var(--scale))', zIndex: 10 }}
-                onMouseEnter={() => handBombs.length > 1 && setBombPopupOpen(true)}
+                onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
                 onMouseLeave={() => setBombPopupOpen(false)}
               >
                 {/* REQ-F-BB05/BB06: Multi-bomb popup — attached directly above button */}
-                {bombPopupOpen && handBombs.length > 1 && (
+                {bombPopupOpen && handBombs.length > 0 && (
                   <div
                     style={{
                       position: 'absolute',
