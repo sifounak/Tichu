@@ -312,6 +312,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
   // --- Action handlers ---
 
+  // Show received cards after the exchange
+  const [showReceivedCards, setShowReceivedCards] = useState(false);
+
   /** Check if Mahjong is among the selected cards */
   const hasMahjongInSelection = useCallback(() => {
     const hand = gameStore.myHand;
@@ -351,7 +354,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     uiStore.clearSelection();
     // REQ-F-AP08: Playing cards disables auto-pass
     uiStore.setAutoPassEnabled(false);
-  }, [selection, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive]);
+    // Auto-dismiss received cards display when playing
+    if (showReceivedCards) setShowReceivedCards(false);
+  }, [selection, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive, showReceivedCards]);
 
   // REQ-F-BI09: Handle out-of-turn bomb play (selection-based)
   const handleBomb = useCallback(() => {
@@ -364,7 +369,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     uiStore.clearSelection();
     // REQ-F-AP08: Playing cards (bomb) disables auto-pass
     uiStore.setAutoPassEnabled(false);
-  }, [selection, send, uiStore]);
+    if (showReceivedCards) setShowReceivedCards(false);
+  }, [selection, send, uiStore, showReceivedCards]);
 
   // REQ-F-BB01: Auto-detect all bombs in hand for the Bomb button
   const handBombs = useMemo(
@@ -454,8 +460,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   const [activePassCardId, setActivePassCardId] = useState<CardId | null>(null);
   const [passConfirmed, setPassConfirmed] = useState(false);
 
-  // Show received cards after the exchange
-  const [showReceivedCards, setShowReceivedCards] = useState(false);
+  // showReceivedCards state moved above handlePlay (line ~315)
 
   // Reset card passing state when leaving the card passing phase (e.g. new round)
   const currentPhase = gameStore.phase;
@@ -783,8 +788,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   const showAutoPass = phase === 'playing'
     && !isSpectator
     && !!mySeat
-    && !gameStore.finishOrder.includes(mySeat)
-    && !showReceivedCards;
+    && !gameStore.finishOrder.includes(mySeat);
 
   // Player can select cards to pass once they have 14 cards (decided GT or in card passing phase)
   const canSelectPassCards =
@@ -1094,10 +1098,10 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       <GameTable
         view={view}
         onPlay={gameStore.gameHalted ? undefined : handlePlay}
-        canPlay={!gameStore.gameHalted && !isPreGame && !showReceivedCards && selection.canPlay && (isMyTurn || selection.isBombSelection)}
-        isMyTurn={!gameStore.gameHalted && !isPreGame && !showReceivedCards && isMyTurn}
+        canPlay={!gameStore.gameHalted && !isPreGame && selection.canPlay && (isMyTurn || selection.isBombSelection)}
+        isMyTurn={!gameStore.gameHalted && !isPreGame && isMyTurn}
         hideCenter={isPreGame && !isSpectator}
-        hideEmptyTrick={showReceivedCards}
+        hideEmptyTrick={false}
         dragonGiftTargets={gameStore.gameHalted ? undefined : dragonGiftTargets}
         onDragonGift={gameStore.gameHalted ? undefined : handleDragonGift}
         seatNames={seatNames}
@@ -1188,7 +1192,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           )}
 
           {/* Action bar (playing phase only, hidden while viewing received cards) */}
-          {!isPreGame && !showReceivedCards && (
+          {!isPreGame && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <ActionBar
                 canPlay={!gameStore.gameHalted && selection.canPlay}
@@ -1230,7 +1234,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
           {/* Card hand — always rendered for visual continuity */}
           <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
-            {phase === 'playing' && !showReceivedCards && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+            {phase === 'playing' && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
               <button
                 onClick={handleTichu}
                 style={{
@@ -1271,7 +1275,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
               }
             />
             {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
-            {phase === 'playing' && !showReceivedCards && !gameStore.gameHalted && handBombs.length > 0 && (
+            {phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0 && (
               <div
                 style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 'calc(48px * var(--scale))', zIndex: 10 }}
                 onMouseEnter={() => handBombs.length > 1 && setBombPopupOpen(true)}
