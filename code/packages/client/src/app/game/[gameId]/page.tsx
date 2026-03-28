@@ -1290,7 +1290,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                     style={{
                       position: 'absolute',
                       bottom: '100%',
-                      left: 'calc(-10px * var(--scale))',
+                      left: 'calc(-10px * var(--scale) - 1px)',
                       paddingBottom: 'calc(4px * var(--scale))',
                       display: 'flex',
                       flexDirection: 'column',
