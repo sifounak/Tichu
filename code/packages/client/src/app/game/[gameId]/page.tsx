@@ -1290,7 +1290,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                     style={{
                       position: 'absolute',
                       bottom: '100%',
-                      left: 'calc(-10px * var(--scale) - 5px)',
+                      left: 'calc(-4px * var(--scale) - 5px)',
                       paddingBottom: 0,
                       display: 'flex',
                       flexDirection: 'column',
@@ -1302,10 +1302,10 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                         background: 'rgba(0, 0, 0, 0.5)',
                         border: 'none',
                         borderRadius: 'var(--space-3)',
-                        padding: 'calc(10px * var(--scale))',
+                        padding: 'calc(4px * var(--scale))',
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: 'calc(8px * var(--scale))',
+                        gap: 'calc(4px * var(--scale))',
                         zIndex: 50,
                       }}
                     >
