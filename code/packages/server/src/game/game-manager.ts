@@ -270,6 +270,10 @@ export class GameManager {
   /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
   handleSeatVacated(seat: Seat): void {
     this.vacatedSeats.add(seat);
+    // If seat was a bot, remove it so it stops making moves
+    if (this.botRunner.isBot(seat)) {
+      this.botRunner.removeBot(seat);
+    }
     this.timer.stop();
     this.broadcastState();
   }
