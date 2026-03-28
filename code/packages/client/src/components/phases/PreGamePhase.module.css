@@ -78,13 +78,13 @@
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  gap: var(--space-6);
+  gap: var(--space-4);
   margin-bottom: var(--space-8);
-  --card-width: var(--card-width-lg);
-  --card-height: var(--card-height-lg);
-  --card-font-size: var(--card-font-size-lg);
-  --card-suit-size: var(--card-suit-size-lg);
-  --card-border-radius: var(--card-border-radius-lg);
+  --card-width: calc(var(--card-width-lg) * 0.75);
+  --card-height: calc(var(--card-height-lg) * 0.75);
+  --card-font-size: calc(var(--card-font-size-lg) * 0.75);
+  --card-suit-size: calc(var(--card-suit-size-lg) * 0.75);
+  --card-border-radius: calc(var(--card-border-radius-lg) * 0.75);
 }
 
 .passLeft,
