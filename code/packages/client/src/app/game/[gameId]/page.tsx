@@ -1155,7 +1155,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {/* REQ-F-SP05: Hide for spectators — they see card counts in PlayerSeat, not actual hands */}
       {phase !== GamePhase.WaitingForPlayers && !isSpectator && (
-        <div style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))' }}>
+        <div style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))' }}>
           {/* Pre-game prompts (no hand — hand is always rendered below) */}
           {isPreGame && (
             <PreGamePhase
