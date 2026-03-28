@@ -1104,7 +1104,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         compassLayout={isSpectator}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
-        onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat, difficulty: 'regular' | 'hard' | 'expert') => send({ type: 'ADD_BOT', seat, difficulty }) : undefined}
+        onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat) => send({ type: 'ADD_BOT', seat, difficulty: 'expert' }) : undefined}
         centerContent={gameStore.gameHalted ? (
           <div style={{ textAlign: 'center', color: 'white', fontSize: 'calc(36px * var(--scale))', fontWeight: 700, padding: 'var(--space-8)', background: 'var(--color-bg-panel)', borderRadius: 'var(--space-3)', border: '2px solid var(--color-border)' }}>
             <div style={{ fontSize: 'calc(56px * var(--scale))', marginBottom: 'var(--space-3)' }}>⏸️</div>
