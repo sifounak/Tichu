@@ -35,7 +35,7 @@ export interface GameTableProps {
   /** REQ-F-PV03: Callback when a kick target seat is clicked */
   onKickTarget?: (seat: Seat) => void;
   /** REQ-F-VI05: Callback for host to add bot to vacated seat */
-  onAddBot?: (seat: Seat) => void;
+  onAddBot?: (seat: Seat, difficulty: 'regular' | 'hard' | 'expert') => void;
   /** Fixed compass orientation (N top, S bottom, W left, E right) for spectators */
   compassLayout?: boolean;
 }
@@ -158,7 +158,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         playerVoteStatus={pvStatus ?? undefined}
         playerVoteLabel={pvLabel}
         hideNormalLabels={!!activeVote || kickTargetMode}
-        onAddBot={onAddBot && vacatedSeats.includes(seat) ? () => onAddBot(seat) : undefined}
+        onAddBot={onAddBot && vacatedSeats.includes(seat) ? (diff: 'regular' | 'hard' | 'expert') => onAddBot(seat, diff) : undefined}
         turnTimerStartedAt={view.turnTimerStartedAt}
         turnTimerDurationMs={view.turnTimerDurationMs}
         tichuFailed={other.tichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
