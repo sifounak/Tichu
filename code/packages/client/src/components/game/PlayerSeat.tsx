@@ -279,13 +279,13 @@ export const PlayerSeat = memo(function PlayerSeat({
               onClick={(e) => { e.stopPropagation(); onAddBot(); }}
               style={{
                 marginTop: 'var(--space-2)',
-                padding: 'var(--space-1) var(--space-3)',
-                background: 'var(--color-gold-accent)',
-                color: 'var(--color-felt-green-dark)',
+                padding: 'calc(6px * var(--scale)) calc(20px * var(--scale))',
+                borderRadius: 'var(--space-2)',
+                fontSize: 'var(--font-base)',
+                fontWeight: 600,
+                background: 'var(--color-success, #2ecc71)',
+                color: '#000',
                 border: 'none',
-                borderRadius: 'var(--card-border-radius)',
-                fontSize: 'var(--font-sm)',
-                fontWeight: 700,
                 cursor: 'pointer',
               }}
             >
