@@ -294,6 +294,10 @@ export class GameManager {
     }
     this.sendStateTo(seat);
     this.broadcastState();
+    // All seats filled — resume the game (re-trigger timer + bot actions)
+    if (this.vacatedSeats.size === 0 && this.choosingSeats.size === 0) {
+      this.onStateChange(null);
+    }
   }
 
   /** REQ-F-SP06: Send spectator-projected state to a specific WebSocket. */
@@ -455,6 +459,13 @@ export class GameManager {
     if (this.autoPassTimer) {
       clearTimeout(this.autoPassTimer);
       this.autoPassTimer = null;
+    }
+
+    // Game pauses when any seat is vacated — stop timer and don't trigger bot actions
+    if (this.vacatedSeats.size > 0) {
+      this.timer.stop();
+      this.broadcastState();
+      return;
     }
 
     // Round scoring: broadcast state (client sees final card + scores), then
