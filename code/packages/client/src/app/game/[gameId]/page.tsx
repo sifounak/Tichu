@@ -807,11 +807,12 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
   // Build seat→name mapping from room store players
   const SEAT_LABELS: Record<string, string> = { north: 'North', east: 'East', south: 'South', west: 'West' };
+  const vacated = gameStore.vacatedSeats;
   const seatNames = {
-    north: roomPlayers.find((p) => p.seat === 'north')?.name ?? SEAT_LABELS.north,
-    east: roomPlayers.find((p) => p.seat === 'east')?.name ?? SEAT_LABELS.east,
-    south: roomPlayers.find((p) => p.seat === 'south')?.name ?? SEAT_LABELS.south,
-    west: roomPlayers.find((p) => p.seat === 'west')?.name ?? SEAT_LABELS.west,
+    north: vacated.includes('north') ? '(Empty)' : roomPlayers.find((p) => p.seat === 'north')?.name ?? SEAT_LABELS.north,
+    east: vacated.includes('east') ? '(Empty)' : roomPlayers.find((p) => p.seat === 'east')?.name ?? SEAT_LABELS.east,
+    south: vacated.includes('south') ? '(Empty)' : roomPlayers.find((p) => p.seat === 'south')?.name ?? SEAT_LABELS.south,
+    west: vacated.includes('west') ? '(Empty)' : roomPlayers.find((p) => p.seat === 'west')?.name ?? SEAT_LABELS.west,
   } as Record<Seat, string>;
 
   const handleLeaveGame = () => {
