@@ -358,6 +358,12 @@ export const gameMachine = setup({
       return !context.regularTichuDecisions.has(event.seat);
     },
 
+    /** Player hasn't called any Tichu (regular or grand) — for mid-phase Tichu calls */
+    hasNotCalledTichu: ({ context, event }) => {
+      if (!('seat' in event) || !context.currentRound) return false;
+      return context.currentRound.players[event.seat].tipiCall === 'none';
+    },
+
     /** Player hasn't already passed cards */
     hasNotPassedCards: ({ context, event }) => {
       if (!('seat' in event)) return false;
@@ -848,6 +854,10 @@ export const gameMachine = setup({
 
     cardPassing: {
       on: {
+        REGULAR_TICHU_CALL: {
+          guard: 'hasNotCalledTichu',
+          actions: 'recordRegularTichuCall',
+        },
         CARDS_PASSED: {
           guard: 'hasNotPassedCards',
           actions: 'recordCardPass',
