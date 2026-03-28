@@ -46,7 +46,7 @@ interface PreRoomViewProps {
 function makeDummyView(mySeat: Seat): ClientGameView {
   return {
     gameId: '',
-    config: { targetScore: 1000, turnTimerSeconds: null, botDifficulty: 'expert', animationSpeed: 'normal', spectatorsAllowed: true, isPrivate: false },
+    config: { targetScore: 1000, turnTimerSeconds: null, botDifficulty: 'expert', spectatorsAllowed: true, isPrivate: false },
     phase: 'playing' as any,
     scores: { northSouth: 0, eastWest: 0 },
     roundHistory: [],
@@ -708,20 +708,6 @@ export function PreRoomView({
                   <option value="90">90s</option>
                 </select>
               </label>
-              <label className={styles.settingsField}>
-                <span className={styles.settingsLabel}>Animation Speed</span>
-                <select
-                  value={config.animationSpeed}
-                  onChange={(e) => handleConfigChange({ animationSpeed: e.target.value })}
-                  className={styles.settingsSelect}
-                >
-                  <option value="slow">Slow</option>
-                  <option value="normal">Normal</option>
-                  <option value="fast">Fast</option>
-                  <option value="off">Off</option>
-                </select>
-              </label>
-              <div />
               <label className={styles.settingsCheckRow}>
                 <input
                   type="checkbox"
@@ -743,7 +729,6 @@ export function PreRoomView({
             <div className={styles.summaryGrid}>
               <span>Target: {config.targetScore} pts</span>
               <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
-              <span>Speed: {config.animationSpeed}</span>
               <span>{config.isPrivate ? 'Private' : 'Public'}</span>
               <span>Spectators: {config.spectatorsAllowed ? 'Yes' : 'No'}</span>
             </div>

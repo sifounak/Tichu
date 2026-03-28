@@ -127,7 +127,6 @@ export interface GameConfig {
   turnTimerSeconds: number | null;
   // REQ-F-TIER01: Three bot difficulty tiers
   botDifficulty: 'regular' | 'hard' | 'expert';
-  animationSpeed: 'slow' | 'normal' | 'fast' | 'off';
   spectatorsAllowed: boolean;
   isPrivate: boolean;
 }
@@ -137,7 +136,6 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   targetScore: 1000,
   turnTimerSeconds: null,
   botDifficulty: 'expert',
-  animationSpeed: 'normal',
   spectatorsAllowed: true,
   isPrivate: false,
 };

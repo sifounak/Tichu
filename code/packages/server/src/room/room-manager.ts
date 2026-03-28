@@ -71,7 +71,6 @@ export class RoomManager {
         targetScore: 1000,
         turnTimerSeconds: null,
         botDifficulty: 'expert',
-        animationSpeed: 'normal',
         spectatorsAllowed: true,
         isPrivate: false,
         maxSpectators: 10,
