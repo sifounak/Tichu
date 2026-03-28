@@ -20,6 +20,8 @@ export interface ScorePanelProps {
   mySeat: Seat;
   /** Seats whose Tichu call has failed (another player went out first) */
   tichuFailedSeats?: Set<Seat>;
+  /** Seats that are currently vacated (empty) */
+  vacatedSeats?: Seat[];
 }
 
 /** Map actual seats to table positions relative to the player's seat */
@@ -42,6 +44,7 @@ export const ScorePanel = memo(function ScorePanel({
   seatNames,
   mySeat,
   tichuFailedSeats,
+  vacatedSeats,
 }: ScorePanelProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -53,9 +56,10 @@ export const ScorePanel = memo(function ScorePanel({
   function renderName(seat: Seat) {
     const call = callMap.get(seat);
     const failed = call && tichuFailedSeats?.has(seat);
+    const isEmpty = vacatedSeats?.includes(seat);
     return (
       <span className={styles.playerName}>
-        {seatNames[seat]}
+        {isEmpty ? '(Empty)' : seatNames[seat]}
         {call && (
           <span className={`${styles.tichuBadge} ${call === 'grandTichu' ? styles.grandTichu : styles.tichu} ${failed ? styles.tichuBadgeFailed : ''}`}>
             {call === 'grandTichu' ? 'GT' : 'T'}

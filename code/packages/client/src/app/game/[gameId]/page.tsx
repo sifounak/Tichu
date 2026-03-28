@@ -1085,6 +1085,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             seatNames={seatNames}
             mySeat={mySeat!}
             tichuFailedSeats={tichuFailedSeats}
+            vacatedSeats={gameStore.vacatedSeats}
           />
         </div>
       )}
