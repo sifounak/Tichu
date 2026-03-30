@@ -140,11 +140,11 @@ export class GameManager {
         break;
 
       case 'GRAND_TICHU_DECISION':
-        result = this.moveHandler.handleGrandTichuDecision(seat, message.call);
+        result = this.moveHandler.handleGrandTichuDecision(seat, message.call, message.partnerOverride);
         break;
 
       case 'TICHU_DECLARATION':
-        result = this.moveHandler.handleTichuDeclaration(seat);
+        result = this.moveHandler.handleTichuDeclaration(seat, message.partnerOverride);
         break;
 
       case 'PASS_CARDS':
@@ -196,7 +196,12 @@ export class GameManager {
       const snapshot = this.actor.getSnapshot();
       const stateVal = typeof snapshot.value === 'string' ? snapshot.value : String(snapshot.value);
       console.error(`[INVALID_MOVE] seat=${seat} type=${message.type} state=${stateVal} error=${result.error}`);
-      this.broadcaster.sendError(ws, 'INVALID_MOVE', result.error);
+      // Use structured error code for partner safeguard; generic INVALID_MOVE for others
+      const errorCode = result.error === 'PARTNER_ALREADY_CALLED' ? 'PARTNER_ALREADY_CALLED' : 'INVALID_MOVE';
+      const errorMessage = result.error === 'PARTNER_ALREADY_CALLED'
+        ? `PARTNER_ALREADY_CALLED:${(result as any).partnerCall}`
+        : result.error;
+      this.broadcaster.sendError(ws, errorCode, errorMessage);
       return;
     }
 
