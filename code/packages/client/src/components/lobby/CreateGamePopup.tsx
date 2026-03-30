@@ -37,6 +37,7 @@ export function CreateGamePopup({ onCancel, onCreate }: CreateGamePopupProps) {
   return (
     <div className={styles.overlay} onClick={handleOverlayClick} role="dialog" aria-modal="true" aria-label="Create Game Settings">
       <div className={styles.popup}>
+        <form onSubmit={(e) => { e.preventDefault(); onCreate(config); }}>
         <h2 className={styles.title}>Game Settings</h2>
 
         <div className={styles.grid}>
@@ -96,13 +97,14 @@ export function CreateGamePopup({ onCancel, onCreate }: CreateGamePopupProps) {
         </div>
 
         <div className={styles.buttons}>
-          <button onClick={onCancel} className={styles.cancelBtn}>
+          <button type="button" onClick={onCancel} className={styles.cancelBtn}>
             Cancel
           </button>
-          <button onClick={() => onCreate(config)} className={styles.createBtn}>
+          <button type="submit" className={styles.createBtn}>
             Create Game
           </button>
         </div>
+        </form>
       </div>
     </div>
   );
