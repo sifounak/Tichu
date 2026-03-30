@@ -1,14 +1,9 @@
 // REQ-F-AU03: Game history persistence — save completed games and rounds to DB
 
 import { eq, desc, or, sql } from 'drizzle-orm';
-import type { ExtractTablesWithRelations } from 'drizzle-orm';
-import type { PgTransaction, PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import type { Database } from './connection.js';
 import { games, gameRounds } from './schema.js';
-import * as schema from './schema.js';
 import type { Seat } from '@tichu/shared';
-
-type Transaction = PgTransaction<PgQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>;
 
 export interface GameResult {
   roomCode: string;
@@ -31,26 +26,26 @@ export interface RoundResult {
   totalNS: number;
   totalEW: number;
   finishOrder: Seat[];
-  tichuCalls: Record<string, string>; // seat → 'tichu' | 'grandTichu'
+  tichuCalls: Record<string, string>;
 }
 
 /**
  * Saves a completed game and all its rounds to the database.
  * Also updates player stats for all human participants.
  */
-export async function saveGameResult(
+export function saveGameResult(
   database: Database,
   gameResult: GameResult,
   rounds: RoundResult[],
-): Promise<number> {
+): number {
   const { db } = database;
 
-  return db.transaction(async (tx) => {
+  return db.transaction((tx) => {
     // Insert game record
-    const [game] = await tx.insert(games).values({
+    const [game] = tx.insert(games).values({
       roomCode: gameResult.roomCode,
-      startedAt: gameResult.startedAt,
-      endedAt: new Date(),
+      startedAt: gameResult.startedAt.toISOString(),
+      endedAt: new Date().toISOString(),
       winnerTeam: gameResult.winnerTeam,
       finalScoreNS: gameResult.finalScoreNS,
       finalScoreEW: gameResult.finalScoreEW,
@@ -68,7 +63,7 @@ export async function saveGameResult(
 
     // Insert round records
     if (rounds.length > 0) {
-      await tx.insert(gameRounds).values(rounds.map(r => ({
+      tx.insert(gameRounds).values(rounds.map(r => ({
         gameId: game.id,
         roundNumber: r.roundNumber,
         cardPointsNS: r.cardPointsNS,
@@ -80,7 +75,7 @@ export async function saveGameResult(
         totalEW: r.totalEW,
         finishOrder: r.finishOrder,
         tichuCalls: r.tichuCalls,
-      })));
+      }))).run();
     }
 
     // Update stats for human players
@@ -95,7 +90,6 @@ export async function saveGameResult(
       const isNS = seat === 'north' || seat === 'south';
       const won = (isNS && gameResult.winnerTeam === 'NS') || (!isNS && gameResult.winnerTeam === 'EW');
 
-      // Count tichu stats from rounds
       let tichuCalls = 0;
       let tichuSuccesses = 0;
       let grandTichuCalls = 0;
@@ -114,7 +108,7 @@ export async function saveGameResult(
         if (round.finishOrder[0] === seat) firstFinishes++;
       }
 
-      await upsertPlayerStats(tx, userId, {
+      upsertPlayerStats(tx, userId, {
         gamesPlayed: 1,
         gamesWon: won ? 1 : 0,
         tichuCalls,
@@ -130,8 +124,8 @@ export async function saveGameResult(
   });
 }
 
-async function upsertPlayerStats(
-  tx: Transaction | Database['db'],
+function upsertPlayerStats(
+  tx: any,
   userId: string,
   increments: {
     gamesPlayed: number;
@@ -143,10 +137,10 @@ async function upsertPlayerStats(
     totalRoundsPlayed: number;
     firstFinishes: number;
   },
-): Promise<void> {
+): void {
   const winRate = increments.gamesPlayed > 0 ? increments.gamesWon / increments.gamesPlayed : 0;
 
-  await tx.execute(sql`
+  tx.run(sql`
     INSERT INTO player_stats (
       user_id, games_played, games_won, win_rate,
       tichu_calls, tichu_successes, grand_tichu_calls, grand_tichu_successes,
@@ -155,48 +149,35 @@ async function upsertPlayerStats(
       ${userId}, ${increments.gamesPlayed}, ${increments.gamesWon}, ${winRate},
       ${increments.tichuCalls}, ${increments.tichuSuccesses},
       ${increments.grandTichuCalls}, ${increments.grandTichuSuccesses},
-      ${increments.totalRoundsPlayed}, ${increments.firstFinishes}, NOW()
+      ${increments.totalRoundsPlayed}, ${increments.firstFinishes}, datetime('now')
     )
     ON CONFLICT (user_id) DO UPDATE SET
-      games_played = player_stats.games_played + EXCLUDED.games_played,
-      games_won = player_stats.games_won + EXCLUDED.games_won,
+      games_played = player_stats.games_played + excluded.games_played,
+      games_won = player_stats.games_won + excluded.games_won,
       win_rate = CASE
-        WHEN (player_stats.games_played + EXCLUDED.games_played) > 0
-        THEN (player_stats.games_won + EXCLUDED.games_won)::float / (player_stats.games_played + EXCLUDED.games_played)
+        WHEN (player_stats.games_played + excluded.games_played) > 0
+        THEN CAST((player_stats.games_won + excluded.games_won) AS REAL) / (player_stats.games_played + excluded.games_played)
         ELSE 0
       END,
-      tichu_calls = player_stats.tichu_calls + EXCLUDED.tichu_calls,
-      tichu_successes = player_stats.tichu_successes + EXCLUDED.tichu_successes,
-      grand_tichu_calls = player_stats.grand_tichu_calls + EXCLUDED.grand_tichu_calls,
-      grand_tichu_successes = player_stats.grand_tichu_successes + EXCLUDED.grand_tichu_successes,
-      total_rounds_played = player_stats.total_rounds_played + EXCLUDED.total_rounds_played,
-      first_finishes = player_stats.first_finishes + EXCLUDED.first_finishes,
-      last_updated_at = NOW()
+      tichu_calls = player_stats.tichu_calls + excluded.tichu_calls,
+      tichu_successes = player_stats.tichu_successes + excluded.tichu_successes,
+      grand_tichu_calls = player_stats.grand_tichu_calls + excluded.grand_tichu_calls,
+      grand_tichu_successes = player_stats.grand_tichu_successes + excluded.grand_tichu_successes,
+      total_rounds_played = player_stats.total_rounds_played + excluded.total_rounds_played,
+      first_finishes = player_stats.first_finishes + excluded.first_finishes,
+      last_updated_at = datetime('now')
   `);
 }
 
 /**
  * Gets game history for a specific player.
  */
-export async function getPlayerGameHistory(
+export function getPlayerGameHistory(
   database: Database,
   userId: string,
   limit = 20,
   offset = 0,
-): Promise<Array<{
-  id: number;
-  roomCode: string;
-  startedAt: Date;
-  endedAt: Date;
-  winnerTeam: string;
-  finalScoreNS: number;
-  finalScoreEW: number;
-  roundCount: number;
-  northName: string;
-  eastName: string;
-  southName: string;
-  westName: string;
-}>> {
+) {
   const { db } = database;
 
   return db.select({
@@ -230,21 +211,10 @@ export async function getPlayerGameHistory(
 /**
  * Gets round details for a specific game.
  */
-export async function getGameRounds(
+export function getGameRounds(
   database: Database,
   gameId: number,
-): Promise<Array<{
-  roundNumber: number;
-  cardPointsNS: number;
-  cardPointsEW: number;
-  tichuBonusNS: number;
-  tichuBonusEW: number;
-  oneTwoBonus: string | null;
-  totalNS: number;
-  totalEW: number;
-  finishOrder: unknown;
-  tichuCalls: unknown;
-}>> {
+) {
   const { db } = database;
 
   return db.select({
