@@ -778,13 +778,27 @@ export class Bot implements BotStrategy {
 
     // ─── NEVER rules ───
 
-    // REQ-F-PHX01: Phoenix as singleton on top of single < Ace, unless all Aces accounted
-    if (currentTrick && combo.cards.length === 1) {
-      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
-      if (lastPlay && lastPlay.combination.cards.length === 1) {
-        const lastCard = lastPlay.combination.cards[0];
-        if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14 && !allAcesAccountedFor) {
-          return 'never';
+    // REQ-F-PHX01: Phoenix as singleton — only allowed on Aces, Kings (if all Aces
+    // accounted for), or as 2nd-to-last card when the remaining card is a sure winner.
+    if (combo.cards.length === 1) {
+      // 2nd-to-last card exception: Phoenix + guaranteed winner (Dragon, Ace, etc.)
+      if (hand.length === 2) {
+        const otherCard = hand.find((gc) => !isPhoenix(gc.card));
+        if (otherCard && (isDragon(otherCard.card) ||
+            (otherCard.card.kind === 'standard' && otherCard.card.rank === 14) ||
+            (allAcesPlayed && otherCard.card.kind === 'standard' && otherCard.card.rank === 13))) {
+          return 'acceptable';
+        }
+      }
+
+      // Block singleton Phoenix on anything below Ace (unless all Aces accounted for)
+      if (currentTrick) {
+        const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+        if (lastPlay && lastPlay.combination.cards.length === 1) {
+          const lastCard = lastPlay.combination.cards[0];
+          if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14 && !allAcesAccountedFor) {
+            return 'never';
+          }
         }
       }
     }
@@ -1090,6 +1104,8 @@ export class Bot implements BotStrategy {
         if (planned.cards.length === 1 && isDog(planned.cards[0].card)) continue;
         // REQ-F-PHX01: Skip Phoenix singleton leads (only +0.5, weak)
         if (planned.cards.length === 1 && isPhoenix(planned.cards[0].card)) continue;
+        // REQ-F-PHX10: Skip Phoenix combos early in round
+        if (hand.length >= 10 && planned.cards.some((gc) => isPhoenix(gc.card))) continue;
         const match = validPlays.find((vp) =>
           vp.cards.length === planned.cards.length &&
           vp.cards.every((c) => planned.cards.some((p) => p.id === c.id)),
@@ -1125,6 +1141,8 @@ export class Bot implements BotStrategy {
         !opponentNearExit && !needsDogPlay) continue;
       // Skip Phoenix singleton (weak lead)
       if (combo.cards.length === 1 && isPhoenix(combo.cards[0].card)) continue;
+      // REQ-F-PHX10: Avoid leading combos with Phoenix early — keep opponents guessing
+      if (hand.length >= 10 && combo.cards.some((gc) => isPhoenix(gc.card))) continue;
       // REQ-F-DEF01/FOL03: Avoid leading Ace pairs — split for individual wins
       if (combo.type === CombinationType.Pair && combo.rank === 14) {
         const remaining = hand.filter((gc) => !combo.cards.some((c) => c.id === gc.id));
@@ -1624,6 +1642,18 @@ export class Bot implements BotStrategy {
         );
         if (nonPhoenixPlay) return this.toDecision(nonPhoenixPlay);
         // If all plays use Phoenix, pass if we can
+        if (canPass) return { action: 'pass' };
+      }
+
+      // REQ-F-PHX10: Avoid Phoenix early — keep opponents guessing by saving Phoenix
+      // when there are non-Phoenix alternatives and we still have many cards.
+      const cheapestUsesPhoenix = cheapest.cards.some((gc) => isPhoenix(gc.card));
+      if (cheapestUsesPhoenix && hand.length >= 10 && phoenixEval !== 'acceptable') {
+        const nonPhoenixPlay = ranked.find(
+          (c) => !c.cards.some((gc) => isPhoenix(gc.card)),
+        );
+        if (nonPhoenixPlay) return this.toDecision(nonPhoenixPlay);
+        // No alternative — pass rather than reveal Phoenix early (if possible)
         if (canPass) return { action: 'pass' };
       }
 

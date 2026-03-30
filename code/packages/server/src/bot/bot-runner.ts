@@ -244,26 +244,8 @@ export class BotRunner {
       this.provideContext(bot, round, context);
       const hand = round.players[seat].hand;
 
-      // Bot decides on regular Tichu before passing cards
-      if (round.players[seat].tipiCall === 'none') {
-        const callTichu = bot.chooseRegularTichu(hand);
-        if (callTichu) {
-          if (this.moveHandler) {
-            const result = this.moveHandler.handleTichuDeclaration(seat);
-            if (result.ok) {
-              // MoveHandler already sent the event — just broadcast
-              this.scheduleAction(() => {
-                this.afterActionCallback?.();
-              });
-            }
-            // If PARTNER_ALREADY_CALLED or other error: silently drop the call
-          } else {
-            this.scheduleAction(() => {
-              this.send({ type: 'REGULAR_TICHU_CALL', seat });
-            });
-          }
-        }
-      }
+      // Regular Tichu is NOT called here — deferred to first play for strategic
+      // advantage (opponents can't plan around an early Tichu announcement).
 
       if (context.cardPassDecisions.has(seat)) continue;
 
@@ -284,6 +266,27 @@ export class BotRunner {
 
     this.provideContext(bot, round, context);
     const player = round.players[seat];
+
+    // Call regular Tichu right before first play — delays the announcement
+    // so opponents can't plan around it until the last moment.
+    if (!player.hasPlayed && player.tipiCall === 'none') {
+      const callTichu = bot.chooseRegularTichu(player.hand);
+      if (callTichu) {
+        if (this.moveHandler) {
+          const result = this.moveHandler.handleTichuDeclaration(seat);
+          if (result.ok) {
+            this.scheduleAction(() => {
+              this.afterActionCallback?.();
+            });
+          }
+        } else {
+          this.scheduleAction(() => {
+            this.send({ type: 'REGULAR_TICHU_CALL', seat });
+          });
+        }
+      }
+    }
+
     const activeWish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
     const validPlays = getValidPlays(player.hand, round.currentTrick, activeWish);
     const canPass = canPlayerPass(player.hand, round.currentTrick, activeWish);
