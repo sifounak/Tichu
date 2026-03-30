@@ -5,13 +5,14 @@
 // REQ-F-BI01: Out-of-turn bomb interrupts
 
 import type { GameCard, Seat, Rank } from '@tichu/shared';
-import { SEATS_IN_ORDER, getTeam, isMahjong, detectCombination } from '@tichu/shared';
+import { SEATS_IN_ORDER, getTeam, getPartner, isMahjong, detectCombination } from '@tichu/shared';
 import type { GameActor, GameEvent, GameMachineContext } from './game-state-machine.js';
 
 /** Result of handling a client game message */
 export type MoveResult =
   | { ok: true }
-  | { ok: false; error: string };
+  | { ok: false; error: string }
+  | { ok: false; error: 'PARTNER_ALREADY_CALLED'; partnerCall: 'tichu' | 'grandTichu' };
 
 /**
  * Translates client WebSocket messages into state machine events and
@@ -64,12 +65,24 @@ export class MoveHandler {
   }
 
   /** Handle GRAND_TICHU_DECISION */
-  handleGrandTichuDecision(seat: Seat, call: boolean): MoveResult {
+  handleGrandTichuDecision(seat: Seat, call: boolean, partnerOverride?: boolean): MoveResult {
     if (this.stateValue !== 'grandTichuDecision') {
       return { ok: false, error: 'Not in Grand Tichu decision phase' };
     }
     if (this.context.grandTichuDecisions.has(seat)) {
       return { ok: false, error: 'Already made Grand Tichu decision' };
+    }
+
+    // Partner check: only when calling (not passing) and no override
+    if (call && !partnerOverride) {
+      const round = this.context.currentRound;
+      if (round) {
+        const partner = getPartner(seat);
+        const partnerCall = round.players[partner].tipiCall;
+        if (partnerCall !== 'none') {
+          return { ok: false, error: 'PARTNER_ALREADY_CALLED', partnerCall };
+        }
+      }
     }
 
     const event: GameEvent = call
@@ -80,7 +93,7 @@ export class MoveHandler {
   }
 
   /** Handle TICHU_DECLARATION — allowed during cardPassing and playing (before first play) */
-  handleTichuDeclaration(seat: Seat): MoveResult {
+  handleTichuDeclaration(seat: Seat, partnerOverride?: boolean): MoveResult {
     const state = this.stateValue;
     if (state !== 'cardPassing' && state !== 'playing') {
       return { ok: false, error: 'Cannot call Tichu in current phase' };
@@ -95,6 +108,16 @@ export class MoveHandler {
     if (player.tipiCall !== 'none') {
       return { ok: false, error: 'Already made a Tichu call' };
     }
+
+    // Partner check: if partner already called, require override
+    if (!partnerOverride) {
+      const partner = getPartner(seat);
+      const partnerCall = round.players[partner].tipiCall;
+      if (partnerCall !== 'none') {
+        return { ok: false, error: 'PARTNER_ALREADY_CALLED', partnerCall };
+      }
+    }
+
     this.actor.send({ type: 'REGULAR_TICHU_CALL', seat });
     return { ok: true };
   }

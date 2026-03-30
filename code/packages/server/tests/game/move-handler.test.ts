@@ -539,4 +539,91 @@ describe('MoveHandler', () => {
       expect(result.ok).toBe(true);
     });
   });
+
+  describe('partner tichu call safeguard', () => {
+    // Helper: start game and reach grandTichuDecision phase
+    function startGame() {
+      fillSeats(actor);
+      actor.send({ type: 'HOST_START_GAME' });
+    }
+
+    // Helper: advance all seats past grandTichuDecision to cardPassing
+    function passAllGrandTichu() {
+      for (const seat of SEATS_IN_ORDER) {
+        actor.send({ type: 'GRAND_TICHU_PASS', seat });
+      }
+    }
+
+    it('should reject GT call when partner already called GT', () => {
+      startGame();
+      // south (north's partner) calls Grand Tichu first
+      actor.send({ type: 'GRAND_TICHU_CALL', seat: 'south' });
+      // now north tries to call Grand Tichu
+      const result = handler.handleGrandTichuDecision('north', true);
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.error).toBe('PARTNER_ALREADY_CALLED');
+      if (!result.ok && result.error === 'PARTNER_ALREADY_CALLED') {
+        expect(result.partnerCall).toBe('grandTichu');
+      }
+    });
+
+    it('should allow GT call with partnerOverride: true when partner called', () => {
+      startGame();
+      actor.send({ type: 'GRAND_TICHU_CALL', seat: 'south' });
+      const result = handler.handleGrandTichuDecision('north', true, true);
+      expect(result.ok).toBe(true);
+    });
+
+    it('should NOT check partner when passing GT', () => {
+      startGame();
+      actor.send({ type: 'GRAND_TICHU_CALL', seat: 'south' });
+      // north passes GT — no partner check needed
+      const result = handler.handleGrandTichuDecision('north', false);
+      expect(result.ok).toBe(true);
+    });
+
+    it('should allow GT call when partner has not called', () => {
+      startGame();
+      // Partner (south) passes GT, so north is free to call
+      actor.send({ type: 'GRAND_TICHU_PASS', seat: 'south' });
+      const result = handler.handleGrandTichuDecision('north', true);
+      expect(result.ok).toBe(true);
+    });
+
+    it('should reject Tichu call when partner called GT (advance past GT phase first)', () => {
+      startGame();
+      // south calls Grand Tichu
+      actor.send({ type: 'GRAND_TICHU_CALL', seat: 'south' });
+      // remaining seats pass
+      actor.send({ type: 'GRAND_TICHU_PASS', seat: 'north' });
+      actor.send({ type: 'GRAND_TICHU_PASS', seat: 'east' });
+      actor.send({ type: 'GRAND_TICHU_PASS', seat: 'west' });
+      // now in cardPassing, south has grandTichu — north tries to call Tichu
+      const result = handler.handleTichuDeclaration('north');
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.error).toBe('PARTNER_ALREADY_CALLED');
+      if (!result.ok && result.error === 'PARTNER_ALREADY_CALLED') {
+        expect(result.partnerCall).toBe('grandTichu');
+      }
+    });
+
+    it('should allow Tichu call with partnerOverride: true when partner called', () => {
+      startGame();
+      actor.send({ type: 'GRAND_TICHU_CALL', seat: 'south' });
+      actor.send({ type: 'GRAND_TICHU_PASS', seat: 'north' });
+      actor.send({ type: 'GRAND_TICHU_PASS', seat: 'east' });
+      actor.send({ type: 'GRAND_TICHU_PASS', seat: 'west' });
+      // north calls Tichu with override
+      const result = handler.handleTichuDeclaration('north', true);
+      expect(result.ok).toBe(true);
+    });
+
+    it('should allow Tichu call when partner has not called', () => {
+      startGame();
+      passAllGrandTichu();
+      // neither north nor south has called anything — north calls Tichu freely
+      const result = handler.handleTichuDeclaration('north');
+      expect(result.ok).toBe(true);
+    });
+  });
 });
