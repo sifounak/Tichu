@@ -4,14 +4,20 @@
 // REQ-F-VI08: Pre-game kick voting via room-level VoteHandler
 
 import type { WebSocket } from 'ws';
-import type { ClientMessage, Seat } from '@tichu/shared';
+import type { ClientMessage, Seat, RoomPlayer, RoundScore } from '@tichu/shared';
+import { SEATS_IN_ORDER } from '@tichu/shared';
 import type { ConnectionManager } from '../ws/connection-manager.js';
 import type { Broadcaster } from '../ws/broadcaster.js';
 import type { MessageRouter } from '../ws/message-router.js';
+import type { Database } from '../db/connection.js';
 import { RoomManager } from './room-manager.js';
 import { GameStore } from '../game/game-store.js';
 import { SeatQueue } from './seat-queue.js';
 import { VoteHandler } from '../game/vote-handler.js';
+import { saveGameResult } from '../db/game-persistence.js';
+import type { GameResult, RoundResult } from '../db/game-persistence.js';
+import type { GameMachineContext } from '../game/game-state-machine.js';
+import type { RoundEventSummary } from '../game/round-event-types.js';
 
 /**
  * Handles room-related WebSocket messages by routing them to the RoomManager.
@@ -26,6 +32,8 @@ export class RoomHandler {
   private readonly seatQueues = new Map<string, SeatQueue>();
   // REQ-F-VI08: Pre-game kick voting via room-level VoteHandler
   private readonly preGameVoteHandler: VoteHandler;
+  // REQ-F-PW01: Database for game persistence
+  private readonly database: Database | null;
 
   constructor(
     router: MessageRouter,
@@ -33,11 +41,13 @@ export class RoomHandler {
     broadcaster: Broadcaster,
     gameStore: GameStore,
     roomManager?: RoomManager,
+    database?: Database | null,
   ) {
     this.connections = connections;
     this.broadcaster = broadcaster;
     this.gameStore = gameStore;
     this.roomManager = roomManager ?? new RoomManager();
+    this.database = database ?? null;
     this.preGameVoteHandler = new VoteHandler(broadcaster);
     this.wirePreGameVoteCallback();
 
@@ -646,6 +656,14 @@ export class RoomHandler {
         },
       );
 
+      // REQ-F-PW01: Wire game-end callback for persistence
+      if (this.database) {
+        const db = this.database;
+        game.wireGameEndCallback((context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>) => {
+          this.persistGameResult(db, roomCode, room.players, context, roundEvents);
+        });
+      }
+
       for (const player of room.players) {
         game.seatPlayer(player.seat);
         if (!player.isBot) {
@@ -688,6 +706,78 @@ export class RoomHandler {
 
     // Broadcast room update — clients will see gameInProgress=false and show PreRoomView
     this.broadcastRoomUpdate(roomCode);
+  }
+
+  // ─── Game Persistence (REQ-F-PW01) ─────────────────────────────────────
+
+  /** REQ-F-PW01/PW02: Build GameResult + RoundResult[] from context and persist.
+   *  REQ-F-DB04: All inserts in a single transaction (handled by saveGameResult). */
+  private persistGameResult(
+    database: Database,
+    roomCode: string,
+    players: RoomPlayer[],
+    context: GameMachineContext,
+    roundEvents?: Map<number, RoundEventSummary[]>,
+  ): void {
+    const winnerTeam = context.winner === 'northSouth' ? 'NS' as const : 'EW' as const;
+
+    // Build player map: seat → { userId, name }
+    const playerMap = {} as Record<Seat, { userId: string | null; name: string }>;
+    for (const seat of SEATS_IN_ORDER) {
+      const player = players.find(p => p.seat === seat);
+      const userId = player && !player.isBot
+        ? this.roomManager.getUserIdAtSeat(roomCode, seat) ?? null
+        : null;
+      playerMap[seat] = { userId, name: player?.name ?? 'Unknown' };
+    }
+
+    const gameResult: GameResult = {
+      roomCode,
+      startedAt: new Date(), // approximate — exact start time not tracked in context
+      winnerTeam,
+      finalScoreNS: context.scores.northSouth,
+      finalScoreEW: context.scores.eastWest,
+      targetScore: context.config.targetScore,
+      roundCount: context.roundHistory.length,
+      players: playerMap,
+      // Pass full context data for Group A/B stat computation
+      scores: context.scores,
+      winner: context.winner,
+      roundScores: context.roundHistory,
+      // REQ-F-EC04: Pass round events for Group C stat persistence
+      roundEvents,
+    };
+
+    // Convert RoundScore[] to RoundResult[]
+    const rounds: RoundResult[] = context.roundHistory.map((rs: RoundScore) => {
+      // Build tichuCalls from tichuResults
+      const tichuCalls: Record<string, string> = {};
+      for (const seat of SEATS_IN_ORDER) {
+        const result = rs.tichuResults[seat];
+        if (result && result.call !== 'none') {
+          tichuCalls[seat] = result.call;
+        }
+      }
+
+      // finishOrder: not available in RoundScore; derive from tichuResults.won
+      // For stat computation, tichuResults.won is used directly (Milestone 2)
+      const finishOrder: Seat[] = [];
+
+      return {
+        roundNumber: rs.roundNumber,
+        cardPointsNS: rs.cardPoints.northSouth,
+        cardPointsEW: rs.cardPoints.eastWest,
+        tichuBonusNS: rs.tichuBonuses.northSouth,
+        tichuBonusEW: rs.tichuBonuses.eastWest,
+        oneTwoBonus: rs.oneTwoBonus === 'northSouth' ? 'NS' : rs.oneTwoBonus === 'eastWest' ? 'EW' : null,
+        totalNS: rs.total.northSouth,
+        totalEW: rs.total.eastWest,
+        finishOrder,
+        tichuCalls,
+      };
+    });
+
+    saveGameResult(database, gameResult, rounds);
   }
 
   // ─── Seat Queue (REQ-F-SP07–SP10, SP27, SP28, SP31, SP32) ───────────

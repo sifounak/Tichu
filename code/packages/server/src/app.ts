@@ -80,7 +80,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
 
   // ─── Game & Room infrastructure ─────────────────────────────────────
   const gameStore = new GameStore(broadcaster);
-  const roomHandler = new RoomHandler(router, connections, broadcaster, gameStore);
+  const roomHandler = new RoomHandler(router, connections, broadcaster, gameStore, undefined, database);
   // REQ-F-GMR01: Route game messages (play, pass, tichu, etc.) to GameManager
   const gameHandler = new GameHandler(router, connections, broadcaster, gameStore);
 

@@ -5,10 +5,12 @@ import { describe, it, expect, vi } from 'vitest';
 // Mock better-sqlite3 and drizzle-orm modules
 const mockClose = vi.fn();
 const mockPragma = vi.fn();
+const mockExec = vi.fn();
 vi.mock('better-sqlite3', () => ({
   default: vi.fn(() => ({
     close: mockClose,
     pragma: mockPragma,
+    exec: mockExec,
   })),
 }));
 
