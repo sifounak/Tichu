@@ -33,29 +33,28 @@ const MIN_GAMES_FOR_LEADERBOARD = 5;
 /**
  * Gets top players by win rate, with a minimum games threshold.
  */
-export async function getLeaderboard(
+export function getLeaderboard(
   database: Database,
   limit = 20,
   minGames = MIN_GAMES_FOR_LEADERBOARD,
-): Promise<LeaderboardEntry[]> {
+): LeaderboardEntry[] {
   const { db } = database;
 
-  // Join playerStats with users to get display names
-  const results = await db.execute(sql`
+  const results = db.all(sql`
     SELECT
-      ps.user_id as "userId",
-      u.display_name as "displayName",
-      ps.games_played as "gamesPlayed",
-      ps.games_won as "gamesWon",
-      ps.win_rate as "winRate",
+      ps.user_id as userId,
+      u.display_name as displayName,
+      ps.games_played as gamesPlayed,
+      ps.games_won as gamesWon,
+      ps.win_rate as winRate,
       CASE WHEN ps.tichu_calls > 0
-        THEN CAST(ps.tichu_successes AS FLOAT) / ps.tichu_calls
+        THEN CAST(ps.tichu_successes AS REAL) / ps.tichu_calls
         ELSE 0
-      END as "tichuSuccessRate",
+      END as tichuSuccessRate,
       CASE WHEN ps.grand_tichu_calls > 0
-        THEN CAST(ps.grand_tichu_successes AS FLOAT) / ps.grand_tichu_calls
+        THEN CAST(ps.grand_tichu_successes AS REAL) / ps.grand_tichu_calls
         ELSE 0
-      END as "grandTichuSuccessRate"
+      END as grandTichuSuccessRate
     FROM player_stats ps
     JOIN users u ON u.id = ps.user_id
     WHERE ps.games_played >= ${minGames}
@@ -63,28 +62,16 @@ export async function getLeaderboard(
     LIMIT ${limit}
   `);
 
-  return results as unknown as LeaderboardEntry[];
+  return results as LeaderboardEntry[];
 }
 
 /**
  * Gets recent completed games (for lobby display).
  */
-export async function getRecentGames(
+export function getRecentGames(
   database: Database,
   limit = 10,
-): Promise<Array<{
-  id: number;
-  roomCode: string;
-  endedAt: Date;
-  winnerTeam: string;
-  finalScoreNS: number;
-  finalScoreEW: number;
-  roundCount: number;
-  northName: string;
-  eastName: string;
-  southName: string;
-  westName: string;
-}>> {
+) {
   const { db } = database;
 
   return db.select({
@@ -108,32 +95,32 @@ export async function getRecentGames(
 /**
  * Gets a player's profile stats.
  */
-export async function getPlayerProfile(
+export function getPlayerProfile(
   database: Database,
   userId: string,
-): Promise<PlayerProfile | undefined> {
+): PlayerProfile | undefined {
   const { db } = database;
 
-  const results = await db.execute(sql`
+  const results = db.all(sql`
     SELECT
-      ps.user_id as "userId",
-      u.display_name as "displayName",
-      ps.games_played as "gamesPlayed",
-      ps.games_won as "gamesWon",
-      ps.win_rate as "winRate",
-      ps.tichu_calls as "tichuCalls",
-      ps.tichu_successes as "tichuSuccesses",
-      ps.grand_tichu_calls as "grandTichuCalls",
-      ps.grand_tichu_successes as "grandTichuSuccesses",
-      ps.total_rounds_played as "totalRoundsPlayed",
-      ps.first_finishes as "firstFinishes"
+      ps.user_id as userId,
+      u.display_name as displayName,
+      ps.games_played as gamesPlayed,
+      ps.games_won as gamesWon,
+      ps.win_rate as winRate,
+      ps.tichu_calls as tichuCalls,
+      ps.tichu_successes as tichuSuccesses,
+      ps.grand_tichu_calls as grandTichuCalls,
+      ps.grand_tichu_successes as grandTichuSuccesses,
+      ps.total_rounds_played as totalRoundsPlayed,
+      ps.first_finishes as firstFinishes
     FROM player_stats ps
     JOIN users u ON u.id = ps.user_id
     WHERE ps.user_id = ${userId}
     LIMIT 1
   `);
 
-  const rows = results as unknown as PlayerProfile[];
+  const rows = results as PlayerProfile[];
   if (rows.length === 0) return undefined;
   return rows[0];
 }
