@@ -8,7 +8,7 @@ import type { Database } from '../db/connection.js';
 import { ensureGuestUser, getUserById } from './guest.js';
 import { registerAccount, loginAccount, verifyToken } from './account.js';
 import { getPlayerGameHistory, getGameRounds } from '../db/game-persistence.js';
-import { getLeaderboard, getRecentGames, getPlayerProfile } from '../db/queries.js';
+import { getLeaderboard, getRecentGames, getPlayerProfile, getPlayerPartners, getPlayerOpponents } from '../db/queries.js';
 
 export function registerAuthRoutes(fastify: FastifyInstance, database: Database, jwtSecret: string): void {
   // ─── Guest session ──────────────────────────────────────────────────
@@ -81,6 +81,22 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
     const { userId } = request.params as { userId: string };
     const profile = await getPlayerProfile(database, userId);
     return { profile: profile ?? null };
+  });
+
+  // ─── REQ-F-API02: Partner stats ──────────────────────────────────────
+
+  fastify.get('/api/players/:userId/partners', async (request) => {
+    const { userId } = request.params as { userId: string };
+    const partners = getPlayerPartners(database, userId);
+    return { partners };
+  });
+
+  // ─── REQ-F-API03: Opponent stats ────────────────────────────────────
+
+  fastify.get('/api/players/:userId/opponents', async (request) => {
+    const { userId } = request.params as { userId: string };
+    const opponents = getPlayerOpponents(database, userId);
+    return { opponents };
   });
 
   // ─── Game history ────────────────────────────────────────────────────

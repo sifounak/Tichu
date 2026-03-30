@@ -175,8 +175,8 @@ describe('game-persistence', () => {
 
       saveGameResult(mockDb, gameResult, [makeRound()]);
 
-      // 4 human players -> 4 run calls for upsertPlayerStats
-      expect(mockTx.run).toHaveBeenCalledTimes(4);
+      // 4 human players -> 4 upsertPlayerStats + 12 upsertRelationalStats (4 * 3 partners/opponents)
+      expect(mockTx.run).toHaveBeenCalledTimes(16);
     });
 
     it('should NOT call run for stats when all players are bots', () => {

@@ -1331,9 +1331,12 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                         }
                         return a.rank - b.rank;
                       }).map((bomb, i) => (
-                        <button
+                        <div
                           key={i}
+                          role="button"
+                          tabIndex={0}
                           onClick={phase === 'playing' ? () => { handleBombPlay(bomb); setBombPopupOpen(false); } : undefined}
+                          onKeyDown={phase === 'playing' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } } : undefined}
                           style={{
                             background: 'transparent',
                             border: 'none',
@@ -1352,7 +1355,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                               <Card gameCard={gc} state="normal" />
                             </div>
                           ))}
-                        </button>
+                        </div>
                       ))}
                     </div>
                   </div>

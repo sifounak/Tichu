@@ -40,6 +40,8 @@ import { BotRunner } from '../bot/bot-runner.js';
 import { HardBot } from '../bot/hard-bot.js';
 import { ExpertBot } from '../bot/expert-bot.js';
 import type { BotStrategy } from '../bot/bot-interface.js';
+import { RoundEventTracker } from './round-event-tracker.js';
+import type { RoundEventSummary } from './round-event-types.js';
 
 /**
  * Orchestrates a single game: receives client messages, validates moves
@@ -66,6 +68,12 @@ export class GameManager {
   private readonly vacatedSeats = new Set<Seat>();
   /** Seats occupied by players who are choosing which vacated seat to take */
   private readonly choosingSeats = new Set<Seat>();
+  /** REQ-F-PW01: Callback invoked when game reaches gameOver state */
+  private onGameEnd?: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>) => void;
+  /** REQ-F-EC01: State-diff observer for mid-round card events */
+  private readonly eventTracker = new RoundEventTracker();
+  /** Accumulated round events: roundNumber → summaries */
+  private readonly roundEventHistory = new Map<number, RoundEventSummary[]>();
 
   constructor(
     gameId: string,
@@ -262,6 +270,12 @@ export class GameManager {
     };
   }
 
+  /** REQ-F-PW01: Wire the game-end callback — called when game reaches gameOver state.
+   *  Called by room-handler to register persistence logic. */
+  wireGameEndCallback(onGameEnd: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>) => void): void {
+    this.onGameEnd = onGameEnd;
+  }
+
   /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
   handleSeatVacated(seat: Seat): void {
     this.vacatedSeats.add(seat);
@@ -450,6 +464,9 @@ export class GameManager {
     const state = this.stateValue;
     const round = this.context.currentRound;
 
+    // REQ-F-EC01: Feed state to event tracker before any other logic
+    this.eventTracker.onStateChange(this.context);
+
     // Clear any pending auto-pass
     if (this.autoPassTimer) {
       clearTimeout(this.autoPassTimer);
@@ -463,10 +480,14 @@ export class GameManager {
       return;
     }
 
-    // Round scoring: broadcast state (client sees final card + scores), then
-    // advance to next round or game over after a delay
+    // Round scoring: save round event summaries, then broadcast
     if (state === 'roundScoring') {
       this.timer.stop();
+      // REQ-F-EC04: Archive round events before advancing
+      if (round) {
+        const summaries = this.eventTracker.getAllSummaries();
+        this.roundEventHistory.set(round.roundNumber, summaries);
+      }
       this.broadcastState();
       if (this.scoringTimer) clearTimeout(this.scoringTimer);
       this.scoringTimer = setTimeout(() => {
@@ -474,6 +495,21 @@ export class GameManager {
         this.actor.send({ type: 'ADVANCE_FROM_SCORING' });
         this.broadcastState();
       }, 1500); // 1.5s delay: lets clients animate the final card before advancing
+      return;
+    }
+
+    // REQ-F-PW01: Game over — broadcast final state, then invoke persistence callback
+    // REQ-NF-P02: Callback runs AFTER broadcast so clients see game-over first
+    if (state === 'gameOver') {
+      this.timer.stop();
+      this.broadcastState();
+      if (this.onGameEnd) {
+        try {
+          this.onGameEnd(this.context, this.roundEventHistory);
+        } catch {
+          // Persistence failure must not crash the game server
+        }
+      }
       return;
     }
 

@@ -2,8 +2,11 @@
 
 import { eq, desc, or, sql } from 'drizzle-orm';
 import type { Database } from './connection.js';
-import { games, gameRounds } from './schema.js';
-import type { Seat } from '@tichu/shared';
+import { games, gameRounds, roundPlayerEvents } from './schema.js';
+import type { Seat, Team, RoundScore } from '@tichu/shared';
+import { getTeam } from '@tichu/shared';
+import { computeGameStats, computeRoundStats } from './stat-computations.js';
+import type { RoundEventSummary } from '../game/round-event-types.js';
 
 export interface GameResult {
   roomCode: string;
@@ -14,6 +17,14 @@ export interface GameResult {
   targetScore: number;
   roundCount: number;
   players: Record<Seat, { userId: string | null; name: string }>;
+  /** Optional: full scores for stat computation (from GameMachineContext) */
+  scores?: Record<Team, number>;
+  /** Optional: winning team as Team type */
+  winner?: Team | null;
+  /** Optional: full round scores for detailed stat computation */
+  roundScores?: RoundScore[];
+  /** Optional: per-round per-player event summaries from RoundEventTracker */
+  roundEvents?: Map<number, import('../game/round-event-types.js').RoundEventSummary[]>;
 }
 
 export interface RoundResult {
@@ -87,56 +98,125 @@ export function saveGameResult(
       }));
 
     for (const { seat, userId } of humanPlayers) {
-      const isNS = seat === 'north' || seat === 'south';
-      const won = (isNS && gameResult.winnerTeam === 'NS') || (!isNS && gameResult.winnerTeam === 'EW');
+      // Use new computation functions when roundScores are available (from game context)
+      if (gameResult.roundScores && gameResult.scores && gameResult.winner !== undefined) {
+        const gameStats = computeGameStats(gameResult.scores, gameResult.winner, gameResult.roundScores, seat);
+        const roundStats = computeRoundStats(gameResult.roundScores, seat);
 
-      let tichuCalls = 0;
-      let tichuSuccesses = 0;
-      let grandTichuCalls = 0;
-      let grandTichuSuccesses = 0;
-      let firstFinishes = 0;
+        upsertPlayerStats(tx, userId, {
+          ...gameStats,
+          ...roundStats,
+        });
+      } else {
+        // Legacy path: compute from RoundResult[] (no roundScores available)
+        const isNS = seat === 'north' || seat === 'south';
+        const won = (isNS && gameResult.winnerTeam === 'NS') || (!isNS && gameResult.winnerTeam === 'EW');
 
-      for (const round of rounds) {
-        const call = round.tichuCalls[seat];
-        if (call === 'tichu') {
-          tichuCalls++;
-          if (round.finishOrder[0] === seat) tichuSuccesses++;
-        } else if (call === 'grandTichu') {
-          grandTichuCalls++;
-          if (round.finishOrder[0] === seat) grandTichuSuccesses++;
+        let tichuCalls = 0;
+        let tichuSuccesses = 0;
+        let grandTichuCalls = 0;
+        let grandTichuSuccesses = 0;
+        let firstFinishes = 0;
+
+        for (const round of rounds) {
+          const call = round.tichuCalls[seat];
+          if (call === 'tichu') {
+            tichuCalls++;
+            if (round.finishOrder[0] === seat) tichuSuccesses++;
+          } else if (call === 'grandTichu') {
+            grandTichuCalls++;
+            if (round.finishOrder[0] === seat) grandTichuSuccesses++;
+          }
+          if (round.finishOrder[0] === seat) firstFinishes++;
         }
-        if (round.finishOrder[0] === seat) firstFinishes++;
-      }
 
-      upsertPlayerStats(tx, userId, {
-        gamesPlayed: 1,
-        gamesWon: won ? 1 : 0,
-        tichuCalls,
-        tichuSuccesses,
-        grandTichuCalls,
-        grandTichuSuccesses,
-        totalRoundsPlayed: rounds.length,
-        firstFinishes,
-      });
+        upsertPlayerStats(tx, userId, {
+          gamesPlayed: 1,
+          gamesWon: won ? 1 : 0,
+          largestWinDiff: 0,
+          largestLossDiff: 0,
+          oneTwoWins: 0,
+          oneTwoAgainst: 0,
+          totalRoundsPlayed: rounds.length,
+          roundsWon: 0,
+          firstFinishes,
+          tichuCalls,
+          tichuSuccesses,
+          grandTichuCalls,
+          grandTichuSuccesses,
+          opponentTichuBroken: 0,
+          opponentGrandTichuBroken: 0,
+          partnerTichuBroken: 0,
+          partnerGrandTichuBroken: 0,
+        });
+      }
+    }
+
+    // REQ-F-EC04: Persist round player events and update Group C stats
+    if (gameResult.roundEvents) {
+      for (const [roundNumber, summaries] of gameResult.roundEvents) {
+        for (const summary of summaries) {
+          // Find userId for this seat
+          const player = gameResult.players[summary.seat];
+          if (!player.userId) continue; // Skip bots
+
+          // Insert audit trail row
+          tx.insert(roundPlayerEvents).values({
+            gameId: game.id,
+            roundNumber,
+            userId: player.userId,
+            seat: summary.seat,
+            eventData: summary as any,
+          }).run();
+
+          // Upsert Group C stats
+          upsertGroupCStats(tx, player.userId, summary);
+        }
+      }
+    }
+
+    // REQ-F-GD01/GD02: Upsert relational stats (partner/opponent)
+    for (const { seat, userId } of humanPlayers) {
+      const myTeam = getTeam(seat);
+      const won = gameResult.winnerTeam === (myTeam === 'northSouth' ? 'NS' : 'EW');
+
+      for (const { seat: otherSeat, userId: otherUserId } of humanPlayers) {
+        if (otherSeat === seat) continue;
+        const relationship = getTeam(otherSeat) === myTeam ? 'partner' : 'opponent';
+        upsertRelationalStats(tx, userId, otherUserId, relationship, won);
+      }
     }
 
     return game.id;
   });
 }
 
+export interface PlayerStatIncrements {
+  gamesPlayed: number;
+  gamesWon: number;
+  // Group A
+  largestWinDiff: number;
+  largestLossDiff: number;
+  oneTwoWins: number;
+  oneTwoAgainst: number;
+  // Group B
+  totalRoundsPlayed: number;
+  roundsWon: number;
+  firstFinishes: number;
+  tichuCalls: number;
+  tichuSuccesses: number;
+  grandTichuCalls: number;
+  grandTichuSuccesses: number;
+  opponentTichuBroken: number;
+  opponentGrandTichuBroken: number;
+  partnerTichuBroken: number;
+  partnerGrandTichuBroken: number;
+}
+
 function upsertPlayerStats(
   tx: any,
   userId: string,
-  increments: {
-    gamesPlayed: number;
-    gamesWon: number;
-    tichuCalls: number;
-    tichuSuccesses: number;
-    grandTichuCalls: number;
-    grandTichuSuccesses: number;
-    totalRoundsPlayed: number;
-    firstFinishes: number;
-  },
+  increments: PlayerStatIncrements,
 ): void {
   const winRate = increments.gamesPlayed > 0 ? increments.gamesWon / increments.gamesPlayed : 0;
 
@@ -144,12 +224,19 @@ function upsertPlayerStats(
     INSERT INTO player_stats (
       user_id, games_played, games_won, win_rate,
       tichu_calls, tichu_successes, grand_tichu_calls, grand_tichu_successes,
-      total_rounds_played, first_finishes, last_updated_at
+      total_rounds_played, first_finishes, last_updated_at,
+      largest_win_diff, largest_loss_diff, one_two_wins, one_two_against,
+      rounds_won, opponent_tichu_broken, opponent_grand_tichu_broken,
+      partner_tichu_broken, partner_grand_tichu_broken
     ) VALUES (
       ${userId}, ${increments.gamesPlayed}, ${increments.gamesWon}, ${winRate},
       ${increments.tichuCalls}, ${increments.tichuSuccesses},
       ${increments.grandTichuCalls}, ${increments.grandTichuSuccesses},
-      ${increments.totalRoundsPlayed}, ${increments.firstFinishes}, datetime('now')
+      ${increments.totalRoundsPlayed}, ${increments.firstFinishes}, datetime('now'),
+      ${increments.largestWinDiff}, ${increments.largestLossDiff},
+      ${increments.oneTwoWins}, ${increments.oneTwoAgainst},
+      ${increments.roundsWon}, ${increments.opponentTichuBroken}, ${increments.opponentGrandTichuBroken},
+      ${increments.partnerTichuBroken}, ${increments.partnerGrandTichuBroken}
     )
     ON CONFLICT (user_id) DO UPDATE SET
       games_played = player_stats.games_played + excluded.games_played,
@@ -165,7 +252,90 @@ function upsertPlayerStats(
       grand_tichu_successes = player_stats.grand_tichu_successes + excluded.grand_tichu_successes,
       total_rounds_played = player_stats.total_rounds_played + excluded.total_rounds_played,
       first_finishes = player_stats.first_finishes + excluded.first_finishes,
+      largest_win_diff = MAX(player_stats.largest_win_diff, excluded.largest_win_diff),
+      largest_loss_diff = MAX(player_stats.largest_loss_diff, excluded.largest_loss_diff),
+      one_two_wins = player_stats.one_two_wins + excluded.one_two_wins,
+      one_two_against = player_stats.one_two_against + excluded.one_two_against,
+      rounds_won = player_stats.rounds_won + excluded.rounds_won,
+      opponent_tichu_broken = player_stats.opponent_tichu_broken + excluded.opponent_tichu_broken,
+      opponent_grand_tichu_broken = player_stats.opponent_grand_tichu_broken + excluded.opponent_grand_tichu_broken,
+      partner_tichu_broken = player_stats.partner_tichu_broken + excluded.partner_tichu_broken,
+      partner_grand_tichu_broken = player_stats.partner_grand_tichu_broken + excluded.partner_grand_tichu_broken,
       last_updated_at = datetime('now')
+  `);
+}
+
+/** REQ-F-GC01–GC10: Upsert Group C card event stats from round event summaries */
+function upsertGroupCStats(
+  tx: any,
+  userId: string,
+  summary: RoundEventSummary,
+): void {
+  tx.run(sql`
+    INSERT INTO player_stats (user_id,
+      rounds_with_dragon, rounds_with_dragon_won, rounds_with_phoenix, rounds_with_phoenix_won,
+      dragon_received_in_pass, phoenix_received_in_pass, ace_received_in_pass, dog_received_in_pass,
+      dragon_trick_wins, dragon_given_after_opponent_win,
+      dog_given_to_partner, dog_given_to_opponent,
+      dog_played_for_tichu_partner, dog_opportunities_for_tichu_partner,
+      hands_with_bombs, total_bombs, four_card_bombs, five_card_bombs, six_plus_card_bombs,
+      bombs_in_first_8, hands_with_multiple_bombs,
+      over_bombed, bomb_forced_by_wish,
+      the_tichu_clean, the_tichu_dirty
+    ) VALUES (${userId},
+      ${summary.hadDragon ? 1 : 0}, 0, ${summary.hadPhoenix ? 1 : 0}, 0,
+      ${summary.dragonReceivedInPass ? 1 : 0}, ${summary.phoenixReceivedInPass ? 1 : 0},
+      ${summary.aceReceivedInPass ? 1 : 0}, ${summary.dogReceivedInPass ? 1 : 0},
+      ${summary.dragonTrickWins}, ${summary.dragonGivenAfterOpponentWin},
+      ${summary.dogGivenToPartner ? 1 : 0}, ${summary.dogGivenToOpponent ? 1 : 0},
+      ${summary.dogPlayedForTichuPartner}, ${summary.dogOpportunitiesForTichuPartner},
+      ${summary.bombsPlayed > 0 ? 1 : 0}, ${summary.bombsPlayed},
+      ${summary.fourCardBombs}, ${summary.fiveCardBombs}, ${summary.sixPlusCardBombs},
+      ${summary.bombsInFirst8}, ${summary.bombsPlayed > 1 ? 1 : 0},
+      ${summary.overBombed}, ${summary.bombForcedByWish},
+      ${summary.theTichuClean}, ${summary.theTichuDirty}
+    )
+    ON CONFLICT (user_id) DO UPDATE SET
+      rounds_with_dragon = player_stats.rounds_with_dragon + excluded.rounds_with_dragon,
+      rounds_with_phoenix = player_stats.rounds_with_phoenix + excluded.rounds_with_phoenix,
+      dragon_received_in_pass = player_stats.dragon_received_in_pass + excluded.dragon_received_in_pass,
+      phoenix_received_in_pass = player_stats.phoenix_received_in_pass + excluded.phoenix_received_in_pass,
+      ace_received_in_pass = player_stats.ace_received_in_pass + excluded.ace_received_in_pass,
+      dog_received_in_pass = player_stats.dog_received_in_pass + excluded.dog_received_in_pass,
+      dragon_trick_wins = player_stats.dragon_trick_wins + excluded.dragon_trick_wins,
+      dragon_given_after_opponent_win = player_stats.dragon_given_after_opponent_win + excluded.dragon_given_after_opponent_win,
+      dog_given_to_partner = player_stats.dog_given_to_partner + excluded.dog_given_to_partner,
+      dog_given_to_opponent = player_stats.dog_given_to_opponent + excluded.dog_given_to_opponent,
+      dog_played_for_tichu_partner = player_stats.dog_played_for_tichu_partner + excluded.dog_played_for_tichu_partner,
+      dog_opportunities_for_tichu_partner = player_stats.dog_opportunities_for_tichu_partner + excluded.dog_opportunities_for_tichu_partner,
+      hands_with_bombs = player_stats.hands_with_bombs + excluded.hands_with_bombs,
+      total_bombs = player_stats.total_bombs + excluded.total_bombs,
+      four_card_bombs = player_stats.four_card_bombs + excluded.four_card_bombs,
+      five_card_bombs = player_stats.five_card_bombs + excluded.five_card_bombs,
+      six_plus_card_bombs = player_stats.six_plus_card_bombs + excluded.six_plus_card_bombs,
+      bombs_in_first_8 = player_stats.bombs_in_first_8 + excluded.bombs_in_first_8,
+      hands_with_multiple_bombs = player_stats.hands_with_multiple_bombs + excluded.hands_with_multiple_bombs,
+      over_bombed = player_stats.over_bombed + excluded.over_bombed,
+      bomb_forced_by_wish = player_stats.bomb_forced_by_wish + excluded.bomb_forced_by_wish,
+      the_tichu_clean = player_stats.the_tichu_clean + excluded.the_tichu_clean,
+      the_tichu_dirty = player_stats.the_tichu_dirty + excluded.the_tichu_dirty
+  `);
+}
+
+/** REQ-F-GD01/GD02: Upsert partner/opponent relational stats */
+function upsertRelationalStats(
+  tx: any,
+  userId: string,
+  otherUserId: string,
+  relationship: 'partner' | 'opponent',
+  won: boolean,
+): void {
+  tx.run(sql`
+    INSERT INTO player_relational_stats (user_id, other_user_id, relationship, games_played, games_won)
+    VALUES (${userId}, ${otherUserId}, ${relationship}, 1, ${won ? 1 : 0})
+    ON CONFLICT (user_id, other_user_id, relationship) DO UPDATE SET
+      games_played = player_relational_stats.games_played + 1,
+      games_won = player_relational_stats.games_won + ${won ? 1 : 0}
   `);
 }
 

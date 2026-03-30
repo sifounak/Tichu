@@ -165,11 +165,22 @@ export default function LobbyPage() {
   return (
     <main className="p-6" style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 relative">
           <h1 className="text-4xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>Tichu Lobby</h1>
           <p className="mt-2" style={{ color: 'var(--color-text-secondary)' }}>
             {status === 'connected' ? 'Connected' : status === 'connecting' ? 'Connecting...' : 'Disconnected'}
           </p>
+          {/* REQ-F-UI01: Stats button */}
+          <a
+            href="/stats"
+            className="absolute top-0 right-0 px-3 py-1.5 rounded-lg text-sm font-semibold"
+            style={{
+              background: 'var(--color-gold-accent)',
+              color: 'var(--color-felt-green-dark)',
+            }}
+          >
+            Stats
+          </a>
         </div>
 
         {/* Kicked notification */}
