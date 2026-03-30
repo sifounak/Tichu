@@ -406,7 +406,7 @@ export class RoomHandler {
     }
 
     try {
-      this.roomManager.addBot(info.roomCode, msg.seat, msg.difficulty);
+      this.roomManager.addBot(info.roomCode, msg.seat);
 
       const room = this.roomManager.getRoom(info.roomCode);
 
@@ -414,8 +414,7 @@ export class RoomHandler {
       if (room?.gameInProgress) {
         const game = this.gameStore.getGameByRoom(info.roomCode);
         if (game) {
-          const difficulty = msg.difficulty ?? room.config.botDifficulty;
-          game.registerBot(msg.seat, difficulty);
+          game.registerBot(msg.seat);
           game.handleSeatFilled(msg.seat, true);
         }
       } else if (room) {
@@ -675,7 +674,7 @@ export class RoomHandler {
             }
           }
         } else {
-          game.registerBot(player.seat, room.config.botDifficulty);
+          game.registerBot(player.seat);
         }
       }
 

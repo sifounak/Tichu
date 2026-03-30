@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { GameCard, Rank, Seat, Combination, TrickState, RoundState } from '@tichu/shared';
 import { CombinationType, Suit } from '@tichu/shared';
-import { ExpertBot } from '../../src/bot/expert-bot.js';
+import { Bot } from '../../src/bot/bot.js';
 import type { BotPlayContext } from '../../src/bot/bot-interface.js';
 
 // ─── Test Helpers ───────────────────────────────────────────────────────────
@@ -78,18 +78,9 @@ function makeTrick(
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-describe('ExpertBot', () => {
+describe('Bot', () => {
   beforeEach(() => {
     nextId = 1;
-  });
-
-  // ─── Difficulty ──────────────────────────────────────────────────────────
-
-  describe('difficulty', () => {
-    it('reports difficulty as expert', () => {
-      const bot = new ExpertBot();
-      expect(bot.difficulty).toBe('expert');
-    });
   });
 
   // ─── Grand Tichu (REQ-F-GT01, REQ-F-GT02) ──────────────────────────────
@@ -97,7 +88,7 @@ describe('ExpertBot', () => {
   describe('chooseGrandTichu', () => {
     // Verifies: REQ-F-GT01 — 3+ power cards AND bomb
     it('calls with 3 power cards and a bomb', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const hand8 = [
         card('dragon'), card('phoenix'), card('standard', 14, 'jade'), // 3 power cards
         card('standard', 5, 'jade', 501), card('standard', 5, 'pagoda', 502),
@@ -109,7 +100,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-GT02 — 3+ power cards AND strong multi-card hand
     it('calls with 3 power cards and a strong pair (rank > 10)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const hand8 = [
         card('dragon'), card('phoenix'), card('standard', 14, 'jade'), // 3 power cards
         card('standard', 12, 'jade', 1201), card('standard', 12, 'pagoda', 1202), // pair of Queens
@@ -119,7 +110,7 @@ describe('ExpertBot', () => {
     });
 
     it('does not call with only 2 power cards and no strong multi (normal game)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const hand8 = [
         card('dragon'), card('standard', 14, 'jade'), // 2 power cards
         card('standard', 5), card('standard', 6),
@@ -130,7 +121,7 @@ describe('ExpertBot', () => {
     });
 
     it('never calls with no power cards', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const hand0 = [
         card('standard', 2, 'jade'), card('standard', 3, 'pagoda'),
         card('standard', 4, 'jade'), card('standard', 5, 'pagoda'),
@@ -141,7 +132,7 @@ describe('ExpertBot', () => {
     });
 
     it('does not call with 2 Aces only (no bomb, no strong multi)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const hand = [
         card('standard', 14, 'jade'),
         card('standard', 14, 'pagoda'),
@@ -154,7 +145,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-GT03 — 2+ power + strong multi + opponents near winning
     it('calls with 2 power cards + strong multi when opponents near winning', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const rs = makeRoundState();
       // Opponents at 950, target 1000 → near winning
       bot.setContext(rs, { northSouth: 200, eastWest: 950 }, 1000);
@@ -168,7 +159,7 @@ describe('ExpertBot', () => {
     });
 
     it('does not call with 2 power + strong multi when opponents not near winning', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const rs = makeRoundState();
       bot.setContext(rs, { northSouth: 200, eastWest: 300 }, 1000);
       const hand = [
@@ -188,7 +179,7 @@ describe('ExpertBot', () => {
   describe('chooseRegularTichu', () => {
     // Verifies: REQ-F-RT01 — Stanford It index
     it('calls Tichu with very strong hand (high It)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Dragon(6) + Phoenix(6) + 4 Aces(8) + Dog(-2) = 18
       // Straight 9-10-11-12-13 = +1, no small singletons
       // It = 19 → always calls
@@ -205,7 +196,7 @@ describe('ExpertBot', () => {
     });
 
     it('does not call Tichu with weak hand (low It)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // No power cards. Pairs of 2-6 + singletons 7-10. Straight 2-10 = +1.
       // It = 0 + 1 - 0 = 1 → never calls
       const hand14 = [
@@ -222,7 +213,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-RT02 — Score-adaptive thresholds
     it('suppresses Tichu call when team leads by 200+ (threshold 9)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Design hand with It=8 (calls at threshold 7, fails at threshold 9):
       // Dragon(6) + 1 Ace(2) = 8, NO straights (non-consecutive pairs), no small singletons
       const hand14 = [
@@ -247,7 +238,7 @@ describe('ExpertBot', () => {
     });
 
     it('is more aggressive when behind by 200+ (threshold 5)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Design hand with It=6 (fails at threshold 7, calls at threshold 5):
       // Dragon(6) + Dog(-2) + 1 Ace(2) = 6, NO straights (non-consecutive pairs)
       const hand14 = [
@@ -271,7 +262,7 @@ describe('ExpertBot', () => {
     });
 
     it('accounts for straights and small singletons in It index', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Hand with a straight (2-3-4-5-6-7) and 1 Ace:
       // It = 2(Ace) + 1(straight) = 3
       // Plus some small singletons not in straight: say rank 9, 10 as singletons
@@ -327,7 +318,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PASS04
     it('splits a low pair when no singles below 8 available', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Hand with all pairs, no singletons below 8 → should split a low pair (rank 2-4)
       const hand = [
         card('standard', 3, 'jade', 301), card('standard', 3, 'pagoda', 302),
@@ -348,7 +339,7 @@ describe('ExpertBot', () => {
     });
 
     it('returns cards for all three other seats', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const result = bot.chooseCardsToPass(makeWeakHand(), 'north');
       expect(result.east).toBeDefined();
       expect(result.south).toBeDefined();
@@ -357,7 +348,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PASS01
     it('passes best card to partner from weak hand (strength concentration)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const hand = makeWeakHand(); // Ace (rank 14) is the strongest
       const result = bot.chooseCardsToPass(hand, 'north');
       // Weak hand → pass best to partner (south). Best = Ace (14)
@@ -365,7 +356,7 @@ describe('ExpertBot', () => {
     });
 
     it('passes 3rd-worst to partner from strong hand', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const hand = makeStrongHand();
       const result = bot.chooseCardsToPass(hand, 'north');
       // Strong hand → pass 3rd weakest non-special.
@@ -376,7 +367,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PASS03
     it('applies parity convention: odd to left (east), even to right (west)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Hand with 2 singletons below 8 (rank 3 and rank 4) for clean parity test
       const hand = [
         card('standard', 3, 'jade', 301), // singleton odd
@@ -399,7 +390,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PASS04
     it('never passes Dragon or Phoenix to opponents', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Weak hand with Dragon — should go to partner
       const hand = [
         card('dragon'),
@@ -419,7 +410,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PASS04
     it('passes Dog to partner from strong hand', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Strong hand with Dog — Dog should go to partner
       const hand = [
         card('dragon'), card('dog'),
@@ -449,7 +440,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PASS07 — Dog to right opponent when strong and self-sufficient
     it('passes Dog to right opponent when strong hand has 3+ lead-getters', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Strong hand: Dragon + 2 Aces + Phoenix = 4 power cards (hasStrength=true)
       // Lead-getters: Dragon(1) + 2 Aces(2) = 3 → self-sufficient → Dog to right (west)
       const hand = [
@@ -468,7 +459,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PASS08
     it('tracks passedToRight for Mahjong wish', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       bot.chooseCardsToPass(makeWeakHand(), 'north');
       // Should have recorded what was passed to west (right opponent)
       expect(bot.getPassedToRight()).not.toBeNull();
@@ -481,7 +472,7 @@ describe('ExpertBot', () => {
   describe('choosePlay', () => {
     // Verifies: REQ-F-PLAY06
     it('always plays optimally — leads with lowest combination', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c7 = card('standard', 7, 'pagoda', 701);
       const c14 = card('standard', 14, 'star', 1401);
@@ -509,7 +500,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PLAY06 (no randomness — same result every time)
     it('produces deterministic results (no randomness)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
 
       const results: number[] = [];
       for (let i = 0; i < 10; i++) {
@@ -535,7 +526,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PLAY04 (partner support)
     it('passes when partner is winning the trick', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c10 = card('standard', 10, 'star', 1001);
       const hand = [c10, card('standard', 3, 'jade', 301)];
 
@@ -561,7 +552,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PLAY04 exception (go out even if partner winning)
     it('plays to go out even when partner is winning', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c7 = card('standard', 7, 'pagoda', 701);
       const hand = [c7];
 
@@ -584,7 +575,7 @@ describe('ExpertBot', () => {
 
     // Verifies: must pass when no valid plays
     it('passes when no valid plays available', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const ctx = makePlayContext({
         hand: [card('standard', 3)],
         validPlays: [],
@@ -595,7 +586,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PLAY03, REQ-F-DEF01 (bomb timing)
     it('plays bomb when opponent has 1-2 cards', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const bombCards = [
         card('standard', 8, 'jade', 801),
         card('standard', 8, 'pagoda', 802),
@@ -637,7 +628,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PLAY02 (Dog handling)
     it('leads with Dog when available', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const dogCard = card('dog');
       const c5 = card('standard', 5, 'jade', 501);
       const c10 = card('standard', 10, 'jade', 1001);
@@ -665,7 +656,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PLAY02 (Phoenix phoenixAs)
     it('includes phoenixAs when playing Phoenix combination', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const phoenixCard = card('phoenix');
       // Phoenix over an Ace — acceptable per REQ-F-PHX03
       const hand = [phoenixCard, card('standard', 3, 'jade', 301)];
@@ -703,7 +694,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-DEF01 (bomb Tichu caller)
     it('bombs when Tichu caller has few cards', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const bombCards = [
         card('standard', 9, 'jade', 901),
         card('standard', 9, 'pagoda', 902),
@@ -750,8 +741,8 @@ describe('ExpertBot', () => {
       opponentCall?: string;
       handExtras?: GameCard[];
       scoreDiff?: number;
-    } = {}): { bot: InstanceType<typeof ExpertBot>; ctx: BotPlayContext } {
-      const bot = new ExpertBot();
+    } = {}): { bot: InstanceType<typeof Bot>; ctx: BotPlayContext } {
+      const bot = new Bot();
       if (overrides.scoreDiff !== undefined) bot.setScoreDiff(overrides.scoreDiff);
 
       const dogCard = card('dog');
@@ -838,7 +829,7 @@ describe('ExpertBot', () => {
   describe('one-two prevention', () => {
     // Verifies: REQ-F-PLAY05
     it('plays highest when opponent teammate already went out first', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c14 = card('standard', 14, 'star', 1401);
       const hand = [c3, c14, card('standard', 7, 'pagoda', 701)];
@@ -876,7 +867,7 @@ describe('ExpertBot', () => {
     });
 
     it('does not activate one-two prevention when own team went out first', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c7 = card('standard', 7, 'pagoda', 701);
       const hand = [c3, c7];
@@ -914,7 +905,7 @@ describe('ExpertBot', () => {
     });
 
     it('plays to go out in one-two prevention mode', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c7 = card('standard', 7, 'pagoda', 701);
       const hand = [c7]; // Can go out
 
@@ -948,7 +939,7 @@ describe('ExpertBot', () => {
   describe('hand planning', () => {
     // Verifies: REQ-F-PLAY07
     it('creates a hand plan on first play of round', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c14 = card('standard', 14, 'star', 1401);
       const hand = [c3, c14];
@@ -967,7 +958,7 @@ describe('ExpertBot', () => {
     });
 
     it('categorizes low combos as losers and high combos as winners', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c5 = card('standard', 5, 'pagoda', 501);
       const dragon = card('dragon');
@@ -995,7 +986,7 @@ describe('ExpertBot', () => {
     });
 
     it('uses hand plan to guide lead selection', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c5 = card('standard', 5, 'pagoda', 501);
       const c14 = card('standard', 14, 'star', 1401);
@@ -1019,7 +1010,7 @@ describe('ExpertBot', () => {
     });
 
     it('decides Phoenix role based on hand composition', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const phoenix = card('phoenix');
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [phoenix, c3];
@@ -1044,7 +1035,7 @@ describe('ExpertBot', () => {
   describe('Phoenix strategy', () => {
     // Verifies: REQ-F-PHX01 — avoid leading Phoenix as singleton
     it('avoids leading Phoenix as singleton (only +0.5)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const phoenixCard = card('phoenix');
       const c5 = card('standard', 5, 'jade', 501);
       const c10 = card('standard', 10, 'jade', 1001);
@@ -1073,7 +1064,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PHX01 — prefer Phoenix in large combinations
     it('prefers Phoenix in combinations of 3+ cards (eliminates losers)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const phoenixCard = card('phoenix');
       const c3 = card('standard', 3, 'jade', 301);
       const c4 = card('standard', 4, 'jade', 401);
@@ -1112,7 +1103,7 @@ describe('ExpertBot', () => {
   describe('card tracking integration', () => {
     // Verifies: REQ-F-INFO02
     it('updates card tracker during play', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const ace = card('standard', 14, 'jade', 1401);
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c3];
@@ -1140,7 +1131,7 @@ describe('ExpertBot', () => {
     });
 
     it('resets card tracker on new round', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
 
       // First round
@@ -1174,7 +1165,7 @@ describe('ExpertBot', () => {
   describe('chooseDragonGiftRecipient', () => {
     // Verifies: REQ-F-DRAG01
     it('gives Dragon to opponent with most cards', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const roundState = makeRoundState({
         players: {
           north: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
@@ -1202,7 +1193,7 @@ describe('ExpertBot', () => {
   describe('chooseMahjongWish', () => {
     // Verifies: REQ-F-MJ01 — no wish when Mah Jong played in a straight
     it('returns null when Mah Jong was played in a straight', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const mahjong = card('mahjong');
       const c2 = card('standard', 2, 'jade', 201);
       const c3 = card('standard', 3, 'jade', 301);
@@ -1234,7 +1225,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-MJ03 — wish for Ace when RIGHT opponent called Tichu
     it('wishes for Ace when right opponent called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c8 = card('standard', 8, 'jade', 801);
       const mahjong = card('mahjong');
@@ -1262,7 +1253,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-MJ01 — wish for Ace when opponent called Grand Tichu
     it('wishes for Ace when opponent called Grand Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c8 = card('standard', 8, 'jade', 801);
       const mahjong = card('mahjong');
@@ -1288,7 +1279,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-MJ01 — does not wish Ace if already holding one
     it('does not wish for Ace when holding Ace even if opponent called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cA = card('standard', 14, 'jade', 1401);
       const c3 = card('standard', 3, 'jade', 301);
       const mahjong = card('mahjong');
@@ -1316,7 +1307,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-MJ01 — wish for card passed to left opponent
     it('wishes for card passed to left opponent when no Tichu caller', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Simulate card passing: pass a 7 to left opponent
       const hand14 = [
         card('standard', 2, 'jade', 201),
@@ -1366,7 +1357,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-MJ01 — fallback to 5 or 6 when no other context
     it('falls back to wishing for 5 or 6 when no context available', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c8 = card('standard', 8, 'jade', 801);
       const mahjong = card('mahjong');
       const hand = [mahjong, c8];
@@ -1393,7 +1384,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-MJ01 — returns null when all fallback ranks held
     it('returns null when all fallback candidate ranks are held', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const hand = [
         card('standard', 5, 'jade'),
         card('standard', 6, 'star'),
@@ -1412,7 +1403,7 @@ describe('ExpertBot', () => {
   describe('bomb strategy', () => {
     // Verifies: REQ-F-BOMB01 — don't bomb when partner is about to go out
     it('does not bomb when partner has 1-2 cards left', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c5 = card('standard', 5, 'jade', 501);
       const bombCards = [
         card('standard', 8, 'jade', 801),
@@ -1457,7 +1448,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-BOMB01 — bomb to prevent 1-2 finish
     it('bombs when opponent could complete 1-2 finish', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const bombCards = [
         card('standard', 8, 'jade', 801),
         card('standard', 8, 'pagoda', 802),
@@ -1502,7 +1493,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-BOMB01 — bomb opponent Tichu caller with few cards
     it('bombs when opponent Tichu caller has 1-5 cards', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const bombCards = [
         card('standard', 6, 'jade', 601),
         card('standard', 6, 'pagoda', 602),
@@ -1545,7 +1536,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-BOMB02 — bomb-proof exit planning
     it('leads low card instead of Dragon when 2 cards left and bomb risk', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const dragon = card('dragon');
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [dragon, c3];
@@ -1581,7 +1572,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-BOMB02 — no bomb-proof override when no bomb risk
     it('allows Dragon lead when 2 cards left but no bomb risk', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const dragon = card('dragon');
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [dragon, c3];
@@ -1630,7 +1621,7 @@ describe('ExpertBot', () => {
   describe('information model', () => {
     // Verifies: REQ-F-INFO01
     it('never accesses opponent hand contents directly', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const roundState = makeRoundState({
         players: {
           north: { hand: [card('standard', 3)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
@@ -1659,7 +1650,7 @@ describe('ExpertBot', () => {
   describe('endgame strategy', () => {
     // Verifies: REQ-F-END01 — 3-player, partner out: play aggressively
     it('plays highest when partner already went out (3-player)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c14 = card('standard', 14, 'jade', 1401);
       const hand = [c3, c14];
@@ -1690,7 +1681,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-END02 — 3-player, partner still in, partner fewer cards: feed Dog
     it('plays Dog to feed partner when partner has fewer cards (3-player)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const dog = card('dog');
       const c7 = card('standard', 7, 'jade', 701);
       const c3 = card('standard', 3, 'jade', 301);
@@ -1724,7 +1715,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-END03 — 2-player, opponent has 1 card: multi-card first
     it('plays multi-card groups first when opponent has 1 card (2-player)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3a = card('standard', 3, 'jade', 301);
       const c3b = card('standard', 3, 'pagoda', 302);
       const c14 = card('standard', 14, 'jade', 1401);
@@ -1757,7 +1748,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-END03 — 2-player, opponent 1 card, only singles: high→low
     it('plays highest single when opponent has 1 card and only singles available (2-player)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c14 = card('standard', 14, 'jade', 1401);
       const hand = [c3, c14];
@@ -1788,7 +1779,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-END04 — 2-player, opponent many cards: normal lead-low
     it('leads low when opponent has many cards (2-player)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c7 = card('standard', 7, 'pagoda', 701);
       const c14 = card('standard', 14, 'jade', 1401);
@@ -1822,7 +1813,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-END01 — always go out when possible in endgame
     it('goes out when possible in endgame', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c7 = card('standard', 7, 'jade', 701);
       const hand = [c7]; // Only 1 card = can go out
 
@@ -1849,7 +1840,7 @@ describe('ExpertBot', () => {
   describe('Tichu defense', () => {
     // Verifies: REQ-F-DEF01 — concede when opponent caller has very few cards
     it('passes (concedes) when opponent Tichu caller has 1-2 cards and bot is weak', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c5 = card('standard', 5, 'pagoda', 501);
       const c7 = card('standard', 7, 'star', 701);
@@ -1890,7 +1881,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-DEF01 — fight when caller has many cards and bot has winners
     it('plays (fights) when opponent Tichu caller has many cards and bot has winners', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cA = card('standard', 14, 'jade', 1401);
       const dragon = card('dragon');
       const c3 = card('standard', 3, 'jade', 301);
@@ -1930,7 +1921,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-DEF01 — fight when partner also called Tichu
     it('fights when partner also called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c7 = card('standard', 7, 'jade', 701);
       const hand = [c7]; // Weak, but partner called Tichu
 
@@ -1972,7 +1963,7 @@ describe('ExpertBot', () => {
   describe('enhanced follow play', () => {
     // Verifies: REQ-F-FOL01 — lead Kings confidently when all Aces played
     it('leads King when all Aces are accounted for', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cK = card('standard', 13, 'jade', 1301);
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c3, cK];
@@ -2008,7 +1999,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-FOL02 — pass when cheapest win costs King and Aces unaccounted
     it('passes on low trick when cheapest win is King and Aces unaccounted', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cK = card('standard', 13, 'jade', 1301);
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c3, cK];
@@ -2049,7 +2040,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-FOL03 — never lead Ace pair
     it('does not lead Ace pair when single Ace leads available', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const ace1 = card('standard', 14, 'jade', 1401);
       const ace2 = card('standard', 14, 'pagoda', 1402);
       const c3 = card('standard', 3, 'jade', 301);
@@ -2088,7 +2079,7 @@ describe('ExpertBot', () => {
   describe('setContext', () => {
     // Verifies: REQ-F-CTX01
     it('stores score diff from game context', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const rs = makeRoundState();
       bot.setContext(rs, { northSouth: 300, eastWest: 500 }, 1000);
       // Bot is north (northSouth team), so diff = 300 - 500 = -200
@@ -2096,14 +2087,14 @@ describe('ExpertBot', () => {
     });
 
     it('stores target score', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const rs = makeRoundState();
       bot.setContext(rs, { northSouth: 0, eastWest: 0 }, 750);
       expect(bot.getTargetScore()).toBe(750);
     });
 
     it('stores game scores', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const rs = makeRoundState();
       bot.setContext(rs, { northSouth: 100, eastWest: 200 }, 1000);
       expect(bot.getGameScores()).toEqual({ northSouth: 100, eastWest: 200 });
@@ -2113,7 +2104,7 @@ describe('ExpertBot', () => {
   describe('partner strength detection', () => {
     // Verifies: REQ-F-STR02
     it('detects partner strength when partner passed a low card (rank < 10)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c8 = card('standard', 8, 'jade', 8001);
       const rs = makeRoundState({
         players: {
@@ -2151,7 +2142,7 @@ describe('ExpertBot', () => {
     });
 
     it('detects partner strength when partner passed Dog', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c8 = card('standard', 8, 'jade', 8001);
       const dogCard = card('dog');
       const rs = makeRoundState({
@@ -2186,7 +2177,7 @@ describe('ExpertBot', () => {
     });
 
     it('does not detect strength when partner passed high card (rank >= 10)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c8 = card('standard', 8, 'jade', 8001);
       const rs = makeRoundState({
         players: {
@@ -2220,7 +2211,7 @@ describe('ExpertBot', () => {
     });
 
     it('handles missing passedCards gracefully', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c8 = card('standard', 8, 'jade', 8001);
       const rs = makeRoundState();
       const ctx = makePlayContext({
@@ -2240,7 +2231,7 @@ describe('ExpertBot', () => {
   describe('uncontested singles defense', () => {
     // Verifies: REQ-F-USD01 — counter increments on uncontested single win
     it('tracks uncontested single wins per opponent', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c5 = card('standard', 5, 'jade');
       // East won a trick with exactly 1 card (uncontested single)
       const rs = makeRoundState({
@@ -2263,7 +2254,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD01 — counter resets on non-single trick type
     it('resets counter when trick type changes to non-single', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c5 = card('standard', 5, 'jade');
 
       // First call: East won an uncontested single
@@ -2310,7 +2301,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD01 — counter resets on new round
     it('resets counter on new round', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c5 = card('standard', 5, 'jade');
 
       // Round 1: East wins uncontested single
@@ -2352,7 +2343,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD02 — no break at 1 uncontested win (threshold is 2)
     it('does not break combo at only 1 uncontested win without partner call', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Hand has a pair of 8s and a singleton 5
       const c8a = card('standard', 8, 'jade', 801);
       const c8b = card('standard', 8, 'pagoda', 802);
@@ -2393,7 +2384,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD02 — break pair to contest at 2 uncontested singles < Jack
     it('breaks pair when opponent has 2 uncontested wins with rank < Jack', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Hand has a pair of 8s (will be broken) and a singleton 3
       const c8a = card('standard', 8, 'jade', 801);
       const c8b = card('standard', 8, 'pagoda', 802);
@@ -2445,7 +2436,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD02 — no break when rank >= Jack
     it('does not break combo when opponent uncontested rank >= Jack', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c13a = card('standard', 13, 'jade', 1301);
       const c13b = card('standard', 13, 'pagoda', 1302);
       const c3 = card('standard', 3, 'jade', 301);
@@ -2487,7 +2478,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD02 — break priority: pair before triple
     it('prefers breaking pair over triple', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Hand: triple of 10s, pair of 8s, singleton 3
       const c10a = card('standard', 10, 'jade', 1001);
       const c10b = card('standard', 10, 'pagoda', 1002);
@@ -2540,7 +2531,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD03 — threshold 1 when partner called GT/T
     it('triggers at 1 uncontested win when partner called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c8a = card('standard', 8, 'jade', 801);
       const c8b = card('standard', 8, 'pagoda', 802);
       const c3 = card('standard', 3, 'jade', 301);
@@ -2584,7 +2575,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD03 — rank threshold < Queen when partner GT/T
     it('triggers for rank < Queen when partner called GT', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c13a = card('standard', 13, 'jade', 1301);
       const c13b = card('standard', 13, 'pagoda', 1302);
       const c3 = card('standard', 3, 'jade', 301);
@@ -2628,7 +2619,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-USD02 — no break when freed card can't beat opponent rank
     it('does not break combo when freed card cannot beat trick rank', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       // Hand: pair of 5s, singleton 3
       const c5a = card('standard', 5, 'jade', 501);
       const c5b = card('standard', 5, 'pagoda', 502);
@@ -2673,7 +2664,7 @@ describe('ExpertBot', () => {
   describe('partner Tichu lead support', () => {
     // Verifies: REQ-F-PTS01 — leads Dog when partner called Tichu
     it('leads Dog when partner called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cDog = card('dog');
       const c3 = card('standard', 3, 'jade', 301);
       const c5 = card('standard', 5, 'jade', 501);
@@ -2708,7 +2699,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS01 — leads Dog when partner called Grand Tichu
     it('leads Dog when partner called Grand Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cDog = card('dog');
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [cDog, c3];
@@ -2741,7 +2732,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS02 — leads lowest single when no Dog
     it('leads lowest single when partner called Tichu and no Dog', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c5 = card('standard', 5, 'jade', 501);
       const c14 = card('standard', 14, 'jade', 1401);
@@ -2779,7 +2770,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS03 — escalates to pair on 2nd consecutive lead
     it('escalates to pair on second consecutive PTS lead', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c5a = card('standard', 5, 'jade', 501);
       const c5b = card('standard', 5, 'pagoda', 502);
@@ -2830,7 +2821,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS03 — escalates to triple on 3rd consecutive lead
     it('escalates to triple on third consecutive PTS lead', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c5a = card('standard', 5, 'jade', 501);
       const c5b = card('standard', 5, 'pagoda', 502);
@@ -2868,7 +2859,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS03 — resets on round change
     it('resets PTS escalation on round change', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c3];
 
@@ -2909,7 +2900,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS03 — falls through to normal if no combo of escalated type
     it('falls through to lowest single if no pair available for escalation', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c7 = card('standard', 7, 'jade', 701);
       const hand = [c3, c7];
@@ -2943,7 +2934,7 @@ describe('ExpertBot', () => {
 
     // Verifies: PTS Dog overrides shouldSaveDog behavior
     it('PTS Dog play overrides shouldSaveDog save-for-partner logic', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cDog = card('dog');
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [cDog, c3];
@@ -2979,7 +2970,7 @@ describe('ExpertBot', () => {
 
     // Verifies: No PTS behavior without partner GT/T call
     it('does not activate PTS when partner has no call', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cDog = card('dog');
       const c3 = card('standard', 3, 'jade', 301);
       const c14 = card('standard', 14, 'jade', 1401);
@@ -3017,7 +3008,7 @@ describe('ExpertBot', () => {
   describe('partner Tichu follow and go-out suppression', () => {
     // Verifies: REQ-F-PTS04 — aggressive follow when partner GT/T
     it('plays aggressively when following and partner called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c7 = card('standard', 7, 'jade', 701);
       const c10 = card('standard', 10, 'jade', 1001);
       const c3 = card('standard', 3, 'jade', 301);
@@ -3061,7 +3052,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS04 — does NOT aggressively follow without partner call
     it('does not aggressively follow without partner call', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c14 = card('standard', 14, 'jade', 1401);
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c14, c3]; // 2 cards so it's not a go-out
@@ -3097,7 +3088,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS05 — suppresses go-out in follow when partner called Tichu
     it('suppresses go-out when following and partner called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c10 = card('standard', 10, 'jade', 1001);
       const hand = [c10]; // Only 1 card — playing it would go out
 
@@ -3134,7 +3125,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS05 — suppresses go-out in lead when partner called Tichu
     it('suppresses go-out when leading and partner called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c3]; // Only 1 card — playing it would go out
 
@@ -3165,7 +3156,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS05 — does NOT suppress when partner already out
     it('does not suppress go-out when partner already out', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c10 = card('standard', 10, 'jade', 1001);
       const hand = [c10];
 
@@ -3200,7 +3191,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS06 — allows go-out for nullification (3 winner cards)
     it('allows go-out to nullify when bot has 3 winner cards', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const cDragon = card('dragon');
       const c14a = card('standard', 14, 'jade', 1401);
       const c14b = card('standard', 14, 'pagoda', 1402);
@@ -3241,7 +3232,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS06 — blocks go-out when partner has < 8 cards
     it('blocks go-out when partner has fewer than 8 cards', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c14 = card('standard', 14, 'jade', 1401);
       const hand = [c14]; // 1 winner card — would go out
 
@@ -3280,7 +3271,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS06 — blocks go-out when opponent has > 3 cards
     it('blocks go-out when opponent caller has more than 3 cards', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c14 = card('standard', 14, 'jade', 1401);
       const hand = [c14];
 
@@ -3318,7 +3309,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS07 — plays over partner's low trick
     it('plays over partner winning 5 with a 9 (diff 4, rank < 10)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c9 = card('standard', 9, 'jade', 901);
       const c12 = card('standard', 12, 'jade', 1201);
       const hand = [c9, c12];
@@ -3365,7 +3356,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS07 — does NOT play over partner's 10 (rank >= 10)
     it('passes when partner trick rank is 10 or higher', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c12 = card('standard', 12, 'jade', 1201);
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c12, c3]; // 2 cards so it's not a go-out
@@ -3405,7 +3396,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS07 — does NOT play when rank diff > 4
     it('passes when rank difference exceeds 4', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c14 = card('standard', 14, 'jade', 1401);
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c14, c3]; // 2 cards so it's not a go-out
@@ -3445,7 +3436,7 @@ describe('ExpertBot', () => {
 
     // Verifies: REQ-F-PTS07 — does NOT apply when partner called Tichu
     it('does not overplay partner when partner called Tichu', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c9 = card('standard', 9, 'jade', 901);
       const c12 = card('standard', 12, 'jade', 1201);
       const hand = [c9, c12];
@@ -3486,7 +3477,7 @@ describe('ExpertBot', () => {
 
     // Verifies: PTS04+PTS05 — cautious aggression when winning would lead to go-out
     it('passes instead of winning when it would leave 1 card (go-out suppressed)', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c10 = card('standard', 10, 'jade', 1001);
       const c3 = card('standard', 3, 'jade', 301);
       const hand = [c10, c3]; // 2 cards: winning with 10 leaves 1 card → next play goes out
@@ -3522,7 +3513,7 @@ describe('ExpertBot', () => {
 
     // Verifies: PTS04+PTS05 — cautious aggression when winning would leave a pair (go-out)
     it('passes instead of winning when it would leave a pair that goes out', () => {
-      const bot = new ExpertBot();
+      const bot = new Bot();
       const c10 = card('standard', 10, 'jade', 1001);
       const c5a = card('standard', 5, 'jade', 501);
       const c5b = card('standard', 5, 'pagoda', 502);

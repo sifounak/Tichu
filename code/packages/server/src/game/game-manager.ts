@@ -37,9 +37,7 @@ import { DisconnectHandler } from './disconnect-handler.js';
 import { VoteHandler } from './vote-handler.js';
 import { projectGameState, projectSpectatorView } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
-import { HardBot } from '../bot/hard-bot.js';
-import { ExpertBot } from '../bot/expert-bot.js';
-import type { BotStrategy } from '../bot/bot-interface.js';
+import { Bot } from '../bot/bot.js';
 import { RoundEventTracker } from './round-event-tracker.js';
 import type { RoundEventSummary } from './round-event-types.js';
 
@@ -362,20 +360,9 @@ export class GameManager {
     return result.ok;
   }
 
-  /** REQ-F-MP01, REQ-F-TIER02: Register a bot at the given seat */
-  registerBot(seat: Seat, difficulty: 'regular' | 'hard' | 'expert' = 'expert'): void {
-    let strategy: BotStrategy;
-    switch (difficulty) {
-      case 'hard':
-        strategy = new HardBot();
-        break;
-      case 'regular':
-      case 'expert':
-      default:
-        strategy = new ExpertBot();
-        break;
-    }
-    this.botRunner.addBot(seat, strategy);
+  /** REQ-F-MP01: Register a bot at the given seat */
+  registerBot(seat: Seat): void {
+    this.botRunner.addBot(seat, new Bot());
   }
 
   /** Get the disconnect handler (for state projection access) */

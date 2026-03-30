@@ -29,7 +29,6 @@ const seatSchema = z.enum(['north', 'east', 'south', 'west']);
 const roomConfigSchema = z.object({
   targetScore: z.number().int().min(100).max(10000).optional(),
   turnTimerSeconds: z.union([z.literal(null), z.literal(30), z.literal(60), z.literal(90)]).optional(),
-  botDifficulty: z.enum(['regular', 'hard', 'expert']).optional(),
   spectatorsAllowed: z.boolean().optional(),
   isPrivate: z.boolean().optional(),
 });
@@ -43,7 +42,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('LEAVE_ROOM') }),
   // REQ-F-MP04: Room configuration
   z.object({ type: z.literal('CONFIGURE_ROOM'), config: roomConfigSchema }),
-  z.object({ type: z.literal('ADD_BOT'), seat: seatSchema, difficulty: z.enum(['regular', 'hard', 'expert']).optional() }),
+  z.object({ type: z.literal('ADD_BOT'), seat: seatSchema }),
   z.object({ type: z.literal('REMOVE_BOT'), seat: seatSchema }),
   z.object({ type: z.literal('GET_LOBBY') }),
   z.object({ type: z.literal('START_GAME') }),

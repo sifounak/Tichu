@@ -49,7 +49,6 @@ describe('RoomManager', () => {
       const room = manager.createRoom('user1', 'Alice');
       expect(room.config.targetScore).toBe(1000);
       expect(room.config.turnTimerSeconds).toBeNull();
-      expect(room.config.botDifficulty).toBe('expert');
       expect(room.config.isPrivate).toBe(false);
     });
   });
@@ -160,10 +159,10 @@ describe('RoomManager', () => {
       expect(() => manager.removeBot(room.roomCode, 'south')).toThrow('not a bot');
     });
 
-    it('should use custom bot difficulty', () => {
+    it('should name bot correctly', () => {
       const room = manager.createRoom('u1', 'P1');
-      manager.addBot(room.roomCode, 'north', 'hard');
-      expect(room.players[1].name).toContain('Normal');
+      manager.addBot(room.roomCode, 'north');
+      expect(room.players[1].name).toBe('Bot');
     });
   });
 

@@ -3,9 +3,7 @@ export type {
   BotPlayContext,
   BotPlayDecision,
 } from './bot-interface.js';
-export { RegularBot } from './regular-bot.js';
-export { HardBot } from './hard-bot.js';
-export { ExpertBot } from './expert-bot.js';
+export { Bot } from './bot.js';
 export { CardTracker } from './card-tracker.js';
 export { BotRunner, INSTANT_CONFIG } from './bot-runner.js';
 export type { BotRunnerConfig } from './bot-runner.js';

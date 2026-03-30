@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BotRunner, INSTANT_CONFIG, type BotRunnerConfig } from '../../src/bot/bot-runner.js';
 import { MoveHandler } from '../../src/game/move-handler.js';
-import { RegularBot } from '../../src/bot/regular-bot.js';
+import { Bot } from '../../src/bot/bot.js';
 import {
   createGameActor,
   type GameActor,
@@ -65,7 +65,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      const bot = new RegularBot();
+      const bot = new Bot();
       runner.addBot('north', bot);
       runner.addBot('east', bot);
 
@@ -79,8 +79,8 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      runner.addBot('south', new RegularBot());
-      runner.addBot('west', new RegularBot());
+      runner.addBot('south', new Bot());
+      runner.addBot('west', new Bot());
 
       const seats = runner.getBotSeats();
       expect(seats).toContain('south');
@@ -92,7 +92,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      runner.addBot('north', new RegularBot());
+      runner.addBot('north', new Bot());
       expect(runner.isBot('north')).toBe(true);
 
       runner.removeBot('north');
@@ -107,7 +107,7 @@ describe('BotRunner', () => {
 
       // Add bots to all seats
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new RegularBot());
+        runner.addBot(seat, new Bot());
       }
 
       // Seat all and start game
@@ -119,7 +119,7 @@ describe('BotRunner', () => {
       runner.onStateChange();
       await flushTimers();
 
-      // All bots should have made their Grand Tichu decision (RegularBot always passes)
+      // All bots should have made their Grand Tichu decision
       const ctx = getContext(actor);
       expect(ctx.grandTichuDecisions.size).toBe(4);
     });
@@ -130,7 +130,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, productionConfig);
 
-      runner.addBot('north', new RegularBot());
+      runner.addBot('north', new Bot());
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });
       expect(getState(actor)).toBe('grandTichuDecision');
@@ -153,7 +153,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, productionConfig);
 
       const callSpy = vi.fn().mockReturnValue(false);
-      runner.addBot('north', { ...new RegularBot(), chooseGrandTichu: callSpy });
+      runner.addBot('north', { ...new Bot(), chooseGrandTichu: callSpy });
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });
 
@@ -175,7 +175,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new RegularBot());
+        runner.addBot(seat, new Bot());
       }
 
       // Advance to Regular Tichu
@@ -200,7 +200,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new RegularBot());
+        runner.addBot(seat, new Bot());
       }
 
       // Advance to card passing
@@ -225,7 +225,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new RegularBot());
+        runner.addBot(seat, new Bot());
       }
 
       // Advance to playing
@@ -265,8 +265,8 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       // Only south and west are bots
-      runner.addBot('south', new RegularBot());
-      runner.addBot('west', new RegularBot());
+      runner.addBot('south', new Bot());
+      runner.addBot('west', new Bot());
 
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });
@@ -311,7 +311,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, { minDelayMs: 500, maxDelayMs: 1000 });
 
-      runner.addBot('north', new RegularBot());
+      runner.addBot('north', new Bot());
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });
       expect(getState(actor)).toBe('grandTichuDecision');
@@ -332,7 +332,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      runner.addBot('north', new RegularBot());
+      runner.addBot('north', new Bot());
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });
 
@@ -349,7 +349,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, { minDelayMs: 5000, maxDelayMs: 10000 });
 
       for (const seat of SEATS_IN_ORDER) {
-        runner.addBot(seat, new RegularBot());
+        runner.addBot(seat, new Bot());
       }
 
       seatAllPlayers(actor);
@@ -368,7 +368,7 @@ describe('BotRunner', () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      runner.addBot('north', new RegularBot());
+      runner.addBot('north', new Bot());
       runner.dispose();
 
       seatAllPlayers(actor);
@@ -386,7 +386,7 @@ describe('BotRunner', () => {
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
       const customBot: BotStrategy = {
-        difficulty: 'regular',
+
         chooseGrandTichu: vi.fn().mockReturnValue(false),
         chooseRegularTichu: vi.fn().mockReturnValue(false),
         chooseCardsToPass: vi.fn(),
@@ -435,7 +435,6 @@ describe('partner tichu call safeguard', () => {
 
     // South is a bot that always wants to call GT — but North (partner) already called
     const southBot: BotStrategy = {
-      difficulty: 'regular',
       chooseGrandTichu: () => true,
       chooseRegularTichu: () => false,
       chooseCardsToPass: vi.fn(),
@@ -472,7 +471,6 @@ describe('partner tichu call safeguard', () => {
     // At this point North has tipiCall === 'grandTichu'
     // South is a bot that always wants to call regular Tichu — but North (partner) already called
     const southBot: BotStrategy = {
-      difficulty: 'regular',
       chooseGrandTichu: () => false,
       chooseRegularTichu: () => true,
       chooseCardsToPass: (hand, seat) => {
@@ -515,7 +513,7 @@ describe('BotRunner full game smoke test', () => {
     const runner = new BotRunner(actor, INSTANT_CONFIG);
 
     for (const seat of SEATS_IN_ORDER) {
-      runner.addBot(seat, new RegularBot());
+      runner.addBot(seat, new Bot());
     }
 
     seatAllPlayers(actor);

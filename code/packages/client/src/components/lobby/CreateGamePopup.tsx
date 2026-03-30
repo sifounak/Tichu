@@ -1,5 +1,5 @@
 // REQ-F-CG01: Settings popup for game creation
-// REQ-F-CG02: Target score, turn timer, private room, spectators (no bot difficulty)
+// REQ-F-CG02: Target score, turn timer, private room, spectators
 // REQ-F-CG03: Create Game + Cancel buttons
 // REQ-F-CG04: Cancel dismisses with no side effects
 'use client';

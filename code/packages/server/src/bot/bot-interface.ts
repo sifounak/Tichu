@@ -42,10 +42,6 @@ export type BotPlayDecision =
  * (its own hand, public trick state, etc.).
  */
 export interface BotStrategy {
-  /** Bot difficulty level */
-  // REQ-F-TIER01: Three bot difficulty tiers
-  readonly difficulty: 'regular' | 'hard' | 'expert';
-
   /** Decide whether to call Grand Tichu (first 8 cards seen) */
   chooseGrandTichu(hand8: GameCard[]): boolean;
 
