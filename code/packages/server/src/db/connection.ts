@@ -1,30 +1,36 @@
-// REQ-F-AU03: Database connection pool for game persistence
+// REQ-F-AU03: Database connection for game persistence
+// REQ-DP-03: SQLite file-based database via better-sqlite3
 
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import BetterSqlite3 from 'better-sqlite3';
+import { mkdirSync } from 'fs';
+import { dirname } from 'path';
 import * as schema from './schema.js';
 
 export type Database = ReturnType<typeof createDatabase>;
 
 /**
- * Creates a Drizzle database connection using the postgres.js driver.
- * Returns both the Drizzle instance and the underlying connection for cleanup.
+ * Creates a Drizzle database connection using the better-sqlite3 driver.
+ * Automatically creates parent directories for the database file.
+ * Returns the Drizzle instance, underlying client, and a close function.
  */
-export function createDatabase(connectionString: string) {
-  const client = postgres(connectionString, {
-    max: 10, // connection pool size
-    idle_timeout: 20,
-    connect_timeout: 10,
-  });
+export function createDatabase(dbPath: string) {
+  // Ensure the directory exists
+  mkdirSync(dirname(dbPath), { recursive: true });
+
+  const client = new BetterSqlite3(dbPath);
+
+  // Enable WAL mode for better concurrent read performance
+  client.pragma('journal_mode = WAL');
 
   const db = drizzle(client, { schema });
 
   return {
     db,
     client,
-    /** Close the connection pool */
-    async close() {
-      await client.end();
+    /** Close the database connection */
+    close() {
+      client.close();
     },
   };
 }

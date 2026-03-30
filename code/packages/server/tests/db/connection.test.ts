@@ -1,16 +1,18 @@
-// Verifies: REQ-F-AU03
+// Verifies: REQ-DP-03, REQ-DP-04
 
 import { describe, it, expect, vi } from 'vitest';
 
-// Mock the postgres and drizzle-orm modules
-vi.mock('postgres', () => ({
-  default: vi.fn(() => {
-    const mockClient = { end: vi.fn().mockResolvedValue(undefined) };
-    return mockClient;
-  }),
+// Mock better-sqlite3 and drizzle-orm modules
+const mockClose = vi.fn();
+const mockPragma = vi.fn();
+vi.mock('better-sqlite3', () => ({
+  default: vi.fn(() => ({
+    close: mockClose,
+    pragma: mockPragma,
+  })),
 }));
 
-vi.mock('drizzle-orm/postgres-js', () => ({
+vi.mock('drizzle-orm/better-sqlite3', () => ({
   drizzle: vi.fn(() => ({})),
 }));
 
@@ -18,15 +20,15 @@ import { createDatabase } from '../../src/db/connection.js';
 
 describe('createDatabase', () => {
   it('should return db, client, and close function', () => {
-    const database = createDatabase('postgresql://test:test@localhost/test');
+    const database = createDatabase('./test.sqlite');
     expect(database).toHaveProperty('db');
     expect(database).toHaveProperty('client');
     expect(typeof database.close).toBe('function');
   });
 
-  it('should call client.end() when close is called', async () => {
-    const database = createDatabase('postgresql://test:test@localhost/test');
-    await database.close();
-    expect(database.client.end).toHaveBeenCalled();
+  it('should call client.close() when close is called', () => {
+    const database = createDatabase('./test.sqlite');
+    database.close();
+    expect(mockClose).toHaveBeenCalled();
   });
 });
