@@ -60,8 +60,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('DECLINE_SEAT') }),
 
   // Game actions
-  z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean() }),
-  z.object({ type: z.literal('TICHU_DECLARATION') }),
+  z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean(), partnerOverride: z.boolean().optional() }),
+  z.object({ type: z.literal('TICHU_DECLARATION'), partnerOverride: z.boolean().optional() }),
   z.object({ type: z.literal('PASS_CARDS'), cards: z.record(seatSchema, gameCardSchema) }),
   z.object({ type: z.literal('CANCEL_PASS_CARDS') }),
   z.object({ type: z.literal('PLAY_CARDS'), cardIds: z.array(z.number().int().min(0).max(55)).min(1), phoenixAs: rankSchema.optional(), wish: rankSchema.nullable().optional() }),
