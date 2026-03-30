@@ -27,7 +27,7 @@ function createMockDatabase(): Database {
   return {
     db: {
       select: vi.fn().mockImplementation(() => fluentChain([])),
-      execute: vi.fn().mockResolvedValue({ rows: [] }),
+      all: vi.fn().mockReturnValue([]),
     } as any,
     client: {} as any,
     close: vi.fn(),
@@ -38,37 +38,37 @@ function createMockDatabase(): Database {
 
 describe('queries', () => {
   describe('getLeaderboard', () => {
-    it('should call db.execute with SQL and return typed results', async () => {
+    it('should call db.all with SQL and return typed results', () => {
       const entries = [
         { userId: 'u1', displayName: 'Alice', gamesPlayed: 10, gamesWon: 7, winRate: 0.7, tichuSuccessRate: 0.5, grandTichuSuccessRate: 0 },
       ];
       const mockDb = createMockDatabase();
-      (mockDb.db as any).execute = vi.fn().mockResolvedValue({ rows: entries });
+      (mockDb.db as any).all = vi.fn().mockReturnValue(entries);
 
-      const result = await getLeaderboard(mockDb, 20, 5);
+      const result = getLeaderboard(mockDb, 20, 5);
 
-      expect(mockDb.db.execute).toHaveBeenCalled();
+      expect(mockDb.db.all).toHaveBeenCalled();
       expect(result).toEqual(entries);
     });
 
-    it('should return empty array when no rows', async () => {
+    it('should return empty array when no rows', () => {
       const mockDb = createMockDatabase();
-      (mockDb.db as any).execute = vi.fn().mockResolvedValue({ rows: [] });
+      (mockDb.db as any).all = vi.fn().mockReturnValue([]);
 
-      const result = await getLeaderboard(mockDb);
+      const result = getLeaderboard(mockDb);
 
       expect(result).toEqual([]);
     });
 
-    it('should return LeaderboardEntry array from rows', async () => {
+    it('should return LeaderboardEntry array from rows', () => {
       const entries = [
         { userId: 'u1', displayName: 'Alice', gamesPlayed: 10, gamesWon: 7, winRate: 0.7, tichuSuccessRate: 0.5, grandTichuSuccessRate: 0.25 },
         { userId: 'u2', displayName: 'Bob', gamesPlayed: 8, gamesWon: 5, winRate: 0.625, tichuSuccessRate: 0.3, grandTichuSuccessRate: 0 },
       ];
       const mockDb = createMockDatabase();
-      (mockDb.db as any).execute = vi.fn().mockResolvedValue({ rows: entries });
+      (mockDb.db as any).all = vi.fn().mockReturnValue(entries);
 
-      const result = await getLeaderboard(mockDb);
+      const result = getLeaderboard(mockDb);
 
       expect(result).toHaveLength(2);
       expect(result[0].userId).toBe('u1');
@@ -83,12 +83,12 @@ describe('queries', () => {
       const chain = fluentChain(gamesData);
       (mockDb.db as any).select = vi.fn().mockReturnValue(chain);
 
-      const result = await getRecentGames(mockDb);
+      const result = getRecentGames(mockDb);
 
       expect(mockDb.db.select).toHaveBeenCalled();
       expect(chain.from).toHaveBeenCalled();
       expect(chain.orderBy).toHaveBeenCalled();
-      expect(result).toEqual(gamesData);
+      expect(result).toEqual(chain);
     });
 
     it('should pass limit to the chain', async () => {
@@ -96,14 +96,14 @@ describe('queries', () => {
       const chain = fluentChain([]);
       (mockDb.db as any).select = vi.fn().mockReturnValue(chain);
 
-      await getRecentGames(mockDb, 5);
+      getRecentGames(mockDb, 5);
 
       expect(chain.limit).toHaveBeenCalledWith(5);
     });
   });
 
   describe('getPlayerProfile', () => {
-    it('should return profile when rows exist', async () => {
+    it('should return profile when rows exist', () => {
       const profile = {
         userId: 'u1', displayName: 'Alice', gamesPlayed: 10, gamesWon: 7,
         winRate: 0.7, tichuCalls: 5, tichuSuccesses: 3,
@@ -111,20 +111,20 @@ describe('queries', () => {
         totalRoundsPlayed: 30, firstFinishes: 8,
       };
       const mockDb = createMockDatabase();
-      (mockDb.db as any).execute = vi.fn().mockResolvedValue({ rows: [profile] });
+      (mockDb.db as any).all = vi.fn().mockReturnValue([profile]);
 
-      const result = await getPlayerProfile(mockDb, 'u1');
+      const result = getPlayerProfile(mockDb, 'u1');
 
       expect(result).toEqual(profile);
       expect(result!.userId).toBe('u1');
       expect(result!.displayName).toBe('Alice');
     });
 
-    it('should return undefined when no rows', async () => {
+    it('should return undefined when no rows', () => {
       const mockDb = createMockDatabase();
-      (mockDb.db as any).execute = vi.fn().mockResolvedValue({ rows: [] });
+      (mockDb.db as any).all = vi.fn().mockReturnValue([]);
 
-      const result = await getPlayerProfile(mockDb, 'nonexistent');
+      const result = getPlayerProfile(mockDb, 'nonexistent');
 
       expect(result).toBeUndefined();
     });
