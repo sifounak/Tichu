@@ -22,7 +22,7 @@ export async function ensureGuestUser(
   if (existing.length > 0) {
     // Update last seen and display name
     await db.update(users)
-      .set({ lastSeenAt: new Date(), displayName })
+      .set({ lastSeenAt: new Date().toISOString(), displayName })
       .where(eq(users.id, userId));
     return { id: existing[0].id, displayName, isGuest: existing[0].isGuest };
   }

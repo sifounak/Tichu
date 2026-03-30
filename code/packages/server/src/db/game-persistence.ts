@@ -42,7 +42,7 @@ export function saveGameResult(
 
   return db.transaction((tx) => {
     // Insert game record
-    const [game] = tx.insert(games).values({
+    const game = tx.insert(games).values({
       roomCode: gameResult.roomCode,
       startedAt: gameResult.startedAt.toISOString(),
       endedAt: new Date().toISOString(),
@@ -59,7 +59,7 @@ export function saveGameResult(
       eastName: gameResult.players.east.name,
       southName: gameResult.players.south.name,
       westName: gameResult.players.west.name,
-    }).returning({ id: games.id });
+    }).returning({ id: games.id }).get();
 
     // Insert round records
     if (rounds.length > 0) {
