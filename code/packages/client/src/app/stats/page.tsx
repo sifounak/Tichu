@@ -130,7 +130,8 @@ function StatsContent() {
           <h1 className="text-3xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>
             {profile?.displayName ?? 'Player'} Stats
           </h1>
-          <Link href="/lobby" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
+          <Link href="/lobby" className="px-4 py-1.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80"
+            style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}>
             Back to Lobby
           </Link>
         </div>

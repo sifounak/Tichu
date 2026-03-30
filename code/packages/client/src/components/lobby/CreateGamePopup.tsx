@@ -100,7 +100,7 @@ export function CreateGamePopup({ onCancel, onCreate }: CreateGamePopupProps) {
           <button type="button" onClick={onCancel} className={styles.cancelBtn}>
             Cancel
           </button>
-          <button type="submit" className={styles.createBtn}>
+          <button type="submit" autoFocus className={styles.createBtn}>
             Create Game
           </button>
         </div>
