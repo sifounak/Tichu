@@ -117,7 +117,7 @@ export const ActionBar = memo(function ActionBar({
   const showAutoPassToggle = showAutoPass && onAutoPassToggle && (!showActions || autoPassEnabled);
   const autoPassToggle = showAutoPassToggle && (
     <label
-      className={`${styles.autoPassLabel} ${autoPassEnabled ? styles.autoPassActive : ''}`}
+      className={`${styles.button} ${styles.passButton} ${styles.autoPassLabel} ${autoPassEnabled ? styles.autoPassActive : ''}`}
     >
       <input
         type="checkbox"
@@ -126,7 +126,10 @@ export const ActionBar = memo(function ActionBar({
         className={styles.autoPassCheckbox}
         aria-label="Auto-pass until next trick"
       />
-      Auto<br />Pass
+      {autoPassEnabled
+        ? <><span className={styles.autoPassLine}>Auto-Pass</span><span className={styles.autoPassLine}>On</span></>
+        : <><span className={styles.autoPassLine}>Enable</span><span className={styles.autoPassLine}>Auto-Pass</span></>
+      }
     </label>
   );
 

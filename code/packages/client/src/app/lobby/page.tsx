@@ -93,7 +93,9 @@ export default function LobbyPage() {
     if (!roomName.trim()) { setRoomNameError(true); return; }
     setRoomNameError(false);
     setError('');
-    setShowCreatePopup(true);
+    // Defer popup so an in-flight Enter keypress completes before the
+    // autoFocused submit button renders (prevents instant form submission).
+    requestAnimationFrame(() => setShowCreatePopup(true));
   };
 
   // REQ-F-CG05: Create room with config from popup

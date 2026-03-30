@@ -91,9 +91,9 @@ function effectiveRank(gc: GameCard, phoenixUsedAs?: Rank): number {
  * Sort combination cards for display in the trick area.
  *
  * - Full House: 3-of-a-kind on the left, pair on the right
- * - Straight / Straight Flush Bomb: ascending rank; Phoenix in its substituted slot
- * - Pair Sequence: ascending rank; Phoenix after its duplicate card
- * - Pair / Triple: ascending rank sort with Phoenix placed by its substituted rank
+ * - Straight / Straight Flush Bomb: descending rank (highest left); Phoenix in its substituted slot
+ * - Pair Sequence: descending rank (highest left); Phoenix after its duplicate card
+ * - Pair / Triple: Phoenix at end of group
  * - Single / Four Bomb: no reordering needed
  */
 export function sortCombinationForDisplay(combo: Combination): GameCard[] {
@@ -172,11 +172,11 @@ export function sortCombinationForDisplay(combo: Combination): GameCard[] {
 
     case CombinationType.Straight:
     case CombinationType.StraightFlushBomb: {
-      // Sort by ascending rank; Phoenix goes in its phoenixUsedAs slot
+      // Sort by descending rank (highest left); Phoenix goes in its phoenixUsedAs slot
       const sorted = [...cards].sort((a, b) => {
         const ra = effectiveRank(a, phoenixUsedAs);
         const rb = effectiveRank(b, phoenixUsedAs);
-        if (ra !== rb) return ra - rb;
+        if (ra !== rb) return rb - ra;
         // If same effective rank (shouldn't happen in a straight, but safety):
         // put standard card before phoenix
         if (a.card.kind === 'phoenix') return 1;
@@ -187,11 +187,11 @@ export function sortCombinationForDisplay(combo: Combination): GameCard[] {
     }
 
     case CombinationType.PairSequence: {
-      // Sort ascending by rank; within each pair, Phoenix goes after its duplicate
+      // Sort descending by rank (highest left); within each pair, Phoenix goes after its duplicate
       const sorted = [...cards].sort((a, b) => {
         const ra = effectiveRank(a, phoenixUsedAs);
         const rb = effectiveRank(b, phoenixUsedAs);
-        if (ra !== rb) return ra - rb;
+        if (ra !== rb) return rb - ra;
         // Same rank: put standard card before phoenix
         if (a.card.kind === 'phoenix') return 1;
         if (b.card.kind === 'phoenix') return -1;
