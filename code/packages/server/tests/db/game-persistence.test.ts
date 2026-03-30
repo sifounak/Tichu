@@ -54,7 +54,10 @@ function createMockTx() {
   return {
     insert: vi.fn().mockImplementation(() => ({
       values: vi.fn().mockImplementation((val: any) => ({
-        returning: vi.fn().mockReturnValue([{ id: 42 }]),
+        returning: vi.fn().mockReturnValue({
+          get: vi.fn().mockReturnValue({ id: 42 }),
+          all: vi.fn().mockReturnValue([{ id: 42 }]),
+        }),
         run: vi.fn().mockReturnValue({ changes: 1, lastInsertRowid: 1 }),
         // values() also needs to be thenable for the rounds insert (no .returning())
         then: (resolve: (v: any) => void) => resolve(undefined),

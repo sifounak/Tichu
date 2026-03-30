@@ -59,7 +59,7 @@ export async function registerAccount(
       passwordHash,
       displayName,
       isGuest: false,
-      lastSeenAt: new Date(),
+      lastSeenAt: new Date().toISOString(),
     }).where(eq(users.id, userId));
   } else {
     // Create new registered user
@@ -105,7 +105,7 @@ export async function loginAccount(
   }
 
   // Update last seen
-  await db.update(users).set({ lastSeenAt: new Date() }).where(eq(users.id, result[0].id));
+  await db.update(users).set({ lastSeenAt: new Date().toISOString() }).where(eq(users.id, result[0].id));
 
   const token = jwt.sign(
     { userId: result[0].id, email: result[0].email! } satisfies AuthTokenPayload,
