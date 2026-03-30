@@ -9,6 +9,7 @@ import type { Seat, RoundState } from '@tichu/shared';
 import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext } from './bot-interface.js';
 import type { GameActor, GameMachineContext, GameEvent } from '../game/game-state-machine.js';
+import type { MoveHandler } from '../game/move-handler.js';
 
 /** Configuration for bot timing */
 export interface BotRunnerConfig {
@@ -57,6 +58,7 @@ export class BotRunner {
   constructor(
     private readonly actor: GameActor,
     private readonly config: BotRunnerConfig = DEFAULT_CONFIG,
+    private readonly moveHandler?: MoveHandler,
   ) {}
 
   /** Register a bot strategy for a specific seat */
@@ -211,6 +213,20 @@ export class BotRunner {
 
       this.scheduleGrandTichuAction(seat, () => {
         const call = bot.chooseGrandTichu(hand8);
+        if (call && this.moveHandler) {
+          const result = this.moveHandler.handleGrandTichuDecision(seat, true);
+          if (!result.ok && result.error === 'PARTNER_ALREADY_CALLED') {
+            // Partner already called — bot must pass instead
+            this.send({ type: 'GRAND_TICHU_PASS', seat });
+            return;
+          }
+          if (result.ok) {
+            // MoveHandler already sent the event to the actor
+            this.afterActionCallback?.();
+            return;
+          }
+        }
+        // Fallback: no moveHandler or non-call — send directly
         this.send(call
           ? { type: 'GRAND_TICHU_CALL', seat }
           : { type: 'GRAND_TICHU_PASS', seat },
@@ -230,9 +246,20 @@ export class BotRunner {
       if (round.players[seat].tipiCall === 'none') {
         const callTichu = bot.chooseRegularTichu(hand);
         if (callTichu) {
-          this.scheduleAction(() => {
-            this.send({ type: 'REGULAR_TICHU_CALL', seat });
-          });
+          if (this.moveHandler) {
+            const result = this.moveHandler.handleTichuDeclaration(seat);
+            if (result.ok) {
+              // MoveHandler already sent the event — just broadcast
+              this.scheduleAction(() => {
+                this.afterActionCallback?.();
+              });
+            }
+            // If PARTNER_ALREADY_CALLED or other error: silently drop the call
+          } else {
+            this.scheduleAction(() => {
+              this.send({ type: 'REGULAR_TICHU_CALL', seat });
+            });
+          }
         }
       }
 

@@ -94,7 +94,7 @@ export class GameManager {
     this.moveHandler = new MoveHandler(this.actor);
 
     // REQ-F-MP01: Create bot runner for automated bot decisions
-    this.botRunner = new BotRunner(this.actor);
+    this.botRunner = new BotRunner(this.actor, undefined, this.moveHandler);
 
     // Create turn timer with timeout callback
     const turnTimerSeconds = config?.turnTimerSeconds ?? null;
