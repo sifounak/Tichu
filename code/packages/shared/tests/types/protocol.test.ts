@@ -112,8 +112,8 @@ describe('clientMessageSchema', () => {
     expect(clientMessageSchema.parse(msg)).toEqual(msg);
   });
 
-  it('validates ADD_BOT with difficulty', () => {
-    const msg = { type: 'ADD_BOT', seat: 'east', difficulty: 'hard' };
+  it('validates ADD_BOT message', () => {
+    const msg = { type: 'ADD_BOT', seat: 'east' };
     expect(clientMessageSchema.parse(msg)).toEqual(msg);
   });
 

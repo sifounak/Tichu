@@ -45,7 +45,7 @@ export interface LobbyEntry {
   playerCount: number;
   spectatorCount: number;
   // REQ-F-SP01: Include spectatorsAllowed so lobby can show "Join as Spectator" button
-  config: Pick<RoomConfig, 'targetScore' | 'botDifficulty' | 'spectatorsAllowed'>;
+  config: Pick<RoomConfig, 'targetScore' | 'spectatorsAllowed'>;
   gameInProgress: boolean;
   // REQ-F-ES05: True when game is in progress and has fewer than 4 players
   hasEmptySeats: boolean;

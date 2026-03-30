@@ -1,4 +1,4 @@
-// REQ-F-CG09: Empty seats show bot controls (difficulty dropdown + Add Bot)
+// REQ-F-CG09: Empty seats show bot controls (Add Bot button)
 // REQ-F-CG11: All 4 players must confirm ready
 // REQ-F-CG13: Room code visible for sharing
 // REQ-F-CG14: Host can remove bots / kick players
@@ -46,7 +46,7 @@ interface PreRoomViewProps {
 function makeDummyView(mySeat: Seat): ClientGameView {
   return {
     gameId: '',
-    config: { targetScore: 1000, turnTimerSeconds: null, botDifficulty: 'expert', spectatorsAllowed: true, isPrivate: false },
+    config: { targetScore: 1000, turnTimerSeconds: null, spectatorsAllowed: true, isPrivate: false },
     phase: 'playing' as any,
     scores: { northSouth: 0, eastWest: 0 },
     roundHistory: [],
@@ -94,13 +94,6 @@ export function PreRoomView({
 }: PreRoomViewProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
-  const [botDifficulty] = useState<Record<Seat, 'hard' | 'expert'>>({
-    north: 'expert',
-    east: 'expert',
-    south: 'expert',
-    west: 'expert',
-  });
-
   // REQ-F-VI11: Pre-game vote state
   const [showVoteDropdown, setShowVoteDropdown] = useState(false);
   const [preGameKickTargetMode, setPreGameKickTargetMode] = useState(false);
@@ -138,7 +131,7 @@ export function PreRoomView({
   };
 
   const handleAddBot = (seat: Seat) => {
-    send({ type: 'ADD_BOT', seat, difficulty: botDifficulty[seat] });
+    send({ type: 'ADD_BOT', seat });
   };
 
   const handleRemoveBot = (seat: Seat) => {
@@ -303,7 +296,7 @@ export function PreRoomView({
       />
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [players, mySeat, hostSeat, readyPlayers, isHost, botDifficulty, seatOffer, availableSeats, preGameKickTargetMode]);
+  }, [players, mySeat, hostSeat, readyPlayers, isHost, seatOffer, availableSeats, preGameKickTargetMode]);
 
   // Helper for ordinal suffixes (1st, 2nd, 3rd, 4th, ...)
   const ordinal = (n: number) => {

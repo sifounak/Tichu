@@ -70,7 +70,7 @@ export class RoomManager {
       config: {
         targetScore: 1000,
         turnTimerSeconds: null,
-        botDifficulty: 'expert',
+
         spectatorsAllowed: true,
         isPrivate: false,
         maxSpectators: 10,
@@ -175,18 +175,16 @@ export class RoomManager {
   }
 
   /** REQ-F-VI03: Add a bot to a seat. Allowed mid-game for vacated seats. */
-  addBot(roomCode: string, seat: Seat, difficulty?: 'regular' | 'hard' | 'expert'): Room {
+  addBot(roomCode: string, seat: Seat): Room {
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error('Room not found.');
 
     const occupiedSeats = new Set(room.players.map(p => p.seat));
     if (occupiedSeats.has(seat)) throw new Error(`Seat ${seat} is already occupied.`);
 
-    const botDiff = difficulty ?? room.config.botDifficulty;
-    const diffLabel = botDiff === 'hard' ? 'Normal' : botDiff === 'expert' ? 'Expert' : 'Normal';
     room.players.push({
       seat,
-      name: `Bot (${diffLabel})`,
+      name: 'Bot',
       isBot: true,
       isConnected: true,
     });
@@ -291,7 +289,6 @@ export class RoomManager {
         spectatorCount: room.spectators.length,
         config: {
           targetScore: room.config.targetScore,
-          botDifficulty: room.config.botDifficulty,
           spectatorsAllowed: room.config.spectatorsAllowed,
         },
         gameInProgress: room.gameInProgress,

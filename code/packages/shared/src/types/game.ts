@@ -123,8 +123,6 @@ export interface RoundState {
 export interface GameConfig {
   targetScore: number;
   turnTimerSeconds: number | null;
-  // REQ-F-TIER01: Three bot difficulty tiers
-  botDifficulty: 'regular' | 'hard' | 'expert';
   spectatorsAllowed: boolean;
   isPrivate: boolean;
 }
@@ -133,7 +131,6 @@ export interface GameConfig {
 export const DEFAULT_GAME_CONFIG: GameConfig = {
   targetScore: 1000,
   turnTimerSeconds: null,
-  botDifficulty: 'expert',
   spectatorsAllowed: true,
   isPrivate: false,
 };

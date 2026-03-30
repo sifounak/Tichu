@@ -60,7 +60,7 @@ export interface HandPlan {
 }
 
 /**
- * ExpertBot — strategy-guide-informed bot implementing community best practices.
+ * Bot — strategy-guide-informed bot implementing community best practices.
  *
  * Key principles from BGA Tips:
  * - Straights > pairs (converts losers to wins)
@@ -73,8 +73,7 @@ export interface HandPlan {
  * - Prevent 1-2 finishes aggressively
  * - "Just because you can beat a play doesn't mean you should"
  */
-export class ExpertBot implements BotStrategy {
-  readonly difficulty = 'expert' as const;
+export class Bot implements BotStrategy {
 
   private cardTracker = new CardTracker();
   private handPlan: HandPlan | null = null;

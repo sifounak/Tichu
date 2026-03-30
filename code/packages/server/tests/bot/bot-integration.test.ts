@@ -1,11 +1,9 @@
-// Verifies: REQ-NF-PERF01, REQ-NF-TEST01, REQ-F-TIER02
-// Integration tests: full games with all bot difficulties, performance validation
+// Verifies: REQ-NF-PERF01, REQ-NF-TEST01
+// Integration tests: full games with bots, performance validation
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BotRunner, INSTANT_CONFIG } from '../../src/bot/bot-runner.js';
-import { RegularBot } from '../../src/bot/regular-bot.js';
-import { HardBot } from '../../src/bot/hard-bot.js';
-import { ExpertBot } from '../../src/bot/expert-bot.js';
+import { Bot } from '../../src/bot/bot.js';
 import {
   createGameActor,
   type GameActor,
@@ -129,68 +127,13 @@ describe('Bot Integration — Full Game', () => {
     vi.useRealTimers();
   });
 
-  // Verifies: REQ-F-TIER02 (all 3 bot classes instantiated and functional)
-  it('should complete a full game with 4 RegularBots', async () => {
+  it('should complete a full game with 4 Bots', async () => {
     actor = createTestActor();
     runner = new BotRunner(actor, INSTANT_CONFIG);
 
     for (const seat of SEATS_IN_ORDER) {
-      runner.addBot(seat, new RegularBot());
+      runner.addBot(seat, new Bot());
     }
-    seatAllPlayers(actor);
-    actor.send({ type: 'HOST_START_GAME' });
-
-    const { finalState, ctx } = await driveGameToCompletion(actor, runner);
-
-    expect(finalState).toBe('gameOver');
-    expect(ctx.winner).toBeDefined();
-    expect(ctx.roundHistory.length).toBeGreaterThanOrEqual(1);
-  }, 30_000);
-
-  it('should complete a full game with 4 HardBots', async () => {
-    actor = createTestActor();
-    runner = new BotRunner(actor, INSTANT_CONFIG);
-
-    for (const seat of SEATS_IN_ORDER) {
-      runner.addBot(seat, new HardBot());
-    }
-    seatAllPlayers(actor);
-    actor.send({ type: 'HOST_START_GAME' });
-
-    const { finalState, ctx } = await driveGameToCompletion(actor, runner);
-
-    expect(finalState).toBe('gameOver');
-    expect(ctx.winner).toBeDefined();
-    expect(ctx.roundHistory.length).toBeGreaterThanOrEqual(1);
-  }, 30_000);
-
-  it('should complete a full game with 4 ExpertBots', async () => {
-    actor = createTestActor();
-    runner = new BotRunner(actor, INSTANT_CONFIG);
-
-    for (const seat of SEATS_IN_ORDER) {
-      runner.addBot(seat, new ExpertBot());
-    }
-    seatAllPlayers(actor);
-    actor.send({ type: 'HOST_START_GAME' });
-
-    const { finalState, ctx } = await driveGameToCompletion(actor, runner);
-
-    expect(finalState).toBe('gameOver');
-    expect(ctx.winner).toBeDefined();
-    expect(ctx.roundHistory.length).toBeGreaterThanOrEqual(1);
-  }, 30_000);
-
-  it('should complete a full game with mixed difficulties', async () => {
-    actor = createTestActor();
-    runner = new BotRunner(actor, INSTANT_CONFIG);
-
-    // North: Regular, East: Hard, South: Expert, West: Hard
-    runner.addBot('north', new RegularBot());
-    runner.addBot('east', new HardBot());
-    runner.addBot('south', new ExpertBot());
-    runner.addBot('west', new HardBot());
-
     seatAllPlayers(actor);
     actor.send({ type: 'HOST_START_GAME' });
 
@@ -206,7 +149,7 @@ describe('Bot Integration — Full Game', () => {
     runner = new BotRunner(actor, INSTANT_CONFIG);
 
     for (const seat of SEATS_IN_ORDER) {
-      runner.addBot(seat, new HardBot());
+      runner.addBot(seat, new Bot());
     }
     seatAllPlayers(actor);
     actor.send({ type: 'HOST_START_GAME' });
@@ -259,7 +202,7 @@ describe('Bot Integration — Full Game', () => {
     runner = new BotRunner(actor, INSTANT_CONFIG);
 
     for (const seat of SEATS_IN_ORDER) {
-      runner.addBot(seat, new ExpertBot());
+      runner.addBot(seat, new Bot());
     }
     seatAllPlayers(actor);
     actor.send({ type: 'HOST_START_GAME' });
@@ -276,7 +219,7 @@ describe('Bot Integration — Full Game', () => {
     runner = new BotRunner(actor, INSTANT_CONFIG);
 
     for (const seat of SEATS_IN_ORDER) {
-      runner.addBot(seat, new HardBot());
+      runner.addBot(seat, new Bot());
     }
     seatAllPlayers(actor);
     actor.send({ type: 'HOST_START_GAME' });
@@ -298,48 +241,8 @@ describe('Bot Performance — REQ-NF-PERF01', () => {
   const hand8 = hand14.slice(0, 8);
 
   // Verifies: REQ-NF-PERF01 — bot decision time < 100ms
-  describe('HardBot decision time', () => {
-    const bot = new HardBot();
-
-    it('chooseGrandTichu should complete in < 100ms', () => {
-      const start = performance.now();
-      for (let i = 0; i < 100; i++) {
-        bot.chooseGrandTichu(hand8);
-      }
-      const elapsed = (performance.now() - start) / 100;
-      expect(elapsed).toBeLessThan(100);
-    });
-
-    it('chooseRegularTichu should complete in < 100ms', () => {
-      const start = performance.now();
-      for (let i = 0; i < 100; i++) {
-        bot.chooseRegularTichu(hand14);
-      }
-      const elapsed = (performance.now() - start) / 100;
-      expect(elapsed).toBeLessThan(100);
-    });
-
-    it('chooseCardsToPass should complete in < 100ms', () => {
-      const start = performance.now();
-      for (let i = 0; i < 100; i++) {
-        bot.chooseCardsToPass(hand14, 'north');
-      }
-      const elapsed = (performance.now() - start) / 100;
-      expect(elapsed).toBeLessThan(100);
-    });
-
-    it('chooseMahjongWish should complete in < 100ms', () => {
-      const start = performance.now();
-      for (let i = 0; i < 100; i++) {
-        bot.chooseMahjongWish(hand14);
-      }
-      const elapsed = (performance.now() - start) / 100;
-      expect(elapsed).toBeLessThan(100);
-    });
-  });
-
-  describe('ExpertBot decision time', () => {
-    const bot = new ExpertBot();
+  describe('Bot decision time', () => {
+    const bot = new Bot();
 
     it('chooseGrandTichu should complete in < 100ms', () => {
       const start = performance.now();
@@ -389,23 +292,21 @@ describe('Bot Performance — REQ-NF-PERF01', () => {
       vi.useRealTimers();
     });
 
-    it('HardBot choosePlay should complete in < 100ms', async () => {
+    it('Bot choosePlay should complete in < 100ms', async () => {
       vi.useFakeTimers();
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);
 
-      const hardBot = new HardBot();
+      const targetBot = new Bot();
       const timingBot: BotStrategy = {
-        difficulty: 'hard',
         chooseGrandTichu: () => false,
         chooseRegularTichu: () => false,
-        chooseCardsToPass: (hand, seat) => hardBot.chooseCardsToPass(hand, seat),
-        chooseDragonGiftRecipient: (opp, pts) => hardBot.chooseDragonGiftRecipient(opp, pts),
-        chooseMahjongWish: (hand) => hardBot.chooseMahjongWish(hand),
+        chooseCardsToPass: (hand, seat) => targetBot.chooseCardsToPass(hand, seat),
+        chooseDragonGiftRecipient: (opp, pts) => targetBot.chooseDragonGiftRecipient(opp, pts),
+        chooseMahjongWish: (hand) => targetBot.chooseMahjongWish(hand),
         choosePlay: (ctx: BotPlayContext) => {
-          // Time the actual decision
           const start = performance.now();
-          const decision = hardBot.choosePlay(ctx);
+          const decision = targetBot.choosePlay(ctx);
           const elapsed = performance.now() - start;
           expect(elapsed).toBeLessThan(100);
           return decision;
@@ -414,44 +315,7 @@ describe('Bot Performance — REQ-NF-PERF01', () => {
 
       runner.addBot('north', timingBot);
       for (const seat of SEATS_IN_ORDER.filter(s => s !== 'north')) {
-        runner.addBot(seat, new RegularBot());
-      }
-      seatAllPlayers(actor);
-      actor.send({ type: 'HOST_START_GAME' });
-
-      // Drive through enough plays to get a timing measurement
-      for (let i = 0; i < 200; i++) {
-        if (getState(actor) === 'gameOver') break;
-        runner.onStateChange();
-        await flushTimers();
-      }
-    }, 30_000);
-
-    it('ExpertBot choosePlay should complete in < 100ms', async () => {
-      vi.useFakeTimers();
-      actor = createTestActor();
-      runner = new BotRunner(actor, INSTANT_CONFIG);
-
-      const expertBot = new ExpertBot();
-      const timingBot: BotStrategy = {
-        difficulty: 'expert',
-        chooseGrandTichu: () => false,
-        chooseRegularTichu: () => false,
-        chooseCardsToPass: (hand, seat) => expertBot.chooseCardsToPass(hand, seat),
-        chooseDragonGiftRecipient: (opp, pts) => expertBot.chooseDragonGiftRecipient(opp, pts),
-        chooseMahjongWish: (hand) => expertBot.chooseMahjongWish(hand),
-        choosePlay: (ctx: BotPlayContext) => {
-          const start = performance.now();
-          const decision = expertBot.choosePlay(ctx);
-          const elapsed = performance.now() - start;
-          expect(elapsed).toBeLessThan(100);
-          return decision;
-        },
-      };
-
-      runner.addBot('north', timingBot);
-      for (const seat of SEATS_IN_ORDER.filter(s => s !== 'north')) {
-        runner.addBot(seat, new RegularBot());
+        runner.addBot(seat, new Bot());
       }
       seatAllPlayers(actor);
       actor.send({ type: 'HOST_START_GAME' });

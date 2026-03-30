@@ -55,7 +55,6 @@ function makeRound(overrides: Partial<RoundState> = {}): RoundState {
 const defaultConfig: GameConfig = {
   targetScore: 1000,
   turnTimerSeconds: null,
-  botDifficulty: 'expert',
   spectatorsAllowed: true,
   isPrivate: false,
 };
