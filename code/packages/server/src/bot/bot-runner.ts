@@ -213,8 +213,8 @@ export class BotRunner {
 
       this.scheduleGrandTichuAction(seat, () => {
         const call = bot.chooseGrandTichu(hand8);
-        if (call && this.moveHandler) {
-          const result = this.moveHandler.handleGrandTichuDecision(seat, true);
+        if (this.moveHandler) {
+          const result = this.moveHandler.handleGrandTichuDecision(seat, call);
           if (!result.ok && result.error === 'PARTNER_ALREADY_CALLED') {
             // Partner already called — bot must pass instead
             this.send({ type: 'GRAND_TICHU_PASS', seat });
@@ -225,8 +225,10 @@ export class BotRunner {
             this.afterActionCallback?.();
             return;
           }
+          // Other error (e.g., already decided) — don't double-send
+          return;
         }
-        // Fallback: no moveHandler or non-call — send directly
+        // Fallback: no moveHandler — send directly
         this.send(call
           ? { type: 'GRAND_TICHU_CALL', seat }
           : { type: 'GRAND_TICHU_PASS', seat },
