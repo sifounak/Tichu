@@ -20,7 +20,7 @@ export interface AppConfig {
   corsOrigin: string;
   pingIntervalMs?: number;
   staleThresholdMs?: number;
-  databaseUrl?: string;
+  databasePath?: string;
   jwtSecret?: string;
 }
 
@@ -55,13 +55,13 @@ export function createApp(config: Partial<AppConfig> = {}) {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
 
-  // ─── Database & Auth (optional — skip if no DATABASE_URL) ───────────
+  // ─── Database & Auth (optional — skip if no DATABASE_PATH) ───────────
   let database: Database | null = null;
-  const dbUrl = cfg.databaseUrl ?? process.env.DATABASE_URL;
+  const dbPath = cfg.databasePath ?? process.env.DATABASE_PATH;
   const jwtSecret = cfg.jwtSecret ?? process.env.JWT_SECRET ?? 'tichu-dev-secret';
 
-  if (dbUrl) {
-    database = createDatabase(dbUrl);
+  if (dbPath) {
+    database = createDatabase(dbPath);
     registerAuthRoutes(fastify, database, jwtSecret);
   }
 
