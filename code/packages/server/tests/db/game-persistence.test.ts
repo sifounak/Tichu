@@ -8,19 +8,45 @@ import type { GameResult, RoundResult } from '../../src/db/game-persistence.js';
 // ─── Mock helpers ────────────────────────────────────────────────────
 
 function fluentChain(result: any[] = []): any {
+  // Used for getGameRounds which ends at .orderBy()
+  // Also used as default for createMockDatabase
+  const limitChain: any = {
+    limit: vi.fn(),
+    offset: vi.fn().mockReturnValue(result),
+  };
+  limitChain.limit.mockReturnValue(limitChain);
+
   const self: any = {
     from: vi.fn(),
     where: vi.fn(),
-    orderBy: vi.fn(),
-    limit: vi.fn(),
-    offset: vi.fn(),
+    orderBy: vi.fn().mockReturnValue(result),
+    limit: limitChain.limit,
+    offset: limitChain.offset,
     then: (resolve: (v: any) => void) => resolve(result),
   };
   self.from.mockReturnValue(self);
   self.where.mockReturnValue(self);
-  self.orderBy.mockReturnValue(self);
-  self.limit.mockReturnValue(self);
-  self.offset.mockReturnValue(self);
+  return self;
+}
+
+function paginatedChain(result: any[] = []): any {
+  // Used for getPlayerGameHistory which ends at .limit().offset()
+  const limitChain: any = {
+    limit: vi.fn(),
+    offset: vi.fn().mockReturnValue(result),
+  };
+  limitChain.limit.mockReturnValue(limitChain);
+
+  const self: any = {
+    from: vi.fn(),
+    where: vi.fn(),
+    orderBy: vi.fn().mockReturnValue(limitChain),
+    limit: limitChain.limit,
+    offset: limitChain.offset,
+    then: (resolve: (v: any) => void) => resolve(result),
+  };
+  self.from.mockReturnValue(self);
+  self.where.mockReturnValue(self);
   return self;
 }
 
@@ -28,13 +54,14 @@ function createMockTx() {
   return {
     insert: vi.fn().mockImplementation(() => ({
       values: vi.fn().mockImplementation((val: any) => ({
-        returning: vi.fn().mockResolvedValue([{ id: 42 }]),
+        returning: vi.fn().mockReturnValue([{ id: 42 }]),
+        run: vi.fn().mockReturnValue({ changes: 1, lastInsertRowid: 1 }),
         // values() also needs to be thenable for the rounds insert (no .returning())
         then: (resolve: (v: any) => void) => resolve(undefined),
         _passedValues: val,
       })),
     })),
-    execute: vi.fn().mockResolvedValue(undefined),
+    run: vi.fn().mockReturnValue({ changes: 1, lastInsertRowid: 1 }),
   };
 }
 
@@ -43,7 +70,7 @@ function createMockDatabase(mockTx?: any): Database {
   return {
     db: {
       select: vi.fn().mockImplementation(() => fluentChain([])),
-      transaction: vi.fn().mockImplementation(async (callback: any) => {
+      transaction: vi.fn().mockImplementation((callback: any) => {
         return callback(tx);
       }),
       execute: vi.fn().mockResolvedValue({ rows: [] }),
@@ -92,22 +119,22 @@ function makeRound(overrides: Partial<RoundResult> = {}): RoundResult {
 
 describe('game-persistence', () => {
   describe('saveGameResult', () => {
-    it('should call transaction on db', async () => {
+    it('should call transaction on db', () => {
       const mockTx = createMockTx();
       const mockDb = createMockDatabase(mockTx);
       const gameResult = makeGameResult();
 
-      await saveGameResult(mockDb, gameResult, [makeRound()]);
+      saveGameResult(mockDb, gameResult, [makeRound()]);
 
       expect(mockDb.db.transaction).toHaveBeenCalledOnce();
     });
 
-    it('should insert game record with correct player data', async () => {
+    it('should insert game record with correct player data', () => {
       const mockTx = createMockTx();
       const mockDb = createMockDatabase(mockTx);
       const gameResult = makeGameResult();
 
-      await saveGameResult(mockDb, gameResult, [makeRound()]);
+      saveGameResult(mockDb, gameResult, [makeRound()]);
 
       expect(mockTx.insert).toHaveBeenCalled();
       // First insert call is for the game record
@@ -120,13 +147,13 @@ describe('game-persistence', () => {
       expect(valuesArg.northName).toBe('Alice');
     });
 
-    it('should insert round records for each round', async () => {
+    it('should insert round records for each round', () => {
       const mockTx = createMockTx();
       const mockDb = createMockDatabase(mockTx);
       const gameResult = makeGameResult();
       const rounds = [makeRound({ roundNumber: 1 }), makeRound({ roundNumber: 2 })];
 
-      await saveGameResult(mockDb, gameResult, rounds);
+      saveGameResult(mockDb, gameResult, rounds);
 
       // insert is called: once for game, once for rounds
       expect(mockTx.insert).toHaveBeenCalledTimes(2);
@@ -138,18 +165,18 @@ describe('game-persistence', () => {
       expect(roundValuesArg[1].roundNumber).toBe(2);
     });
 
-    it('should call execute (upsertPlayerStats) for each human player', async () => {
+    it('should call run (upsertPlayerStats) for each human player', () => {
       const mockTx = createMockTx();
       const mockDb = createMockDatabase(mockTx);
       const gameResult = makeGameResult(); // 4 human players
 
-      await saveGameResult(mockDb, gameResult, [makeRound()]);
+      saveGameResult(mockDb, gameResult, [makeRound()]);
 
-      // 4 human players -> 4 execute calls for upsertPlayerStats
-      expect(mockTx.execute).toHaveBeenCalledTimes(4);
+      // 4 human players -> 4 run calls for upsertPlayerStats
+      expect(mockTx.run).toHaveBeenCalledTimes(4);
     });
 
-    it('should NOT call execute for stats when all players are bots', async () => {
+    it('should NOT call run for stats when all players are bots', () => {
       const mockTx = createMockTx();
       const mockDb = createMockDatabase(mockTx);
       const gameResult = makeGameResult({
@@ -161,13 +188,13 @@ describe('game-persistence', () => {
         },
       });
 
-      await saveGameResult(mockDb, gameResult, [makeRound()]);
+      saveGameResult(mockDb, gameResult, [makeRound()]);
 
-      // No human players -> no execute calls
-      expect(mockTx.execute).not.toHaveBeenCalled();
+      // No human players -> no run calls
+      expect(mockTx.run).not.toHaveBeenCalled();
     });
 
-    it('should compute tichu stats correctly', async () => {
+    it('should compute tichu stats correctly', () => {
       const mockTx = createMockTx();
       const mockDb = createMockDatabase(mockTx);
       const gameResult = makeGameResult({
@@ -193,23 +220,23 @@ describe('game-persistence', () => {
         }),
       ];
 
-      await saveGameResult(mockDb, gameResult, rounds);
+      saveGameResult(mockDb, gameResult, rounds);
 
-      // Only 1 human -> 1 execute call
-      expect(mockTx.execute).toHaveBeenCalledTimes(1);
-      // The execute was called with a SQL template object
-      const executeArg = mockTx.execute.mock.calls[0][0];
-      expect(executeArg).toBeDefined();
+      // Only 1 human -> 1 run call
+      expect(mockTx.run).toHaveBeenCalledTimes(1);
+      // The run was called with a SQL template object
+      const runArg = mockTx.run.mock.calls[0][0];
+      expect(runArg).toBeDefined();
     });
   });
 
   describe('getPlayerGameHistory', () => {
-    it('should call select/from/where/orderBy/limit/offset with correct structure', async () => {
+    it('should call select/from/where/orderBy/limit/offset with correct structure', () => {
       const mockDb = createMockDatabase();
-      const chain = fluentChain([{ id: 1, roomCode: 'TEST' }]);
+      const chain = paginatedChain([{ id: 1, roomCode: 'TEST' }]);
       (mockDb.db as any).select = vi.fn().mockReturnValue(chain);
 
-      await getPlayerGameHistory(mockDb, 'user1', 10, 5);
+      getPlayerGameHistory(mockDb, 'user1', 10, 5);
 
       expect(mockDb.db.select).toHaveBeenCalled();
       expect(chain.from).toHaveBeenCalled();
@@ -219,24 +246,24 @@ describe('game-persistence', () => {
       expect(chain.offset).toHaveBeenCalledWith(5);
     });
 
-    it('should return the result from the chain', async () => {
+    it('should return the result from the chain', () => {
       const expected = [{ id: 1, roomCode: 'ABCD' }, { id: 2, roomCode: 'EFGH' }];
       const mockDb = createMockDatabase();
-      (mockDb.db as any).select = vi.fn().mockReturnValue(fluentChain(expected));
+      (mockDb.db as any).select = vi.fn().mockReturnValue(paginatedChain(expected));
 
-      const result = await getPlayerGameHistory(mockDb, 'user1');
+      const result = getPlayerGameHistory(mockDb, 'user1');
 
       expect(result).toEqual(expected);
     });
   });
 
   describe('getGameRounds', () => {
-    it('should call select/from/where/orderBy', async () => {
+    it('should call select/from/where/orderBy', () => {
       const mockDb = createMockDatabase();
       const chain = fluentChain([]);
       (mockDb.db as any).select = vi.fn().mockReturnValue(chain);
 
-      await getGameRounds(mockDb, 42);
+      getGameRounds(mockDb, 42);
 
       expect(mockDb.db.select).toHaveBeenCalled();
       expect(chain.from).toHaveBeenCalled();
@@ -244,12 +271,12 @@ describe('game-persistence', () => {
       expect(chain.orderBy).toHaveBeenCalled();
     });
 
-    it('should return the result from the chain', async () => {
+    it('should return the result from the chain', () => {
       const expected = [{ roundNumber: 1, totalNS: 75, totalEW: 25 }];
       const mockDb = createMockDatabase();
       (mockDb.db as any).select = vi.fn().mockReturnValue(fluentChain(expected));
 
-      const result = await getGameRounds(mockDb, 42);
+      const result = getGameRounds(mockDb, 42);
 
       expect(result).toEqual(expected);
     });
