@@ -252,7 +252,15 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         gameStore.reset();
         router.push('/lobby');
       } else if (msg.type === 'ERROR') {
-        uiStore.showErrorToast(msg.message);
+        if (msg.code === 'PARTNER_ALREADY_CALLED') {
+          // Parse partner call level from message (format: "PARTNER_ALREADY_CALLED:grandTichu")
+          const partnerCall = msg.message.split(':')[1] || 'tichu';
+          // Determine which call was attempted based on game phase
+          const callType = gameStore.phase === 'grandTichuDecision' ? 'grandTichu' : 'tichu';
+          setPartnerCallConfirm({ type: callType, partnerCall });
+        } else {
+          uiStore.showErrorToast(msg.message);
+        }
       } else {
         gameStore.applyServerMessage(msg);
       }
@@ -314,6 +322,12 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
   // Show received cards after the exchange
   const [showReceivedCards, setShowReceivedCards] = useState(false);
+
+  // Partner call safeguard confirmation dialog state
+  const [partnerCallConfirm, setPartnerCallConfirm] = useState<{
+    type: 'grandTichu' | 'tichu';
+    partnerCall: string;
+  } | null>(null);
 
   /** Check if Mahjong is among the selected cards */
   const hasMahjongInSelection = useCallback(() => {
@@ -457,6 +471,26 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     (call: boolean) => send({ type: 'GRAND_TICHU_DECISION', call }),
     [send],
   );
+
+  const handlePartnerOverrideConfirm = useCallback(() => {
+    if (!partnerCallConfirm) return;
+    if (partnerCallConfirm.type === 'grandTichu') {
+      send({ type: 'GRAND_TICHU_DECISION', call: true, partnerOverride: true });
+    } else {
+      send({ type: 'TICHU_DECLARATION', partnerOverride: true });
+    }
+    setPartnerCallConfirm(null);
+  }, [partnerCallConfirm, send]);
+
+  const handlePartnerOverrideCancel = useCallback(() => {
+    if (!partnerCallConfirm) return;
+    if (partnerCallConfirm.type === 'grandTichu') {
+      // Send a GT pass instead
+      send({ type: 'GRAND_TICHU_DECISION', call: false });
+    }
+    // For regular Tichu, just dismiss — no further action needed
+    setPartnerCallConfirm(null);
+  }, [partnerCallConfirm, send]);
 
   // --- Card passing state (lifted from PreGamePhase for visual continuity) ---
   const [passSelection, setPassSelection] = useState<Map<Seat, GameCard>>(new Map());
@@ -1465,6 +1499,76 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
 
       <ConnectionStatus status={status} />
       <ErrorToast message={uiStore.errorToast} onDismiss={uiStore.clearErrorToast} />
+
+      {/* Partner call safeguard confirmation dialog */}
+      {partnerCallConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.6)',
+            zIndex: 1000,
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Partner already called"
+        >
+          <div
+            style={{
+              background: 'var(--color-surface)',
+              borderRadius: 'var(--space-3)',
+              padding: 'var(--space-6)',
+              maxWidth: '400px',
+              textAlign: 'center',
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            <h3 style={{ margin: '0 0 var(--space-3)', color: 'var(--color-warning, #f59e0b)' }}>
+              Partner Already Called
+            </h3>
+            <p style={{ margin: '0 0 var(--space-4)', color: 'var(--color-text)' }}>
+              Your partner has already called{' '}
+              <strong>{partnerCallConfirm.partnerCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}</strong>.
+              {' '}Calling {partnerCallConfirm.type === 'grandTichu' ? 'Grand Tichu' : 'Tichu'} as well is risky.
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
+              <button
+                onClick={handlePartnerOverrideCancel}
+                autoFocus
+                style={{
+                  padding: 'var(--space-2) var(--space-4)',
+                  borderRadius: 'var(--space-2)',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text)',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePartnerOverrideConfirm}
+                style={{
+                  padding: 'var(--space-2) var(--space-4)',
+                  borderRadius: 'var(--space-2)',
+                  border: 'none',
+                  background: 'var(--color-tichu-badge)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 600,
+                }}
+              >
+                Call {partnerCallConfirm.type === 'grandTichu' ? 'Grand Tichu' : 'Tichu'} Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
