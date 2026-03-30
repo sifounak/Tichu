@@ -2,6 +2,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BotRunner, INSTANT_CONFIG, type BotRunnerConfig } from '../../src/bot/bot-runner.js';
+import { MoveHandler } from '../../src/game/move-handler.js';
 import { RegularBot } from '../../src/bot/regular-bot.js';
 import {
   createGameActor,
@@ -405,6 +406,100 @@ describe('BotRunner', () => {
         expect.arrayContaining([expect.objectContaining({ id: expect.any(Number) })]),
       );
     });
+  });
+});
+
+describe('partner tichu call safeguard', () => {
+  let actor: GameActor;
+  let runner: BotRunner;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    runner?.dispose();
+    actor?.stop();
+    vi.useRealTimers();
+  });
+
+  it('should send GT pass when bot GT call is rejected due to partner call', async () => {
+    actor = createTestActor();
+    seatAllPlayers(actor);
+    actor.send({ type: 'HOST_START_GAME' });
+    expect(getState(actor)).toBe('grandTichuDecision');
+
+    // North (human) calls GT first
+    actor.send({ type: 'GRAND_TICHU_CALL', seat: 'north' });
+    expect(getContext(actor).grandTichuDecisions.has('north')).toBe(true);
+
+    // South is a bot that always wants to call GT — but North (partner) already called
+    const southBot: BotStrategy = {
+      difficulty: 'regular',
+      chooseGrandTichu: () => true,
+      chooseRegularTichu: () => false,
+      chooseCardsToPass: vi.fn(),
+      choosePlay: vi.fn().mockReturnValue({ action: 'pass' }),
+      chooseDragonGiftRecipient: vi.fn().mockReturnValue('east'),
+      chooseMahjongWish: vi.fn().mockReturnValue(null),
+    };
+
+    runner = new BotRunner(actor, INSTANT_CONFIG, new MoveHandler(actor));
+    runner.addBot('south', southBot);
+
+    runner.onStateChange();
+    await flushTimers();
+
+    const ctx = getContext(actor);
+    // South should have passed (not called GT) because partner (North) already called
+    expect(ctx.grandTichuDecisions.has('south')).toBe(true);
+    const round = ctx.currentRound!;
+    expect(round.players['south'].tipiCall).toBe('none');
+  });
+
+  it('should silently drop regular Tichu call when rejected due to partner call', async () => {
+    actor = createTestActor();
+    seatAllPlayers(actor);
+    actor.send({ type: 'HOST_START_GAME' });
+
+    // North calls GT, everyone else (including south) passes GT — reach cardPassing
+    actor.send({ type: 'GRAND_TICHU_CALL', seat: 'north' });
+    actor.send({ type: 'GRAND_TICHU_PASS', seat: 'east' });
+    actor.send({ type: 'GRAND_TICHU_PASS', seat: 'south' });
+    actor.send({ type: 'GRAND_TICHU_PASS', seat: 'west' });
+    expect(getState(actor)).toBe('cardPassing');
+
+    // At this point North has tipiCall === 'grandTichu'
+    // South is a bot that always wants to call regular Tichu — but North (partner) already called
+    const southBot: BotStrategy = {
+      difficulty: 'regular',
+      chooseGrandTichu: () => false,
+      chooseRegularTichu: () => true,
+      chooseCardsToPass: (hand, seat) => {
+        const otherSeats = (['north', 'east', 'west'] as Seat[]);
+        const cards = {} as Record<Seat, GameCard>;
+        for (let i = 0; i < otherSeats.length; i++) {
+          cards[otherSeats[i]] = hand[i];
+        }
+        return cards;
+      },
+      choosePlay: vi.fn().mockReturnValue({ action: 'pass' }),
+      chooseDragonGiftRecipient: vi.fn().mockReturnValue('east'),
+      chooseMahjongWish: vi.fn().mockReturnValue(null),
+    };
+
+    runner = new BotRunner(actor, INSTANT_CONFIG, new MoveHandler(actor));
+    runner.addBot('south', southBot);
+
+    runner.onStateChange();
+    await flushTimers();
+
+    const ctx = getContext(actor);
+    const round = ctx.currentRound!;
+    // South's tichu call should have been silently dropped (partner North already called)
+    expect(round.players['south'].tipiCall).toBe('none');
+    // But South should still have passed cards
+    expect(ctx.cardPassDecisions.has('south')).toBe(true);
   });
 });
 
