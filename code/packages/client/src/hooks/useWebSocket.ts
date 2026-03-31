@@ -17,6 +17,8 @@ export interface UseWebSocketOptions {
   maxRetries?: number;
   /** Enable auto-reconnection (default: true) */
   autoReconnect?: boolean;
+  /** Defer connection until true (default: true). Use to wait for auth before connecting. */
+  enabled?: boolean;
 }
 
 const BASE_DELAY_MS = 500;
@@ -34,6 +36,7 @@ export function useWebSocket({
   onStatusChange,
   maxRetries = 10,
   autoReconnect = true,
+  enabled = true,
 }: UseWebSocketOptions) {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
@@ -131,12 +134,13 @@ export function useWebSocket({
     return false;
   }, []);
 
-  // Connect on mount, disconnect on unmount
+  // Connect on mount (when enabled), disconnect on unmount
   useEffect(() => {
+    if (!enabled) return;
     intentionalCloseRef.current = false;
     connect();
     return disconnect;
-  }, [connect, disconnect]);
+  }, [enabled, connect, disconnect]);
 
   return { status, send, disconnect, reconnect: connect };
 }
