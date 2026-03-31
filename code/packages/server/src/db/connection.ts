@@ -220,6 +220,13 @@ function syncSchema(client: BetterSqlite3Database): void {
     'bomb_forced_by_wish INTEGER NOT NULL DEFAULT 0',
     'the_tichu_clean INTEGER NOT NULL DEFAULT 0',
     'the_tichu_dirty INTEGER NOT NULL DEFAULT 0',
+    // REQ-F-SO02–SO05: Stats page overhaul columns
+    'last_finishes INTEGER NOT NULL DEFAULT 0',
+    'tichu_broken_by_partner INTEGER NOT NULL DEFAULT 0',
+    'grand_tichu_broken_by_partner INTEGER NOT NULL DEFAULT 0',
+    'games_requiring_tie_break INTEGER NOT NULL DEFAULT 0',
+    'most_tie_break_rounds_needed INTEGER NOT NULL DEFAULT 0',
+    'games_joined_after_spectating INTEGER NOT NULL DEFAULT 0',
   ];
   for (const col of newColumns) {
     try {

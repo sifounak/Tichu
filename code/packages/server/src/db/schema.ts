@@ -103,6 +103,16 @@ export const playerStats = sqliteTable('player_stats', {
   // REQ-F-GB04: Partner Tichu/Grand Tichu broken
   partnerTichuBroken: integer('partner_tichu_broken').notNull().default(0),
   partnerGrandTichuBroken: integer('partner_grand_tichu_broken').notNull().default(0),
+  // REQ-F-SO02: Last-place finishes
+  lastFinishes: integer('last_finishes').notNull().default(0),
+  // REQ-F-SO03: Tichu broken by partner (I called, partner broke it)
+  tichuBrokenByPartner: integer('tichu_broken_by_partner').notNull().default(0),
+  grandTichuBrokenByPartner: integer('grand_tichu_broken_by_partner').notNull().default(0),
+  // REQ-F-SO04: Tie-break tracking
+  gamesRequiringTieBreak: integer('games_requiring_tie_break').notNull().default(0),
+  mostTieBreakRoundsNeeded: integer('most_tie_break_rounds_needed').notNull().default(0),
+  // REQ-F-SO05: Spectator-to-player transition
+  gamesJoinedAfterSpectating: integer('games_joined_after_spectating').notNull().default(0),
 
   // ── Group C: Card event stats ──
   // REQ-F-GC01: Rounds with Dragon / Phoenix
