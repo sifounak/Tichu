@@ -658,8 +658,8 @@ export class RoomHandler {
       // REQ-F-PW01: Wire game-end callback for persistence
       if (this.database) {
         const db = this.database;
-        game.wireGameEndCallback((context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>) => {
-          this.persistGameResult(db, roomCode, room.players, context, roundEvents);
+        game.wireGameEndCallback((context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => {
+          this.persistGameResult(db, roomCode, room.players, context, roundEvents, joinedAfterSpectating);
         });
       }
 
@@ -717,6 +717,7 @@ export class RoomHandler {
     players: RoomPlayer[],
     context: GameMachineContext,
     roundEvents?: Map<number, RoundEventSummary[]>,
+    joinedAfterSpectating?: Set<string>,
   ): void {
     const winnerTeam = context.winner === 'northSouth' ? 'NS' as const : 'EW' as const;
 
@@ -745,6 +746,8 @@ export class RoomHandler {
       roundScores: context.roundHistory,
       // REQ-F-EC04: Pass round events for Group C stat persistence
       roundEvents,
+      // REQ-F-SO14: Pass spectator-to-player transition set
+      joinedAfterSpectating,
     };
 
     // Convert RoundScore[] to RoundResult[]
@@ -758,9 +761,8 @@ export class RoomHandler {
         }
       }
 
-      // finishOrder: not available in RoundScore; derive from tichuResults.won
-      // For stat computation, tichuResults.won is used directly (Milestone 2)
-      const finishOrder: Seat[] = [];
+      // REQ-F-SO01: finishOrder now available in RoundScore
+      const finishOrder: Seat[] = rs.finishOrder ?? [];
 
       return {
         roundNumber: rs.roundNumber,
@@ -801,6 +803,8 @@ export class RoomHandler {
             // Send current game state if game is in progress
             const game = this.gameStore.getGameByRoom(roomCode);
             if (game) {
+              // REQ-F-SO16: Track spectator-to-player transition mid-game
+              game.markJoinedAfterSpectating(userId);
               game.handleSeatFilled(seat);
             }
           }
