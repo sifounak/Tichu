@@ -55,14 +55,15 @@ export function createApp(config: Partial<AppConfig> = {}) {
     return { status: 'ok', timestamp: new Date().toISOString() };
   });
 
-  // ─── Database & Auth (optional — skip if no DATABASE_PATH) ───────────
-  let database: Database | null = null;
-  const dbPath = cfg.databasePath ?? process.env.DATABASE_PATH;
+  // ─── Database & Auth ─────────────────────────────────────────────────
+  const dbPath = cfg.databasePath ?? process.env.DATABASE_PATH ?? './data/tichu.sqlite';
   const jwtSecret = cfg.jwtSecret ?? process.env.JWT_SECRET ?? 'tichu-dev-secret';
-
-  if (dbPath) {
+  let database: Database | null = null;
+  try {
     database = createDatabase(dbPath);
     registerAuthRoutes(fastify, database, jwtSecret);
+  } catch (err) {
+    fastify.log.warn(`Database unavailable (${err instanceof Error ? err.message : err}). Auth routes disabled.`);
   }
 
   // ─── WebSocket infrastructure ────────────────────────────────────────
@@ -221,7 +222,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
       gameStore.dispose();
       connections.dispose();
       wss.close();
-      if (database) await database.close();
+      if (database) database.close();
       await fastify.close();
     },
   };

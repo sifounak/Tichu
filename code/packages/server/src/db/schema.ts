@@ -8,8 +8,12 @@ import { sql } from 'drizzle-orm';
 
 // ─── Users ──────────────────────────────────────────────────────────────
 
+// REQ-F-AU10: Registration requires username, email, password
+// REQ-F-AU11: Username unique (case-insensitive, trimmed)
+// REQ-NF-AU03: Username uniqueness enforced at DB level
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),
+  username: text('username'),
   displayName: text('display_name').notNull(),
   email: text('email'),
   passwordHash: text('password_hash'),
@@ -18,6 +22,7 @@ export const users = sqliteTable('users', {
   lastSeenAt: text('last_seen_at').notNull().default(sql`(datetime('now'))`),
 }, (table) => [
   uniqueIndex('users_email_unique').on(table.email),
+  uniqueIndex('users_username_unique').on(table.username),
 ]);
 
 // ─── Completed Games ────────────────────────────────────────────────────

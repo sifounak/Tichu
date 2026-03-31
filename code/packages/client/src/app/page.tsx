@@ -1,12 +1,19 @@
+// REQ-F-ID03: Auth-aware home page
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuthStore } from '@/stores/authStore';
 
 export default function Home() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const { user, loadFromStorage } = useAuthStore();
+
+  useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
+
+  const isLoggedIn = user !== null && !user.isGuest;
 
   const handlePlayNow = () => {
     setLoading(true);
@@ -35,9 +42,15 @@ export default function Home() {
             Play Now
           </button>
           <div className="flex gap-4">
-            <Link href="/auth" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
-              Sign In / Register
-            </Link>
+            {isLoggedIn ? (
+              <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+                Welcome, {user!.username}
+              </span>
+            ) : (
+              <Link href="/auth" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
+                Sign In / Register
+              </Link>
+            )}
             <Link href="/leaderboard" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
               Leaderboard
             </Link>

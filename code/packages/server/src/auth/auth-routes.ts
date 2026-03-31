@@ -24,17 +24,18 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
 
   // ─── Account registration ────────────────────────────────────────────
 
+  // REQ-F-AU10: Registration requires username, email, password
   fastify.post('/api/auth/register', async (request, reply) => {
-    const body = request.body as { userId: string; email: string; password: string; displayName: string };
-    if (!body.email || !body.password || !body.displayName) {
-      return reply.status(400).send({ error: 'email, password, and displayName are required' });
+    const body = request.body as { userId: string; username: string; email: string; password: string };
+    if (!body.username || !body.email || !body.password) {
+      return reply.status(400).send({ error: 'username, email, and password are required' });
     }
     try {
       const result = await registerAccount(database, jwtSecret, {
         userId: body.userId || `user_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        username: body.username,
         email: body.email,
         password: body.password,
-        displayName: body.displayName,
       });
       return { token: result.token, userId: result.userId };
     } catch (err: any) {
@@ -44,14 +45,15 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
 
   // ─── Login ────────────────────────────────────────────────────────────
 
+  // REQ-F-AU14: Login accepts (username OR email) + password
   fastify.post('/api/auth/login', async (request, reply) => {
-    const body = request.body as { email: string; password: string };
-    if (!body.email || !body.password) {
-      return reply.status(400).send({ error: 'email and password are required' });
+    const body = request.body as { identifier: string; password: string };
+    if (!body.identifier || !body.password) {
+      return reply.status(400).send({ error: 'identifier (username or email) and password are required' });
     }
     try {
-      const result = await loginAccount(database, jwtSecret, body.email, body.password);
-      return { token: result.token, userId: result.userId, displayName: result.displayName };
+      const result = await loginAccount(database, jwtSecret, body.identifier, body.password);
+      return { token: result.token, userId: result.userId, username: result.username };
     } catch (err: any) {
       return reply.status(401).send({ error: err.message });
     }

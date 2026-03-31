@@ -1,11 +1,17 @@
 // REQ-F-MP03: Public lobby — browse rooms, create, join by code
+// REQ-F-LU01: Hide name input when logged in
+// REQ-F-LU02: Show user icon + username in header when logged in
+// REQ-F-ID01: WebSocket connects with auth identity
+// REQ-F-ID02: CREATE_ROOM/JOIN_ROOM use username as playerName
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRoomStore } from '@/stores/roomStore';
+import { useAuthStore } from '@/stores/authStore';
 import { CreateGamePopup } from '@/components/lobby/CreateGamePopup';
+import { UserMenu } from '@/components/lobby/UserMenu';
 import type { CreateGameConfig } from '@/components/lobby/CreateGamePopup';
 import type { ServerMessage } from '@tichu/shared';
 
@@ -31,12 +37,23 @@ export default function LobbyPage() {
   const [sortCol, setSortCol] = useState<'roomName' | 'hostName' | 'goal' | 'players'>('roomName');
   const [sortAsc, setSortAsc] = useState(true);
   const [error, setError] = useState('');
-  const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
+  const [guestId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
   const [kickedMessage, setKickedMessage] = useState<string | null>(null);
   // REQ-F-CG01: Popup state for game creation settings
   const [showCreatePopup, setShowCreatePopup] = useState(false);
   const [creatingGame, setCreatingGame] = useState(false);
   const [joiningGame, setJoiningGame] = useState(false);
+
+  // REQ-F-LU07: Load auth state on mount
+  const { user, loadFromStorage, logout } = useAuthStore();
+  useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
+
+  // Derive identity from auth state
+  const isLoggedIn = user !== null && !user.isGuest;
+  // REQ-F-ID01: Use auth userId and username when logged in
+  const effectiveUserId = user?.userId ?? guestId;
+  // REQ-F-ID02: Use username as playerName when logged in
+  const effectivePlayerName = isLoggedIn ? user!.username : playerName;
 
   // Check for kicked message on mount
   useEffect(() => {
@@ -66,8 +83,8 @@ export default function LobbyPage() {
     }
   }, [setLobbyRooms, setRoom, router]);
 
-  // Use stable 'Guest' in WS URL — real name is sent in CREATE_ROOM/JOIN_ROOM messages
-  const wsUrl = `${WS_BASE}?userId=${userId}&playerName=Guest`;
+  // Use effective identity in WS URL
+  const wsUrl = `${WS_BASE}?userId=${effectiveUserId}&playerName=${encodeURIComponent(effectivePlayerName || 'Guest')}`;
 
   const { send, status } = useWebSocket({
     url: wsUrl,
@@ -89,47 +106,56 @@ export default function LobbyPage() {
 
   // REQ-F-CG01: Open settings popup instead of immediately creating room
   const handleCreate = () => {
-    if (!playerName.trim()) { setError('Please enter a name'); return; }
+    const name = effectivePlayerName.trim();
+    if (!name) { setError('Please enter a name'); return; }
     if (!roomName.trim()) { setRoomNameError(true); return; }
     setRoomNameError(false);
     setError('');
-    // Defer popup so an in-flight Enter keypress completes before the
-    // autoFocused submit button renders (prevents instant form submission).
     requestAnimationFrame(() => setShowCreatePopup(true));
   };
 
   // REQ-F-CG05: Create room with config from popup
   const handleCreateConfirm = (config: CreateGameConfig) => {
+    const name = effectivePlayerName.trim();
     setShowCreatePopup(false);
     setCreatingGame(true);
-    sessionStorage.setItem('tichu_player_name', playerName.trim());
-    send({ type: 'CREATE_ROOM', playerName: playerName.trim(), roomName: roomName.trim(), config });
+    sessionStorage.setItem('tichu_player_name', name);
+    send({ type: 'CREATE_ROOM', playerName: name, roomName: roomName.trim(), config });
   };
 
   const handleJoinByCode = () => {
-    if (!playerName.trim()) { setError('Please enter a name'); return; }
+    const name = effectivePlayerName.trim();
+    if (!name) { setError('Please enter a name'); return; }
     if (joinCode.length !== 6) { setError('Room code must be 6 characters'); return; }
     setError('');
     setJoiningGame(true);
-    sessionStorage.setItem('tichu_player_name', playerName.trim());
-    send({ type: 'JOIN_ROOM', roomCode: joinCode.toUpperCase(), playerName: playerName.trim() });
+    sessionStorage.setItem('tichu_player_name', name);
+    send({ type: 'JOIN_ROOM', roomCode: joinCode.toUpperCase(), playerName: name });
   };
 
   const handleJoinRoom = (roomCode: string) => {
-    if (!playerName.trim()) { setError('Please enter a name'); return; }
+    const name = effectivePlayerName.trim();
+    if (!name) { setError('Please enter a name'); return; }
     setError('');
     setJoiningGame(true);
-    sessionStorage.setItem('tichu_player_name', playerName.trim());
-    send({ type: 'JOIN_ROOM', roomCode, playerName: playerName.trim() });
+    sessionStorage.setItem('tichu_player_name', name);
+    send({ type: 'JOIN_ROOM', roomCode, playerName: name });
   };
 
   // REQ-F-SP01: Join room as spectator
   const handleJoinAsSpectator = (roomCode: string) => {
-    if (!playerName.trim()) { setError('Please enter a name'); return; }
+    const name = effectivePlayerName.trim();
+    if (!name) { setError('Please enter a name'); return; }
     setError('');
     setJoiningGame(true);
-    sessionStorage.setItem('tichu_player_name', playerName.trim());
-    send({ type: 'JOIN_ROOM', roomCode, playerName: playerName.trim(), asSpectator: true });
+    sessionStorage.setItem('tichu_player_name', name);
+    send({ type: 'JOIN_ROOM', roomCode, playerName: name, asSpectator: true });
+  };
+
+  // REQ-F-LU05: Logout handler — redirect to auth page
+  const handleLogout = () => {
+    logout();
+    router.push('/auth');
   };
 
   const handleSort = (col: typeof sortCol) => {
@@ -172,17 +198,33 @@ export default function LobbyPage() {
           <p className="mt-2" style={{ color: 'var(--color-text-secondary)' }}>
             {status === 'connected' ? 'Connected' : status === 'connecting' ? 'Connecting...' : 'Disconnected'}
           </p>
-          {/* REQ-F-UI01: Stats button */}
-          <a
-            href="/stats"
-            className="absolute top-0 right-0 px-3 py-1.5 rounded-lg text-sm font-semibold"
-            style={{
-              background: 'var(--color-gold-accent)',
-              color: 'var(--color-felt-green-dark)',
-            }}
-          >
-            Stats
-          </a>
+
+          {/* REQ-F-LU02: Top-right — user menu (logged in) or stats+signin (guest) */}
+          <div className="absolute top-0 right-0">
+            {isLoggedIn ? (
+              <UserMenu user={user!} onLogout={handleLogout} />
+            ) : (
+              <div className="flex gap-2 items-center">
+                <a
+                  href="/stats"
+                  className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                  style={{
+                    background: 'var(--color-gold-accent)',
+                    color: 'var(--color-felt-green-dark)',
+                  }}
+                >
+                  Stats
+                </a>
+                <a
+                  href="/auth"
+                  className="px-3 py-1.5 text-sm font-semibold"
+                  style={{ color: 'var(--color-text-secondary)', textDecoration: 'underline' }}
+                >
+                  Sign In
+                </a>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Kicked notification */}
@@ -217,24 +259,26 @@ export default function LobbyPage() {
           </div>
         )}
 
-        {/* Player name */}
-        <div className="mb-6 flex justify-center">
-          <input
-            type="text"
-            placeholder="Your name"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-            maxLength={30}
-            className="px-4 py-2 rounded-lg text-center font-semibold"
-            style={{
-              background: 'var(--color-bg-panel)',
-              color: 'var(--color-text-primary)',
-              border: '1px solid var(--color-border)',
-              width: '240px',
-            }}
-            aria-label="Player name"
-          />
-        </div>
+        {/* REQ-F-LU01: Hide name input when logged in */}
+        {!isLoggedIn && (
+          <div className="mb-6 flex justify-center">
+            <input
+              type="text"
+              placeholder="Your name"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              maxLength={30}
+              className="px-4 py-2 rounded-lg text-center font-semibold"
+              style={{
+                background: 'var(--color-bg-panel)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+                width: '240px',
+              }}
+              aria-label="Player name"
+            />
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 text-center py-2 px-4 rounded-lg"
