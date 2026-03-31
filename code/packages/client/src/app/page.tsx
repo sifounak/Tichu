@@ -47,7 +47,7 @@ export default function Home() {
                 Welcome, {user!.username}
               </span>
             ) : (
-              <Link href="/auth" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
+              <Link href="/login" className="text-sm underline" style={{ color: 'var(--color-text-secondary)' }}>
                 Sign In / Register
               </Link>
             )}
