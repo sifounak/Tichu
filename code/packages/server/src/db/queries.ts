@@ -40,6 +40,39 @@ export interface PlayerProfile {
   opponentGrandTichuBroken: number;
   partnerTichuBroken: number;
   partnerGrandTichuBroken: number;
+  // REQ-F-SO02–SO05: New stats
+  lastFinishes: number;
+  tichuBrokenByPartner: number;
+  grandTichuBrokenByPartner: number;
+  gamesRequiringTieBreak: number;
+  mostTieBreakRoundsNeeded: number;
+  gamesJoinedAfterSpectating: number;
+  // REQ-F-SO17: Group C card event stats
+  roundsWithDragon: number;
+  roundsWithDragonWon: number;
+  roundsWithPhoenix: number;
+  roundsWithPhoenixWon: number;
+  dragonReceivedInPass: number;
+  phoenixReceivedInPass: number;
+  aceReceivedInPass: number;
+  dogReceivedInPass: number;
+  dragonTrickWins: number;
+  dragonGivenAfterOpponentWin: number;
+  dogGivenToPartner: number;
+  dogGivenToOpponent: number;
+  dogPlayedForTichuPartner: number;
+  dogOpportunitiesForTichuPartner: number;
+  handsWithBombs: number;
+  totalBombs: number;
+  fourCardBombs: number;
+  fiveCardBombs: number;
+  sixPlusCardBombs: number;
+  bombsInFirst8: number;
+  handsWithMultipleBombs: number;
+  overBombed: number;
+  bombForcedByWish: number;
+  theTichuClean: number;
+  theTichuDirty: number;
 }
 
 const MIN_GAMES_FOR_LEADERBOARD = 5;
@@ -138,7 +171,40 @@ export function getPlayerProfile(
       ps.opponent_tichu_broken as opponentTichuBroken,
       ps.opponent_grand_tichu_broken as opponentGrandTichuBroken,
       ps.partner_tichu_broken as partnerTichuBroken,
-      ps.partner_grand_tichu_broken as partnerGrandTichuBroken
+      ps.partner_grand_tichu_broken as partnerGrandTichuBroken,
+      -- REQ-F-SO18: New stats
+      ps.last_finishes as lastFinishes,
+      ps.tichu_broken_by_partner as tichuBrokenByPartner,
+      ps.grand_tichu_broken_by_partner as grandTichuBrokenByPartner,
+      ps.games_requiring_tie_break as gamesRequiringTieBreak,
+      ps.most_tie_break_rounds_needed as mostTieBreakRoundsNeeded,
+      ps.games_joined_after_spectating as gamesJoinedAfterSpectating,
+      -- REQ-F-SO17: Group C card event stats
+      ps.rounds_with_dragon as roundsWithDragon,
+      ps.rounds_with_dragon_won as roundsWithDragonWon,
+      ps.rounds_with_phoenix as roundsWithPhoenix,
+      ps.rounds_with_phoenix_won as roundsWithPhoenixWon,
+      ps.dragon_received_in_pass as dragonReceivedInPass,
+      ps.phoenix_received_in_pass as phoenixReceivedInPass,
+      ps.ace_received_in_pass as aceReceivedInPass,
+      ps.dog_received_in_pass as dogReceivedInPass,
+      ps.dragon_trick_wins as dragonTrickWins,
+      ps.dragon_given_after_opponent_win as dragonGivenAfterOpponentWin,
+      ps.dog_given_to_partner as dogGivenToPartner,
+      ps.dog_given_to_opponent as dogGivenToOpponent,
+      ps.dog_played_for_tichu_partner as dogPlayedForTichuPartner,
+      ps.dog_opportunities_for_tichu_partner as dogOpportunitiesForTichuPartner,
+      ps.hands_with_bombs as handsWithBombs,
+      ps.total_bombs as totalBombs,
+      ps.four_card_bombs as fourCardBombs,
+      ps.five_card_bombs as fiveCardBombs,
+      ps.six_plus_card_bombs as sixPlusCardBombs,
+      ps.bombs_in_first_8 as bombsInFirst8,
+      ps.hands_with_multiple_bombs as handsWithMultipleBombs,
+      ps.over_bombed as overBombed,
+      ps.bomb_forced_by_wish as bombForcedByWish,
+      ps.the_tichu_clean as theTichuClean,
+      ps.the_tichu_dirty as theTichuDirty
     FROM player_stats ps
     JOIN users u ON u.id = ps.user_id
     WHERE ps.user_id = ${userId}

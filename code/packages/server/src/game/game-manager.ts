@@ -67,7 +67,9 @@ export class GameManager {
   /** Seats occupied by players who are choosing which vacated seat to take */
   private readonly choosingSeats = new Set<Seat>();
   /** REQ-F-PW01: Callback invoked when game reaches gameOver state */
-  private onGameEnd?: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>) => void;
+  private onGameEnd?: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => void;
+  /** REQ-F-SO15: Track players who joined as spectators then were promoted mid-game */
+  private readonly joinedAfterSpectating = new Set<string>();
   /** REQ-F-EC01: State-diff observer for mid-round card events */
   private readonly eventTracker = new RoundEventTracker();
   /** Accumulated round events: roundNumber → summaries */
@@ -275,8 +277,13 @@ export class GameManager {
 
   /** REQ-F-PW01: Wire the game-end callback — called when game reaches gameOver state.
    *  Called by room-handler to register persistence logic. */
-  wireGameEndCallback(onGameEnd: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>) => void): void {
+  wireGameEndCallback(onGameEnd: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => void): void {
     this.onGameEnd = onGameEnd;
+  }
+
+  /** REQ-F-SO15: Mark a userId as having joined the game after spectating */
+  markJoinedAfterSpectating(userId: string): void {
+    this.joinedAfterSpectating.add(userId);
   }
 
   /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
@@ -497,7 +504,7 @@ export class GameManager {
       this.broadcastState();
       if (this.onGameEnd) {
         try {
-          this.onGameEnd(this.context, this.roundEventHistory);
+          this.onGameEnd(this.context, this.roundEventHistory, this.joinedAfterSpectating);
         } catch {
           // Persistence failure must not crash the game server
         }

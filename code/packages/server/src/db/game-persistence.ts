@@ -25,6 +25,8 @@ export interface GameResult {
   roundScores?: RoundScore[];
   /** Optional: per-round per-player event summaries from RoundEventTracker */
   roundEvents?: Map<number, import('../game/round-event-types.js').RoundEventSummary[]>;
+  /** REQ-F-SO14: Set of userIds who joined as spectators then were promoted to players */
+  joinedAfterSpectating?: Set<string>;
 }
 
 export interface RoundResult {
@@ -100,12 +102,16 @@ export function saveGameResult(
     for (const { seat, userId } of humanPlayers) {
       // Use new computation functions when roundScores are available (from game context)
       if (gameResult.roundScores && gameResult.scores && gameResult.winner !== undefined) {
-        const gameStats = computeGameStats(gameResult.scores, gameResult.winner, gameResult.roundScores, seat);
+        // REQ-F-SO13: Pass targetScore for tie-break detection
+        const gameStats = computeGameStats(gameResult.scores, gameResult.winner, gameResult.roundScores, seat, gameResult.targetScore);
         const roundStats = computeRoundStats(gameResult.roundScores, seat);
+        // REQ-F-SO14: Track spectator-to-player transitions
+        const joinedAfterSpectating = gameResult.joinedAfterSpectating?.has(userId) ? 1 : 0;
 
         upsertPlayerStats(tx, userId, {
           ...gameStats,
           ...roundStats,
+          gamesJoinedAfterSpectating: joinedAfterSpectating,
         });
       } else {
         // Legacy path: compute from RoundResult[] (no roundScores available)
@@ -137,6 +143,8 @@ export function saveGameResult(
           largestLossDiff: 0,
           oneTwoWins: 0,
           oneTwoAgainst: 0,
+          gamesRequiringTieBreak: 0,
+          mostTieBreakRoundsNeeded: 0,
           totalRoundsPlayed: rounds.length,
           roundsWon: 0,
           firstFinishes,
@@ -148,6 +156,10 @@ export function saveGameResult(
           opponentGrandTichuBroken: 0,
           partnerTichuBroken: 0,
           partnerGrandTichuBroken: 0,
+          lastFinishes: 0,
+          tichuBrokenByPartner: 0,
+          grandTichuBrokenByPartner: 0,
+          gamesJoinedAfterSpectating: 0,
         });
       }
     }
@@ -199,6 +211,9 @@ export interface PlayerStatIncrements {
   largestLossDiff: number;
   oneTwoWins: number;
   oneTwoAgainst: number;
+  // REQ-F-SO10: Tie-break stats
+  gamesRequiringTieBreak: number;
+  mostTieBreakRoundsNeeded: number;
   // Group B
   totalRoundsPlayed: number;
   roundsWon: number;
@@ -211,6 +226,12 @@ export interface PlayerStatIncrements {
   opponentGrandTichuBroken: number;
   partnerTichuBroken: number;
   partnerGrandTichuBroken: number;
+  // REQ-F-SO08/SO09: New round-level stats
+  lastFinishes: number;
+  tichuBrokenByPartner: number;
+  grandTichuBrokenByPartner: number;
+  // REQ-F-SO14: Spectator-to-player
+  gamesJoinedAfterSpectating: number;
 }
 
 function upsertPlayerStats(
@@ -227,7 +248,10 @@ function upsertPlayerStats(
       total_rounds_played, first_finishes, last_updated_at,
       largest_win_diff, largest_loss_diff, one_two_wins, one_two_against,
       rounds_won, opponent_tichu_broken, opponent_grand_tichu_broken,
-      partner_tichu_broken, partner_grand_tichu_broken
+      partner_tichu_broken, partner_grand_tichu_broken,
+      last_finishes, tichu_broken_by_partner, grand_tichu_broken_by_partner,
+      games_requiring_tie_break, most_tie_break_rounds_needed,
+      games_joined_after_spectating
     ) VALUES (
       ${userId}, ${increments.gamesPlayed}, ${increments.gamesWon}, ${winRate},
       ${increments.tichuCalls}, ${increments.tichuSuccesses},
@@ -236,7 +260,10 @@ function upsertPlayerStats(
       ${increments.largestWinDiff}, ${increments.largestLossDiff},
       ${increments.oneTwoWins}, ${increments.oneTwoAgainst},
       ${increments.roundsWon}, ${increments.opponentTichuBroken}, ${increments.opponentGrandTichuBroken},
-      ${increments.partnerTichuBroken}, ${increments.partnerGrandTichuBroken}
+      ${increments.partnerTichuBroken}, ${increments.partnerGrandTichuBroken},
+      ${increments.lastFinishes}, ${increments.tichuBrokenByPartner}, ${increments.grandTichuBrokenByPartner},
+      ${increments.gamesRequiringTieBreak}, ${increments.mostTieBreakRoundsNeeded},
+      ${increments.gamesJoinedAfterSpectating}
     )
     ON CONFLICT (user_id) DO UPDATE SET
       games_played = player_stats.games_played + excluded.games_played,
@@ -261,6 +288,12 @@ function upsertPlayerStats(
       opponent_grand_tichu_broken = player_stats.opponent_grand_tichu_broken + excluded.opponent_grand_tichu_broken,
       partner_tichu_broken = player_stats.partner_tichu_broken + excluded.partner_tichu_broken,
       partner_grand_tichu_broken = player_stats.partner_grand_tichu_broken + excluded.partner_grand_tichu_broken,
+      last_finishes = player_stats.last_finishes + excluded.last_finishes,
+      tichu_broken_by_partner = player_stats.tichu_broken_by_partner + excluded.tichu_broken_by_partner,
+      grand_tichu_broken_by_partner = player_stats.grand_tichu_broken_by_partner + excluded.grand_tichu_broken_by_partner,
+      games_requiring_tie_break = player_stats.games_requiring_tie_break + excluded.games_requiring_tie_break,
+      most_tie_break_rounds_needed = MAX(player_stats.most_tie_break_rounds_needed, excluded.most_tie_break_rounds_needed),
+      games_joined_after_spectating = player_stats.games_joined_after_spectating + excluded.games_joined_after_spectating,
       last_updated_at = datetime('now')
   `);
 }
@@ -350,6 +383,7 @@ export function getPlayerGameHistory(
 ) {
   const { db } = database;
 
+  // REQ-F-SO19: Include userId columns for player team detection
   return db.select({
     id: games.id,
     roomCode: games.roomCode,
@@ -359,6 +393,10 @@ export function getPlayerGameHistory(
     finalScoreNS: games.finalScoreNS,
     finalScoreEW: games.finalScoreEW,
     roundCount: games.roundCount,
+    northUserId: games.northUserId,
+    eastUserId: games.eastUserId,
+    southUserId: games.southUserId,
+    westUserId: games.westUserId,
     northName: games.northName,
     eastName: games.eastName,
     southName: games.southName,
@@ -402,4 +440,34 @@ export function getGameRounds(
     .from(gameRounds)
     .where(eq(gameRounds.gameId, gameId))
     .orderBy(gameRounds.roundNumber);
+}
+
+/**
+ * REQ-F-SO20: Get per-game Tichu call summaries for a batch of game IDs.
+ * Returns a map of gameId → { tichuCalls, tichuSuccesses, grandTichuCalls, grandTichuSuccesses }
+ * per seat, so the client can compute team-relative totals.
+ */
+export function getGameTichuSummaries(
+  database: Database,
+  gameIds: number[],
+): Map<number, { tichuCalls: Record<string, string>; finishOrder: Seat[] }[]> {
+  if (gameIds.length === 0) return new Map();
+
+  const { db } = database;
+  const results = db.all(sql`
+    SELECT game_id, tichu_calls, finish_order
+    FROM game_rounds
+    WHERE game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
+    ORDER BY game_id, round_number
+  `) as { game_id: number; tichu_calls: string; finish_order: string }[];
+
+  const summaries = new Map<number, { tichuCalls: Record<string, string>; finishOrder: Seat[] }[]>();
+  for (const row of results) {
+    if (!summaries.has(row.game_id)) summaries.set(row.game_id, []);
+    summaries.get(row.game_id)!.push({
+      tichuCalls: typeof row.tichu_calls === 'string' ? JSON.parse(row.tichu_calls) : row.tichu_calls as any,
+      finishOrder: typeof row.finish_order === 'string' ? JSON.parse(row.finish_order) : row.finish_order as any,
+    });
+  }
+  return summaries;
 }
