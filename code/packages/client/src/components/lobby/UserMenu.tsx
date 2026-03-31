@@ -85,6 +85,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
               padding: '10px 16px',
               color: 'var(--color-text-primary)',
               textDecoration: 'none',
+              textAlign: 'left',
               fontSize: '14px',
               fontWeight: 500,
               transition: 'background 0.15s',

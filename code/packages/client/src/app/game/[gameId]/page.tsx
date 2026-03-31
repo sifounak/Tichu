@@ -17,6 +17,7 @@ import { useCardSelection } from '@/hooks/useCardSelection';
 import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useUiStore } from '@/stores/uiStore';
+import { useAuthStore } from '@/stores/authStore';
 import { GameTable } from '@/components/game/GameTable';
 import { PlayerSeat } from '@/components/game/PlayerSeat';
 import { ActionBar } from '@/components/game/ActionBar';
@@ -67,11 +68,15 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   const [showVoteDropdown, setShowVoteDropdown] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
 
-  // REQ-F-SG01: Include userId and playerName in WebSocket URL
-  const [userId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
-  const playerName = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('tichu_player_name') ?? 'Guest')
-    : 'Guest';
+  // REQ-F-ID01: Use auth identity when logged in, fall back to guest
+  const { user: authUser, loadFromStorage: loadAuth } = useAuthStore();
+  useEffect(() => { loadAuth(); }, [loadAuth]);
+  const isLoggedIn = authUser !== null && !authUser.isGuest;
+  const [guestId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
+  const userId = isLoggedIn ? authUser!.userId : guestId;
+  const playerName = isLoggedIn
+    ? authUser!.username
+    : (typeof window !== 'undefined' ? (sessionStorage.getItem('tichu_player_name') ?? 'Guest') : 'Guest');
 
   // REQ-F-DA01: Dog animation detection and timing
   const { enabled: animEnabled, multiplier: animMultiplier } = useAnimationSettings();
