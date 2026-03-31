@@ -7,17 +7,17 @@
 
 | ID | Description | Milestone | File:Line | Status |
 |----|-------------|-----------|-----------|--------|
-| REQ-F-SO01 | Add finishOrder to RoundScore | M1 | | Not Started |
-| REQ-F-SO02 | lastFinishes column | M1 | | Not Started |
-| REQ-F-SO03 | tichuBrokenByPartner columns | M1 | | Not Started |
-| REQ-F-SO04 | Tie-break tracking columns | M1 | | Not Started |
-| REQ-F-SO05 | gamesJoinedAfterSpectating column | M1 | | Not Started |
-| REQ-F-SO06 | Database migration | M1 | | Not Started |
-| REQ-F-SO07 | Fix firstFinishes to count all 1st-place | M1 | | Not Started |
-| REQ-F-SO08 | Compute lastFinishes | M1 | | Not Started |
-| REQ-F-SO09 | Compute tichuBrokenByPartner | M1 | | Not Started |
-| REQ-F-SO10 | Compute tie-break stats | M1 | | Not Started |
-| REQ-F-SO11 | Improve partnerTichuBroken with finishOrder | M1 | | Not Started |
+| REQ-F-SO01 | Add finishOrder to RoundScore | M1 | shared/src/types/game.ts:98, shared/src/engine/scoring.ts:145 | Passed |
+| REQ-F-SO02 | lastFinishes column | M1 | server/src/db/schema.ts:107, server/src/db/connection.ts:225 | Passed |
+| REQ-F-SO03 | tichuBrokenByPartner columns | M1 | server/src/db/schema.ts:109-110, server/src/db/connection.ts:226-227 | Passed |
+| REQ-F-SO04 | Tie-break tracking columns | M1 | server/src/db/schema.ts:112-113, server/src/db/connection.ts:228-229 | Passed |
+| REQ-F-SO05 | gamesJoinedAfterSpectating column | M1 | server/src/db/schema.ts:115, server/src/db/connection.ts:230 | Passed |
+| REQ-F-SO06 | Database migration | M1 | server/src/db/connection.ts:224-230 | Passed |
+| REQ-F-SO07 | Fix firstFinishes to count all 1st-place | M1 | server/src/db/stat-computations.ts:119-121 | Passed |
+| REQ-F-SO08 | Compute lastFinishes | M1 | server/src/db/stat-computations.ts:124-126 | Passed |
+| REQ-F-SO09 | Compute tichuBrokenByPartner | M1 | server/src/db/stat-computations.ts:153-157 | Passed |
+| REQ-F-SO10 | Compute tie-break stats | M1 | server/src/db/stat-computations.ts:71-83 | Passed |
+| REQ-F-SO11 | Improve partnerTichuBroken with finishOrder | M1 | server/src/db/stat-computations.ts:147-150 | Passed |
 | REQ-F-SO12 | Upsert new stat columns | M2 | | Not Started |
 | REQ-F-SO13 | Pass targetScore to computeGameStats | M2 | | Not Started |
 | REQ-F-SO14 | Track joinedAfterSpectating in persistence | M2 | | Not Started |
@@ -41,6 +41,6 @@
 
 | ID | Description | Milestone | Status |
 |----|-------------|-----------|--------|
-| REQ-NF-SO01 | No game engine modification | All | Not Started |
-| REQ-NF-SO02 | Backward compatibility | M1 | Not Started |
+| REQ-NF-SO01 | No game engine modification | All | Passed |
+| REQ-NF-SO02 | Backward compatibility | M1 | Passed |
 | REQ-NF-SO03 | Build passes | M3, M4 | Not Started |

@@ -142,6 +142,7 @@ export function scoreRound(
     },
     tichuResults,
     bombsPerTeam,
+    finishOrder,
   };
 }
 

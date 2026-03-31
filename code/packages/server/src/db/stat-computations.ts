@@ -1,4 +1,5 @@
 // REQ-F-GA01–GA05, REQ-F-GB01–GB05: Pure stat computation functions
+// REQ-F-SO07–SO11: Stats page overhaul — tie-break, lastFinishes, tichuBrokenByPartner, fix firstFinishes
 // These extract stat increments from GameMachineContext data without side effects.
 
 import type { Seat, Team, RoundScore } from '@tichu/shared';
@@ -12,6 +13,9 @@ export interface GameStatIncrements {
   largestLossDiff: number; // absolute score diff (used with MAX, not +=)
   oneTwoWins: number;
   oneTwoAgainst: number;
+  // REQ-F-SO10: Tie-break stats
+  gamesRequiringTieBreak: 0 | 1;
+  mostTieBreakRoundsNeeded: number; // used with MAX
 }
 
 /** Group B: Round-level stat increments */
@@ -27,6 +31,11 @@ export interface RoundStatIncrements {
   opponentGrandTichuBroken: number;
   partnerTichuBroken: number;
   partnerGrandTichuBroken: number;
+  // REQ-F-SO08: Last-place finishes
+  lastFinishes: number;
+  // REQ-F-SO09: Tichu broken by partner
+  tichuBrokenByPartner: number;
+  grandTichuBrokenByPartner: number;
 }
 
 /** Get opponent seats for a given seat */
@@ -36,13 +45,14 @@ export function getOpponentSeats(seat: Seat): [Seat, Seat] {
 }
 
 /**
- * REQ-F-GA01–GA05: Compute game-level stat increments from final scores and round history.
+ * REQ-F-GA01–GA05, REQ-F-SO10: Compute game-level stat increments from final scores and round history.
  */
 export function computeGameStats(
   scores: Record<Team, number>,
   winner: Team | null,
   roundHistory: RoundScore[],
   seat: Seat,
+  targetScore: number,
 ): GameStatIncrements {
   const myTeam = getTeam(seat);
   const won = winner === myTeam;
@@ -56,6 +66,23 @@ export function computeGameStats(
     else if (round.oneTwoBonus !== null) oneTwoAgainst++;
   }
 
+  // REQ-F-SO10: Tie-break detection
+  // A tie-break occurs when both teams reach/exceed targetScore simultaneously
+  let gamesRequiringTieBreak: 0 | 1 = 0;
+  let tieBreakRounds = 0;
+  let cumNS = 0;
+  let cumEW = 0;
+  for (let i = 0; i < roundHistory.length; i++) {
+    cumNS += roundHistory[i].total.northSouth;
+    cumEW += roundHistory[i].total.eastWest;
+    if (cumNS >= targetScore && cumEW >= targetScore && i < roundHistory.length - 1) {
+      // Both teams at/above target and game continued — this is a tie-break game
+      gamesRequiringTieBreak = 1;
+      tieBreakRounds = roundHistory.length - (i + 1);
+      break; // Count from first tie occurrence
+    }
+  }
+
   return {
     gamesPlayed: 1,
     gamesWon: won ? 1 : 0,
@@ -64,11 +91,13 @@ export function computeGameStats(
     largestLossDiff: won ? 0 : scoreDiff,
     oneTwoWins,
     oneTwoAgainst,
+    gamesRequiringTieBreak,
+    mostTieBreakRoundsNeeded: tieBreakRounds,
   };
 }
 
 /**
- * REQ-F-GB01–GB05: Compute round-level stat increments from round history.
+ * REQ-F-GB01–GB05, REQ-F-SO07–SO09, REQ-F-SO11: Compute round-level stat increments.
  */
 export function computeRoundStats(
   roundHistory: RoundScore[],
@@ -80,6 +109,7 @@ export function computeRoundStats(
 
   let roundsWon = 0;
   let firstFinishes = 0;
+  let lastFinishes = 0;
   let tichuCalls = 0;
   let tichuSuccesses = 0;
   let grandTichuCalls = 0;
@@ -88,6 +118,8 @@ export function computeRoundStats(
   let opponentGrandTichuBroken = 0;
   let partnerTichuBroken = 0;
   let partnerGrandTichuBroken = 0;
+  let tichuBrokenByPartner = 0;
+  let grandTichuBrokenByPartner = 0;
 
   for (const round of roundHistory) {
     // REQ-F-GB01: Round won = my team scored more
@@ -95,29 +127,29 @@ export function computeRoundStats(
       roundsWon++;
     }
 
+    const finishOrder = round.finishOrder;
+
+    // REQ-F-SO07: First finishes — count ALL 1st-place finishes using finishOrder
+    if (finishOrder && finishOrder.length > 0 && finishOrder[0] === seat) {
+      firstFinishes++;
+    }
+
+    // REQ-F-SO08: Last finishes — finished 4th (last)
+    if (finishOrder && finishOrder.length >= 4 && finishOrder[3] === seat) {
+      lastFinishes++;
+    }
+
     // My own tichu results
     const myResult = round.tichuResults[seat];
     if (myResult) {
       if (myResult.call === 'tichu') {
         tichuCalls++;
-        // REQ-F-GB02: Tichu success = won === true
-        if (myResult.won) {
-          tichuSuccesses++;
-          firstFinishes++;
-        }
+        if (myResult.won) tichuSuccesses++;
       } else if (myResult.call === 'grandTichu') {
         grandTichuCalls++;
-        if (myResult.won) {
-          grandTichuSuccesses++;
-          firstFinishes++;
-        }
+        if (myResult.won) grandTichuSuccesses++;
       }
     }
-
-    // First finish without tichu call (if I finished first but didn't call)
-    // We can't determine first finish without finishOrder for non-callers
-    // This will be improved when RoundEventTracker provides finishOrder (M3)
-    // For now, firstFinishes only counts successful tichu/GT calls
 
     // REQ-F-GB03: Opponent Tichu/Grand Tichu broken
     for (const opp of opponents) {
@@ -128,16 +160,18 @@ export function computeRoundStats(
       }
     }
 
-    // REQ-F-GB04: Partner Tichu/Grand Tichu broken (by me going out first)
+    // REQ-F-SO11: Partner Tichu/Grand Tichu broken (improved with finishOrder)
     // Partner called tichu/GT but I went out first => I broke their call
-    // We need finishOrder for this; use tichuResults.won as proxy:
-    // If partner called and lost, AND I called and won in the same round,
-    // that means I went out first and broke partner's call.
-    // This is an approximation — full tracking needs M3's RoundEventTracker
     const partnerResult = round.tichuResults[partner];
-    if (partnerResult && !partnerResult.won && myResult?.won) {
+    if (partnerResult && !partnerResult.won && finishOrder && finishOrder[0] === seat) {
       if (partnerResult.call === 'tichu') partnerTichuBroken++;
       if (partnerResult.call === 'grandTichu') partnerGrandTichuBroken++;
+    }
+
+    // REQ-F-SO09: Tichu broken by partner (I called, partner went out first)
+    if (myResult && !myResult.won && finishOrder && finishOrder[0] === partner) {
+      if (myResult.call === 'tichu') tichuBrokenByPartner++;
+      if (myResult.call === 'grandTichu') grandTichuBrokenByPartner++;
     }
   }
 
@@ -153,5 +187,8 @@ export function computeRoundStats(
     opponentGrandTichuBroken,
     partnerTichuBroken,
     partnerGrandTichuBroken,
+    lastFinishes,
+    tichuBrokenByPartner,
+    grandTichuBrokenByPartner,
   };
 }

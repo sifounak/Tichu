@@ -95,6 +95,8 @@ export interface RoundScore {
   tichuResults: Record<Seat, TichuResult | null>;
   /** REQ-F-GS12: Bombs played per team this round */
   bombsPerTeam: Record<Team, number>;
+  /** REQ-F-SO01: Order in which players finished the round */
+  finishOrder: Seat[];
 }
 
 /** Full state for one round of play */
