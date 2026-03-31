@@ -48,6 +48,7 @@ function syncSchema(client: BetterSqlite3Database): void {
   client.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
+      username TEXT,
       display_name TEXT NOT NULL,
       email TEXT,
       password_hash TEXT,
@@ -56,6 +57,7 @@ function syncSchema(client: BetterSqlite3Database): void {
       last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(email);
+    CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username);
 
     CREATE TABLE IF NOT EXISTS games (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -166,6 +168,18 @@ function syncSchema(client: BetterSqlite3Database): void {
       event_data TEXT NOT NULL
     );
   `);
+
+  // REQ-F-AU10: Add username column to existing users table (for existing DBs)
+  try {
+    client.exec(`ALTER TABLE users ADD COLUMN username TEXT`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    client.exec(`CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username)`);
+  } catch {
+    // Index already exists
+  }
 
   // Add new columns to existing player_stats table (for existing DBs)
   // SQLite ADD COLUMN is idempotent-safe: we catch "duplicate column" errors

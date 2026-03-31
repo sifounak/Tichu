@@ -40,13 +40,15 @@ export async function ensureGuestUser(
 /**
  * Gets a user by ID. Returns undefined if not found.
  */
+// REQ-F-AU16: Return username for registered users
 export async function getUserById(
   database: Database,
   userId: string,
-): Promise<{ id: string; displayName: string; email: string | null; isGuest: boolean } | undefined> {
+): Promise<{ id: string; username: string | null; displayName: string; email: string | null; isGuest: boolean } | undefined> {
   const { db } = database;
   const result = await db.select({
     id: users.id,
+    username: users.username,
     displayName: users.displayName,
     email: users.email,
     isGuest: users.isGuest,

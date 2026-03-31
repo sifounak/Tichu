@@ -1,7 +1,7 @@
-// Verifies: REQ-F-AU02
+// Verifies: REQ-F-AU10, REQ-F-AU11, REQ-F-AU12, REQ-F-AU13, REQ-F-AU14, REQ-F-AU16
 
 import { describe, it, expect, vi } from 'vitest';
-import { verifyToken, registerAccount, loginAccount } from '../../src/auth/account.js';
+import { verifyToken, registerAccount, loginAccount, validateUsername } from '../../src/auth/account.js';
 import type { Database } from '../../src/db/connection.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
@@ -70,7 +70,6 @@ describe('account auth', () => {
 
     it('should return null for expired token', () => {
       const token = jwt.sign({ userId: 'user1', email: 'test@example.com' }, JWT_SECRET, { expiresIn: '0s' });
-      // Token expires immediately
       const payload = verifyToken(token, JWT_SECRET);
       expect(payload).toBeNull();
     });
@@ -87,48 +86,103 @@ describe('account auth', () => {
     });
   });
 
+  // Verifies: REQ-F-AU11, REQ-F-AU12, REQ-F-AU13
+  describe('validateUsername', () => {
+    it('should accept valid usernames', () => {
+      expect(validateUsername('Alice')).toEqual({ valid: true });
+      expect(validateUsername('player_1')).toEqual({ valid: true });
+      expect(validateUsername('a')).toEqual({ valid: true });
+      expect(validateUsername('A name with spaces')).toEqual({ valid: true });
+    });
+
+    it('should reject empty username', () => {
+      expect(validateUsername('')).toEqual({ valid: false, error: 'Username is required' });
+      expect(validateUsername('   ')).toEqual({ valid: false, error: 'Username is required' });
+    });
+
+    it('should reject username over 30 chars', () => {
+      const long = 'a'.repeat(31);
+      expect(validateUsername(long).valid).toBe(false);
+      expect(validateUsername(long).error).toContain('30 characters');
+    });
+
+    // REQ-F-AU13: No leading/trailing spaces
+    it('should reject username with leading or trailing spaces', () => {
+      expect(validateUsername(' Alice').valid).toBe(false);
+      expect(validateUsername('Alice ').valid).toBe(false);
+      expect(validateUsername(' Alice ').valid).toBe(false);
+      expect(validateUsername(' Alice').error).toContain('leading or trailing spaces');
+    });
+
+    // REQ-F-AU12: Cannot be "bot" (case-insensitive)
+    it('should reject "bot" in any case', () => {
+      expect(validateUsername('bot').valid).toBe(false);
+      expect(validateUsername('Bot').valid).toBe(false);
+      expect(validateUsername('BOT').valid).toBe(false);
+      expect(validateUsername('bot').error).toContain('reserved');
+    });
+
+    it('should accept usernames containing "bot" as substring', () => {
+      expect(validateUsername('robot')).toEqual({ valid: true });
+      expect(validateUsername('botman')).toEqual({ valid: true });
+    });
+  });
+
+  // Verifies: REQ-F-AU10, REQ-F-AU16
   describe('registerAccount', () => {
-    it('should register a new user when email and userId are available', async () => {
-      // email check -> empty, userId check -> empty
-      const mockDb = createMockDb([[], []]);
+    it('should register a new user with username', async () => {
+      // username check -> empty, email check -> empty, userId check -> empty
+      const mockDb = createMockDb([[], [], []]);
 
       const result = await registerAccount(mockDb, JWT_SECRET, {
         userId: 'new-user',
+        username: 'Alice',
         email: 'alice@test.com',
         password: 'secret123',
-        displayName: 'Alice',
       });
 
       expect(result.token).toBeDefined();
       expect(result.userId).toBe('new-user');
-      // Verify the token is valid
       const decoded = verifyToken(result.token, JWT_SECRET);
       expect(decoded!.userId).toBe('new-user');
       expect(decoded!.email).toBe('alice@test.com');
       expect(mockDb.db.insert).toHaveBeenCalled();
     });
 
-    it('should reject duplicate email', async () => {
-      // email check -> returns a row
+    // REQ-F-AU11: Reject duplicate username
+    it('should reject duplicate username', async () => {
+      // username check -> returns a row
       const mockDb = createMockDb([[{ id: 'existing-user' }]]);
 
       await expect(registerAccount(mockDb, JWT_SECRET, {
         userId: 'new-user',
+        username: 'Alice',
+        email: 'newemail@test.com',
+        password: 'secret123',
+      })).rejects.toThrow('Username already taken');
+    });
+
+    it('should reject duplicate email', async () => {
+      // username check -> empty, email check -> returns a row
+      const mockDb = createMockDb([[], [{ id: 'existing-user' }]]);
+
+      await expect(registerAccount(mockDb, JWT_SECRET, {
+        userId: 'new-user',
+        username: 'Alice',
         email: 'taken@test.com',
         password: 'secret123',
-        displayName: 'Alice',
       })).rejects.toThrow('Email already registered');
     });
 
     it('should upgrade a guest account', async () => {
-      // email check -> empty, userId check -> guest user
-      const mockDb = createMockDb([[], [{ id: 'guest_123', isGuest: true }]]);
+      // username check -> empty, email check -> empty, userId check -> guest user
+      const mockDb = createMockDb([[], [], [{ id: 'guest_123', isGuest: true }]]);
 
       const result = await registerAccount(mockDb, JWT_SECRET, {
         userId: 'guest_123',
+        username: 'Alice',
         email: 'alice@test.com',
         password: 'secret123',
-        displayName: 'Alice',
       });
 
       expect(result.token).toBeDefined();
@@ -137,24 +191,49 @@ describe('account auth', () => {
     });
 
     it('should reject non-guest upgrade', async () => {
-      // email check -> empty, userId check -> registered (non-guest) user
-      const mockDb = createMockDb([[], [{ id: 'registered_user', isGuest: false }]]);
+      // username check -> empty, email check -> empty, userId check -> registered user
+      const mockDb = createMockDb([[], [], [{ id: 'registered_user', isGuest: false }]]);
 
       await expect(registerAccount(mockDb, JWT_SECRET, {
         userId: 'registered_user',
+        username: 'Alice',
         email: 'new@test.com',
         password: 'secret123',
-        displayName: 'Alice',
       })).rejects.toThrow('Account already registered');
+    });
+
+    // REQ-F-AU12: Reject "bot" username
+    it('should reject "bot" as username', async () => {
+      const mockDb = createMockDb([]);
+
+      await expect(registerAccount(mockDb, JWT_SECRET, {
+        userId: 'new-user',
+        username: 'Bot',
+        email: 'alice@test.com',
+        password: 'secret123',
+      })).rejects.toThrow('reserved');
+    });
+
+    // REQ-F-AU13: Reject leading/trailing spaces
+    it('should reject username with leading/trailing spaces', async () => {
+      const mockDb = createMockDb([]);
+
+      await expect(registerAccount(mockDb, JWT_SECRET, {
+        userId: 'new-user',
+        username: ' Alice ',
+        email: 'alice@test.com',
+        password: 'secret123',
+      })).rejects.toThrow('leading or trailing spaces');
     });
   });
 
+  // Verifies: REQ-F-AU14
   describe('loginAccount', () => {
-    it('should login with correct password', async () => {
+    it('should login with email (contains @)', async () => {
       const hash = bcrypt.hashSync('secret123', 10);
-      // select returns user with bcrypt hash
       const mockDb = createMockDb([[{
         id: 'user1',
+        username: 'Alice',
         displayName: 'Alice',
         email: 'alice@test.com',
         passwordHash: hash,
@@ -164,18 +243,34 @@ describe('account auth', () => {
 
       expect(result.token).toBeDefined();
       expect(result.userId).toBe('user1');
-      expect(result.displayName).toBe('Alice');
-      // Verify the token
+      expect(result.username).toBe('Alice');
       const decoded = verifyToken(result.token, JWT_SECRET);
       expect(decoded!.userId).toBe('user1');
-      // Verify update was called (lastSeenAt)
       expect(mockDb.db.update).toHaveBeenCalled();
+    });
+
+    it('should login with username (no @)', async () => {
+      const hash = bcrypt.hashSync('secret123', 10);
+      const mockDb = createMockDb([[{
+        id: 'user1',
+        username: 'Alice',
+        displayName: 'Alice',
+        email: 'alice@test.com',
+        passwordHash: hash,
+      }]]);
+
+      const result = await loginAccount(mockDb, JWT_SECRET, 'Alice', 'secret123');
+
+      expect(result.token).toBeDefined();
+      expect(result.userId).toBe('user1');
+      expect(result.username).toBe('Alice');
     });
 
     it('should reject wrong password', async () => {
       const hash = bcrypt.hashSync('correct-password', 10);
       const mockDb = createMockDb([[{
         id: 'user1',
+        username: 'Alice',
         displayName: 'Alice',
         email: 'alice@test.com',
         passwordHash: hash,
@@ -183,16 +278,23 @@ describe('account auth', () => {
 
       await expect(
         loginAccount(mockDb, JWT_SECRET, 'alice@test.com', 'wrong-password'),
-      ).rejects.toThrow('Invalid email or password');
+      ).rejects.toThrow('Invalid credentials');
     });
 
-    it('should reject non-existent email', async () => {
-      // select returns empty
+    it('should reject non-existent user', async () => {
       const mockDb = createMockDb([[]]);
 
       await expect(
         loginAccount(mockDb, JWT_SECRET, 'nobody@test.com', 'secret123'),
-      ).rejects.toThrow('Invalid email or password');
+      ).rejects.toThrow('Invalid credentials');
+    });
+
+    it('should reject non-existent username', async () => {
+      const mockDb = createMockDb([[]]);
+
+      await expect(
+        loginAccount(mockDb, JWT_SECRET, 'NonExistentUser', 'secret123'),
+      ).rejects.toThrow('Invalid credentials');
     });
   });
 });

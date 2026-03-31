@@ -104,28 +104,9 @@ describe('auth-routes', () => {
     });
   });
 
+  // Verifies: REQ-F-AU10
   describe('POST /api/auth/register', () => {
-    it('should reject missing email', async () => {
-      const res = await fastify.inject({
-        method: 'POST',
-        url: '/api/auth/register',
-        payload: { password: 'secret123', displayName: 'Alice' },
-      });
-
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('should reject missing password', async () => {
-      const res = await fastify.inject({
-        method: 'POST',
-        url: '/api/auth/register',
-        payload: { email: 'alice@test.com', displayName: 'Alice' },
-      });
-
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('should reject missing displayName', async () => {
+    it('should reject missing username', async () => {
       const res = await fastify.inject({
         method: 'POST',
         url: '/api/auth/register',
@@ -135,24 +116,39 @@ describe('auth-routes', () => {
       expect(res.statusCode).toBe(400);
     });
 
-    it('should register a new user and return token and userId', async () => {
-      // First select (email check) -> empty, second select (userId check) -> empty
-      let selectCallCount = 0;
-      (mockDb.db.select as any).mockImplementation(() => {
-        selectCallCount++;
-        return fluentEmpty([]); // both checks return empty
+    it('should reject missing email', async () => {
+      const res = await fastify.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: { username: 'Alice', password: 'secret123' },
       });
-      // insert returns a user row
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('should reject missing password', async () => {
+      const res = await fastify.inject({
+        method: 'POST',
+        url: '/api/auth/register',
+        payload: { username: 'Alice', email: 'alice@test.com' },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('should register a new user and return token and userId', async () => {
+      // username check -> empty, email check -> empty, userId check -> empty
+      (mockDb.db.select as any).mockImplementation(() => fluentEmpty([]));
       (mockDb.db.insert as any).mockReturnValue({
         values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 'new-user-id', displayName: 'Alice', isGuest: false }]),
+          returning: vi.fn().mockResolvedValue([{ id: 'new-user-id', username: 'Alice', displayName: 'Alice', isGuest: false }]),
         }),
       });
 
       const res = await fastify.inject({
         method: 'POST',
         url: '/api/auth/register',
-        payload: { userId: 'new-user-id', email: 'alice@test.com', password: 'secret123', displayName: 'Alice' },
+        payload: { userId: 'new-user-id', username: 'Alice', email: 'alice@test.com', password: 'secret123' },
       });
 
       expect(res.statusCode).toBe(200);
@@ -162,8 +158,9 @@ describe('auth-routes', () => {
     });
   });
 
+  // Verifies: REQ-F-AU14
   describe('POST /api/auth/login', () => {
-    it('should reject missing email', async () => {
+    it('should reject missing identifier', async () => {
       const res = await fastify.inject({
         method: 'POST',
         url: '/api/auth/login',
@@ -177,7 +174,7 @@ describe('auth-routes', () => {
       const res = await fastify.inject({
         method: 'POST',
         url: '/api/auth/login',
-        payload: { email: 'alice@test.com' },
+        payload: { identifier: 'alice@test.com' },
       });
 
       expect(res.statusCode).toBe(400);
@@ -187,29 +184,47 @@ describe('auth-routes', () => {
       const res = await fastify.inject({
         method: 'POST',
         url: '/api/auth/login',
-        payload: { email: 'nobody@test.com', password: 'secret123' },
+        payload: { identifier: 'nobody@test.com', password: 'secret123' },
       });
 
       expect(res.statusCode).toBe(401);
     });
 
-    it('should login with correct password and return token, userId, displayName', async () => {
+    it('should login with email and return token, userId, username', async () => {
       const hash = bcrypt.hashSync('secret123', 10);
       (mockDb.db.select as any).mockImplementation(() =>
-        fluentEmpty([{ id: 'user1', displayName: 'Alice', email: 'alice@test.com', passwordHash: hash }]),
+        fluentEmpty([{ id: 'user1', username: 'Alice', displayName: 'Alice', email: 'alice@test.com', passwordHash: hash }]),
       );
 
       const res = await fastify.inject({
         method: 'POST',
         url: '/api/auth/login',
-        payload: { email: 'alice@test.com', password: 'secret123' },
+        payload: { identifier: 'alice@test.com', password: 'secret123' },
       });
 
       expect(res.statusCode).toBe(200);
       const body = JSON.parse(res.payload);
       expect(body.token).toBeDefined();
       expect(body.userId).toBe('user1');
-      expect(body.displayName).toBe('Alice');
+      expect(body.username).toBe('Alice');
+    });
+
+    it('should login with username and return token', async () => {
+      const hash = bcrypt.hashSync('secret123', 10);
+      (mockDb.db.select as any).mockImplementation(() =>
+        fluentEmpty([{ id: 'user1', username: 'Alice', displayName: 'Alice', email: 'alice@test.com', passwordHash: hash }]),
+      );
+
+      const res = await fastify.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { identifier: 'Alice', password: 'secret123' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = JSON.parse(res.payload);
+      expect(body.token).toBeDefined();
+      expect(body.username).toBe('Alice');
     });
   });
 
