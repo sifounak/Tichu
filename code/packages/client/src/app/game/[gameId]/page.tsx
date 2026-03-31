@@ -69,7 +69,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   const [codeCopied, setCodeCopied] = useState(false);
 
   // REQ-F-ID01: Use auth identity when logged in, fall back to guest
-  const { user: authUser, loadFromStorage: loadAuth } = useAuthStore();
+  const { user: authUser, authReady, loadFromStorage: loadAuth } = useAuthStore();
   useEffect(() => { loadAuth(); }, [loadAuth]);
   const isLoggedIn = authUser !== null && !authUser.isGuest;
   const [guestId] = useState(() => typeof window !== 'undefined' ? getGuestId() : '');
@@ -278,6 +278,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     url: wsUrl,
     onMessage: handleMessage,
     onStatusChange: uiStore.setConnectionStatus,
+    enabled: authReady,
   });
 
   // REQ-F-CG07: Auto-join room when navigating directly to /game/[roomCode]

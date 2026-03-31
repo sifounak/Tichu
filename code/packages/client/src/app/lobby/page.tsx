@@ -45,7 +45,7 @@ export default function LobbyPage() {
   const [joiningGame, setJoiningGame] = useState(false);
 
   // REQ-F-LU07: Load auth state on mount
-  const { user, loadFromStorage, logout } = useAuthStore();
+  const { user, authReady, loadFromStorage, logout } = useAuthStore();
   useEffect(() => { loadFromStorage(); }, [loadFromStorage]);
 
   // Derive identity from auth state
@@ -90,6 +90,7 @@ export default function LobbyPage() {
     url: wsUrl,
     onMessage,
     autoReconnect: true,
+    enabled: authReady,
   });
 
   // Fetch lobby list on connect and periodically
