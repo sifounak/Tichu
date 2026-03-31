@@ -65,7 +65,7 @@ function ProfileContent() {
     const userId = queryUserId ?? storageUserId;
 
     if (!userId) {
-      router.push('/auth');
+      router.push('/login');
       return;
     }
 

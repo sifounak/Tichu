@@ -155,7 +155,7 @@ export default function LobbyPage() {
   // REQ-F-LU05: Logout handler — redirect to auth page
   const handleLogout = () => {
     logout();
-    router.push('/auth');
+    router.push('/login');
   };
 
   const handleSort = (col: typeof sortCol) => {
@@ -199,30 +199,21 @@ export default function LobbyPage() {
             {status === 'connected' ? 'Connected' : status === 'connecting' ? 'Connecting...' : 'Disconnected'}
           </p>
 
-          {/* REQ-F-LU02: Top-right — user menu (logged in) or stats+signin (guest) */}
+          {/* REQ-F-LU02: Top-right — user menu (logged in) or sign-in button (guest) */}
           <div className="absolute top-0 right-0">
             {isLoggedIn ? (
               <UserMenu user={user!} onLogout={handleLogout} />
             ) : (
-              <div className="flex gap-2 items-center">
-                <a
-                  href="/stats"
-                  className="px-3 py-1.5 rounded-lg text-sm font-semibold"
-                  style={{
-                    background: 'var(--color-gold-accent)',
-                    color: 'var(--color-felt-green-dark)',
-                  }}
-                >
-                  Stats
-                </a>
-                <a
-                  href="/auth"
-                  className="px-3 py-1.5 text-sm font-semibold"
-                  style={{ color: 'var(--color-text-secondary)', textDecoration: 'underline' }}
-                >
-                  Sign In
-                </a>
-              </div>
+              <a
+                href="/login"
+                className="px-3 py-1.5 rounded-lg text-sm font-semibold"
+                style={{
+                  background: 'var(--color-gold-accent)',
+                  color: 'var(--color-felt-green-dark)',
+                }}
+              >
+                Sign In
+              </a>
             )}
           </div>
         </div>

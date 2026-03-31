@@ -1532,12 +1532,10 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             }}
           >
             <h3 style={{ margin: '0 0 var(--space-3)', color: 'var(--color-warning, #f59e0b)' }}>
-              Partner Already Called
+              Your partner already called {partnerCallConfirm.partnerCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}
             </h3>
             <p style={{ margin: '0 0 var(--space-4)', color: 'var(--color-text)' }}>
-              Your partner has already called{' '}
-              <strong>{partnerCallConfirm.partnerCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}</strong>.
-              {' '}Calling {partnerCallConfirm.type === 'grandTichu' ? 'Grand Tichu' : 'Tichu'} as well is risky.
+              Are you sure you want to call {partnerCallConfirm.type === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}?
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <button
