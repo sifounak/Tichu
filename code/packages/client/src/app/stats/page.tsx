@@ -1,4 +1,5 @@
 // REQ-F-UI02: Dedicated stats page with 4 tabs
+// REQ-F-SO21–SO29: Stats page overhaul
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
@@ -32,6 +33,39 @@ interface PlayerProfile {
   opponentGrandTichuBroken: number;
   partnerTichuBroken: number;
   partnerGrandTichuBroken: number;
+  // REQ-F-SO18: New stats
+  lastFinishes: number;
+  tichuBrokenByPartner: number;
+  grandTichuBrokenByPartner: number;
+  gamesRequiringTieBreak: number;
+  mostTieBreakRoundsNeeded: number;
+  gamesJoinedAfterSpectating: number;
+  // REQ-F-SO17: Group C card event stats
+  roundsWithDragon: number;
+  roundsWithDragonWon: number;
+  roundsWithPhoenix: number;
+  roundsWithPhoenixWon: number;
+  dragonReceivedInPass: number;
+  phoenixReceivedInPass: number;
+  aceReceivedInPass: number;
+  dogReceivedInPass: number;
+  dragonTrickWins: number;
+  dragonGivenAfterOpponentWin: number;
+  dogGivenToPartner: number;
+  dogGivenToOpponent: number;
+  dogPlayedForTichuPartner: number;
+  dogOpportunitiesForTichuPartner: number;
+  handsWithBombs: number;
+  totalBombs: number;
+  fourCardBombs: number;
+  fiveCardBombs: number;
+  sixPlusCardBombs: number;
+  bombsInFirst8: number;
+  handsWithMultipleBombs: number;
+  overBombed: number;
+  bombForcedByWish: number;
+  theTichuClean: number;
+  theTichuDirty: number;
 }
 
 interface RelationalStat {
@@ -42,6 +76,7 @@ interface RelationalStat {
   winRate: number;
 }
 
+// REQ-F-SO19: Game history with userId columns
 interface GameHistoryEntry {
   id: number;
   roomCode: string;
@@ -50,10 +85,21 @@ interface GameHistoryEntry {
   finalScoreNS: number;
   finalScoreEW: number;
   roundCount: number;
+  northUserId: string | null;
+  eastUserId: string | null;
+  southUserId: string | null;
+  westUserId: string | null;
   northName: string;
   eastName: string;
   southName: string;
   westName: string;
+  // REQ-F-SO20: Tichu summaries (computed server-side or client-side from rounds)
+  tichuSummary?: {
+    teamTichuSuccess: number;
+    teamTichuTotal: number;
+    teamGTSuccess: number;
+    teamGTTotal: number;
+  };
 }
 
 type Tab = 'overview' | 'cards' | 'relationships' | 'history';
@@ -124,7 +170,7 @@ function StatsContent() {
 
   return (
     <main className="min-h-dvh p-6" style={{ background: 'var(--color-felt-green-dark)' }}>
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>
@@ -173,72 +219,143 @@ function StatsContent() {
   );
 }
 
-// ─── REQ-F-UI03: Overview Tab ────────────────────────────────────────
+// ─── REQ-F-SO21–SO26: Overview Tab ─────────────────────────────────
 
 function OverviewTab({ profile }: { profile: PlayerProfile }) {
-  const pct = (n: number, d: number) => d > 0 ? `${((n / d) * 100).toFixed(1)}%` : 'N/A';
-  const ratio = (n: number, d: number) => d > 0 ? `${n}/${d}` : '-';
+  // REQ-F-SO22: Display "-" for missing values
+  const pct = (n: number, d: number) => d > 0 ? `${((n / d) * 100).toFixed(1)}%` : '-';
 
   return (
     <div className="space-y-6">
+      {/* REQ-F-SO23: Game Record (11 stats) */}
       <Section title="Game Record">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="Games Played" value={profile.gamesPlayed} />
           <StatCard label="Games Won" value={profile.gamesWon} />
-          <StatCard label="Win Rate" value={pct(profile.gamesWon, profile.gamesPlayed)} />
-          <StatCard label="Largest Win" value={`+${profile.largestWinDiff}`} />
-          <StatCard label="Largest Loss" value={`-${profile.largestLossDiff}`} />
-          <StatCard label="Forfeits" value={profile.gamesForfeited} />
+          <StatCard label="Games Lost" value={profile.gamesPlayed - profile.gamesWon} />
+          <StatCard label="Game Win Rate" value={pct(profile.gamesWon, profile.gamesPlayed)} />
+          <StatCard label="Largest Win" value={profile.largestWinDiff > 0 ? `+${profile.largestWinDiff}` : '-'} />
+          <StatCard label="Largest Loss" value={profile.largestLossDiff > 0 ? `-${profile.largestLossDiff}` : '-'} />
+          <StatCard label="Games Requiring Tie Break" value={profile.gamesRequiringTieBreak} />
+          <StatCard label="Most Tie Break Rounds Needed" value={profile.mostTieBreakRoundsNeeded || '-'} />
+          <StatCard label="Games Forfeited" value={profile.gamesForfeited} />
+          <StatCard label="Games Spectated" value={profile.gamesSpectated} />
+          <StatCard label="Games Joined After Spectating" value={profile.gamesJoinedAfterSpectating} />
         </div>
       </Section>
 
+      {/* REQ-F-SO24: Round Record (12 stats) */}
       <Section title="Round Record">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="Rounds Played" value={profile.totalRoundsPlayed} />
           <StatCard label="Rounds Won" value={profile.roundsWon} />
+          <StatCard label="Rounds Lost" value={profile.totalRoundsPlayed - profile.roundsWon} />
           <StatCard label="Round Win Rate" value={pct(profile.roundsWon, profile.totalRoundsPlayed)} />
-          <StatCard label="First Finishes" value={profile.firstFinishes} />
+          <StatCard label="Finished 1st" value={profile.firstFinishes} />
+          <StatCard label="Finished 1st Rate" value={pct(profile.firstFinishes, profile.totalRoundsPlayed)} />
+          <StatCard label="Finished Last" value={profile.lastFinishes} />
+          <StatCard label="Finished Last Rate" value={pct(profile.lastFinishes, profile.totalRoundsPlayed)} />
+          <StatCard label="Finished 1-2" value={profile.oneTwoWins} />
+          <StatCard label="Finished 1-2 Rate" value={pct(profile.oneTwoWins, profile.totalRoundsPlayed)} />
+          <StatCard label="Beaten by 1-2" value={profile.oneTwoAgainst} />
+          <StatCard label="Beaten by 1-2 Rate" value={pct(profile.oneTwoAgainst, profile.totalRoundsPlayed)} />
         </div>
       </Section>
 
+      {/* REQ-F-SO25: Tichu Record (14 stats) */}
       <Section title="Tichu Record">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard label="Tichu Calls" value={ratio(profile.tichuSuccesses, profile.tichuCalls)} />
-          <StatCard label="Tichu Rate" value={pct(profile.tichuSuccesses, profile.tichuCalls)} />
-          <StatCard label="Grand Tichu" value={ratio(profile.grandTichuSuccesses, profile.grandTichuCalls)} />
-          <StatCard label="GT Rate" value={pct(profile.grandTichuSuccesses, profile.grandTichuCalls)} />
-          <StatCard label="Opp. Tichu Broken" value={profile.opponentTichuBroken} />
-          <StatCard label="Opp. GT Broken" value={profile.opponentGrandTichuBroken} />
-        </div>
-      </Section>
-
-      <Section title="Special">
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <StatCard label="1-2 Wins" value={profile.oneTwoWins} />
-          <StatCard label="1-2 Against" value={profile.oneTwoAgainst} />
-          <StatCard label="Games Spectated" value={profile.gamesSpectated} />
-          <StatCard label="Partner Tichu Broken" value={profile.partnerTichuBroken} />
-          <StatCard label="Partner GT Broken" value={profile.partnerGrandTichuBroken} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Tichu Calls" value={profile.tichuCalls} />
+          <StatCard label="Tichu Success" value={profile.tichuSuccesses} />
+          <StatCard label="Tichu Failed" value={profile.tichuCalls - profile.tichuSuccesses} />
+          <StatCard label="Tichu Success Rate" value={pct(profile.tichuSuccesses, profile.tichuCalls)} />
+          <StatCard label="Grand Tichu Calls" value={profile.grandTichuCalls} />
+          <StatCard label="Grand Tichu Success" value={profile.grandTichuSuccesses} />
+          <StatCard label="Grand Tichu Failed" value={profile.grandTichuCalls - profile.grandTichuSuccesses} />
+          <StatCard label="Grand Tichu Success Rate" value={pct(profile.grandTichuSuccesses, profile.grandTichuCalls)} />
+          <StatCard label="Tichu Calls Broken by Partner" value={profile.tichuBrokenByPartner} />
+          <StatCard label="GT Calls Broken by Partner" value={profile.grandTichuBrokenByPartner} />
+          <StatCard label="Partner Tichu Calls You Broke" value={profile.partnerTichuBroken} />
+          <StatCard label="Partner GT Calls You Broke" value={profile.partnerGrandTichuBroken} />
+          <StatCard label="Opp. Tichu Calls Broken" value={profile.opponentTichuBroken} />
+          <StatCard label="Opp. GT Calls Broken" value={profile.opponentGrandTichuBroken} />
         </div>
       </Section>
     </div>
   );
 }
 
-// ─── REQ-F-UI04: Card Stats Tab ─────────────────────────────────────
+// ─── REQ-F-SO27: Card Stats Tab ────────────────────────────────────
 
-function CardStatsTab({ profile: _profile }: { profile: PlayerProfile }) {
-  // Card stats come from Group C columns — fetched via profile endpoint
-  // TODO: Display Group C stats from profile when card stat columns are added to API
+function CardStatsTab({ profile }: { profile: PlayerProfile }) {
+  const pct = (n: number, d: number) => d > 0 ? `${((n / d) * 100).toFixed(1)}%` : '-';
+
   return (
-    <div className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
-      <p>Card statistics are tracked during gameplay.</p>
-      <p className="mt-2 text-sm">Dragon, Phoenix, Dog, Ace, and Bomb stats will appear here as you play.</p>
+    <div className="space-y-6">
+      <Section title="Dragon">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Rounds with Dragon" value={profile.roundsWithDragon} />
+          <StatCard label="Rounds Won with Dragon" value={profile.roundsWithDragonWon} />
+          <StatCard label="Dragon Win Rate" value={pct(profile.roundsWithDragonWon, profile.roundsWithDragon)} />
+          <StatCard label="Dragon Trick Wins" value={profile.dragonTrickWins} />
+          <StatCard label="Dragon Received in Pass" value={profile.dragonReceivedInPass} />
+          <StatCard label="Dragon Given After Opp. Win" value={profile.dragonGivenAfterOpponentWin} />
+        </div>
+      </Section>
+
+      <Section title="Phoenix">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Rounds with Phoenix" value={profile.roundsWithPhoenix} />
+          <StatCard label="Rounds Won with Phoenix" value={profile.roundsWithPhoenixWon} />
+          <StatCard label="Phoenix Win Rate" value={pct(profile.roundsWithPhoenixWon, profile.roundsWithPhoenix)} />
+          <StatCard label="Phoenix Received in Pass" value={profile.phoenixReceivedInPass} />
+        </div>
+      </Section>
+
+      <Section title="Dog">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Dog Received in Pass" value={profile.dogReceivedInPass} />
+          <StatCard label="Dog Given to Partner" value={profile.dogGivenToPartner} />
+          <StatCard label="Dog Given to Opponent" value={profile.dogGivenToOpponent} />
+          <StatCard label="Dog Played for Tichu Partner" value={profile.dogPlayedForTichuPartner} />
+          <StatCard label="Dog Opportunities for Tichu Partner" value={profile.dogOpportunitiesForTichuPartner} />
+        </div>
+      </Section>
+
+      <Section title="Bombs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Hands with Bombs" value={profile.handsWithBombs} />
+          <StatCard label="Total Bombs" value={profile.totalBombs} />
+          <StatCard label="4-Card Bombs" value={profile.fourCardBombs} />
+          <StatCard label="5-Card Bombs" value={profile.fiveCardBombs} />
+          <StatCard label="6+ Card Bombs" value={profile.sixPlusCardBombs} />
+          <StatCard label="Bombs in First 8" value={profile.bombsInFirst8} />
+          <StatCard label="Hands with Multiple Bombs" value={profile.handsWithMultipleBombs} />
+          <StatCard label="Over-Bombed" value={profile.overBombed} />
+          <StatCard label="Bomb Forced by Wish" value={profile.bombForcedByWish} />
+        </div>
+      </Section>
+
+      <Section title="Pass Tracking">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Ace Received in Pass" value={profile.aceReceivedInPass} />
+          <StatCard label="Dragon Received in Pass" value={profile.dragonReceivedInPass} />
+          <StatCard label="Phoenix Received in Pass" value={profile.phoenixReceivedInPass} />
+          <StatCard label="Dog Received in Pass" value={profile.dogReceivedInPass} />
+        </div>
+      </Section>
+
+      <Section title="Achievements">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="The Tichu (Clean)" value={profile.theTichuClean} />
+          <StatCard label="The Tichu (Dirty)" value={profile.theTichuDirty} />
+        </div>
+      </Section>
     </div>
   );
 }
 
-// ─── REQ-F-UI05: Relationships Tab ──────────────────────────────────
+// ─── REQ-F-UI05: Relationships Tab ─────────────────────────────────
 
 function RelationshipsTab({ partners, opponents }: { partners: RelationalStat[]; opponents: RelationalStat[] }) {
   return (
@@ -289,40 +406,73 @@ function RelationTable({ entries }: { entries: RelationalStat[] }) {
   );
 }
 
-// ─── REQ-F-UI06: History Tab ────────────────────────────────────────
+// ─── REQ-F-SO28–SO29: History Tab ──────────────────────────────────
 
 function HistoryTab({ games }: { games: GameHistoryEntry[] }) {
   if (games.length === 0) {
     return <p className="text-center py-4" style={{ color: 'var(--color-text-muted)' }}>No games played yet.</p>;
   }
 
+  const userId = typeof window !== 'undefined'
+    ? (localStorage.getItem('tichu_user_id') ?? sessionStorage.getItem('tichu_user_id'))
+    : null;
+
   return (
-    <div className="space-y-2" role="list" aria-label="Game history">
-      {games.map((game) => (
-        <div key={game.id} role="listitem" className="p-3 rounded-lg flex items-center justify-between"
-          style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
-          <div>
-            <span className="font-mono text-sm" style={{ color: 'var(--color-gold-accent)' }}>
-              {game.roomCode}
-            </span>
-            <span className="ml-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {new Date(game.endedAt).toLocaleDateString()}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              NS {game.finalScoreNS} - EW {game.finalScoreEW}
-            </span>
-            <span className="text-xs px-2 py-0.5 rounded font-semibold"
-              style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}>
-              {game.winnerTeam} won
-            </span>
-            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-              {game.roundCount} rds
-            </span>
-          </div>
-        </div>
-      ))}
+    <div className="overflow-x-auto" role="list" aria-label="Game history">
+      <table className="w-full text-sm">
+        <thead>
+          <tr style={{ color: 'var(--color-text-muted)' }}>
+            <th className="text-left py-2 px-1">Date</th>
+            <th className="text-center py-2 px-1">Result</th>
+            <th className="text-right py-2 px-1">Your Score</th>
+            <th className="text-right py-2 px-1">Opp Score</th>
+            <th className="text-right py-2 px-1">Rounds</th>
+            <th className="text-left py-2 px-1">Partner</th>
+            <th className="text-left py-2 px-1">Opponents</th>
+          </tr>
+        </thead>
+        <tbody>
+          {games.map((game) => {
+            // REQ-F-SO29: Determine player's team
+            const isNS = game.northUserId === userId || game.southUserId === userId;
+            const won = (isNS && game.winnerTeam === 'NS') || (!isNS && game.winnerTeam === 'EW');
+            const myScore = isNS ? game.finalScoreNS : game.finalScoreEW;
+            const oppScore = isNS ? game.finalScoreEW : game.finalScoreNS;
+
+            // Derive partner and opponent names
+            let partnerName: string;
+            let opponentNames: string;
+            if (isNS) {
+              partnerName = game.northUserId === userId ? game.southName : game.northName;
+              opponentNames = `${game.eastName}, ${game.westName}`;
+            } else {
+              partnerName = game.eastUserId === userId ? game.westName : game.eastName;
+              opponentNames = `${game.northName}, ${game.southName}`;
+            }
+
+            return (
+              <tr key={game.id} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <td className="py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  {new Date(game.endedAt).toLocaleDateString()}
+                </td>
+                <td className="py-2 px-1 text-center">
+                  <span className="text-xs px-2 py-0.5 rounded font-semibold" style={{
+                    background: won ? '#22c55e' : '#ef4444',
+                    color: 'white',
+                  }}>
+                    {won ? 'Win' : 'Loss'}
+                  </span>
+                </td>
+                <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-primary)' }}>{myScore}</td>
+                <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>{oppScore}</td>
+                <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-muted)' }}>{game.roundCount}</td>
+                <td className="py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>{partnerName}</td>
+                <td className="py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>{opponentNames}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
