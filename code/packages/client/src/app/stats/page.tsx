@@ -223,7 +223,13 @@ function StatsContent() {
 
 function OverviewTab({ profile }: { profile: PlayerProfile }) {
   // REQ-F-SO22: Display "-" for missing values
-  const pct = (n: number, d: number) => d > 0 ? `${((n / d) * 100).toFixed(1)}%` : '-';
+  const pct = (n: number, d: number) => {
+    if (d <= 0) return '-';
+    const val = (n / d) * 100;
+    const fixed1 = val.toFixed(1);
+    // Drop trailing .0 but keep meaningful decimals (e.g. 0.05%, 33.3%)
+    return fixed1.endsWith('.0') ? `${Math.round(val)}%` : `${fixed1}%`;
+  };
 
   return (
     <div className="space-y-6">
@@ -233,11 +239,11 @@ function OverviewTab({ profile }: { profile: PlayerProfile }) {
           <StatCard label="Games Played" value={profile.gamesPlayed} />
           <StatCard label="Games Won" value={profile.gamesWon} />
           <StatCard label="Games Lost" value={profile.gamesPlayed - profile.gamesWon} />
-          <StatCard label="Game Win Rate" value={pct(profile.gamesWon, profile.gamesPlayed)} />
+          <StatCard label="Win Rate" value={pct(profile.gamesWon, profile.gamesPlayed)} />
           <StatCard label="Largest Win" value={profile.largestWinDiff > 0 ? `+${profile.largestWinDiff}` : '-'} />
           <StatCard label="Largest Loss" value={profile.largestLossDiff > 0 ? `-${profile.largestLossDiff}` : '-'} />
           <StatCard label="Games Requiring Tie Break" value={profile.gamesRequiringTieBreak} />
-          <StatCard label="Most Tie Break Rounds Needed" value={profile.mostTieBreakRoundsNeeded || '-'} />
+          <StatCard label="Most Tie Break Rounds" value={profile.mostTieBreakRoundsNeeded || '-'} />
           <StatCard label="Games Forfeited" value={profile.gamesForfeited} />
           <StatCard label="Games Spectated" value={profile.gamesSpectated} />
           <StatCard label="Games Joined After Spectating" value={profile.gamesJoinedAfterSpectating} />
@@ -250,14 +256,14 @@ function OverviewTab({ profile }: { profile: PlayerProfile }) {
           <StatCard label="Rounds Played" value={profile.totalRoundsPlayed} />
           <StatCard label="Rounds Won" value={profile.roundsWon} />
           <StatCard label="Rounds Lost" value={profile.totalRoundsPlayed - profile.roundsWon} />
-          <StatCard label="Round Win Rate" value={pct(profile.roundsWon, profile.totalRoundsPlayed)} />
+          <StatCard label="Win Rate" value={pct(profile.roundsWon, profile.totalRoundsPlayed)} />
           <StatCard label="Finished 1st" value={profile.firstFinishes} />
-          <StatCard label="Finished 1st Rate" value={pct(profile.firstFinishes, profile.totalRoundsPlayed)} />
           <StatCard label="Finished Last" value={profile.lastFinishes} />
+          <StatCard label="Finished 1st Rate" value={pct(profile.firstFinishes, profile.totalRoundsPlayed)} />
           <StatCard label="Finished Last Rate" value={pct(profile.lastFinishes, profile.totalRoundsPlayed)} />
           <StatCard label="Finished 1-2" value={profile.oneTwoWins} />
-          <StatCard label="Finished 1-2 Rate" value={pct(profile.oneTwoWins, profile.totalRoundsPlayed)} />
           <StatCard label="Beaten by 1-2" value={profile.oneTwoAgainst} />
+          <StatCard label="1-2 Rate" value={pct(profile.oneTwoWins, profile.totalRoundsPlayed)} />
           <StatCard label="Beaten by 1-2 Rate" value={pct(profile.oneTwoAgainst, profile.totalRoundsPlayed)} />
         </div>
       </Section>
@@ -266,12 +272,12 @@ function OverviewTab({ profile }: { profile: PlayerProfile }) {
       <Section title="Tichu Record">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="Tichu Calls" value={profile.tichuCalls} />
-          <StatCard label="Tichu Success" value={profile.tichuSuccesses} />
-          <StatCard label="Tichu Failed" value={profile.tichuCalls - profile.tichuSuccesses} />
+          <StatCard label="Tichu Wins" value={profile.tichuSuccesses} />
+          <StatCard label="Tichu Breaks" value={profile.tichuCalls - profile.tichuSuccesses} />
           <StatCard label="Tichu Success Rate" value={pct(profile.tichuSuccesses, profile.tichuCalls)} />
           <StatCard label="Grand Tichu Calls" value={profile.grandTichuCalls} />
-          <StatCard label="Grand Tichu Success" value={profile.grandTichuSuccesses} />
-          <StatCard label="Grand Tichu Failed" value={profile.grandTichuCalls - profile.grandTichuSuccesses} />
+          <StatCard label="Grand Tichu Wins" value={profile.grandTichuSuccesses} />
+          <StatCard label="Grand Tichu Breaks" value={profile.grandTichuCalls - profile.grandTichuSuccesses} />
           <StatCard label="Grand Tichu Success Rate" value={pct(profile.grandTichuSuccesses, profile.grandTichuCalls)} />
           <StatCard label="Tichu Calls Broken by Partner" value={profile.tichuBrokenByPartner} />
           <StatCard label="GT Calls Broken by Partner" value={profile.grandTichuBrokenByPartner} />
@@ -288,7 +294,12 @@ function OverviewTab({ profile }: { profile: PlayerProfile }) {
 // ─── REQ-F-SO27: Card Stats Tab ────────────────────────────────────
 
 function CardStatsTab({ profile }: { profile: PlayerProfile }) {
-  const pct = (n: number, d: number) => d > 0 ? `${((n / d) * 100).toFixed(1)}%` : '-';
+  const pct = (n: number, d: number) => {
+    if (d <= 0) return '-';
+    const val = (n / d) * 100;
+    const fixed1 = val.toFixed(1);
+    return fixed1.endsWith('.0') ? `${Math.round(val)}%` : `${fixed1}%`;
+  };
 
   return (
     <div className="space-y-6">
