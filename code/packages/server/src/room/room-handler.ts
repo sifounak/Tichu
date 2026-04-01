@@ -14,7 +14,7 @@ import { RoomManager } from './room-manager.js';
 import { GameStore } from '../game/game-store.js';
 import { SeatQueue } from './seat-queue.js';
 import { VoteHandler } from '../game/vote-handler.js';
-import { saveGameResult } from '../db/game-persistence.js';
+import { saveGameResult, savePassStatsOnAbandon } from '../db/game-persistence.js';
 import type { GameResult, RoundResult } from '../db/game-persistence.js';
 import type { GameMachineContext } from '../game/game-state-machine.js';
 import type { RoundEventSummary } from '../game/round-event-types.js';
@@ -240,6 +240,11 @@ export class RoomHandler {
         }
         // Destroy the game if it was in progress
         if (gameWasInProgress) {
+          // REQ-F-CS24: Save pass stats before destroying the game
+          const leavingRoom = this.roomManager.getRoom(rc);
+          if (leavingRoom) {
+            this.savePassStatsBeforeDestroy(rc, leavingRoom.players);
+          }
           this.gameStore.destroyGameByRoom(rc);
         }
       }
@@ -697,6 +702,9 @@ export class RoomHandler {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
+    // REQ-F-CS24: Save pass stats before destroying the game
+    this.savePassStatsBeforeDestroy(roomCode, room.players);
+
     // End the current game and reset ready states so players must re-ready
     this.roomManager.endGame(roomCode);
     this.gameStore.destroyGameByRoom(roomCode);
@@ -705,6 +713,30 @@ export class RoomHandler {
 
     // Broadcast room update — clients will see gameInProgress=false and show PreRoomView
     this.broadcastRoomUpdate(roomCode);
+  }
+
+  /** REQ-F-CS24: Save pass stats from event tracker before game destruction */
+  private savePassStatsBeforeDestroy(roomCode: string, players: RoomPlayer[]): void {
+    if (!this.database) return;
+    try {
+      const game = this.gameStore.getGameByRoom(roomCode);
+      if (!game || !game.isPastCardPassPhase()) return;
+
+      const summaries = game.getCurrentRoundSummaries();
+      if (summaries.length === 0) return;
+
+      const humanPlayers: Array<{ seat: Seat; userId: string }> = [];
+      for (const p of players) {
+        if (p.isBot) continue;
+        const userId = this.roomManager.getUserIdAtSeat(roomCode, p.seat);
+        if (userId) humanPlayers.push({ seat: p.seat, userId });
+      }
+      if (humanPlayers.length === 0) return;
+
+      savePassStatsOnAbandon(this.database, humanPlayers, summaries);
+    } catch {
+      // Pass stat persistence failure must not block game destruction
+    }
   }
 
   // ─── Game Persistence (REQ-F-PW01) ─────────────────────────────────────

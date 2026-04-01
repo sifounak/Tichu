@@ -29,8 +29,8 @@
 | REQ-F-CS20 | Bomb completion detection in pass | M2 | `code/packages/server/src/game/round-event-tracker.ts:174-213` | Passed |
 | REQ-F-CS21 | Pass tracking DB columns | M1 | `code/packages/server/src/db/schema.ts:187-197`, `connection.ts:260-270` | Passed |
 | REQ-F-CS22 | Pass Tracking UI card | M4 | `code/packages/client/src/app/stats/page.tsx` | Pending |
-| REQ-F-CS23 | Associate pass stats with passing player | M3 | `code/packages/server/src/room/room-handler.ts` | Pending |
-| REQ-F-CS24 | Save pass stats on game abandon/restart | M3 | `code/packages/server/src/room/room-handler.ts`, `game-manager.ts` | Pending |
+| REQ-F-CS23 | Associate pass stats with passing player | M3 | `code/packages/server/src/room/room-handler.ts:719-739` | Passed |
+| REQ-F-CS24 | Save pass stats on game abandon/restart | M3 | `code/packages/server/src/room/room-handler.ts:701,246`, `game-manager.ts:288-299` | Passed |
 | REQ-F-CS25 | Bombs section stat list | M4 | `code/packages/client/src/app/stats/page.tsx` | Pending |
 | REQ-F-CS26 | Dragon section stat list | M4 | `code/packages/client/src/app/stats/page.tsx` | Pending |
 

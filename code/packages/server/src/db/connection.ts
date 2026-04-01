@@ -277,4 +277,11 @@ function syncSchema(client: BetterSqlite3Database): void {
       // Column already exists — expected for new DBs or re-runs
     }
   }
+
+  // REQ-F-CS17: Migrate existing overBombed data to youWereOverBombed
+  try {
+    client.exec(`UPDATE player_stats SET you_were_over_bombed = over_bombed WHERE you_were_over_bombed = 0 AND over_bombed > 0`);
+  } catch {
+    // Table or columns may not exist yet on first run — safe to ignore
+  }
 }
