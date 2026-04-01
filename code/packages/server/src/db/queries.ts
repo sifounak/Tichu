@@ -318,7 +318,7 @@ export function getPlayerPartners(
   return db.all(sql`
     SELECT
       prs.other_user_id as userId,
-      u.display_name as displayName,
+      COALESCE(u.display_name, 'Bot') as displayName,
       prs.games_played as gamesPlayed,
       prs.games_won as gamesWon,
       CASE WHEN prs.games_played > 0
@@ -326,7 +326,7 @@ export function getPlayerPartners(
         ELSE 0
       END as winRate
     FROM player_relational_stats prs
-    JOIN users u ON u.id = prs.other_user_id
+    LEFT JOIN users u ON u.id = prs.other_user_id
     WHERE prs.user_id = ${userId} AND prs.relationship = 'partner'
     ORDER BY prs.games_played DESC
     LIMIT ${limit}
@@ -343,7 +343,7 @@ export function getPlayerOpponents(
   return db.all(sql`
     SELECT
       prs.other_user_id as userId,
-      u.display_name as displayName,
+      COALESCE(u.display_name, 'Bot') as displayName,
       prs.games_played as gamesPlayed,
       prs.games_won as gamesWon,
       CASE WHEN prs.games_played > 0
@@ -351,7 +351,7 @@ export function getPlayerOpponents(
         ELSE 0
       END as winRate
     FROM player_relational_stats prs
-    JOIN users u ON u.id = prs.other_user_id
+    LEFT JOIN users u ON u.id = prs.other_user_id
     WHERE prs.user_id = ${userId} AND prs.relationship = 'opponent'
     ORDER BY prs.games_played DESC
     LIMIT ${limit}

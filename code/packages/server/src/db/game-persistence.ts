@@ -197,6 +197,25 @@ export function saveGameResult(
         const relationship = getTeam(otherSeat) === myTeam ? 'partner' : 'opponent';
         upsertRelationalStats(tx, userId, otherUserId, relationship, won);
       }
+
+      // Bot relational stats: track games with bot partners/opponents as a single "Bot" entity
+      const BOT_USER_ID = '__bot__';
+      const allSeats: Seat[] = ['north', 'east', 'south', 'west'];
+      const botSeats = allSeats.filter(s =>
+        !humanPlayers.some(hp => hp.seat === s),
+      );
+
+      // Bot partner: if my partner seat is a bot, record once
+      const hasPartnerBot = botSeats.some(s => getTeam(s) === myTeam);
+      if (hasPartnerBot) {
+        upsertRelationalStats(tx, userId, BOT_USER_ID, 'partner', won);
+      }
+
+      // Bot opponent: if any opponent seat is a bot, record once (no double-count for 2-bot teams)
+      const hasOpponentBot = botSeats.some(s => getTeam(s) !== myTeam);
+      if (hasOpponentBot) {
+        upsertRelationalStats(tx, userId, BOT_USER_ID, 'opponent', won);
+      }
     }
 
     return game.id;
