@@ -496,6 +496,7 @@ export class GameManager {
       this.timer.stop();
       // REQ-F-EC04: Archive round events before advancing
       if (round) {
+        this.eventTracker.finalizeRound();
         const summaries = this.eventTracker.getAllSummaries();
         this.roundEventHistory.set(round.roundNumber, summaries);
       }

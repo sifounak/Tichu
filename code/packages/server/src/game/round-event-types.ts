@@ -8,9 +8,10 @@ export interface RoundEventSummary {
   seat: Seat;
   roundNumber: number;
 
-  // Cards held
+  // Cards held (after pass)
   hadDragon: boolean;
   hadPhoenix: boolean;
+  hadDog: boolean;
   bombsInFirst8: number;
 
   // Pass tracking
@@ -91,9 +92,17 @@ export interface RoundEventSummary {
   bombReceivedFromPartnerInPass: boolean;
   bombReceivedFromOpponentInPass: boolean;
 
+  // Pass analysis
+  strongPrePassHand: boolean;
+  keptDogDuringPass: boolean;
+
   // Achievements
   theTichuClean: number;
   theTichuDirty: number;
+  allPowerCardsBeforePass: boolean;
+  allCardsUnder10AfterPass: boolean;
+  doubleBombInTrick: number;
+  allPlayersBombInRound: boolean;
 }
 
 /** Create a blank event summary for a seat/round */
@@ -103,6 +112,7 @@ export function createBlankSummary(seat: Seat, roundNumber: number): RoundEventS
     roundNumber,
     hadDragon: false,
     hadPhoenix: false,
+    hadDog: false,
     bombsInFirst8: 0,
     dragonReceivedInPass: false,
     phoenixReceivedInPass: false,
@@ -156,7 +166,13 @@ export function createBlankSummary(seat: Seat, roundNumber: number): RoundEventS
     bombGivenToOpponentInPass: false,
     bombReceivedFromPartnerInPass: false,
     bombReceivedFromOpponentInPass: false,
+    strongPrePassHand: false,
+    keptDogDuringPass: false,
     theTichuClean: 0,
     theTichuDirty: 0,
+    allPowerCardsBeforePass: false,
+    allCardsUnder10AfterPass: false,
+    doubleBombInTrick: 0,
+    allPlayersBombInRound: false,
   };
 }

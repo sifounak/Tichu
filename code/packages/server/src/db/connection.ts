@@ -269,6 +269,16 @@ function syncSchema(client: BetterSqlite3Database): void {
     'bomb_gave_to_opponent INTEGER NOT NULL DEFAULT 0',
     'bomb_received_from_partner INTEGER NOT NULL DEFAULT 0',
     'bomb_received_from_opponent INTEGER NOT NULL DEFAULT 0',
+    // Dog: hands with dog (after pass)
+    'hands_with_dog INTEGER NOT NULL DEFAULT 0',
+    // Pass analysis
+    'strong_pre_pass_hand INTEGER NOT NULL DEFAULT 0',
+    'kept_dog_during_pass INTEGER NOT NULL DEFAULT 0',
+    // Achievements (expanded)
+    'all_power_cards_before_pass INTEGER NOT NULL DEFAULT 0',
+    'all_cards_under_10_after_pass INTEGER NOT NULL DEFAULT 0',
+    'double_bomb_in_trick INTEGER NOT NULL DEFAULT 0',
+    'all_players_bomb_in_round INTEGER NOT NULL DEFAULT 0',
   ];
   for (const col of newColumns) {
     try {
