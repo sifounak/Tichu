@@ -373,7 +373,7 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
         {/* Phoenix usage type table */}
         <StatsTable
           className="mt-3"
-          headers={['Single', 'Pair', 'Triple', 'Full House', 'Consec. Pairs', 'Straight']}
+          headers={['Single', 'Pair', 'Triple', 'Full House', 'Consecutive Pairs', 'Straight']}
           rows={[{
             label: 'Count',
             values: [
@@ -415,10 +415,10 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
         {/* REQ-F-CS12: Bomb Sizes table */}
         <StatsTable
           className="mt-3"
-          headers={['4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']}
+          headers={['5', '6', '7', '8', '9', '10', '11', '12', '13', '14']}
           rows={[{
             label: 'Count',
-            values: [4,5,6,7,8,9,10,11,12,13,14].map(n => profile[`bombSize${n}` as keyof PlayerProfile] as number),
+            values: [5,6,7,8,9,10,11,12,13,14].map(n => profile[`bombSize${n}` as keyof PlayerProfile] as number),
           }]}
           rowHeaderLabel="Bomb Size (# Cards)"
         />
@@ -427,7 +427,7 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
       {/* REQ-F-CS22: Pass Tracking table */}
       <Section title="Pass Tracking">
         <StatsTable
-          headers={['Dragon', 'Phoenix', 'Ace', 'Mah Jong', 'Dog (Partner)', 'Dog (Opp)', 'Bomb (Partner)', 'Bomb (Opp)']}
+          headers={['Dragon', 'Phoenix', 'Ace', 'Mah Jong', 'Dog (Partner)', 'Dog (Opponent)', 'Bomb (Partner)', 'Bomb (Opponent)']}
           rows={[
             {
               label: 'Gave',
@@ -588,7 +588,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /** Reusable stats table with consistent styling.
- *  Row header column is compact; data columns are evenly spaced. */
+ *  First column shrinks to fit its content; remaining columns share width equally. */
 function StatsTable({ headers, rows, rowHeaderLabel, className }: {
   headers: string[];
   rows: Array<{ label: string; values: (string | number)[] }>;
@@ -596,20 +596,19 @@ function StatsTable({ headers, rows, rowHeaderLabel, className }: {
   className?: string;
 }) {
   const cellBg = 'rgba(255,255,255,0.05)';
+  // First col: shrink-to-fit via width:1px + nowrap. Data cols: equal share of remaining space.
+  const headerColStyle = { width: '1px', whiteSpace: 'nowrap' as const, background: cellBg, color: 'var(--color-text-muted)' };
+  const dataColPct = `${100 / headers.length}%`;
   return (
     <div className={`overflow-x-auto rounded-lg ${className ?? ''}`}>
-      <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
-        <colgroup>
-          <col style={{ width: 'auto' }} />
-          {headers.map((_, i) => <col key={i} style={{ width: `${100 / headers.length}%` }} />)}
-        </colgroup>
+      <table className="w-full text-sm">
         <thead>
           <tr>
-            <th className="px-3 py-2 text-left text-xs font-medium whitespace-nowrap" style={{ background: cellBg, color: 'var(--color-text-muted)' }}>
+            <th className="px-3 py-2 text-left text-xs font-medium" style={headerColStyle}>
               {rowHeaderLabel ?? ''}
             </th>
             {headers.map(h => (
-              <th key={h} className="px-2 py-2 text-center text-xs font-medium whitespace-nowrap" style={{ background: cellBg, color: 'var(--color-text-muted)' }}>
+              <th key={h} className="px-2 py-2 text-center text-xs font-medium" style={{ width: dataColPct, background: cellBg, color: 'var(--color-text-muted)' }}>
                 {h}
               </th>
             ))}
@@ -618,7 +617,7 @@ function StatsTable({ headers, rows, rowHeaderLabel, className }: {
         <tbody>
           {rows.map((row, ri) => (
             <tr key={ri}>
-              <td className="px-3 py-2 text-xs font-medium whitespace-nowrap" style={{ background: cellBg, color: 'var(--color-text-muted)' }}>
+              <td className="px-3 py-2 text-xs font-medium" style={headerColStyle}>
                 {row.label}
               </td>
               {row.values.map((v, ci) => (
