@@ -143,13 +143,61 @@ export const playerStats = sqliteTable('player_stats', {
   sixPlusCardBombs: integer('six_plus_card_bombs').notNull().default(0),
   bombsInFirst8: integer('bombs_in_first_8').notNull().default(0),
   handsWithMultipleBombs: integer('hands_with_multiple_bombs').notNull().default(0),
-  // REQ-F-GC08: Over-bombed
+  // REQ-F-GC08: Over-bombed (legacy — kept for backward compat)
   overBombed: integer('over_bombed').notNull().default(0),
   // REQ-F-GC09: Bomb forced by wish
   bombForcedByWish: integer('bomb_forced_by_wish').notNull().default(0),
   // REQ-F-GC10: "The Tichu" straight
   theTichuClean: integer('the_tichu_clean').notNull().default(0),
   theTichuDirty: integer('the_tichu_dirty').notNull().default(0),
+
+  // ── REQ-F-CS03–CS05: Phoenix play type tracking ──
+  phoenixUsedAsSingle: integer('phoenix_used_as_single').notNull().default(0),
+  phoenixUsedForPair: integer('phoenix_used_for_pair').notNull().default(0),
+  phoenixUsedInTriple: integer('phoenix_used_in_triple').notNull().default(0),
+  phoenixUsedInFullHouse: integer('phoenix_used_in_full_house').notNull().default(0),
+  phoenixUsedInConsecutivePairs: integer('phoenix_used_in_consecutive_pairs').notNull().default(0),
+  phoenixUsedInStraight: integer('phoenix_used_in_straight').notNull().default(0),
+  longestStraightWithPhoenix: integer('longest_straight_with_phoenix').notNull().default(0),
+
+  // ── REQ-F-CS06–CS09: Dog control tracking ──
+  dogControlToPartner: integer('dog_control_to_partner').notNull().default(0),
+  dogControlToOpponent: integer('dog_control_to_opponent').notNull().default(0),
+  dogControlToSelf: integer('dog_control_to_self').notNull().default(0),
+  dogStuckAsLastCard: integer('dog_stuck_as_last_card').notNull().default(0),
+
+  // ── REQ-F-CS10–CS12: Per-size bomb tracking ──
+  bombSize4: integer('bomb_size_4').notNull().default(0),
+  bombSize5: integer('bomb_size_5').notNull().default(0),
+  bombSize6: integer('bomb_size_6').notNull().default(0),
+  bombSize7: integer('bomb_size_7').notNull().default(0),
+  bombSize8: integer('bomb_size_8').notNull().default(0),
+  bombSize9: integer('bomb_size_9').notNull().default(0),
+  bombSize10: integer('bomb_size_10').notNull().default(0),
+  bombSize11: integer('bomb_size_11').notNull().default(0),
+  bombSize12: integer('bomb_size_12').notNull().default(0),
+  bombSize13: integer('bomb_size_13').notNull().default(0),
+  bombSize14: integer('bomb_size_14').notNull().default(0),
+
+  // ── REQ-F-CS13–CS15: Conflicting bombs ──
+  conflictingBombs: integer('conflicting_bombs').notNull().default(0),
+
+  // ── REQ-F-CS16–CS18: Over-bomb direction split ──
+  youOverBombed: integer('you_over_bombed').notNull().default(0),
+  youWereOverBombed: integer('you_were_over_bombed').notNull().default(0),
+
+  // ── REQ-F-CS19–CS22: Extended pass tracking ──
+  dragonGivenInPass: integer('dragon_gave_in_pass').notNull().default(0),
+  phoenixGivenInPass: integer('phoenix_gave_in_pass').notNull().default(0),
+  aceGivenInPass: integer('ace_gave_in_pass').notNull().default(0),
+  mahjongGivenInPass: integer('mahjong_gave_in_pass').notNull().default(0),
+  mahjongReceivedInPass: integer('mahjong_received_in_pass').notNull().default(0),
+  dogReceivedFromPartner: integer('dog_received_from_partner').notNull().default(0),
+  dogReceivedFromOpponent: integer('dog_received_from_opponent').notNull().default(0),
+  bombGivenToPartner: integer('bomb_gave_to_partner').notNull().default(0),
+  bombGivenToOpponent: integer('bomb_gave_to_opponent').notNull().default(0),
+  bombReceivedFromPartner: integer('bomb_received_from_partner').notNull().default(0),
+  bombReceivedFromOpponent: integer('bomb_received_from_opponent').notNull().default(0),
 });
 
 // ─── Player Relational Stats ────────────────────────────────────────────

@@ -227,6 +227,48 @@ function syncSchema(client: BetterSqlite3Database): void {
     'games_requiring_tie_break INTEGER NOT NULL DEFAULT 0',
     'most_tie_break_rounds_needed INTEGER NOT NULL DEFAULT 0',
     'games_joined_after_spectating INTEGER NOT NULL DEFAULT 0',
+    // REQ-F-CS03–CS05: Phoenix play type tracking
+    'phoenix_used_as_single INTEGER NOT NULL DEFAULT 0',
+    'phoenix_used_for_pair INTEGER NOT NULL DEFAULT 0',
+    'phoenix_used_in_triple INTEGER NOT NULL DEFAULT 0',
+    'phoenix_used_in_full_house INTEGER NOT NULL DEFAULT 0',
+    'phoenix_used_in_consecutive_pairs INTEGER NOT NULL DEFAULT 0',
+    'phoenix_used_in_straight INTEGER NOT NULL DEFAULT 0',
+    'longest_straight_with_phoenix INTEGER NOT NULL DEFAULT 0',
+    // REQ-F-CS06–CS09: Dog control tracking
+    'dog_control_to_partner INTEGER NOT NULL DEFAULT 0',
+    'dog_control_to_opponent INTEGER NOT NULL DEFAULT 0',
+    'dog_control_to_self INTEGER NOT NULL DEFAULT 0',
+    'dog_stuck_as_last_card INTEGER NOT NULL DEFAULT 0',
+    // REQ-F-CS10–CS12: Per-size bomb tracking
+    'bomb_size_4 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_5 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_6 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_7 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_8 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_9 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_10 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_11 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_12 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_13 INTEGER NOT NULL DEFAULT 0',
+    'bomb_size_14 INTEGER NOT NULL DEFAULT 0',
+    // REQ-F-CS13–CS15: Conflicting bombs
+    'conflicting_bombs INTEGER NOT NULL DEFAULT 0',
+    // REQ-F-CS16–CS18: Over-bomb direction split
+    'you_over_bombed INTEGER NOT NULL DEFAULT 0',
+    'you_were_over_bombed INTEGER NOT NULL DEFAULT 0',
+    // REQ-F-CS19–CS22: Extended pass tracking
+    'dragon_gave_in_pass INTEGER NOT NULL DEFAULT 0',
+    'phoenix_gave_in_pass INTEGER NOT NULL DEFAULT 0',
+    'ace_gave_in_pass INTEGER NOT NULL DEFAULT 0',
+    'mahjong_gave_in_pass INTEGER NOT NULL DEFAULT 0',
+    'mahjong_received_in_pass INTEGER NOT NULL DEFAULT 0',
+    'dog_received_from_partner INTEGER NOT NULL DEFAULT 0',
+    'dog_received_from_opponent INTEGER NOT NULL DEFAULT 0',
+    'bomb_gave_to_partner INTEGER NOT NULL DEFAULT 0',
+    'bomb_gave_to_opponent INTEGER NOT NULL DEFAULT 0',
+    'bomb_received_from_partner INTEGER NOT NULL DEFAULT 0',
+    'bomb_received_from_opponent INTEGER NOT NULL DEFAULT 0',
   ];
   for (const col of newColumns) {
     try {

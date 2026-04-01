@@ -66,6 +66,48 @@ interface PlayerProfile {
   bombForcedByWish: number;
   theTichuClean: number;
   theTichuDirty: number;
+  // REQ-F-CS03–CS05: Phoenix play type tracking
+  phoenixUsedAsSingle: number;
+  phoenixUsedForPair: number;
+  phoenixUsedInTriple: number;
+  phoenixUsedInFullHouse: number;
+  phoenixUsedInConsecutivePairs: number;
+  phoenixUsedInStraight: number;
+  longestStraightWithPhoenix: number;
+  // REQ-F-CS06–CS09: Dog control tracking
+  dogControlToPartner: number;
+  dogControlToOpponent: number;
+  dogControlToSelf: number;
+  dogStuckAsLastCard: number;
+  // REQ-F-CS10–CS12: Per-size bomb tracking
+  bombSize4: number;
+  bombSize5: number;
+  bombSize6: number;
+  bombSize7: number;
+  bombSize8: number;
+  bombSize9: number;
+  bombSize10: number;
+  bombSize11: number;
+  bombSize12: number;
+  bombSize13: number;
+  bombSize14: number;
+  // REQ-F-CS13–CS15: Conflicting bombs
+  conflictingBombs: number;
+  // REQ-F-CS16–CS18: Over-bomb direction split
+  youOverBombed: number;
+  youWereOverBombed: number;
+  // REQ-F-CS19–CS22: Extended pass tracking
+  dragonGivenInPass: number;
+  phoenixGivenInPass: number;
+  aceGivenInPass: number;
+  mahjongGivenInPass: number;
+  mahjongReceivedInPass: number;
+  dogReceivedFromPartner: number;
+  dogReceivedFromOpponent: number;
+  bombGivenToPartner: number;
+  bombGivenToOpponent: number;
+  bombReceivedFromPartner: number;
+  bombReceivedFromOpponent: number;
 }
 
 interface RelationalStat {
