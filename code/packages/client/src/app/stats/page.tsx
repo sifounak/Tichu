@@ -211,7 +211,7 @@ function StatsContent() {
   ];
 
   return (
-    <main className="min-h-dvh p-6" style={{ background: 'var(--color-felt-green-dark)' }}>
+    <main className="min-h-dvh p-6 overflow-auto" style={{ background: 'var(--color-felt-green-dark)' }}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -248,7 +248,7 @@ function StatsContent() {
             </div>
 
             {/* Tab content */}
-            <div className="p-4 rounded-xl" style={{ background: 'var(--color-bg-panel)' }}>
+            <div className="p-4 rounded-xl overflow-x-auto" style={{ background: 'var(--color-bg-panel)' }}>
               {activeTab === 'overview' && <OverviewTab profile={profile} />}
               {activeTab === 'cards' && <CardStatsTab profile={profile} />}
               {activeTab === 'relationships' && <RelationshipsTab partners={partners} opponents={opponents} />}
