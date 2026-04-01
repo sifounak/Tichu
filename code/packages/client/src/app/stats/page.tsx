@@ -211,7 +211,7 @@ function StatsContent() {
   ];
 
   return (
-    <main className="min-h-dvh p-6 overflow-auto" style={{ background: 'var(--color-felt-green-dark)' }}>
+    <main className="p-6" style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
