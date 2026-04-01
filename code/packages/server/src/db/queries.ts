@@ -73,6 +73,48 @@ export interface PlayerProfile {
   bombForcedByWish: number;
   theTichuClean: number;
   theTichuDirty: number;
+  // REQ-F-CS03–CS05: Phoenix play type tracking
+  phoenixUsedAsSingle: number;
+  phoenixUsedForPair: number;
+  phoenixUsedInTriple: number;
+  phoenixUsedInFullHouse: number;
+  phoenixUsedInConsecutivePairs: number;
+  phoenixUsedInStraight: number;
+  longestStraightWithPhoenix: number;
+  // REQ-F-CS06–CS09: Dog control tracking
+  dogControlToPartner: number;
+  dogControlToOpponent: number;
+  dogControlToSelf: number;
+  dogStuckAsLastCard: number;
+  // REQ-F-CS10–CS12: Per-size bomb tracking
+  bombSize4: number;
+  bombSize5: number;
+  bombSize6: number;
+  bombSize7: number;
+  bombSize8: number;
+  bombSize9: number;
+  bombSize10: number;
+  bombSize11: number;
+  bombSize12: number;
+  bombSize13: number;
+  bombSize14: number;
+  // REQ-F-CS13–CS15: Conflicting bombs
+  conflictingBombs: number;
+  // REQ-F-CS16–CS18: Over-bomb direction split
+  youOverBombed: number;
+  youWereOverBombed: number;
+  // REQ-F-CS19–CS22: Extended pass tracking
+  dragonGivenInPass: number;
+  phoenixGivenInPass: number;
+  aceGivenInPass: number;
+  mahjongGivenInPass: number;
+  mahjongReceivedInPass: number;
+  dogReceivedFromPartner: number;
+  dogReceivedFromOpponent: number;
+  bombGivenToPartner: number;
+  bombGivenToOpponent: number;
+  bombReceivedFromPartner: number;
+  bombReceivedFromOpponent: number;
 }
 
 const MIN_GAMES_FOR_LEADERBOARD = 5;
@@ -204,7 +246,49 @@ export function getPlayerProfile(
       ps.over_bombed as overBombed,
       ps.bomb_forced_by_wish as bombForcedByWish,
       ps.the_tichu_clean as theTichuClean,
-      ps.the_tichu_dirty as theTichuDirty
+      ps.the_tichu_dirty as theTichuDirty,
+      -- REQ-F-CS03–CS05: Phoenix play type tracking
+      ps.phoenix_used_as_single as phoenixUsedAsSingle,
+      ps.phoenix_used_for_pair as phoenixUsedForPair,
+      ps.phoenix_used_in_triple as phoenixUsedInTriple,
+      ps.phoenix_used_in_full_house as phoenixUsedInFullHouse,
+      ps.phoenix_used_in_consecutive_pairs as phoenixUsedInConsecutivePairs,
+      ps.phoenix_used_in_straight as phoenixUsedInStraight,
+      ps.longest_straight_with_phoenix as longestStraightWithPhoenix,
+      -- REQ-F-CS06–CS09: Dog control tracking
+      ps.dog_control_to_partner as dogControlToPartner,
+      ps.dog_control_to_opponent as dogControlToOpponent,
+      ps.dog_control_to_self as dogControlToSelf,
+      ps.dog_stuck_as_last_card as dogStuckAsLastCard,
+      -- REQ-F-CS10–CS12: Per-size bomb tracking
+      ps.bomb_size_4 as bombSize4,
+      ps.bomb_size_5 as bombSize5,
+      ps.bomb_size_6 as bombSize6,
+      ps.bomb_size_7 as bombSize7,
+      ps.bomb_size_8 as bombSize8,
+      ps.bomb_size_9 as bombSize9,
+      ps.bomb_size_10 as bombSize10,
+      ps.bomb_size_11 as bombSize11,
+      ps.bomb_size_12 as bombSize12,
+      ps.bomb_size_13 as bombSize13,
+      ps.bomb_size_14 as bombSize14,
+      -- REQ-F-CS13–CS15: Conflicting bombs
+      ps.conflicting_bombs as conflictingBombs,
+      -- REQ-F-CS16–CS18: Over-bomb direction split
+      ps.you_over_bombed as youOverBombed,
+      ps.you_were_over_bombed as youWereOverBombed,
+      -- REQ-F-CS19–CS22: Extended pass tracking
+      ps.dragon_gave_in_pass as dragonGivenInPass,
+      ps.phoenix_gave_in_pass as phoenixGivenInPass,
+      ps.ace_gave_in_pass as aceGivenInPass,
+      ps.mahjong_gave_in_pass as mahjongGivenInPass,
+      ps.mahjong_received_in_pass as mahjongReceivedInPass,
+      ps.dog_received_from_partner as dogReceivedFromPartner,
+      ps.dog_received_from_opponent as dogReceivedFromOpponent,
+      ps.bomb_gave_to_partner as bombGivenToPartner,
+      ps.bomb_gave_to_opponent as bombGivenToOpponent,
+      ps.bomb_received_from_partner as bombReceivedFromPartner,
+      ps.bomb_received_from_opponent as bombReceivedFromOpponent
     FROM player_stats ps
     JOIN users u ON u.id = ps.user_id
     WHERE ps.user_id = ${userId}
