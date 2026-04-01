@@ -205,7 +205,7 @@ function StatsContent() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
-    { id: 'cards', label: 'Card / Hand Stats' },
+    { id: 'cards', label: 'Cards / Hands' },
     { id: 'relationships', label: 'Relationships' },
     { id: 'history', label: 'History' },
   ];
@@ -274,7 +274,7 @@ function OverviewTab({ profile }: { profile: PlayerProfile }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* REQ-F-SO23: Game Record (11 stats) */}
       <Section title="Game Record">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -344,7 +344,7 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* REQ-F-CS02: Achievements at top */}
       <Section title="Achievements">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -362,20 +362,31 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
         </div>
       </Section>
 
-      {/* REQ-F-CS05: Phoenix section — 10 stats */}
+      {/* REQ-F-CS05: Phoenix section — 3 stat cards + usage table */}
       <Section title="Phoenix">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="Hands with Phoenix" value={profile.roundsWithPhoenix} />
           <StatCard label="Tricks Won with Phoenix" value={profile.roundsWithPhoenixWon} />
           <StatCard label="Phoenix Win Rate" value={pct(profile.roundsWithPhoenixWon, profile.roundsWithPhoenix)} />
-          <StatCard label="Used as Single Card" value={profile.phoenixUsedAsSingle} />
-          <StatCard label="Used for Pair" value={profile.phoenixUsedForPair} />
-          <StatCard label="Used in Three-of-a-Kind" value={profile.phoenixUsedInTriple} />
-          <StatCard label="Used in Full House" value={profile.phoenixUsedInFullHouse} />
-          <StatCard label="Used in Consecutive Pairs" value={profile.phoenixUsedInConsecutivePairs} />
-          <StatCard label="Used in Straight" value={profile.phoenixUsedInStraight} />
           <StatCard label="Longest Straight with Phoenix" value={profile.longestStraightWithPhoenix || '-'} />
         </div>
+        {/* Phoenix usage type table */}
+        <StatsTable
+          className="mt-3"
+          headers={['Single', 'Pair', 'Triple', 'Full House', 'Consec. Pairs', 'Straight']}
+          rows={[{
+            label: 'Count',
+            values: [
+              profile.phoenixUsedAsSingle,
+              profile.phoenixUsedForPair,
+              profile.phoenixUsedInTriple,
+              profile.phoenixUsedInFullHouse,
+              profile.phoenixUsedInConsecutivePairs,
+              profile.phoenixUsedInStraight,
+            ],
+          }]}
+          rowHeaderLabel="Phoenix Trick"
+        />
       </Section>
 
       {/* REQ-F-CS09: Dog section — 5 stats */}
@@ -402,67 +413,42 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
           <StatCard label="Bomb Forced by Wish" value={profile.bombForcedByWish} />
         </div>
         {/* REQ-F-CS12: Bomb Sizes table */}
-        <div className="mt-3 overflow-x-auto rounded-lg" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                <th className="px-2 py-1.5 text-left text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Size</th>
-                {[4,5,6,7,8,9,10,11,12,13,14].map(n => (
-                  <th key={n} className="px-2 py-1.5 text-center text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{n === 4 ? '4-card' : String(n)}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="px-2 py-1.5 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Count</td>
-                {[4,5,6,7,8,9,10,11,12,13,14].map(n => {
-                  const key = `bombSize${n}` as keyof PlayerProfile;
-                  return <td key={n} className="px-2 py-1.5 text-center font-mono text-sm">{profile[key] as number}</td>;
-                })}
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <StatsTable
+          className="mt-3"
+          headers={['4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14']}
+          rows={[{
+            label: 'Count',
+            values: [4,5,6,7,8,9,10,11,12,13,14].map(n => profile[`bombSize${n}` as keyof PlayerProfile] as number),
+          }]}
+          rowHeaderLabel="Bomb Size (# Cards)"
+        />
       </Section>
 
       {/* REQ-F-CS22: Pass Tracking table */}
       <Section title="Pass Tracking">
-        <div className="overflow-x-auto rounded-lg" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                <th className="px-2 py-1.5 text-left text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}></th>
-                {['Dragon', 'Phoenix', 'Ace', 'Mahjong', 'Dog (Partner)', 'Dog (Opp)', 'Bomb (Partner)', 'Bomb (Opp)'].map(h => (
-                  <th key={h} className="px-2 py-1.5 text-center text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                <td className="px-2 py-1.5 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Gave</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.dragonGivenInPass}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.phoenixGivenInPass}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.aceGivenInPass}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.mahjongGivenInPass}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.dogGivenToPartner}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.dogGivenToOpponent}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.bombGivenToPartner}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.bombGivenToOpponent}</td>
-              </tr>
-              <tr>
-                <td className="px-2 py-1.5 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Received</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.dragonReceivedInPass}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.phoenixReceivedInPass}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.aceReceivedInPass}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.mahjongReceivedInPass}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.dogReceivedFromPartner}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.dogReceivedFromOpponent}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.bombReceivedFromPartner}</td>
-                <td className="px-2 py-1.5 text-center font-mono">{profile.bombReceivedFromOpponent}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <StatsTable
+          headers={['Dragon', 'Phoenix', 'Ace', 'Mah Jong', 'Dog (Partner)', 'Dog (Opp)', 'Bomb (Partner)', 'Bomb (Opp)']}
+          rows={[
+            {
+              label: 'Gave',
+              values: [
+                profile.dragonGivenInPass, profile.phoenixGivenInPass,
+                profile.aceGivenInPass, profile.mahjongGivenInPass,
+                profile.dogGivenToPartner, profile.dogGivenToOpponent,
+                profile.bombGivenToPartner, profile.bombGivenToOpponent,
+              ],
+            },
+            {
+              label: 'Received',
+              values: [
+                profile.dragonReceivedInPass, profile.phoenixReceivedInPass,
+                profile.aceReceivedInPass, profile.mahjongReceivedInPass,
+                profile.dogReceivedFromPartner, profile.dogReceivedFromOpponent,
+                profile.bombReceivedFromPartner, profile.bombReceivedFromOpponent,
+              ],
+            },
+          ]}
+        />
       </Section>
     </div>
   );
@@ -472,7 +458,7 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
 
 function RelationshipsTab({ partners, opponents }: { partners: RelationalStat[]; opponents: RelationalStat[] }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Section title="Partners">
         {partners.length === 0 ? (
           <p className="text-center py-4" style={{ color: 'var(--color-text-muted)' }}>No partner data yet.</p>
@@ -540,7 +526,7 @@ function HistoryTab({ games }: { games: GameHistoryEntry[] }) {
             <th className="text-right py-2 px-1">Your Score</th>
             <th className="text-right py-2 px-1">Opp Score</th>
             <th className="text-right py-2 px-1">Rounds</th>
-            <th className="text-left py-2 px-1">Partner</th>
+            <th className="text-center py-2 px-1">Partner</th>
             <th className="text-left py-2 px-1">Opponents</th>
           </tr>
         </thead>
@@ -579,7 +565,7 @@ function HistoryTab({ games }: { games: GameHistoryEntry[] }) {
                 <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-primary)' }}>{myScore}</td>
                 <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>{oppScore}</td>
                 <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-muted)' }}>{game.roundCount}</td>
-                <td className="py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>{partnerName}</td>
+                <td className="py-2 px-1 text-center" style={{ color: 'var(--color-text-secondary)' }}>{partnerName}</td>
                 <td className="py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>{opponentNames}</td>
               </tr>
             );
@@ -595,8 +581,55 @@ function HistoryTab({ games }: { games: GameHistoryEntry[] }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-sm font-semibold mb-2" style={{ color: 'var(--color-gold-accent)' }}>{title}</h3>
+      <h3 className="text-base font-bold mb-3" style={{ color: 'var(--color-gold-accent)' }}>{title}</h3>
       {children}
+    </div>
+  );
+}
+
+/** Reusable stats table with consistent styling.
+ *  Row header column is compact; data columns are evenly spaced. */
+function StatsTable({ headers, rows, rowHeaderLabel, className }: {
+  headers: string[];
+  rows: Array<{ label: string; values: (string | number)[] }>;
+  rowHeaderLabel?: string;
+  className?: string;
+}) {
+  const cellBg = 'rgba(255,255,255,0.05)';
+  return (
+    <div className={`overflow-x-auto rounded-lg ${className ?? ''}`}>
+      <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+        <colgroup>
+          <col style={{ width: 'auto' }} />
+          {headers.map((_, i) => <col key={i} style={{ width: `${100 / headers.length}%` }} />)}
+        </colgroup>
+        <thead>
+          <tr>
+            <th className="px-3 py-2 text-left text-xs font-medium whitespace-nowrap" style={{ background: cellBg, color: 'var(--color-text-muted)' }}>
+              {rowHeaderLabel ?? ''}
+            </th>
+            {headers.map(h => (
+              <th key={h} className="px-2 py-2 text-center text-xs font-medium whitespace-nowrap" style={{ background: cellBg, color: 'var(--color-text-muted)' }}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, ri) => (
+            <tr key={ri}>
+              <td className="px-3 py-2 text-xs font-medium whitespace-nowrap" style={{ background: cellBg, color: 'var(--color-text-muted)' }}>
+                {row.label}
+              </td>
+              {row.values.map((v, ci) => (
+                <td key={ci} className="px-2 py-2 text-center font-mono text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                  {v}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
