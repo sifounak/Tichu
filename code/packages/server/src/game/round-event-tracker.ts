@@ -10,12 +10,14 @@ import {
   isDragon,
   isPhoenix,
   isDog,
+  isMahjong,
   getTeam,
   getPartner,
   SEATS_IN_ORDER,
   detectAllBombs,
   CombinationType,
 } from '@tichu/shared';
+import type { Seat as SeatType } from '@tichu/shared';
 import type { GameMachineContext } from './game-state-machine.js';
 import { createBlankSummary, type RoundEventSummary } from './round-event-types.js';
 import { GamePhase } from '@tichu/shared';
@@ -30,6 +32,8 @@ export class RoundEventTracker {
   private currentRoundNumber = 0;
   /** Track which bombs we've already counted (by trick play index) */
   private processedBombCount = new Map<Seat, number>();
+  /** REQ-F-CS07: Track seats that have been detected as stuck with Dog (once per round) */
+  private dogStuckDetected = new Set<SeatType>();
 
   /** Get accumulated summaries for all seats */
   getSummaries(): Map<Seat, RoundEventSummary> {
@@ -47,6 +51,7 @@ export class RoundEventTracker {
     this.prevRound = null;
     this.currentRoundNumber = roundNumber;
     this.processedBombCount.clear();
+    this.dogStuckDetected.clear();
     for (const seat of SEATS_IN_ORDER) {
       this.summaries.set(seat, createBlankSummary(seat, roundNumber));
     }
@@ -71,9 +76,11 @@ export class RoundEventTracker {
     if (prev) {
       this.detectPhaseTransitions(prev, round);
       this.detectBombPlays(prev, round);
+      this.detectPhoenixPlay(prev, round);
       this.detectDragonTrickWin(prev, round);
       this.detectDragonGift(prev, round);
       this.detectDogPlay(prev, round);
+      this.detectDogStuck(round);
       this.detectTheTichu(prev, round);
     } else if (round.phase === GamePhase.GrandTichuDecision) {
       // First observation — capture initial hands (first 8 cards)
@@ -96,8 +103,9 @@ export class RoundEventTracker {
 
     // Card Passing → Playing: card exchange happened, capture pass data + full hands
     if (prev.phase === GamePhase.CardPassing && curr.phase === GamePhase.Playing) {
-      this.capturePassData(curr);
+      this.capturePassData(prev, curr);
       this.captureFullHands(curr);
+      this.detectConflictingBombs(curr);
     }
   }
 
@@ -116,8 +124,8 @@ export class RoundEventTracker {
     }
   }
 
-  /** REQ-F-EC03/GC02/GC05: Read pass data after card exchange */
-  private capturePassData(round: RoundState): void {
+  /** REQ-F-EC03/GC02/GC05/CS19/CS20: Read pass data after card exchange */
+  private capturePassData(_prevRound: RoundState, round: RoundState): void {
     for (const seat of SEATS_IN_ORDER) {
       const summary = this.summaries.get(seat)!;
       const partner = getPartner(seat);
@@ -131,21 +139,74 @@ export class RoundEventTracker {
         const card = passedCard.card;
         if (isDragon(card)) summary.dragonReceivedInPass = true;
         if (isPhoenix(card)) summary.phoenixReceivedInPass = true;
-        if (isDog(card)) summary.dogReceivedInPass = true;
+        if (isDog(card)) {
+          summary.dogReceivedInPass = true;
+          // REQ-F-CS19: Dog received from partner vs opponent
+          if (fromSeat === partner) {
+            summary.dogReceivedFromPartner = true;
+          } else {
+            summary.dogReceivedFromOpponent = true;
+          }
+        }
         if (card.kind === 'standard' && card.rank === 14) summary.aceReceivedInPass = true;
+        // REQ-F-CS19: Mahjong received in pass
+        if (isMahjong(card)) summary.mahjongReceivedInPass = true;
       }
 
-      // What this seat GAVE in the pass (for dog tracking)
+      // What this seat GAVE in the pass
       for (const toSeat of SEATS_IN_ORDER) {
         if (toSeat === seat) continue;
         const passedCard = round.players[seat].passedCards.to[toSeat];
         if (!passedCard) continue;
 
-        if (isDog(passedCard.card)) {
+        const card = passedCard.card;
+        // Existing dog tracking
+        if (isDog(card)) {
           if (toSeat === partner) {
             summary.dogGivenToPartner = true;
           } else {
             summary.dogGivenToOpponent = true;
+          }
+        }
+        // REQ-F-CS19: Extended gave tracking
+        if (isDragon(card)) summary.dragonGivenInPass = true;
+        if (isPhoenix(card)) summary.phoenixGivenInPass = true;
+        if (card.kind === 'standard' && card.rank === 14) summary.aceGivenInPass = true;
+        if (isMahjong(card)) summary.mahjongGivenInPass = true;
+
+        // REQ-F-CS20: Check if given card completed a 4-of-a-kind bomb for the recipient
+        if (card.kind === 'standard') {
+          const rank = card.rank;
+          const recipientHand = round.players[toSeat].hand;
+          const rankCount = recipientHand.filter(gc =>
+            gc.card.kind === 'standard' && gc.card.rank === rank,
+          ).length;
+          if (rankCount === 4) {
+            if (toSeat === partner) {
+              summary.bombGivenToPartnerInPass = true;
+            } else {
+              summary.bombGivenToOpponentInPass = true;
+            }
+          }
+        }
+      }
+
+      // REQ-F-CS20: Check if any received card completed a 4-of-a-kind bomb for this player
+      for (const fromSeat of SEATS_IN_ORDER) {
+        if (fromSeat === seat) continue;
+        const passedCard = round.players[fromSeat].passedCards.to[seat];
+        if (!passedCard || passedCard.card.kind !== 'standard') continue;
+
+        const rank = passedCard.card.rank;
+        const myHand = round.players[seat].hand;
+        const rankCount = myHand.filter(gc =>
+          gc.card.kind === 'standard' && gc.card.rank === rank,
+        ).length;
+        if (rankCount === 4) {
+          if (fromSeat === partner) {
+            summary.bombReceivedFromPartnerInPass = true;
+          } else {
+            summary.bombReceivedFromOpponentInPass = true;
           }
         }
       }
@@ -181,26 +242,22 @@ export class RoundEventTracker {
       const summary = this.summaries.get(play.seat)!;
       summary.bombsPlayed++;
 
-      // Classify by size
+      // REQ-F-CS10: Per-size bomb tracking (4 through 14)
       const cardCount = play.combination.cards.length;
-      if (cardCount === 4 && play.combination.type === CombinationType.FourBomb) {
-        summary.fourCardBombs++;
-      } else if (cardCount === 5) {
-        summary.fiveCardBombs++;
-      } else if (cardCount >= 6) {
-        summary.sixPlusCardBombs++;
-      } else if (play.combination.type === CombinationType.StraightFlushBomb) {
-        // Straight flush bombs are 5+ cards
-        if (cardCount === 5) summary.fiveCardBombs++;
-        else summary.sixPlusCardBombs++;
+      const sizeKey = `bombSize${cardCount}` as keyof RoundEventSummary;
+      if (sizeKey in summary && typeof summary[sizeKey] === 'number') {
+        (summary as unknown as Record<string, number>)[sizeKey]++;
       }
 
-      // REQ-F-GC08: Over-bombed — previous play was also a bomb by different team
+      // REQ-F-CS16: Over-bombed direction split — previous play was also a bomb by different team
       if (i > 0) {
         const prevPlay = currTrick.plays[i - 1];
         if (prevPlay.combination.isBomb && getTeam(prevPlay.seat) !== getTeam(play.seat)) {
-          const prevSummary = this.summaries.get(prevPlay.seat)!;
-          prevSummary.overBombed++;
+          // Victim: their bomb was topped
+          const victimSummary = this.summaries.get(prevPlay.seat)!;
+          victimSummary.youWereOverBombed++;
+          // Attacker: you played the higher bomb
+          summary.youOverBombed++;
         }
       }
 
@@ -259,25 +316,31 @@ export class RoundEventTracker {
     }
   }
 
-  /** REQ-F-GC06: Detect Dog played for Tichu partner */
+  /** REQ-F-GC06/CS06: Detect Dog played — control outcomes and Tichu partner */
   private detectDogPlay(prev: RoundState, curr: RoundState): void {
     // lastDogPlay transitions from null to a value
     if (!prev.lastDogPlay && curr.lastDogPlay) {
       const { fromSeat, toSeat } = curr.lastDogPlay;
+      const summary = this.summaries.get(fromSeat)!;
       const partner = getPartner(fromSeat);
 
-      // Check if the recipient (partner) has a Tichu call
+      // REQ-F-CS06: Dog control classification
+      if (toSeat === partner) {
+        summary.dogControlToPartner++;
+      } else if (toSeat === fromSeat) {
+        summary.dogControlToSelf++;
+      } else {
+        summary.dogControlToOpponent++;
+      }
+
+      // Existing: check if the recipient (partner) has a Tichu call
       if (toSeat === partner) {
         const partnerCall = curr.players[partner].tipiCall;
         if (partnerCall === 'tichu' || partnerCall === 'grandTichu') {
-          const summary = this.summaries.get(fromSeat)!;
           summary.dogPlayedForTichuPartner++;
         }
       }
     }
-
-    // Track opportunities: player has Dog AND partner has called Tichu
-    // This is checked once per round when hands are known (after card exchange)
   }
 
   /** REQ-F-GC10: Detect "The Tichu" straight (13-card 1-through-Ace) */
@@ -321,6 +384,139 @@ export class RoundEventTracker {
       if (hasDog) {
         const summary = this.summaries.get(seat)!;
         summary.dogOpportunitiesForTichuPartner++;
+      }
+    }
+  }
+
+  /** REQ-F-CS03: Detect Phoenix play types by combination type */
+  private detectPhoenixPlay(prev: RoundState, curr: RoundState): void {
+    const prevTrick = prev.currentTrick;
+    const currTrick = curr.currentTrick;
+    if (!currTrick) return;
+
+    const prevPlayCount = prevTrick?.plays.length ?? 0;
+    const currPlayCount = currTrick.plays.length;
+
+    for (let i = prevPlayCount; i < currPlayCount; i++) {
+      const play = currTrick.plays[i];
+      const hasPhoenix = play.combination.cards.some(gc => isPhoenix(gc.card));
+      if (!hasPhoenix) continue;
+
+      const summary = this.summaries.get(play.seat)!;
+      switch (play.combination.type) {
+        case CombinationType.Single:
+          summary.phoenixUsedAsSingle++;
+          break;
+        case CombinationType.Pair:
+          summary.phoenixUsedForPair++;
+          break;
+        case CombinationType.Triple:
+          summary.phoenixUsedInTriple++;
+          break;
+        case CombinationType.FullHouse:
+          summary.phoenixUsedInFullHouse++;
+          break;
+        case CombinationType.PairSequence:
+          summary.phoenixUsedInConsecutivePairs++;
+          break;
+        case CombinationType.Straight:
+          summary.phoenixUsedInStraight++;
+          summary.longestStraightWithPhoenix = Math.max(
+            summary.longestStraightWithPhoenix,
+            play.combination.cards.length,
+          );
+          break;
+        // Phoenix cannot appear in FourBomb or StraightFlushBomb by game rules
+      }
+    }
+  }
+
+  /** REQ-F-CS07: Detect stuck with Dog as last card */
+  private detectDogStuck(round: RoundState): void {
+    for (const seat of SEATS_IN_ORDER) {
+      if (this.dogStuckDetected.has(seat)) continue;
+      const hand = round.players[seat].hand;
+      if (hand.length === 1 && isDog(hand[0].card)) {
+        this.dogStuckDetected.add(seat);
+        const summary = this.summaries.get(seat)!;
+        summary.dogStuckAsLastCard++;
+      }
+    }
+  }
+
+  /** REQ-F-CS13: Detect conflicting bombs in dealt hand (14 cards after exchange) */
+  private detectConflictingBombs(round: RoundState): void {
+    for (const seat of SEATS_IN_ORDER) {
+      const summary = this.summaries.get(seat)!;
+      const hand = round.players[seat].hand;
+
+      // Find all 4-of-a-kind bomb ranks
+      const rankCounts = new Map<number, number>();
+      for (const gc of hand) {
+        if (gc.card.kind === 'standard') {
+          const r = gc.card.rank;
+          rankCounts.set(r, (rankCounts.get(r) ?? 0) + 1);
+        }
+      }
+      const fourOfAKindRanks: number[] = [];
+      for (const [rank, count] of rankCounts) {
+        if (count >= 4) fourOfAKindRanks.push(rank);
+      }
+      if (fourOfAKindRanks.length === 0) continue;
+
+      // Find straight flushes by suit (5+ consecutive same-suit cards)
+      const bySuit = new Map<string, number[]>();
+      for (const gc of hand) {
+        if (gc.card.kind === 'standard') {
+          const suit = gc.card.suit;
+          const ranks = bySuit.get(suit) ?? [];
+          ranks.push(gc.card.rank);
+          bySuit.set(suit, ranks);
+        }
+      }
+
+      // For each suit, find consecutive runs of 5+
+      const straightFlushRuns: Array<{ ranks: Set<number> }> = [];
+      for (const [, ranks] of bySuit) {
+        const sorted = [...new Set(ranks)].sort((a, b) => a - b);
+        let runStart = 0;
+        for (let j = 1; j <= sorted.length; j++) {
+          if (j === sorted.length || sorted[j] !== sorted[j - 1] + 1) {
+            const runLen = j - runStart;
+            if (runLen >= 5) {
+              const runRanks = new Set(sorted.slice(runStart, j));
+              straightFlushRuns.push({ ranks: runRanks });
+            }
+            runStart = j;
+          }
+        }
+      }
+      if (straightFlushRuns.length === 0) continue;
+
+      // Check conflicts: 4-of-a-kind shares a card with a straight flush,
+      // and removing the 4-of-a-kind rank breaks the flush below 5 cards
+      for (const fourRank of fourOfAKindRanks) {
+        for (const run of straightFlushRuns) {
+          if (!run.ranks.has(fourRank)) continue;
+          // If we remove this rank, does the remaining run still have a 5+ consecutive sub-run?
+          const remaining = [...run.ranks].filter(r => r !== fourRank).sort((a, b) => a - b);
+          let maxConsecutive = 0;
+          let currentRun = 1;
+          for (let j = 1; j < remaining.length; j++) {
+            if (remaining[j] === remaining[j - 1] + 1) {
+              currentRun++;
+            } else {
+              maxConsecutive = Math.max(maxConsecutive, currentRun);
+              currentRun = 1;
+            }
+          }
+          maxConsecutive = Math.max(maxConsecutive, currentRun);
+
+          if (remaining.length < 5 || maxConsecutive < 5) {
+            // Conflict: removing the rank breaks the straight flush
+            summary.conflictingBombs++;
+          }
+        }
       }
     }
   }
