@@ -198,6 +198,19 @@ export const playerStats = sqliteTable('player_stats', {
   bombGivenToOpponent: integer('bomb_gave_to_opponent').notNull().default(0),
   bombReceivedFromPartner: integer('bomb_received_from_partner').notNull().default(0),
   bombReceivedFromOpponent: integer('bomb_received_from_opponent').notNull().default(0),
+
+  // ── Dog: hands with dog (after pass) ──
+  handsWithDog: integer('hands_with_dog').notNull().default(0),
+
+  // ── Pass analysis ──
+  strongPrePassHand: integer('strong_pre_pass_hand').notNull().default(0),
+  keptDogDuringPass: integer('kept_dog_during_pass').notNull().default(0),
+
+  // ── Achievements (expanded) ──
+  allPowerCardsBeforePass: integer('all_power_cards_before_pass').notNull().default(0),
+  allCardsUnder10AfterPass: integer('all_cards_under_10_after_pass').notNull().default(0),
+  doubleBombInTrick: integer('double_bomb_in_trick').notNull().default(0),
+  allPlayersBombInRound: integer('all_players_bomb_in_round').notNull().default(0),
 });
 
 // ─── Player Relational Stats ────────────────────────────────────────────

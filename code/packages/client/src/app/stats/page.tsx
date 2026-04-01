@@ -108,6 +108,16 @@ interface PlayerProfile {
   bombGivenToOpponent: number;
   bombReceivedFromPartner: number;
   bombReceivedFromOpponent: number;
+  // Dog: hands with dog (after pass)
+  handsWithDog: number;
+  // Pass analysis
+  strongPrePassHand: number;
+  keptDogDuringPass: number;
+  // Achievements (expanded)
+  allPowerCardsBeforePass: number;
+  allCardsUnder10AfterPass: number;
+  doubleBombInTrick: number;
+  allPlayersBombInRound: number;
 }
 
 interface RelationalStat {
@@ -350,6 +360,10 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="The Tichu (Clean)" value={profile.theTichuClean} />
           <StatCard label="The Tichu (Dirty)" value={profile.theTichuDirty} />
+          <StatCard label="All Power Cards Before Pass" value={profile.allPowerCardsBeforePass} />
+          <StatCard label="All Cards < 10 After Pass" value={profile.allCardsUnder10AfterPass} />
+          <StatCard label="Double-Bomb During a Trick" value={profile.doubleBombInTrick} />
+          <StatCard label="All Players Bomb in a Round" value={profile.allPlayersBombInRound} />
         </div>
       </Section>
 
@@ -392,10 +406,10 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
       {/* REQ-F-CS09: Dog section — 5 stats */}
       <Section title="Dog">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Hands with Dog" value={profile.dogReceivedInPass + profile.dogGivenToPartner + profile.dogGivenToOpponent > 0 ? profile.dogControlToPartner + profile.dogControlToOpponent + profile.dogControlToSelf : 0} />
-          <StatCard label="Control to Partner" value={profile.dogControlToPartner} />
-          <StatCard label="Control to Opponent" value={profile.dogControlToOpponent} />
-          <StatCard label="Control to Self" value={profile.dogControlToSelf} />
+          <StatCard label="Hands with Dog" value={profile.handsWithDog} />
+          <StatCard label="Gave Control to Partner" value={profile.dogControlToPartner} />
+          <StatCard label="Gave Control to Opponent" value={profile.dogControlToOpponent} />
+          <StatCard label="Gave Control to Self" value={profile.dogControlToSelf} />
           <StatCard label="Stuck with Dog as Last Card" value={profile.dogStuckAsLastCard} />
         </div>
       </Section>
@@ -424,8 +438,12 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
         />
       </Section>
 
-      {/* REQ-F-CS22: Pass Tracking table */}
+      {/* REQ-F-CS22: Pass Tracking */}
       <Section title="Pass Tracking">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+          <StatCard label="Strong Pre-Pass Hand" value={profile.strongPrePassHand} />
+          <StatCard label="Kept Dog During Pass" value={profile.keptDogDuringPass} />
+        </div>
         <StatsTable
           headers={['Dragon', 'Phoenix', 'Ace', 'Mah Jong', 'Dog (Partner)', 'Dog (Opponent)', 'Bomb (Partner)', 'Bomb (Opponent)']}
           rows={[

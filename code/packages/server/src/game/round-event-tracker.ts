@@ -103,8 +103,10 @@ export class RoundEventTracker {
 
     // Card Passing → Playing: card exchange happened, capture pass data + full hands
     if (prev.phase === GamePhase.CardPassing && curr.phase === GamePhase.Playing) {
+      this.capturePrePassAnalysis(prev);
       this.capturePassData(prev, curr);
       this.captureFullHands(curr);
+      this.capturePostPassAnalysis(prev, curr);
       this.detectConflictingBombs(curr);
     }
   }
@@ -221,6 +223,7 @@ export class RoundEventTracker {
       for (const gc of hand) {
         if (isDragon(gc.card)) summary.hadDragon = true;
         if (isPhoenix(gc.card)) summary.hadPhoenix = true;
+        if (isDog(gc.card)) summary.hadDog = true;
       }
     }
   }
@@ -258,6 +261,13 @@ export class RoundEventTracker {
           victimSummary.youWereOverBombed++;
           // Attacker: you played the higher bomb
           summary.youOverBombed++;
+        }
+
+        // Double-Bomb: 2+ bombs in same trick — count for all players
+        if (prevPlay.combination.isBomb) {
+          for (const s of SEATS_IN_ORDER) {
+            this.summaries.get(s)!.doubleBombInTrick++;
+          }
         }
       }
 
@@ -440,6 +450,66 @@ export class RoundEventTracker {
         this.dogStuckDetected.add(seat);
         const summary = this.summaries.get(seat)!;
         summary.dogStuckAsLastCard++;
+      }
+    }
+  }
+
+  /** Analyze pre-pass hand: power cards achievement + strong hand + dog ownership */
+  private capturePrePassAnalysis(prePassRound: RoundState): void {
+    for (const seat of SEATS_IN_ORDER) {
+      const summary = this.summaries.get(seat)!;
+      const hand = prePassRound.players[seat].hand;
+
+      let powerCardCount = 0;
+      let hasDogPrePass = false;
+      for (const gc of hand) {
+        if (isDragon(gc.card)) powerCardCount++;
+        if (isPhoenix(gc.card)) powerCardCount++;
+        if (gc.card.kind === 'standard' && gc.card.rank === 14) powerCardCount++;
+        if (isDog(gc.card)) hasDogPrePass = true;
+      }
+
+      // All 6 power cards: Dragon + Phoenix + 4 Aces
+      if (powerCardCount >= 6) summary.allPowerCardsBeforePass = true;
+      // Strong = 2+ of Dragon/Phoenix/Aces
+      if (powerCardCount >= 2) summary.strongPrePassHand = true;
+      // Track dog ownership pre-pass for keptDogDuringPass (resolved in capturePostPassAnalysis)
+      if (hasDogPrePass) (summary as any)._hadDogPrePass = true;
+    }
+  }
+
+  /** Analyze post-pass hand: all cards under 10 + kept dog */
+  private capturePostPassAnalysis(_prePassRound: RoundState, postPassRound: RoundState): void {
+    for (const seat of SEATS_IN_ORDER) {
+      const summary = this.summaries.get(seat)!;
+      const hand = postPassRound.players[seat].hand;
+
+      // All cards < 10 after pass: no Dragon, no standard card with rank >= 10
+      let allUnder10 = true;
+      for (const gc of hand) {
+        if (isDragon(gc.card)) { allUnder10 = false; break; }
+        if (gc.card.kind === 'standard' && gc.card.rank >= 10) { allUnder10 = false; break; }
+      }
+      if (allUnder10 && hand.length > 0) summary.allCardsUnder10AfterPass = true;
+
+      // Kept Dog during pass: had Dog before AND still have it after
+      const hadDogPrePass = (summary as any)._hadDogPrePass === true;
+      if (hadDogPrePass) {
+        const hasDogPostPass = hand.some(gc => isDog(gc.card));
+        if (hasDogPostPass) summary.keptDogDuringPass = true;
+        delete (summary as any)._hadDogPrePass;
+      }
+    }
+  }
+
+  /** Finalize round stats that require cross-player data.
+   *  Called after all round events are accumulated, before archiving. */
+  finalizeRound(): void {
+    // All Players Bomb in a Round: check if all 4 players played at least one bomb
+    const allBombed = SEATS_IN_ORDER.every(s => this.summaries.get(s)!.bombsPlayed > 0);
+    if (allBombed) {
+      for (const seat of SEATS_IN_ORDER) {
+        this.summaries.get(seat)!.allPlayersBombInRound = true;
       }
     }
   }

@@ -346,7 +346,11 @@ function upsertGroupCStats(
       mahjong_received_in_pass,
       dog_received_from_partner, dog_received_from_opponent,
       bomb_gave_to_partner, bomb_gave_to_opponent,
-      bomb_received_from_partner, bomb_received_from_opponent
+      bomb_received_from_partner, bomb_received_from_opponent,
+      hands_with_dog,
+      strong_pre_pass_hand, kept_dog_during_pass,
+      all_power_cards_before_pass, all_cards_under_10_after_pass,
+      double_bomb_in_trick, all_players_bomb_in_round
     ) VALUES (${userId},
       ${summary.hadDragon ? 1 : 0}, 0, ${summary.hadPhoenix ? 1 : 0}, 0,
       ${summary.dragonReceivedInPass ? 1 : 0}, ${summary.phoenixReceivedInPass ? 1 : 0},
@@ -372,7 +376,11 @@ function upsertGroupCStats(
       ${summary.mahjongReceivedInPass ? 1 : 0},
       ${summary.dogReceivedFromPartner ? 1 : 0}, ${summary.dogReceivedFromOpponent ? 1 : 0},
       ${summary.bombGivenToPartnerInPass ? 1 : 0}, ${summary.bombGivenToOpponentInPass ? 1 : 0},
-      ${summary.bombReceivedFromPartnerInPass ? 1 : 0}, ${summary.bombReceivedFromOpponentInPass ? 1 : 0}
+      ${summary.bombReceivedFromPartnerInPass ? 1 : 0}, ${summary.bombReceivedFromOpponentInPass ? 1 : 0},
+      ${summary.hadDog ? 1 : 0},
+      ${summary.strongPrePassHand ? 1 : 0}, ${summary.keptDogDuringPass ? 1 : 0},
+      ${summary.allPowerCardsBeforePass ? 1 : 0}, ${summary.allCardsUnder10AfterPass ? 1 : 0},
+      ${summary.doubleBombInTrick}, ${summary.allPlayersBombInRound ? 1 : 0}
     )
     ON CONFLICT (user_id) DO UPDATE SET
       rounds_with_dragon = player_stats.rounds_with_dragon + excluded.rounds_with_dragon,
@@ -433,7 +441,14 @@ function upsertGroupCStats(
       bomb_gave_to_partner = player_stats.bomb_gave_to_partner + excluded.bomb_gave_to_partner,
       bomb_gave_to_opponent = player_stats.bomb_gave_to_opponent + excluded.bomb_gave_to_opponent,
       bomb_received_from_partner = player_stats.bomb_received_from_partner + excluded.bomb_received_from_partner,
-      bomb_received_from_opponent = player_stats.bomb_received_from_opponent + excluded.bomb_received_from_opponent
+      bomb_received_from_opponent = player_stats.bomb_received_from_opponent + excluded.bomb_received_from_opponent,
+      hands_with_dog = player_stats.hands_with_dog + excluded.hands_with_dog,
+      strong_pre_pass_hand = player_stats.strong_pre_pass_hand + excluded.strong_pre_pass_hand,
+      kept_dog_during_pass = player_stats.kept_dog_during_pass + excluded.kept_dog_during_pass,
+      all_power_cards_before_pass = player_stats.all_power_cards_before_pass + excluded.all_power_cards_before_pass,
+      all_cards_under_10_after_pass = player_stats.all_cards_under_10_after_pass + excluded.all_cards_under_10_after_pass,
+      double_bomb_in_trick = player_stats.double_bomb_in_trick + excluded.double_bomb_in_trick,
+      all_players_bomb_in_round = player_stats.all_players_bomb_in_round + excluded.all_players_bomb_in_round
   `);
 }
 

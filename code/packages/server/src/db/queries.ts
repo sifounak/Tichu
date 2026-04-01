@@ -115,6 +115,16 @@ export interface PlayerProfile {
   bombGivenToOpponent: number;
   bombReceivedFromPartner: number;
   bombReceivedFromOpponent: number;
+  // Dog: hands with dog (after pass)
+  handsWithDog: number;
+  // Pass analysis
+  strongPrePassHand: number;
+  keptDogDuringPass: number;
+  // Achievements (expanded)
+  allPowerCardsBeforePass: number;
+  allCardsUnder10AfterPass: number;
+  doubleBombInTrick: number;
+  allPlayersBombInRound: number;
 }
 
 const MIN_GAMES_FOR_LEADERBOARD = 5;
@@ -288,7 +298,14 @@ export function getPlayerProfile(
       ps.bomb_gave_to_partner as bombGivenToPartner,
       ps.bomb_gave_to_opponent as bombGivenToOpponent,
       ps.bomb_received_from_partner as bombReceivedFromPartner,
-      ps.bomb_received_from_opponent as bombReceivedFromOpponent
+      ps.bomb_received_from_opponent as bombReceivedFromOpponent,
+      ps.hands_with_dog as handsWithDog,
+      ps.strong_pre_pass_hand as strongPrePassHand,
+      ps.kept_dog_during_pass as keptDogDuringPass,
+      ps.all_power_cards_before_pass as allPowerCardsBeforePass,
+      ps.all_cards_under_10_after_pass as allCardsUnder10AfterPass,
+      ps.double_bomb_in_trick as doubleBombInTrick,
+      ps.all_players_bomb_in_round as allPlayersBombInRound
     FROM player_stats ps
     JOIN users u ON u.id = ps.user_id
     WHERE ps.user_id = ${userId}
