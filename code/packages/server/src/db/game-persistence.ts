@@ -298,7 +298,7 @@ function upsertPlayerStats(
   `);
 }
 
-/** REQ-F-GC01–GC10: Upsert Group C card event stats from round event summaries */
+/** REQ-F-GC01–GC10, CS03–CS22: Upsert Group C card event stats from round event summaries */
 function upsertGroupCStats(
   tx: any,
   userId: string,
@@ -314,7 +314,20 @@ function upsertGroupCStats(
       hands_with_bombs, total_bombs, four_card_bombs, five_card_bombs, six_plus_card_bombs,
       bombs_in_first_8, hands_with_multiple_bombs,
       over_bombed, bomb_forced_by_wish,
-      the_tichu_clean, the_tichu_dirty
+      the_tichu_clean, the_tichu_dirty,
+      phoenix_used_as_single, phoenix_used_for_pair, phoenix_used_in_triple,
+      phoenix_used_in_full_house, phoenix_used_in_consecutive_pairs, phoenix_used_in_straight,
+      longest_straight_with_phoenix,
+      dog_control_to_partner, dog_control_to_opponent, dog_control_to_self, dog_stuck_as_last_card,
+      bomb_size_4, bomb_size_5, bomb_size_6, bomb_size_7, bomb_size_8,
+      bomb_size_9, bomb_size_10, bomb_size_11, bomb_size_12, bomb_size_13, bomb_size_14,
+      conflicting_bombs,
+      you_over_bombed, you_were_over_bombed,
+      dragon_gave_in_pass, phoenix_gave_in_pass, ace_gave_in_pass, mahjong_gave_in_pass,
+      mahjong_received_in_pass,
+      dog_received_from_partner, dog_received_from_opponent,
+      bomb_gave_to_partner, bomb_gave_to_opponent,
+      bomb_received_from_partner, bomb_received_from_opponent
     ) VALUES (${userId},
       ${summary.hadDragon ? 1 : 0}, 0, ${summary.hadPhoenix ? 1 : 0}, 0,
       ${summary.dragonReceivedInPass ? 1 : 0}, ${summary.phoenixReceivedInPass ? 1 : 0},
@@ -326,7 +339,21 @@ function upsertGroupCStats(
       ${summary.fourCardBombs}, ${summary.fiveCardBombs}, ${summary.sixPlusCardBombs},
       ${summary.bombsInFirst8}, ${summary.bombsPlayed > 1 ? 1 : 0},
       ${summary.overBombed}, ${summary.bombForcedByWish},
-      ${summary.theTichuClean}, ${summary.theTichuDirty}
+      ${summary.theTichuClean}, ${summary.theTichuDirty},
+      ${summary.phoenixUsedAsSingle}, ${summary.phoenixUsedForPair}, ${summary.phoenixUsedInTriple},
+      ${summary.phoenixUsedInFullHouse}, ${summary.phoenixUsedInConsecutivePairs}, ${summary.phoenixUsedInStraight},
+      ${summary.longestStraightWithPhoenix},
+      ${summary.dogControlToPartner}, ${summary.dogControlToOpponent}, ${summary.dogControlToSelf}, ${summary.dogStuckAsLastCard},
+      ${summary.bombSize4}, ${summary.bombSize5}, ${summary.bombSize6}, ${summary.bombSize7}, ${summary.bombSize8},
+      ${summary.bombSize9}, ${summary.bombSize10}, ${summary.bombSize11}, ${summary.bombSize12}, ${summary.bombSize13}, ${summary.bombSize14},
+      ${summary.conflictingBombs},
+      ${summary.youOverBombed}, ${summary.youWereOverBombed},
+      ${summary.dragonGivenInPass ? 1 : 0}, ${summary.phoenixGivenInPass ? 1 : 0},
+      ${summary.aceGivenInPass ? 1 : 0}, ${summary.mahjongGivenInPass ? 1 : 0},
+      ${summary.mahjongReceivedInPass ? 1 : 0},
+      ${summary.dogReceivedFromPartner ? 1 : 0}, ${summary.dogReceivedFromOpponent ? 1 : 0},
+      ${summary.bombGivenToPartnerInPass ? 1 : 0}, ${summary.bombGivenToOpponentInPass ? 1 : 0},
+      ${summary.bombReceivedFromPartnerInPass ? 1 : 0}, ${summary.bombReceivedFromOpponentInPass ? 1 : 0}
     )
     ON CONFLICT (user_id) DO UPDATE SET
       rounds_with_dragon = player_stats.rounds_with_dragon + excluded.rounds_with_dragon,
@@ -351,7 +378,43 @@ function upsertGroupCStats(
       over_bombed = player_stats.over_bombed + excluded.over_bombed,
       bomb_forced_by_wish = player_stats.bomb_forced_by_wish + excluded.bomb_forced_by_wish,
       the_tichu_clean = player_stats.the_tichu_clean + excluded.the_tichu_clean,
-      the_tichu_dirty = player_stats.the_tichu_dirty + excluded.the_tichu_dirty
+      the_tichu_dirty = player_stats.the_tichu_dirty + excluded.the_tichu_dirty,
+      phoenix_used_as_single = player_stats.phoenix_used_as_single + excluded.phoenix_used_as_single,
+      phoenix_used_for_pair = player_stats.phoenix_used_for_pair + excluded.phoenix_used_for_pair,
+      phoenix_used_in_triple = player_stats.phoenix_used_in_triple + excluded.phoenix_used_in_triple,
+      phoenix_used_in_full_house = player_stats.phoenix_used_in_full_house + excluded.phoenix_used_in_full_house,
+      phoenix_used_in_consecutive_pairs = player_stats.phoenix_used_in_consecutive_pairs + excluded.phoenix_used_in_consecutive_pairs,
+      phoenix_used_in_straight = player_stats.phoenix_used_in_straight + excluded.phoenix_used_in_straight,
+      longest_straight_with_phoenix = MAX(player_stats.longest_straight_with_phoenix, excluded.longest_straight_with_phoenix),
+      dog_control_to_partner = player_stats.dog_control_to_partner + excluded.dog_control_to_partner,
+      dog_control_to_opponent = player_stats.dog_control_to_opponent + excluded.dog_control_to_opponent,
+      dog_control_to_self = player_stats.dog_control_to_self + excluded.dog_control_to_self,
+      dog_stuck_as_last_card = player_stats.dog_stuck_as_last_card + excluded.dog_stuck_as_last_card,
+      bomb_size_4 = player_stats.bomb_size_4 + excluded.bomb_size_4,
+      bomb_size_5 = player_stats.bomb_size_5 + excluded.bomb_size_5,
+      bomb_size_6 = player_stats.bomb_size_6 + excluded.bomb_size_6,
+      bomb_size_7 = player_stats.bomb_size_7 + excluded.bomb_size_7,
+      bomb_size_8 = player_stats.bomb_size_8 + excluded.bomb_size_8,
+      bomb_size_9 = player_stats.bomb_size_9 + excluded.bomb_size_9,
+      bomb_size_10 = player_stats.bomb_size_10 + excluded.bomb_size_10,
+      bomb_size_11 = player_stats.bomb_size_11 + excluded.bomb_size_11,
+      bomb_size_12 = player_stats.bomb_size_12 + excluded.bomb_size_12,
+      bomb_size_13 = player_stats.bomb_size_13 + excluded.bomb_size_13,
+      bomb_size_14 = player_stats.bomb_size_14 + excluded.bomb_size_14,
+      conflicting_bombs = player_stats.conflicting_bombs + excluded.conflicting_bombs,
+      you_over_bombed = player_stats.you_over_bombed + excluded.you_over_bombed,
+      you_were_over_bombed = player_stats.you_were_over_bombed + excluded.you_were_over_bombed,
+      dragon_gave_in_pass = player_stats.dragon_gave_in_pass + excluded.dragon_gave_in_pass,
+      phoenix_gave_in_pass = player_stats.phoenix_gave_in_pass + excluded.phoenix_gave_in_pass,
+      ace_gave_in_pass = player_stats.ace_gave_in_pass + excluded.ace_gave_in_pass,
+      mahjong_gave_in_pass = player_stats.mahjong_gave_in_pass + excluded.mahjong_gave_in_pass,
+      mahjong_received_in_pass = player_stats.mahjong_received_in_pass + excluded.mahjong_received_in_pass,
+      dog_received_from_partner = player_stats.dog_received_from_partner + excluded.dog_received_from_partner,
+      dog_received_from_opponent = player_stats.dog_received_from_opponent + excluded.dog_received_from_opponent,
+      bomb_gave_to_partner = player_stats.bomb_gave_to_partner + excluded.bomb_gave_to_partner,
+      bomb_gave_to_opponent = player_stats.bomb_gave_to_opponent + excluded.bomb_gave_to_opponent,
+      bomb_received_from_partner = player_stats.bomb_received_from_partner + excluded.bomb_received_from_partner,
+      bomb_received_from_opponent = player_stats.bomb_received_from_opponent + excluded.bomb_received_from_opponent
   `);
 }
 
@@ -370,6 +433,25 @@ function upsertRelationalStats(
       games_played = player_relational_stats.games_played + 1,
       games_won = player_relational_stats.games_won + ${won ? 1 : 0}
   `);
+}
+
+/** REQ-F-CS23/CS24: Save pass stats when game is abandoned/restarted after card pass phase.
+ *  Only persists pass-related stats (not gameplay stats like bombs, tricks, etc.) */
+export function savePassStatsOnAbandon(
+  database: Database,
+  players: Array<{ seat: Seat; userId: string }>,
+  summaries: RoundEventSummary[],
+): void {
+  const { db } = database;
+
+  db.transaction((tx: any) => {
+    for (const summary of summaries) {
+      const player = players.find(p => p.seat === summary.seat);
+      if (!player) continue;
+      // Use full upsertGroupCStats — it handles all fields, and non-pass fields will be 0
+      upsertGroupCStats(tx, player.userId, summary);
+    }
+  });
 }
 
 /**

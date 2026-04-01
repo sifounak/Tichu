@@ -286,6 +286,18 @@ export class GameManager {
     this.joinedAfterSpectating.add(userId);
   }
 
+  /** REQ-F-CS24: Get current round event summaries (for pass stats on abandon) */
+  getCurrentRoundSummaries(): RoundEventSummary[] {
+    return this.eventTracker.getAllSummaries();
+  }
+
+  /** REQ-F-CS24: Check if game is past card passing phase (pass data captured) */
+  isPastCardPassPhase(): boolean {
+    const round = this.context.currentRound;
+    if (!round) return false;
+    return round.phase !== 'grandTichuDecision' && round.phase !== 'cardPassing';
+  }
+
   /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
   handleSeatVacated(seat: Seat): void {
     this.vacatedSeats.add(seat);
