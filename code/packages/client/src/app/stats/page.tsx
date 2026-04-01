@@ -205,7 +205,7 @@ function StatsContent() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
-    { id: 'cards', label: 'Card Stats' },
+    { id: 'cards', label: 'Card / Hand Stats' },
     { id: 'relationships', label: 'Relationships' },
     { id: 'history', label: 'History' },
   ];
@@ -333,7 +333,7 @@ function OverviewTab({ profile }: { profile: PlayerProfile }) {
   );
 }
 
-// ─── REQ-F-SO27: Card Stats Tab ────────────────────────────────────
+// ─── REQ-F-CS01–CS26: Card / Hand Stats Tab ────────────────────────
 
 function CardStatsTab({ profile }: { profile: PlayerProfile }) {
   const pct = (n: number, d: number) => {
@@ -345,63 +345,123 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
 
   return (
     <div className="space-y-6">
-      <Section title="Dragon">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Rounds with Dragon" value={profile.roundsWithDragon} />
-          <StatCard label="Rounds Won with Dragon" value={profile.roundsWithDragonWon} />
-          <StatCard label="Dragon Win Rate" value={pct(profile.roundsWithDragonWon, profile.roundsWithDragon)} />
-          <StatCard label="Dragon Trick Wins" value={profile.dragonTrickWins} />
-          <StatCard label="Dragon Received in Pass" value={profile.dragonReceivedInPass} />
-          <StatCard label="Dragon Given After Opp. Win" value={profile.dragonGivenAfterOpponentWin} />
-        </div>
-      </Section>
-
-      <Section title="Phoenix">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Rounds with Phoenix" value={profile.roundsWithPhoenix} />
-          <StatCard label="Rounds Won with Phoenix" value={profile.roundsWithPhoenixWon} />
-          <StatCard label="Phoenix Win Rate" value={pct(profile.roundsWithPhoenixWon, profile.roundsWithPhoenix)} />
-          <StatCard label="Phoenix Received in Pass" value={profile.phoenixReceivedInPass} />
-        </div>
-      </Section>
-
-      <Section title="Dog">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Dog Received in Pass" value={profile.dogReceivedInPass} />
-          <StatCard label="Dog Given to Partner" value={profile.dogGivenToPartner} />
-          <StatCard label="Dog Given to Opponent" value={profile.dogGivenToOpponent} />
-          <StatCard label="Dog Played for Tichu Partner" value={profile.dogPlayedForTichuPartner} />
-          <StatCard label="Dog Opportunities for Tichu Partner" value={profile.dogOpportunitiesForTichuPartner} />
-        </div>
-      </Section>
-
-      <Section title="Bombs">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Hands with Bombs" value={profile.handsWithBombs} />
-          <StatCard label="Total Bombs" value={profile.totalBombs} />
-          <StatCard label="4-Card Bombs" value={profile.fourCardBombs} />
-          <StatCard label="5-Card Bombs" value={profile.fiveCardBombs} />
-          <StatCard label="6+ Card Bombs" value={profile.sixPlusCardBombs} />
-          <StatCard label="Bombs in First 8" value={profile.bombsInFirst8} />
-          <StatCard label="Hands with Multiple Bombs" value={profile.handsWithMultipleBombs} />
-          <StatCard label="Over-Bombed" value={profile.overBombed} />
-          <StatCard label="Bomb Forced by Wish" value={profile.bombForcedByWish} />
-        </div>
-      </Section>
-
-      <Section title="Pass Tracking">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Ace Received in Pass" value={profile.aceReceivedInPass} />
-          <StatCard label="Dragon Received in Pass" value={profile.dragonReceivedInPass} />
-          <StatCard label="Phoenix Received in Pass" value={profile.phoenixReceivedInPass} />
-          <StatCard label="Dog Received in Pass" value={profile.dogReceivedInPass} />
-        </div>
-      </Section>
-
+      {/* REQ-F-CS02: Achievements at top */}
       <Section title="Achievements">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="The Tichu (Clean)" value={profile.theTichuClean} />
           <StatCard label="The Tichu (Dirty)" value={profile.theTichuDirty} />
+        </div>
+      </Section>
+
+      {/* REQ-F-CS26: Dragon section — 3 stats */}
+      <Section title="Dragon">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Hands with Dragon" value={profile.roundsWithDragon} />
+          <StatCard label="Tricks Won with Dragon" value={profile.dragonTrickWins} />
+          <StatCard label="Dragon Win Rate" value={pct(profile.roundsWithDragonWon, profile.roundsWithDragon)} />
+        </div>
+      </Section>
+
+      {/* REQ-F-CS05: Phoenix section — 10 stats */}
+      <Section title="Phoenix">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Hands with Phoenix" value={profile.roundsWithPhoenix} />
+          <StatCard label="Tricks Won with Phoenix" value={profile.roundsWithPhoenixWon} />
+          <StatCard label="Phoenix Win Rate" value={pct(profile.roundsWithPhoenixWon, profile.roundsWithPhoenix)} />
+          <StatCard label="Used as Single Card" value={profile.phoenixUsedAsSingle} />
+          <StatCard label="Used for Pair" value={profile.phoenixUsedForPair} />
+          <StatCard label="Used in Three-of-a-Kind" value={profile.phoenixUsedInTriple} />
+          <StatCard label="Used in Full House" value={profile.phoenixUsedInFullHouse} />
+          <StatCard label="Used in Consecutive Pairs" value={profile.phoenixUsedInConsecutivePairs} />
+          <StatCard label="Used in Straight" value={profile.phoenixUsedInStraight} />
+          <StatCard label="Longest Straight with Phoenix" value={profile.longestStraightWithPhoenix || '-'} />
+        </div>
+      </Section>
+
+      {/* REQ-F-CS09: Dog section — 5 stats */}
+      <Section title="Dog">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Hands with Dog" value={profile.dogReceivedInPass + profile.dogGivenToPartner + profile.dogGivenToOpponent > 0 ? profile.dogControlToPartner + profile.dogControlToOpponent + profile.dogControlToSelf : 0} />
+          <StatCard label="Control to Partner" value={profile.dogControlToPartner} />
+          <StatCard label="Control to Opponent" value={profile.dogControlToOpponent} />
+          <StatCard label="Control to Self" value={profile.dogControlToSelf} />
+          <StatCard label="Stuck with Dog as Last Card" value={profile.dogStuckAsLastCard} />
+        </div>
+      </Section>
+
+      {/* REQ-F-CS25: Bombs section — 8 stats + size table */}
+      <Section title="Bombs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Total Bombs" value={profile.totalBombs} />
+          <StatCard label="Hands with Bombs" value={profile.handsWithBombs} />
+          <StatCard label="Hands with Multiple Bombs" value={profile.handsWithMultipleBombs} />
+          <StatCard label="Conflicting Bombs in Hand" value={profile.conflictingBombs} />
+          <StatCard label="Bombs in First 8" value={profile.bombsInFirst8} />
+          <StatCard label="You Over-Bombed" value={profile.youOverBombed} />
+          <StatCard label="You Were Over-Bombed" value={profile.youWereOverBombed} />
+          <StatCard label="Bomb Forced by Wish" value={profile.bombForcedByWish} />
+        </div>
+        {/* REQ-F-CS12: Bomb Sizes table */}
+        <div className="mt-3 overflow-x-auto rounded-lg" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <th className="px-2 py-1.5 text-left text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Size</th>
+                {[4,5,6,7,8,9,10,11,12,13,14].map(n => (
+                  <th key={n} className="px-2 py-1.5 text-center text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{n === 4 ? '4-card' : String(n)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="px-2 py-1.5 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Count</td>
+                {[4,5,6,7,8,9,10,11,12,13,14].map(n => {
+                  const key = `bombSize${n}` as keyof PlayerProfile;
+                  return <td key={n} className="px-2 py-1.5 text-center font-mono text-sm">{profile[key] as number}</td>;
+                })}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      {/* REQ-F-CS22: Pass Tracking table */}
+      <Section title="Pass Tracking">
+        <div className="overflow-x-auto rounded-lg" style={{ background: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <th className="px-2 py-1.5 text-left text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}></th>
+                {['Dragon', 'Phoenix', 'Ace', 'Mahjong', 'Dog (Partner)', 'Dog (Opp)', 'Bomb (Partner)', 'Bomb (Opp)'].map(h => (
+                  <th key={h} className="px-2 py-1.5 text-center text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <td className="px-2 py-1.5 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Gave</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.dragonGivenInPass}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.phoenixGivenInPass}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.aceGivenInPass}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.mahjongGivenInPass}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.dogGivenToPartner}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.dogGivenToOpponent}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.bombGivenToPartner}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.bombGivenToOpponent}</td>
+              </tr>
+              <tr>
+                <td className="px-2 py-1.5 text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>Received</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.dragonReceivedInPass}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.phoenixReceivedInPass}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.aceReceivedInPass}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.mahjongReceivedInPass}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.dogReceivedFromPartner}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.dogReceivedFromOpponent}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.bombReceivedFromPartner}</td>
+                <td className="px-2 py-1.5 text-center font-mono">{profile.bombReceivedFromOpponent}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </Section>
     </div>
