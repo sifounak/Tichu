@@ -239,6 +239,9 @@ export class Bot implements BotStrategy {
     const isStrongHand = hasStrength(hand);
 
     // ─ REQ-F-PASS06/07: Dog routing ─
+    // Never give Dog to partner if they called Grand Tichu
+    const partnerCalledGT = this.lastRoundState
+      && this.lastRoundState.players[partner].tipiCall === 'grandTichu';
     let dogRecipient: Seat | null = null;
     if (hasDog) {
       // Check if any opponent called GT/T (available from lastRoundState set by setContext)
@@ -253,10 +256,10 @@ export class Bot implements BotStrategy {
           isDragon(gc.card) ||
           (gc.card.kind === 'standard' && gc.card.rank === 14),
         ).length + findBombs(hand).length;
-        if (leadGetters < 3) {
+        if (leadGetters < 3 && !partnerCalledGT) {
           dogRecipient = partner; // May need help regaining control
         } else {
-          dogRecipient = rightOpp; // Self-sufficient → Dog to right
+          dogRecipient = rightOpp; // Self-sufficient or partner called GT → Dog to right
         }
       } else {
         // Weak hand — Dog to left opponent
@@ -267,7 +270,40 @@ export class Bot implements BotStrategy {
     // ─ REQ-F-PASS01/02: Partner card selection (strength concentration) ─
     let partnerCard: GameCard | null = null;
 
-    if (!isStrongHand) {
+    // Check if partner called Grand Tichu — always give strongest non-bomb-breaking card
+    const partnerGT = this.lastRoundState
+      && this.lastRoundState.players[partner].tipiCall === 'grandTichu';
+
+    if (partnerGT) {
+      // Partner called Grand Tichu: give strongest card that doesn't break a bomb
+      // Priority: Phoenix > Dragon > Ace > King > Mah Jong > Q-2 (never Dog)
+      const bombCardIds = new Set(findBombs(hand).flatMap(b => b.cards.map(c => c.id)));
+      const candidates: GameCard[] = [];
+      // Phoenix first (highest priority)
+      const phoenix = hand.find(gc => isPhoenix(gc.card));
+      if (phoenix && !bombCardIds.has(phoenix.id)) candidates.push(phoenix);
+      // Dragon (can't be part of a bomb)
+      const dragon = hand.find(gc => isDragon(gc.card));
+      if (dragon) candidates.push(dragon);
+      // Standard cards sorted by rank descending (Ace=14, King=13, then Q-2)
+      const standardDesc = hand
+        .filter(gc => gc.card.kind === 'standard')
+        .sort((a, b) => (b.card as { rank: number }).rank - (a.card as { rank: number }).rank);
+      // Add Ace and King first (priority above Mah Jong)
+      for (const gc of standardDesc) {
+        if ((gc.card as { rank: number }).rank >= 13 && !bombCardIds.has(gc.id)) candidates.push(gc);
+      }
+      // Mah Jong (priority between King and Queen)
+      const mahjong = hand.find(gc => isMahjong(gc.card));
+      if (mahjong && !bombCardIds.has(mahjong.id)) candidates.push(mahjong);
+      // Remaining standard cards Q(12) down to 2
+      for (const gc of standardDesc) {
+        if ((gc.card as { rank: number }).rank < 13 && !bombCardIds.has(gc.id)) candidates.push(gc);
+      }
+
+      // Pick the first candidate (highest priority non-bomb-breaking card)
+      partnerCard = candidates[0] ?? sorted[sorted.length - 1];
+    } else if (!isStrongHand) {
       // Weak hand: pass best card to partner (Fuegi: concentrate strength)
       // Dragon > Phoenix > Ace > highest standard
       if (hasDragon) {
