@@ -288,6 +288,19 @@ function syncSchema(client: BetterSqlite3Database): void {
     }
   }
 
+  // Add relational stats columns for 1-2 wins and team bombs tracking
+  const relationalNewCols = [
+    'one_two_wins INTEGER NOT NULL DEFAULT 0',
+    'total_team_bombs INTEGER NOT NULL DEFAULT 0',
+  ];
+  for (const col of relationalNewCols) {
+    try {
+      client.exec(`ALTER TABLE player_relational_stats ADD COLUMN ${col}`);
+    } catch {
+      // Column already exists — expected for new DBs or re-runs
+    }
+  }
+
   // REQ-F-CS17: Migrate existing overBombed data to youWereOverBombed
   try {
     client.exec(`UPDATE player_stats SET you_were_over_bombed = over_bombed WHERE you_were_over_bombed = 0 AND over_bombed > 0`);

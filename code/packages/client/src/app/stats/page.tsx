@@ -2,7 +2,7 @@
 // REQ-F-SO21–SO29: Stats page overhaul
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Fragment, Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -120,12 +120,19 @@ interface PlayerProfile {
   allPlayersBombInRound: number;
 }
 
-interface RelationalStat {
+interface MergedRelationalStat {
   userId: string;
   displayName: string;
-  gamesPlayed: number;
-  gamesWon: number;
-  winRate: number;
+  partnerGamesPlayed: number;
+  partnerGamesWon: number;
+  partnerWinRate: number;
+  partnerOneTwoWins: number;
+  partnerTotalTeamBombs: number;
+  opponentGamesPlayed: number;
+  opponentGamesWon: number;
+  opponentWinRate: number;
+  opponentOneTwoWins: number;
+  opponentTotalTeamBombs: number;
 }
 
 // REQ-F-SO19: Game history with userId columns
@@ -173,8 +180,7 @@ export default function StatsPage() {
 function StatsContent() {
   const router = useRouter();
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [partners, setPartners] = useState<RelationalStat[]>([]);
-  const [opponents, setOpponents] = useState<RelationalStat[]>([]);
+  const [relationships, setRelationships] = useState<MergedRelationalStat[]>([]);
   const [games, setGames] = useState<GameHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('overview');
@@ -191,13 +197,11 @@ function StatsContent() {
 
     Promise.all([
       fetch(`${API_BASE}/api/players/${userId}/profile`).then(r => r.json()),
-      fetch(`${API_BASE}/api/players/${userId}/partners`).then(r => r.json()),
-      fetch(`${API_BASE}/api/players/${userId}/opponents`).then(r => r.json()),
+      fetch(`${API_BASE}/api/players/${userId}/relationships`).then(r => r.json()),
       fetch(`${API_BASE}/api/players/${userId}/games`).then(r => r.json()),
-    ]).then(([profileData, partnersData, opponentsData, gamesData]) => {
+    ]).then(([profileData, relationshipsData, gamesData]) => {
       setProfile(profileData.profile ?? null);
-      setPartners(partnersData.partners ?? []);
-      setOpponents(opponentsData.opponents ?? []);
+      setRelationships(relationshipsData.relationships ?? []);
       setGames(gamesData.games ?? []);
       setLoading(false);
     }).catch(() => {
@@ -216,7 +220,7 @@ function StatsContent() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'cards', label: 'Cards / Hands' },
-    { id: 'relationships', label: 'Relationships' },
+    { id: 'relationships', label: 'Partners / Opponents' },
     { id: 'history', label: 'History' },
   ];
 
@@ -261,7 +265,7 @@ function StatsContent() {
             <div className="p-4 rounded-xl overflow-x-auto" style={{ background: 'var(--color-bg-panel)' }}>
               {activeTab === 'overview' && <OverviewTab profile={profile} />}
               {activeTab === 'cards' && <CardStatsTab profile={profile} />}
-              {activeTab === 'relationships' && <RelationshipsTab partners={partners} opponents={opponents} />}
+              {activeTab === 'relationships' && <PartnersOpponentsTab relationships={relationships} />}
               {activeTab === 'history' && <HistoryTab games={games} />}
             </div>
           </>
@@ -472,54 +476,103 @@ function CardStatsTab({ profile }: { profile: PlayerProfile }) {
   );
 }
 
-// ─── REQ-F-UI05: Relationships Tab ─────────────────────────────────
+// ─── REQ-F-UI05: Partners / Opponents Tab ─────────────────────────
 
-function RelationshipsTab({ partners, opponents }: { partners: RelationalStat[]; opponents: RelationalStat[] }) {
-  return (
-    <div className="space-y-8">
-      <Section title="Partners">
-        {partners.length === 0 ? (
-          <p className="text-center py-4" style={{ color: 'var(--color-text-muted)' }}>No partner data yet.</p>
-        ) : (
-          <RelationTable entries={partners} />
-        )}
-      </Section>
-
-      <Section title="Opponents">
-        {opponents.length === 0 ? (
-          <p className="text-center py-4" style={{ color: 'var(--color-text-muted)' }}>No opponent data yet.</p>
-        ) : (
-          <RelationTable entries={opponents} />
-        )}
-      </Section>
-    </div>
-  );
+function perGame(count: number, games: number): string {
+  if (games === 0) return '—';
+  return (count / games).toFixed(1);
 }
 
-function RelationTable({ entries }: { entries: RelationalStat[] }) {
+function PartnersOpponentsTab({ relationships }: { relationships: MergedRelationalStat[] }) {
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+
+  if (relationships.length === 0) {
+    return <p className="text-center py-4" style={{ color: 'var(--color-text-muted)' }}>No relationship data yet.</p>;
+  }
+
+  const toggleRow = (userId: string) => {
+    setExpandedUserId(prev => prev === userId ? null : userId);
+  };
+
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr style={{ color: 'var(--color-text-muted)' }}>
-          <th className="text-left py-2">Player</th>
-          <th className="text-right py-2">Games</th>
-          <th className="text-right py-2">Wins</th>
-          <th className="text-right py-2">Win Rate</th>
-        </tr>
-      </thead>
-      <tbody>
-        {entries.map((entry) => (
-          <tr key={entry.userId} style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <td className="py-2" style={{ color: 'var(--color-text-primary)' }}>{entry.displayName}</td>
-            <td className="text-right py-2" style={{ color: 'var(--color-text-secondary)' }}>{entry.gamesPlayed}</td>
-            <td className="text-right py-2" style={{ color: 'var(--color-text-secondary)' }}>{entry.gamesWon}</td>
-            <td className="text-right py-2" style={{ color: 'var(--color-gold-accent)' }}>
-              {(entry.winRate * 100).toFixed(1)}%
-            </td>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr style={{ color: 'var(--color-text-muted)' }}>
+            <th rowSpan={2} className="text-left py-2 pr-2">Player</th>
+            <th colSpan={4} className="text-center py-1 px-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Partner</th>
+            <th colSpan={4} className="text-center py-1 px-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Opponent</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+          <tr style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem' }}>
+            <th className="text-right py-1 px-1">Games</th>
+            <th className="text-right py-1 px-1">Win%</th>
+            <th className="text-right py-1 px-1">1-2/G</th>
+            <th className="text-right py-1 px-1">B/G</th>
+            <th className="text-right py-1 px-1">Games</th>
+            <th className="text-right py-1 px-1">Win%</th>
+            <th className="text-right py-1 px-1">1-2/G</th>
+            <th className="text-right py-1 px-1">B/G</th>
+          </tr>
+        </thead>
+        <tbody>
+          {relationships.map((r) => {
+            const isExpanded = expandedUserId === r.userId;
+            return (
+              <Fragment key={r.userId}>
+                <tr
+                  onClick={() => toggleRow(r.userId)}
+                  style={{
+                    borderTop: '1px solid rgba(255,255,255,0.05)',
+                    cursor: 'pointer',
+                    background: isExpanded ? 'rgba(255,255,255,0.03)' : undefined,
+                  }}
+                >
+                  <td className="py-2 pr-2" style={{ color: 'var(--color-text-primary)' }}>
+                    <span style={{ marginRight: '0.4rem', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                      {isExpanded ? '▾' : '▸'}
+                    </span>
+                    {r.displayName}
+                  </td>
+                  <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {r.partnerGamesPlayed || '—'}
+                  </td>
+                  <td className="text-right py-2 px-1" style={{ color: 'var(--color-gold-accent)' }}>
+                    {r.partnerGamesPlayed > 0 ? `${(r.partnerWinRate * 100).toFixed(0)}%` : '—'}
+                  </td>
+                  <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {perGame(r.partnerOneTwoWins, r.partnerGamesPlayed)}
+                  </td>
+                  <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {perGame(r.partnerTotalTeamBombs, r.partnerGamesPlayed)}
+                  </td>
+                  <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {r.opponentGamesPlayed || '—'}
+                  </td>
+                  <td className="text-right py-2 px-1" style={{ color: 'var(--color-gold-accent)' }}>
+                    {r.opponentGamesPlayed > 0 ? `${(r.opponentWinRate * 100).toFixed(0)}%` : '—'}
+                  </td>
+                  <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {perGame(r.opponentOneTwoWins, r.opponentGamesPlayed)}
+                  </td>
+                  <td className="text-right py-2 px-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    {perGame(r.opponentTotalTeamBombs, r.opponentGamesPlayed)}
+                  </td>
+                </tr>
+                {isExpanded && (
+                  <tr>
+                    <td colSpan={9} style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem 1rem' }}>
+                      <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                        Detailed metrics coming soon — more granular partner/opponent stats will appear here.
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

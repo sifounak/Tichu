@@ -223,6 +223,8 @@ export const playerRelationalStats = sqliteTable('player_relational_stats', {
   relationship: text('relationship').notNull(), // 'partner' | 'opponent'
   gamesPlayed: integer('games_played').notNull().default(0),
   gamesWon: integer('games_won').notNull().default(0),
+  oneTwoWins: integer('one_two_wins').notNull().default(0),
+  totalTeamBombs: integer('total_team_bombs').notNull().default(0),
 }, (table) => [
   unique('player_relational_unique').on(table.userId, table.otherUserId, table.relationship),
 ]);
