@@ -374,3 +374,52 @@ export function getPlayerOpponents(
     LIMIT ${limit}
   `) as RelationalStatEntry[];
 }
+
+export interface MergedRelationalEntry {
+  userId: string;
+  displayName: string;
+  partnerGamesPlayed: number;
+  partnerGamesWon: number;
+  partnerWinRate: number;
+  partnerOneTwoWins: number;
+  partnerTotalTeamBombs: number;
+  opponentGamesPlayed: number;
+  opponentGamesWon: number;
+  opponentWinRate: number;
+  opponentOneTwoWins: number;
+  opponentTotalTeamBombs: number;
+}
+
+/** Get merged partner/opponent relational stats for a player */
+export function getPlayerRelationships(
+  database: Database,
+  userId: string,
+): MergedRelationalEntry[] {
+  const { db } = database;
+  return db.all(sql`
+    SELECT
+      prs.other_user_id as userId,
+      COALESCE(u.display_name, 'Bot') as displayName,
+      SUM(CASE WHEN prs.relationship = 'partner' THEN prs.games_played ELSE 0 END) as partnerGamesPlayed,
+      SUM(CASE WHEN prs.relationship = 'partner' THEN prs.games_won ELSE 0 END) as partnerGamesWon,
+      CASE WHEN SUM(CASE WHEN prs.relationship = 'partner' THEN prs.games_played ELSE 0 END) > 0
+        THEN CAST(SUM(CASE WHEN prs.relationship = 'partner' THEN prs.games_won ELSE 0 END) AS REAL)
+             / SUM(CASE WHEN prs.relationship = 'partner' THEN prs.games_played ELSE 0 END)
+        ELSE 0 END as partnerWinRate,
+      SUM(CASE WHEN prs.relationship = 'partner' THEN prs.one_two_wins ELSE 0 END) as partnerOneTwoWins,
+      SUM(CASE WHEN prs.relationship = 'partner' THEN prs.total_team_bombs ELSE 0 END) as partnerTotalTeamBombs,
+      SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.games_played ELSE 0 END) as opponentGamesPlayed,
+      SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.games_won ELSE 0 END) as opponentGamesWon,
+      CASE WHEN SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.games_played ELSE 0 END) > 0
+        THEN CAST(SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.games_won ELSE 0 END) AS REAL)
+             / SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.games_played ELSE 0 END)
+        ELSE 0 END as opponentWinRate,
+      SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.one_two_wins ELSE 0 END) as opponentOneTwoWins,
+      SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.total_team_bombs ELSE 0 END) as opponentTotalTeamBombs
+    FROM player_relational_stats prs
+    LEFT JOIN users u ON u.id = prs.other_user_id
+    WHERE prs.user_id = ${userId}
+    GROUP BY prs.other_user_id
+    ORDER BY displayName ASC
+  `) as MergedRelationalEntry[];
+}

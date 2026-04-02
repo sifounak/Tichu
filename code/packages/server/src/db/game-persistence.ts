@@ -187,15 +187,29 @@ export function saveGameResult(
       }
     }
 
+    // Compute per-team 1-2 count and bomb totals from roundScores
+    let oneTwoNS = 0, oneTwoEW = 0, bombsNS = 0, bombsEW = 0;
+    if (gameResult.roundScores) {
+      for (const round of gameResult.roundScores) {
+        if (round.oneTwoBonus === 'northSouth') oneTwoNS++;
+        else if (round.oneTwoBonus === 'eastWest') oneTwoEW++;
+        bombsNS += round.bombsPerTeam.northSouth;
+        bombsEW += round.bombsPerTeam.eastWest;
+      }
+    }
+
     // REQ-F-GD01/GD02: Upsert relational stats (partner/opponent)
     for (const { seat, userId } of humanPlayers) {
       const myTeam = getTeam(seat);
       const won = gameResult.winnerTeam === (myTeam === 'northSouth' ? 'NS' : 'EW');
+      const isNS = myTeam === 'northSouth';
+      const myOneTwos = isNS ? oneTwoNS : oneTwoEW;
+      const myBombs = isNS ? bombsNS : bombsEW;
 
       for (const { seat: otherSeat, userId: otherUserId } of humanPlayers) {
         if (otherSeat === seat) continue;
         const relationship = getTeam(otherSeat) === myTeam ? 'partner' : 'opponent';
-        upsertRelationalStats(tx, userId, otherUserId, relationship, won);
+        upsertRelationalStats(tx, userId, otherUserId, relationship, won, myOneTwos, myBombs);
       }
 
       // Bot relational stats: track games with bot partners/opponents as a single "Bot" entity
@@ -208,13 +222,13 @@ export function saveGameResult(
       // Bot partner: if my partner seat is a bot, record once
       const hasPartnerBot = botSeats.some(s => getTeam(s) === myTeam);
       if (hasPartnerBot) {
-        upsertRelationalStats(tx, userId, BOT_USER_ID, 'partner', won);
+        upsertRelationalStats(tx, userId, BOT_USER_ID, 'partner', won, myOneTwos, myBombs);
       }
 
       // Bot opponent: if any opponent seat is a bot, record once (no double-count for 2-bot teams)
       const hasOpponentBot = botSeats.some(s => getTeam(s) !== myTeam);
       if (hasOpponentBot) {
-        upsertRelationalStats(tx, userId, BOT_USER_ID, 'opponent', won);
+        upsertRelationalStats(tx, userId, BOT_USER_ID, 'opponent', won, myOneTwos, myBombs);
       }
     }
 
@@ -459,13 +473,17 @@ function upsertRelationalStats(
   otherUserId: string,
   relationship: 'partner' | 'opponent',
   won: boolean,
+  oneTwoWins: number,
+  totalTeamBombs: number,
 ): void {
   tx.run(sql`
-    INSERT INTO player_relational_stats (user_id, other_user_id, relationship, games_played, games_won)
-    VALUES (${userId}, ${otherUserId}, ${relationship}, 1, ${won ? 1 : 0})
+    INSERT INTO player_relational_stats (user_id, other_user_id, relationship, games_played, games_won, one_two_wins, total_team_bombs)
+    VALUES (${userId}, ${otherUserId}, ${relationship}, 1, ${won ? 1 : 0}, ${oneTwoWins}, ${totalTeamBombs})
     ON CONFLICT (user_id, other_user_id, relationship) DO UPDATE SET
       games_played = player_relational_stats.games_played + 1,
-      games_won = player_relational_stats.games_won + ${won ? 1 : 0}
+      games_won = player_relational_stats.games_won + ${won ? 1 : 0},
+      one_two_wins = player_relational_stats.one_two_wins + ${oneTwoWins},
+      total_team_bombs = player_relational_stats.total_team_bombs + ${totalTeamBombs}
   `);
 }
 

@@ -8,7 +8,7 @@ import type { Database } from '../db/connection.js';
 import { ensureGuestUser, getUserById } from './guest.js';
 import { registerAccount, loginAccount, verifyToken } from './account.js';
 import { getPlayerGameHistory, getGameRounds } from '../db/game-persistence.js';
-import { getLeaderboard, getRecentGames, getPlayerProfile, getPlayerPartners, getPlayerOpponents } from '../db/queries.js';
+import { getLeaderboard, getRecentGames, getPlayerProfile, getPlayerPartners, getPlayerOpponents, getPlayerRelationships } from '../db/queries.js';
 
 export function registerAuthRoutes(fastify: FastifyInstance, database: Database, jwtSecret: string): void {
   // ─── Guest session ──────────────────────────────────────────────────
@@ -99,6 +99,14 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
     const { userId } = request.params as { userId: string };
     const opponents = getPlayerOpponents(database, userId);
     return { opponents };
+  });
+
+  // ─── Merged relational stats (partner + opponent) ───────────────────
+
+  fastify.get('/api/players/:userId/relationships', async (request) => {
+    const { userId } = request.params as { userId: string };
+    const relationships = getPlayerRelationships(database, userId);
+    return { relationships };
   });
 
   // ─── Game history ────────────────────────────────────────────────────
