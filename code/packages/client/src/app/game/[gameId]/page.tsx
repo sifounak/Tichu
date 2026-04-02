@@ -1524,12 +1524,12 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         >
           <div
             style={{
-              background: 'var(--color-surface)',
+              background: 'rgb(0,0,0)',
+              border: '1px solid var(--color-border)',
               borderRadius: 'var(--space-3)',
               padding: 'var(--space-6)',
               maxWidth: '400px',
               textAlign: 'center',
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
             }}
           >
             <h3 style={{ margin: '0 0 var(--space-3)', color: 'var(--color-warning, #f59e0b)' }}>
@@ -1546,8 +1546,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                   padding: 'var(--space-2) var(--space-4)',
                   borderRadius: 'var(--space-2)',
                   border: '1px solid var(--color-border)',
-                  background: 'var(--color-surface)',
-                  color: 'var(--color-text)',
+                  background: 'rgba(255,255,255,0.1)',
+                  color: 'var(--color-text-primary)',
                   cursor: 'pointer',
                   fontSize: '1rem',
                 }}
