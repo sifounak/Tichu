@@ -34,21 +34,37 @@
   color: var(--color-felt-green-dark);
 }
 
-/* REQ-F-BW01: Queued play visual feedback */
+/* REQ-F-BW01: Queued play — progress bar drains from right to left */
 .queued {
-  background: var(--color-bg-panel);
-  color: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
   border: 2px solid var(--color-gold-accent);
-  animation: queuedPulse 1.5s ease-in-out infinite;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.1;
+  padding-top: calc(6px * var(--scale));
+  padding-bottom: calc(6px * var(--scale));
+  transition: none;
 }
 
-@keyframes queuedPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+.queuedText {
+  font-size: calc(22px * var(--scale));
+  font-weight: 600;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .queued { animation: none; }
+.queuedSubtext {
+  font-size: calc(13px * var(--scale));
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Hover: red cancel state */
+.queuedHover {
+  background: var(--color-error, #dc2626) !important;
+  color: white;
+  border-color: var(--color-error, #dc2626);
 }
 
 .passButton {

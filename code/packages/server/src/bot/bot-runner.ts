@@ -6,7 +6,7 @@
 // REQ-F-GT07: No duplicate Grand Tichu timers per bot per round
 
 import type { Seat, RoundState } from '@tichu/shared';
-import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong } from '@tichu/shared';
+import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong, detectAllBombs, canBeat, getCardPoints } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext } from './bot-interface.js';
 import type { GameActor, GameMachineContext, GameEvent } from '../game/game-state-machine.js';
 import type { MoveHandler } from '../game/move-handler.js';
@@ -22,8 +22,8 @@ export interface BotRunnerConfig {
 /** Default timing config — artificial thinking delay for readability */
 // REQ-NF-DL03: Bot delay so human players can follow gameplay
 const DEFAULT_CONFIG: BotRunnerConfig = {
-  minDelayMs: 800,
-  maxDelayMs: 1500,
+  minDelayMs: 1000,
+  maxDelayMs: 1000,
 };
 
 /** Fast config for testing */
@@ -108,6 +108,9 @@ export class BotRunner {
       case 'awaitingDragonGift':
         this.handleDragonGift(context);
         break;
+      case 'awaitingEndOfTrickBomb':
+        this.handleEndOfTrickBombWindow(context);
+        break;
     }
   }
 
@@ -138,7 +141,29 @@ export class BotRunner {
     return !!round && round.currentTrick === null && round.currentTurn !== null;
   }
 
-  /** Schedule a bot action with artificial delay */
+  /** Schedule a bot play with an explicit delay (no base delay added) */
+  private schedulePlayAction(action: () => void, delayMs: number): void {
+    if (this.disposed) return;
+
+    const { minDelayMs, maxDelayMs } = this.config;
+    if (minDelayMs === 0 && maxDelayMs === 0) {
+      // Instant mode (testing)
+      const timer = setTimeout(() => {
+        this.pendingTimers.delete(timer);
+        if (!this.disposed) action();
+      }, 0);
+      this.pendingTimers.add(timer);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      this.pendingTimers.delete(timer);
+      if (!this.disposed) action();
+    }, delayMs);
+    this.pendingTimers.add(timer);
+  }
+
+  /** Schedule a bot action with artificial base delay (for passes, tichu calls, etc.) */
   private scheduleAction(action: () => void, extraDelayMs = 0): void {
     if (this.disposed) return;
 
@@ -301,27 +326,39 @@ export class BotRunner {
       seat,
     };
 
-    // Pause longer after a trick ends so the sweep animation is visible
-    const trickSweepPause = this.isNewTrickLead() && this.onlyBotsRemain() ? 800 : 0;
+    // Decide what to do synchronously so we can pick the right delay
+    const decision = bot.choosePlay(playContext);
 
-    this.scheduleAction(() => {
-      const decision = bot.choosePlay(playContext);
-
-      if (decision.action === 'pass') {
+    if (decision.action === 'pass') {
+      // No bomb delay for passes
+      this.scheduleAction(() => {
         this.send({ type: 'PASS_TURN', seat });
-        return;
-      }
+      });
+      return;
+    }
 
-      // REQ-F-WR01: Include wish inline with PLAY_CARDS to avoid race condition
-      const mahjongPlayed = decision.cards.some((gc) => isMahjong(gc.card));
-      const wish = mahjongPlayed
-        ? (bot.chooseMahjongWish(
-            player.hand.filter((gc) => !decision.cards.some((pc) => pc.id === gc.id)),
-          ) ?? undefined)
-        : undefined;
+    // REQ-F-WR01: Include wish inline with PLAY_CARDS to avoid race condition
+    const mahjongPlayed = decision.cards.some((gc) => isMahjong(gc.card));
+    const wish = mahjongPlayed
+      ? (bot.chooseMahjongWish(
+          player.hand.filter((gc) => !decision.cards.some((pc) => pc.id === gc.id)),
+        ) ?? undefined)
+      : undefined;
 
+    const isLead = this.isNewTrickLead();
+    const fast = this.onlyBotsRemain();
+
+    // Pause longer after a trick ends so the sweep animation is visible
+    const trickSweepPause = isLead && fast ? 800 : 0;
+
+    // Bomb window delay is the sole pacing mechanism for bot plays (no base delay).
+    // 1000ms when humans present, 0 when only bots remain or leading.
+    const bombWindowDelay = (isLead || fast) ? 0 : 1000;
+    const playDelay = Math.max(trickSweepPause, bombWindowDelay);
+
+    this.schedulePlayAction(() => {
       this.send({ type: 'PLAY_CARDS', seat, cards: decision.cards, wish });
-    }, trickSweepPause);
+    }, playDelay);
   }
 
   private handleDragonGift(context: GameMachineContext): void {
@@ -356,6 +393,50 @@ export class BotRunner {
       const recipient = bot.chooseDragonGiftRecipient(opponents, trickPoints);
       this.send({ type: 'DRAGON_GIFT_CHOSEN', seat, recipient });
     });
+  }
+
+  /** End-of-trick bomb window: bots decide whether to bomb to steal the trick */
+  private handleEndOfTrickBombWindow(context: GameMachineContext): void {
+    const round = context.currentRound;
+    if (!round?.currentTrick) return;
+
+    const trick = round.currentTrick;
+    const trickWinner = trick.currentWinner;
+    const winnerTeam = getTeam(trickWinner);
+
+    // Calculate trick point value
+    let trickPoints = 0;
+    for (const play of trick.plays) {
+      for (const gc of play.combination.cards) {
+        trickPoints += getCardPoints(gc.card);
+      }
+    }
+
+    // Each bot checks if it should bomb
+    for (const [seat, _bot] of this.bots) {
+      if (round.players[seat].finishOrder !== null) continue; // Skip finished
+      const botTeam = getTeam(seat);
+      if (botTeam === winnerTeam) continue; // Don't bomb own team's trick
+
+      // Only bomb if trick has significant points (10+)
+      if (trickPoints < 10) continue;
+
+      // Find a bomb that beats the current top play
+      const hand = round.players[seat].hand;
+      const bombs = detectAllBombs(hand);
+      if (bombs.length === 0) continue;
+
+      const topCombo = trick.plays[trick.plays.length - 1].combination;
+      const validBomb = bombs.find((b) => canBeat(b, topCombo));
+      if (!validBomb) continue;
+
+      // Instant when only bots remain, otherwise random delay for human observation
+      const delay = this.onlyBotsRemain() ? 0 : 500 + Math.random() * 1500;
+      this.scheduleAction(() => {
+        this.send({ type: 'PLAY_CARDS', seat, cards: validBomb.cards });
+      }, delay);
+      return; // Only one bot bombs per window
+    }
   }
 
 }

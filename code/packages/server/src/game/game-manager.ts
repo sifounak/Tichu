@@ -62,6 +62,8 @@ export class GameManager {
   private destroyed = false;
   private autoPassTimer: ReturnType<typeof setTimeout> | null = null;
   private scoringTimer: ReturnType<typeof setTimeout> | null = null;
+  private endOfTrickBombTimer: ReturnType<typeof setTimeout> | null = null;
+  private endOfTrickBombWindowEndTime: number | null = null;
   /** Seats that have been vacated (player left mid-game, waiting for replacement) */
   private readonly vacatedSeats = new Set<Seat>();
   /** Seats occupied by players who are choosing which vacated seat to take */
@@ -454,7 +456,7 @@ export class GameManager {
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
     // REQ-F-TT05: Include turn timer data in broadcast
     const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
@@ -463,7 +465,7 @@ export class GameManager {
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
     // REQ-F-TT05: Include turn timer data in per-seat state
     const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,
@@ -482,6 +484,13 @@ export class GameManager {
     if (this.autoPassTimer) {
       clearTimeout(this.autoPassTimer);
       this.autoPassTimer = null;
+    }
+
+    // Clear end-of-trick bomb window timer when leaving that state (e.g., bomb played)
+    if (this.endOfTrickBombTimer && state !== 'awaitingEndOfTrickBomb') {
+      clearTimeout(this.endOfTrickBombTimer);
+      this.endOfTrickBombTimer = null;
+      this.endOfTrickBombWindowEndTime = null;
     }
 
     // Game pauses when any seat is vacated — stop timer and don't trigger bot actions
@@ -522,6 +531,42 @@ export class GameManager {
           // Persistence failure must not crash the game server
         }
       }
+      return;
+    }
+
+    // End-of-trick bomb window: 3s delay where players can bomb before trick completes
+    if (state === 'awaitingEndOfTrickBomb') {
+      this.timer.stop();
+
+      // Skip delay when only bots remain — bots decide instantly
+      const activePlayers = round
+        ? SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null)
+        : [];
+      const onlyBots = activePlayers.length > 0 && activePlayers.every((s) => this.botRunner.isBot(s));
+
+      if (onlyBots) {
+        // Let bots decide synchronously (no delay), then immediately timeout
+        this.botRunner.onStateChange(() => this.broadcastState());
+        // Use microtask to allow any bot bomb to process first
+        setTimeout(() => {
+          if (this.destroyed) return;
+          this.actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+          this.broadcastState();
+        }, 0);
+        return;
+      }
+
+      const durationMs = 2500;
+      this.endOfTrickBombWindowEndTime = Date.now() + durationMs;
+      this.broadcastState();
+      if (this.endOfTrickBombTimer) clearTimeout(this.endOfTrickBombTimer);
+      this.endOfTrickBombTimer = setTimeout(() => {
+        if (this.destroyed) return;
+        this.endOfTrickBombWindowEndTime = null;
+        this.actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+        this.broadcastState();
+      }, durationMs);
+      this.botRunner.onStateChange(() => this.broadcastState());
       return;
     }
 
@@ -733,6 +778,7 @@ export class GameManager {
     this.destroyed = true;
     if (this.autoPassTimer) clearTimeout(this.autoPassTimer);
     if (this.scoringTimer) clearTimeout(this.scoringTimer);
+    if (this.endOfTrickBombTimer) clearTimeout(this.endOfTrickBombTimer);
     this.timer.dispose();
     this.botRunner.dispose();
     this.actor.stop();

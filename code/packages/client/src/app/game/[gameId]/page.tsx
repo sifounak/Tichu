@@ -292,21 +292,22 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     return () => clearTimeout(timer);
   }, [status, urlGameId, send, playerName]);
 
-  // REQ-F-BW01: Bomb window — 2s delay after each play while humans are active
+  // REQ-F-BW01: Bomb window — 2.5s delay after each play
   const bombWindow = useBombWindow({
     send: send as (msg: Record<string, unknown>) => boolean,
-    anyHumanActive,
   });
 
-  // REQ-F-BW01: Start bomb window when a new play appears in the trick
+  // REQ-F-BW01: Start bomb window at the start of every turn (except leading a new trick).
+  // This ensures players always have 2s to consider bombing, even after a sequence of passes.
+  const currentTurn = gameStore.currentTurn;
   const trickPlayCount = gameStore.currentTrick?.plays.length ?? 0;
-  const prevTrickPlayCountRef = useRef(0);
+  const prevTurnRef = useRef<string | null>(null);
   useEffect(() => {
-    if (trickPlayCount > prevTrickPlayCountRef.current && trickPlayCount > 0) {
+    if (currentTurn && currentTurn !== prevTurnRef.current && trickPlayCount > 0) {
       bombWindow.startWindow();
     }
-    prevTrickPlayCountRef.current = trickPlayCount;
-  }, [trickPlayCount, bombWindow.startWindow]);
+    prevTurnRef.current = currentTurn ?? null;
+  }, [currentTurn, trickPlayCount, bombWindow.startWindow]);
 
   // REQ-F-BI01: Compute isMyTurn early so useCardSelection can use it for bomb filtering
   const isMyTurnForSelection = gameStore.currentTurn === gameStore.mySeat;
@@ -1142,6 +1143,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         onDragonGift={gameStore.gameHalted ? undefined : handleDragonGift}
         seatNames={seatNames}
         mustSatisfyWish={!gameStore.gameHalted && mustSatisfyWish}
+        endOfTrickBombWindowEndTime={gameStore.endOfTrickBombWindowEndTime}
         compassLayout={isSpectator}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
@@ -1239,6 +1241,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
                 hasPlayedCards={gameStore.hasPlayedCards}
                 hasBombReady={!gameStore.gameHalted && !isMyTurn && selection.isBombSelection}
                 playQueued={bombWindow.queuedPlay !== null}
+                bombWindowEndTime={bombWindow.bombWindowEndTime}
+                onCancelQueue={bombWindow.cancelQueuedPlay}
                 autoPassEnabled={autoPassEnabled}
                 onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
                 showAutoPass={!gameStore.gameHalted && showAutoPass}

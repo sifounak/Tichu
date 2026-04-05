@@ -58,6 +58,8 @@ export interface GameStore {
   turnTimerStartedAt: number | null;
   /** REQ-F-TT05: Total turn timer duration in ms, null when disabled/stopped */
   turnTimerDurationMs: number | null;
+  /** End-of-trick bomb window: epoch ms when window expires, null when inactive */
+  endOfTrickBombWindowEndTime: number | null;
 
   /* --- Actions --- */
   /** Apply a full GAME_STATE sync from the server */
@@ -97,6 +99,7 @@ const initialState = {
   gameHalted: false,
   turnTimerStartedAt: null as number | null,
   turnTimerDurationMs: null as number | null,
+  endOfTrickBombWindowEndTime: null as number | null,
 };
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -135,6 +138,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       gameHalted: view.gameHalted ?? false,
       turnTimerStartedAt: view.turnTimerStartedAt ?? null,
       turnTimerDurationMs: view.turnTimerDurationMs ?? null,
+      endOfTrickBombWindowEndTime: view.endOfTrickBombWindowEndTime ?? null,
     }),
 
   applyServerMessage: (msg: ServerMessage) =>

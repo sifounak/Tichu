@@ -13,7 +13,7 @@ export interface AnimationDurations {
   invalidShake: number;  // 300ms
   bombEffect: number;    // 600ms
   cardPass: number;      // 400ms
-  bombWindow: number;    // REQ-F-BW01: 2000ms bomb consideration window
+  bombWindow: number;    // REQ-F-BW01: 1500ms bomb consideration window
 }
 
 const DURATIONS: AnimationDurations = {
@@ -28,7 +28,7 @@ const DURATIONS: AnimationDurations = {
   invalidShake: 0.3,
   bombEffect: 0.6,
   cardPass: 0.4,
-  bombWindow: 2.0,
+  bombWindow: 1.5,
 };
 
 const RESULT = { durations: DURATIONS, enabled: true, multiplier: 1 };

@@ -22,6 +22,8 @@ export interface GameTableProps {
   seatNames?: Record<Seat, string>;
   /** Whether the current player must satisfy an active wish */
   mustSatisfyWish?: boolean;
+  /** End-of-trick bomb window end time (epoch ms) for countdown banner */
+  endOfTrickBombWindowEndTime?: number | null;
   /** Whether it's the current player's turn (shows play area glow) */
   isMyTurn?: boolean;
   /** Callback when player chooses a seat (mid-game join with multiple vacated seats) */
@@ -48,7 +50,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -202,6 +204,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
             dragonGiftPending={dragonGiftTargets && dragonGiftTargets.size > 0}
             dragonGiftAnimation={dragonGiftAnimation}
             mustSatisfyWish={mustSatisfyWish}
+            endOfTrickBombWindowEndTime={endOfTrickBombWindowEndTime}
           />
         </div>
       ) : null}

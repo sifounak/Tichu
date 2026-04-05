@@ -1,4 +1,4 @@
-// REQ-F-BW01: Bomb consideration window — 2s delay after each play while humans are active
+// REQ-F-BW01: Bomb consideration window — 2.5s delay after each play
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
@@ -7,21 +7,19 @@ import { useUiStore } from '@/stores/uiStore';
 
 interface UseBombWindowOptions {
   send: (msg: Record<string, unknown>) => boolean;
-  anyHumanActive: boolean;
 }
 
 /**
  * REQ-F-BW01: Manages the bomb window lifecycle.
  *
- * After each play, a 2-second window gives the human player time to consider
+ * After each play, a 2.5-second window gives players time to consider
  * playing a bomb. Non-bomb plays are queued during the window and sent when it
  * expires. Bomb plays bypass the window and send immediately.
  *
  * The window is skipped entirely when:
- * - All human players have finished (only bots remain with cards)
  * - Animation speed is set to 'off'
  */
-export function useBombWindow({ send, anyHumanActive }: UseBombWindowOptions) {
+export function useBombWindow({ send }: UseBombWindowOptions) {
   const { durations, enabled } = useAnimationSettings();
   const bombWindowActive = useUiStore((s) => s.bombWindowActive);
   const bombWindowEndTime = useUiStore((s) => s.bombWindowEndTime);
@@ -43,14 +41,14 @@ export function useBombWindow({ send, anyHumanActive }: UseBombWindowOptions) {
     }
   }, [send, clearBombWindow, clearQueuedPlay, clearSelection]);
 
-  // Start bomb window — only if animations enabled and a human is still active
+  // Start bomb window — only if animations enabled
   const startWindow = useCallback(() => {
-    if (!enabled || durations.bombWindow === 0 || !anyHumanActive) return;
+    if (!enabled || durations.bombWindow === 0) return;
     // Clear any existing timer
     if (timerRef.current) clearTimeout(timerRef.current);
     const durationMs = durations.bombWindow * 1000;
     startBombWindow(durationMs);
-  }, [durations, enabled, anyHumanActive, startBombWindow]);
+  }, [durations, enabled, startBombWindow]);
 
   // Timer effect: schedule flush when bomb window is active
   useEffect(() => {
@@ -66,5 +64,12 @@ export function useBombWindow({ send, anyHumanActive }: UseBombWindowOptions) {
     };
   }, [bombWindowActive, bombWindowEndTime, flushQueuedPlay]);
 
-  return { startWindow, flushQueuedPlay, bombWindowActive, queuedPlay };
+  // Cancel queued play — returns to normal Play button state
+  const cancelQueuedPlay = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    clearBombWindow();
+    clearQueuedPlay();
+  }, [clearBombWindow, clearQueuedPlay]);
+
+  return { startWindow, flushQueuedPlay, cancelQueuedPlay, bombWindowActive, bombWindowEndTime, queuedPlay };
 }
