@@ -4,7 +4,7 @@
 // REQ-F-BI09: Bomb button for out-of-turn play
 'use client';
 
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { GamePhase, TichuCall } from '@tichu/shared';
 import styles from './ActionBar.module.css';
@@ -31,6 +31,10 @@ export interface ActionBarProps {
   onBomb: () => void;
   /** REQ-F-BW01: Whether a play is queued during bomb window */
   playQueued?: boolean;
+  /** REQ-F-BW01: Timestamp when bomb window expires (for progress bar) */
+  bombWindowEndTime?: number | null;
+  /** REQ-F-BW01: Cancel the queued play */
+  onCancelQueue?: () => void;
   /** REQ-F-AP01: Auto-pass toggle state */
   autoPassEnabled?: boolean;
   /** REQ-F-AP01: Auto-pass toggle callback */
@@ -56,6 +60,8 @@ export const ActionBar = memo(function ActionBar({
   onTichu,
   onBomb,
   playQueued,
+  bombWindowEndTime,
+  onCancelQueue,
   autoPassEnabled = false,
   onAutoPassToggle,
   showAutoPass = false,
@@ -78,6 +84,35 @@ export const ActionBar = memo(function ActionBar({
     onPlay();
   }, [canPlay, onPlay]);
 
+  // REQ-F-BW01: Progress bar for queued play — drains from right to left
+  const [queueProgress, setQueueProgress] = useState(100);
+  const queueRafRef = useRef<number>(0);
+  const queueDurationRef = useRef(0);
+
+  useEffect(() => {
+    if (!playQueued || !bombWindowEndTime) {
+      setQueueProgress(100);
+      if (queueRafRef.current) cancelAnimationFrame(queueRafRef.current);
+      return;
+    }
+    // Compute total duration from now to end (capped to what's left)
+    const now = Date.now();
+    const totalMs = bombWindowEndTime - now;
+    queueDurationRef.current = totalMs;
+    if (totalMs <= 0) { setQueueProgress(0); return; }
+
+    const tick = () => {
+      const remaining = bombWindowEndTime - Date.now();
+      const pct = Math.max(0, (remaining / totalMs) * 100);
+      setQueueProgress(pct);
+      if (remaining > 0) {
+        queueRafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    queueRafRef.current = requestAnimationFrame(tick);
+    return () => { if (queueRafRef.current) cancelAnimationFrame(queueRafRef.current); };
+  }, [playQueued, bombWindowEndTime]);
+
   // REQ-F-AP01: Show standard Pass only when it's my turn AND auto-pass is off
   const passButton = showActions && !autoPassEnabled && (
     <button
@@ -90,15 +125,44 @@ export const ActionBar = memo(function ActionBar({
     </button>
   );
 
+  const [queueHovered, setQueueHovered] = useState(false);
+
+  // Reset hover state when queued play ends
+  useEffect(() => {
+    if (!playQueued) setQueueHovered(false);
+  }, [playQueued]);
+
   const playButton = showActions && (
-    <button
-      className={`${styles.button} ${styles.playButton} ${playQueued ? styles.queued : ''}`}
-      onClick={handlePlay}
-      disabled={!canPlay}
-      aria-label={playQueued ? 'Play queued' : 'Play selected cards'}
-    >
-      {playQueued ? 'Queued' : 'Play'}
-    </button>
+    playQueued ? (
+      <button
+        className={`${styles.button} ${styles.playButton} ${styles.queued} ${queueHovered ? styles.queuedHover : ''}`}
+        onClick={onCancelQueue}
+        onMouseEnter={() => setQueueHovered(true)}
+        onMouseLeave={() => setQueueHovered(false)}
+        aria-label="Cancel queued play"
+        style={queueHovered ? undefined : {
+          background: `linear-gradient(to right, var(--color-gold-accent) ${queueProgress}%, var(--color-bg-panel) ${queueProgress}%)`,
+        }}
+      >
+        {queueHovered ? (
+          <span className={styles.queuedText}>Cancel Play</span>
+        ) : (
+          <>
+            <span className={styles.queuedText}>Queued...</span>
+            <span className={styles.queuedSubtext}>(bomb delay)</span>
+          </>
+        )}
+      </button>
+    ) : (
+      <button
+        className={`${styles.button} ${styles.playButton}`}
+        onClick={handlePlay}
+        disabled={!canPlay}
+        aria-label="Play selected cards"
+      >
+        Play
+      </button>
+    )
   );
 
   const bombButton = !isMyTurn && isPlaying && hasBombReady && (

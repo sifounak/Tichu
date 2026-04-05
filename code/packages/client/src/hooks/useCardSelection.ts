@@ -105,8 +105,13 @@ export function useCardSelection(
     const combo = detectCombination(selectedCards);
     if (combo === null) return false;
     if (!isMyTurn) return combo.isBomb;
+    // Must beat the current trick top (if any)
+    if (currentTrick && currentTrick.plays.length > 0) {
+      const trickTop = currentTrick.plays[currentTrick.plays.length - 1].combination;
+      if (!canBeat(combo, trickTop)) return false;
+    }
     return true;
-  }, [selectedCards, phoenixResolution, isMyTurn]);
+  }, [selectedCards, phoenixResolution, isMyTurn, currentTrick]);
 
   // Can player pass?
   const canPass = useMemo(

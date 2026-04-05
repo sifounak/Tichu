@@ -4,7 +4,7 @@
 // REQ-NF-U02: Framer Motion card play, trick sweep, bomb effect animations
 'use client';
 
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TrickState, Seat, Rank } from '@tichu/shared';
 import { Card } from '../cards/Card';
@@ -51,6 +51,8 @@ export interface TrickDisplayProps {
   dragonGiftAnimation?: { recipient: Seat; trick: TrickState } | null;
   /** Show "must satisfy wish" banner */
   mustSatisfyWish?: boolean;
+  /** End-of-trick bomb window: epoch ms when window expires, null when inactive */
+  endOfTrickBombWindowEndTime?: number | null;
 }
 
 /** Map seat to position relative to player */
@@ -89,6 +91,7 @@ export const TrickDisplay = memo(function TrickDisplay({
   dragonGiftPending,
   dragonGiftAnimation,
   mustSatisfyWish,
+  endOfTrickBombWindowEndTime,
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
 
@@ -131,6 +134,25 @@ export const TrickDisplay = memo(function TrickDisplay({
     : enabled
       ? { opacity: 0, transition: { duration: durations.trickSweep } }
       : undefined;
+
+  // End-of-trick bomb window countdown
+  const [bombWindowRemaining, setBombWindowRemaining] = useState<number | null>(null);
+  const bombWindowRafRef = useRef(0);
+  useEffect(() => {
+    if (!endOfTrickBombWindowEndTime) {
+      setBombWindowRemaining(null);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, endOfTrickBombWindowEndTime - Date.now());
+      setBombWindowRemaining(remaining);
+      if (remaining > 0) {
+        bombWindowRafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    bombWindowRafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(bombWindowRafRef.current);
+  }, [endOfTrickBombWindowEndTime]);
 
   return (
     <div className={`${styles.trickDisplay} ${showBomb ? styles.bombFlash : ''}`} aria-label="Trick area">
@@ -274,6 +296,13 @@ export const TrickDisplay = memo(function TrickDisplay({
       {mustSatisfyWish && (
         <div className={styles.mustSatisfyWish}>
           You must satisfy the wish
+        </div>
+      )}
+
+      {/* End-of-trick bomb window banner */}
+      {bombWindowRemaining !== null && bombWindowRemaining > 0 && (
+        <div className={styles.endOfTrickBombBanner}>
+          Pausing for end-of-trick bombs: {Math.ceil(bombWindowRemaining / 1000)}...
         </div>
       )}
     </div>

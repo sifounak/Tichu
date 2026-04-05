@@ -208,4 +208,6 @@ export interface ClientGameView {
   turnTimerStartedAt?: number | null;
   /** REQ-F-TT05: Total turn timer duration in milliseconds, null when disabled/stopped */
   turnTimerDurationMs?: number | null;
+  /** End-of-trick bomb window: epoch timestamp (ms) when window expires, null when inactive */
+  endOfTrickBombWindowEndTime?: number | null;
 }

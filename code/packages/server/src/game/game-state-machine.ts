@@ -59,7 +59,8 @@ export type GameEvent =
   | { type: 'DRAGON_GIFT_CHOSEN'; seat: Seat; recipient: Seat }
   | { type: 'TURN_TIMEOUT'; seat: Seat }
   | { type: 'DECLARE_WISH'; seat: Seat; rank: Rank | null }
-  | { type: 'ADVANCE_FROM_SCORING' };
+  | { type: 'ADVANCE_FROM_SCORING' }
+  | { type: 'END_OF_TRICK_BOMB_TIMEOUT' };
 
 // ─── Context Type ───────────────────────────────────────────────────────────
 
@@ -301,6 +302,16 @@ export const gameMachine = setup({
         return getTeam(round.finishOrder[0]) === getTeam(round.finishOrder[1]);
       }
       return false;
+    },
+
+    /** Trick is complete and should enter end-of-trick bomb window (not dragon gift or round over) */
+    isTrickCompleteForBombWindow: ({ context }) => {
+      const round = context.currentRound;
+      if (!round?.currentTrick) return false;
+      if (!isTrickComplete(round.currentTrick, round)) return false;
+      if (needsDragonGift(round.currentTrick)) return false;
+      if (isRoundOver(round)) return false;
+      return true;
     },
 
     /** REQ-F-GF10: Game over — a team reached target score */
@@ -647,8 +658,15 @@ export const gameMachine = setup({
       removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
       // Check if trick is complete (e.g., bomb after all others passed, or player finished)
+      // Dragon gift and round-over complete inline; otherwise defer to always → awaitingEndOfTrickBomb
       if (isTrickComplete(round.currentTrick, round)) {
-        return completeTrickAndAdvance(round, context);
+        if (needsDragonGift(round.currentTrick) || isRoundOver(round)) {
+          return completeTrickAndAdvance(round, context);
+        }
+        // Leave trick intact — always transition routes to end-of-trick bomb window
+        // No one's turn during end-of-trick bomb window — anyone can bomb
+        round.currentTurn = null;
+        return { currentRound: round };
       }
 
       // REQ-F-BUG01: Round over but trick NOT complete (player went out mid-trick).
@@ -692,8 +710,14 @@ export const gameMachine = setup({
       round.currentTrick.passes.push(seat);
 
       // Check if trick is now complete
+      // Dragon gift and round-over complete inline; otherwise defer to always → awaitingEndOfTrickBomb
       if (isTrickComplete(round.currentTrick, round)) {
-        return completeTrickAndAdvance(round, context);
+        if (needsDragonGift(round.currentTrick) || isRoundOver(round)) {
+          return completeTrickAndAdvance(round, context);
+        }
+        // No one's turn during end-of-trick bomb window — anyone can bomb
+        round.currentTurn = null;
+        return { currentRound: round };
       }
 
       // Advance turn
@@ -717,7 +741,11 @@ export const gameMachine = setup({
         round.currentTrick.passes.push(seat);
 
         if (isTrickComplete(round.currentTrick, round)) {
-          return completeTrickAndAdvance(round, context);
+          if (needsDragonGift(round.currentTrick) || isRoundOver(round)) {
+            return completeTrickAndAdvance(round, context);
+          }
+          round.currentTurn = null;
+          return { currentRound: round };
         }
 
         round.currentTurn = getNextActiveSeat(seat, round);
@@ -728,6 +756,13 @@ export const gameMachine = setup({
       // For the state machine, timeout when must play is a no-op;
       // the game manager should translate it into a PLAY_CARDS event
       return {};
+    }),
+
+    /** Complete trick after end-of-trick bomb window expires with no bomb */
+    completeTrickFromBombWindow: assign(({ context }) => {
+      if (!context.currentRound?.currentTrick) return {};
+      const round = structuredClone(context.currentRound) as RoundState;
+      return completeTrickAndAdvance(round, context);
     }),
 
     /** REQ-F-DR01: Choose Dragon gift recipient */
@@ -878,6 +913,10 @@ export const gameMachine = setup({
       },
       always: [
         {
+          guard: 'isTrickCompleteForBombWindow',
+          target: 'awaitingEndOfTrickBomb',
+        },
+        {
           guard: 'needsDragonGift',
           target: 'awaitingDragonGift',
         },
@@ -886,6 +925,20 @@ export const gameMachine = setup({
           target: 'roundScoring',
         },
       ],
+    },
+
+    awaitingEndOfTrickBomb: {
+      on: {
+        PLAY_CARDS: {
+          guard: 'isBombPlay',
+          actions: 'playCards',
+          target: 'playing',
+        },
+        END_OF_TRICK_BOMB_TIMEOUT: {
+          actions: 'completeTrickFromBombWindow',
+          target: 'playing',
+        },
+      },
     },
 
     awaitingDragonGift: {

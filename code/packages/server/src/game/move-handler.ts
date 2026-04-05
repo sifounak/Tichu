@@ -177,7 +177,7 @@ export class MoveHandler {
 
   /** Handle PLAY_CARDS */
   handlePlayCards(seat: Seat, cardIds: number[], _phoenixAs?: Rank, wish?: Rank | null): MoveResult {
-    if (this.stateValue !== 'playing') {
+    if (this.stateValue !== 'playing' && this.stateValue !== 'awaitingEndOfTrickBomb') {
       return { ok: false, error: `Not in playing phase (server state: ${this.stateValue})` };
     }
 

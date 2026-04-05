@@ -76,6 +76,21 @@
   z-index: 5;
 }
 
+.endOfTrickBombBanner {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-warning, #eab308);
+  color: var(--color-felt-green-dark, #1a3a2a);
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--space-2);
+  font-size: var(--font-base);
+  font-weight: 700;
+  text-align: center;
+  z-index: 5;
+}
+
 .playGroup {
   position: absolute;
   display: flex;

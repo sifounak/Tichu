@@ -27,6 +27,7 @@ export function projectGameState(
   disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
   activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
   timerInfo?: { startTime: number | null; durationMs: number | null },
+  endOfTrickBombWindowEndTime?: number | null,
 ): ClientGameView {
   const round = context.currentRound;
 
@@ -77,6 +78,7 @@ export function projectGameState(
       // REQ-F-TT05: Turn timer data
       turnTimerStartedAt: timerInfo?.startTime ?? null,
       turnTimerDurationMs: timerInfo?.durationMs ?? null,
+      endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
     };
   }
 
@@ -135,6 +137,7 @@ export function projectGameState(
           return acc;
         }, {} as Record<Seat, GameCard | null>)
       : { north: null, east: null, south: null, west: null } as Record<Seat, GameCard | null>,
+    endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
   };
 }
 
@@ -146,6 +149,7 @@ function mapMachineStateToPhase(machineState: string): GamePhase {
     cardPassing: 'cardPassing' as GamePhase,
     playing: 'playing' as GamePhase,
     awaitingDragonGift: 'playing' as GamePhase, // Client sees this as still in playing phase
+    awaitingEndOfTrickBomb: 'playing' as GamePhase, // Client sees this as still in playing phase
     roundScoring: 'roundScoring' as GamePhase,
     gameOver: 'gameOver' as GamePhase,
   };
@@ -166,6 +170,7 @@ export function projectSpectatorView(
   disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
   activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
   timerInfo?: { startTime: number | null; durationMs: number | null },
+  endOfTrickBombWindowEndTime?: number | null,
 ): ClientGameView {
   const round = context.currentRound;
   const phase = mapMachineStateToPhase(machineState);
@@ -208,6 +213,7 @@ export function projectSpectatorView(
       // REQ-F-TT05: Turn timer data
       turnTimerStartedAt: timerInfo?.startTime ?? null,
       turnTimerDurationMs: timerInfo?.durationMs ?? null,
+      endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
     };
   }
 
@@ -251,6 +257,7 @@ export function projectSpectatorView(
     // REQ-F-TT05: Turn timer data
     turnTimerStartedAt: timerInfo?.startTime ?? null,
     turnTimerDurationMs: timerInfo?.durationMs ?? null,
+    endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
   };
 }
 
