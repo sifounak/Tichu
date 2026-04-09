@@ -7,17 +7,17 @@
 
 | Requirement ID | Description | Milestone | Implementation | Test | Status |
 |---------------|-------------|-----------|----------------|------|--------|
-| REQ-F-SC01 | Game-level table (no change) | M1 | | | Pending |
-| REQ-F-SC02 | Round-level table extension (+3 cols) | M1 | | | Pending |
-| REQ-F-SC03 | Player-round table (new) | M1 | | | Pending |
-| REQ-F-SC04 | Merged trick table (new) | M1 | | | Pending |
-| REQ-F-SC05 | Play-level table (new) | M1 | | | Pending |
-| REQ-F-SC06 | Wish event table (new) | M1 | | | Pending |
-| REQ-F-SC07 | Dragon gift event table (new) | M1 | | | Pending |
-| REQ-F-SC08 | Dog play event table (new) | M1 | | | Pending |
-| REQ-F-SC09 | Bomb inventory table — Level 1 (new) | M1 | | | Pending |
-| REQ-F-SC10 | Bomb events table — Level 2 (new) | M1 | | | Pending |
-| REQ-F-SC11 | Player global stats (chat counters) | M1 | | | Pending |
+| REQ-F-SC01 | Game-level table (no change) | M1 | schema.ts:30-48 (unchanged) | Schema verification script | Passed |
+| REQ-F-SC02 | Round-level table extension (+3 cols) | M1 | schema.ts:65-67, connection.ts:516-524 | Schema verification: 3 new cols | Passed |
+| REQ-F-SC03 | Player-round table (new, 26 cols) | M1 | schema.ts:255-295, connection.ts:177-208 | Schema verification: 26 cols | Passed |
+| REQ-F-SC04 | Merged trick table (new, 18 cols) | M1 | schema.ts:299-326, connection.ts:210-234 | Schema verification: 18 cols | Passed |
+| REQ-F-SC05 | Play-level table (new, 37 cols) | M1 | schema.ts:330-399, connection.ts:236-280 | Schema verification: 37 cols | Passed |
+| REQ-F-SC06 | Wish event table (new, 9 cols) | M1 | schema.ts:403-413, connection.ts:282-293 | Schema verification: 9 cols | Passed |
+| REQ-F-SC07 | Dragon gift event table (new, 13 cols) | M1 | schema.ts:417-431, connection.ts:295-311 | Schema verification: 13 cols | Passed |
+| REQ-F-SC08 | Dog play event table (new, 10 cols) | M1 | schema.ts:435-446, connection.ts:313-326 | Schema verification: 10 cols | Passed |
+| REQ-F-SC09 | Bomb inventory table — Level 1 (new, 20 cols) | M1 | schema.ts:450-481, connection.ts:328-349 | Schema verification: 20 cols | Passed |
+| REQ-F-SC10 | Bomb events table — Level 2 (new, 10 cols) | M1 | schema.ts:485-500, connection.ts:351-364 | Schema verification: 10 cols | Passed |
+| REQ-F-SC11 | Player global stats (new, 3 cols) | M1 | schema.ts:504-508, connection.ts:366-371 | Schema verification: 3 cols | Passed |
 | REQ-F-CP01 | Hybrid capture architecture | M3 | | | Pending |
 | REQ-F-CP02 | Pre-play enrichment | M3 | | | Pending |
 | REQ-F-CP03 | Post-play observation | M3 | | | Pending |
@@ -48,7 +48,7 @@
 | REQ-F-MC04 | Retroactive stat addition | M5 | | | Pending |
 | REQ-F-MC05 | Cache disposability | M5 | | | Pending |
 | REQ-F-MG01 | Keep games table | M6 | | | Pending |
-| REQ-F-MG02 | Extend game_rounds | M1 | | | Pending |
+| REQ-F-MG02 | Extend game_rounds | M1 | schema.ts:65-67, connection.ts:516-524 | Schema verification | Passed |
 | REQ-F-MG03 | Replace roundPlayerEvents | M6 | | | Pending |
 | REQ-F-MG04 | Replace playerStats | M6 | | | Pending |
 | REQ-F-MG05 | Replace playerRelationalStats | M6 | | | Pending |
@@ -65,3 +65,4 @@
 - **Total requirements:** 51 (11 Schema + 18 Capture + 6 Storage + 5 Cache + 6 Migration + 5 Non-Functional)
 - **Milestones:** M1 (Schema), M2 (Interfaces), M3 (Capture), M4 (Storage), M5 (Cache), M6 (Migration)
 - **Must-have:** 47 | **Should-have:** 4 (SC11, CP18, and their related NFRs)
+- **M1 status:** 12/12 requirements Passed (SC01-SC11 + MG02)

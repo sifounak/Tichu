@@ -62,6 +62,11 @@ export const gameRounds = sqliteTable('game_rounds', {
   totalEW: integer('total_ew').notNull(),
   finishOrder: text('finish_order', { mode: 'json' }).notNull(),
   tichuCalls: text('tichu_calls', { mode: 'json' }).notNull().default('{}'),
+
+  // REQ-F-SC02: Score-at-start and round timing
+  scoreNSAtStart: integer('score_ns_at_start'),
+  scoreEWAtStart: integer('score_ew_at_start'),
+  startedAt: text('started_at'),
 });
 
 // ─── Player Stats (materialized/cached) ─────────────────────────────────
@@ -229,7 +234,7 @@ export const playerRelationalStats = sqliteTable('player_relational_stats', {
   unique('player_relational_unique').on(table.userId, table.otherUserId, table.relationship),
 ]);
 
-// ─── Round Player Events (audit trail) ──────────────────────────────────
+// ─── Round Player Events (audit trail — LEGACY, replaced by player_rounds) ──
 // REQ-F-DB03: Per-player per-round event summary for auditing/recomputation
 
 export const roundPlayerEvents = sqliteTable('round_player_events', {
@@ -239,4 +244,263 @@ export const roundPlayerEvents = sqliteTable('round_player_events', {
   userId: text('user_id').notNull().references(() => users.id),
   seat: text('seat').notNull(),
   eventData: text('event_data', { mode: 'json' }).notNull(),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Statistics Redesign — Raw Event Tables
+// REQ-F-SC03–SC11: Store raw game events for retroactive stat computation
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Player Rounds (structured replacement for roundPlayerEvents) ────────
+// REQ-F-SC03: One row per player per round with hands, passes, calls, finish, points
+
+export const playerRounds = sqliteTable('player_rounds', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  roundNumber: integer('round_number').notNull(),
+  seat: text('seat').notNull(),
+  userId: text('user_id'),
+
+  // Hands
+  first8Cards: text('first_8_cards', { mode: 'json' }),
+  fullHandPrePass: text('full_hand_pre_pass', { mode: 'json' }),
+  passedToLeft: text('passed_to_left', { mode: 'json' }),
+  passedToPartner: text('passed_to_partner', { mode: 'json' }),
+  passedToRight: text('passed_to_right', { mode: 'json' }),
+  receivedFromLeft: text('received_from_left', { mode: 'json' }),
+  receivedFromPartner: text('received_from_partner', { mode: 'json' }),
+  receivedFromRight: text('received_from_right', { mode: 'json' }),
+  handAfterPass: text('hand_after_pass', { mode: 'json' }),
+
+  // Calls
+  grandTichuCall: integer('grand_tichu_call', { mode: 'boolean' }).notNull().default(false),
+  tichuCall: integer('tichu_call', { mode: 'boolean' }).notNull().default(false),
+  tichuCallPhase: text('tichu_call_phase'), // 'prePassing' | 'midRound' | null
+  tichuCallTrickNumber: integer('tichu_call_trick_number'),
+  tichuCallHandSizes: text('tichu_call_hand_sizes', { mode: 'json' }), // {partner, leftOpp, rightOpp}
+  tichuCallSuccess: integer('tichu_call_success', { mode: 'boolean' }),
+
+  // Finish
+  finishPosition: integer('finish_position'), // 1-4, null if didn't finish
+  finishTrickNumber: integer('finish_trick_number'),
+
+  // Points
+  cardPointsCaptured: integer('card_points_captured').notNull().default(0),
+  handPointsGivenToOpponents: integer('hand_points_given_to_opponents').notNull().default(0),
+  capturedPointsGivenToFirstOut: integer('captured_points_given_to_first_out').notNull().default(0),
+
+  // Running point total
+  trickPointRunningTotal: text('trick_point_running_total', { mode: 'json' }), // int[]
+});
+
+// ─── Tricks (merged trick identity + result) ────────────────────────────
+// REQ-F-SC04: One row per trick per round
+
+export const tricks = sqliteTable('tricks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  roundNumber: integer('round_number').notNull(),
+  trickNumber: integer('trick_number').notNull(),
+
+  // Lead info
+  leadSeat: text('lead_seat').notNull(),
+  leadCombinationType: text('lead_combination_type'),
+  leadCombinationRank: integer('lead_combination_rank'),
+  leadCombinationLength: integer('lead_combination_length'),
+
+  // Result info
+  winnerSeat: text('winner_seat'),
+  pointValue: integer('point_value').notNull().default(0),
+  trickLength: integer('trick_length').notNull().default(0), // plays, not passes
+  uncontested: integer('uncontested', { mode: 'boolean' }).notNull().default(false),
+
+  // Winning combination
+  winningCombinationType: text('winning_combination_type'),
+  winningCombinationRank: integer('winning_combination_rank'),
+  winningCombinationLength: integer('winning_combination_length'),
+
+  // Content flags
+  containsDragon: integer('contains_dragon', { mode: 'boolean' }).notNull().default(false),
+  containsPhoenix: integer('contains_phoenix', { mode: 'boolean' }).notNull().default(false),
+
+  // Context
+  activeTichuSeats: text('active_tichu_seats', { mode: 'json' }), // seat[]
+});
+
+// ─── Plays (one per action within a trick) ──────────────────────────────
+// REQ-F-SC05: Most granular level — every play, pass, or bomb
+
+export const plays = sqliteTable('plays', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  roundNumber: integer('round_number').notNull(),
+  trickNumber: integer('trick_number').notNull(),
+  sequenceNumber: integer('sequence_number').notNull(),
+  seat: text('seat').notNull(),
+
+  // Action
+  actionType: text('action_type').notNull(), // 'play' | 'pass' | 'bomb'
+  actionAt: text('action_at'),
+  actionSource: text('action_source'), // 'player' | 'automation' | 'timeout' | 'bot'
+
+  // Card details (play/bomb only)
+  cards: text('cards', { mode: 'json' }), // int[]
+  combinationType: text('combination_type'),
+  combinationRank: integer('combination_rank'),
+  combinationLength: integer('combination_length'),
+  phoenixUsedAs: integer('phoenix_used_as'),
+  phoenixEffectiveValue: real('phoenix_effective_value'),
+  isBomb: integer('is_bomb', { mode: 'boolean' }),
+  legalPlayCount: integer('legal_play_count'),
+
+  // Contextual flags
+  outOfTurn: integer('out_of_turn', { mode: 'boolean' }),
+  interruptedSeat: text('interrupted_seat'),
+  endOfTrickBomb: integer('end_of_trick_bomb', { mode: 'boolean' }),
+  playedOnTopOf: text('played_on_top_of'),
+  playerFinished: integer('player_finished', { mode: 'boolean' }),
+  cardsRemainingAfter: integer('cards_remaining_after'),
+  couldHaveGoneOut: integer('could_have_gone_out', { mode: 'boolean' }),
+  playedMinimum: integer('played_minimum', { mode: 'boolean' }),
+
+  // Hand sizes of other players
+  partnerCardsRemaining: integer('partner_cards_remaining'),
+  leftOppCardsRemaining: integer('left_opp_cards_remaining'),
+  rightOppCardsRemaining: integer('right_opp_cards_remaining'),
+
+  // Pass-specific fields (actionType='pass')
+  couldHavePlayed: integer('could_have_played', { mode: 'boolean' }),
+  hadBombAvailable: integer('had_bomb_available', { mode: 'boolean' }),
+
+  // Wish context
+  wishActive: integer('wish_active', { mode: 'boolean' }),
+  wishRank: integer('wish_rank'),
+  playForcedByWish: integer('play_forced_by_wish', { mode: 'boolean' }),
+
+  // Tichu context
+  partnerTichuActive: integer('partner_tichu_active', { mode: 'boolean' }),
+  opponentTichuActive: text('opponent_tichu_active', { mode: 'json' }), // {left, right}
+
+  // Timing
+  turnStartedAt: text('turn_started_at'),
+  durationMs: integer('duration_ms'),
+});
+
+// ─── Wish Events (0-1 per round) ───────────────────────────────────────
+// REQ-F-SC06: Mah Jong wish declaration + fulfillment tracking
+
+export const wishEvents = sqliteTable('wish_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  roundNumber: integer('round_number').notNull(),
+  wishRank: integer('wish_rank').notNull(),
+  trickNumber: integer('trick_number').notNull(),
+  cardsOfRankRemaining: integer('cards_of_rank_remaining').notNull(),
+  cardsOfRankInWisherHand: integer('cards_of_rank_in_wisher_hand').notNull(),
+  wishFulfilledTrick: integer('wish_fulfilled_trick'),
+  wishFulfilledBy: text('wish_fulfilled_by'),
+});
+
+// ─── Dragon Gift Events (0+ per round) ─────────────────────────────────
+// REQ-F-SC07: Created when Dragon player wins trick and must gift
+
+export const dragonGiftEvents = sqliteTable('dragon_gift_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  roundNumber: integer('round_number').notNull(),
+  trickNumber: integer('trick_number').notNull(),
+  gifterSeat: text('gifter_seat').notNull(),
+  recipientSeat: text('recipient_seat').notNull(),
+  trickPointValue: integer('trick_point_value').notNull(),
+  recipientCardsLeft: integer('recipient_cards_left').notNull(),
+  otherOpponentCardsLeft: integer('other_opponent_cards_left').notNull(),
+  gifterFinishedOnPlay: integer('gifter_finished_on_play', { mode: 'boolean' }).notNull().default(false),
+  recipientHasTichu: integer('recipient_has_tichu', { mode: 'boolean' }).notNull().default(false),
+  otherOpponentHasTichu: integer('other_opponent_has_tichu', { mode: 'boolean' }).notNull().default(false),
+  giftWasForced: integer('gift_was_forced', { mode: 'boolean' }).notNull().default(false),
+});
+
+// ─── Dog Play Events (0+ per round) ────────────────────────────────────
+// REQ-F-SC08: Dog play with context
+
+export const dogPlayEvents = sqliteTable('dog_play_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  roundNumber: integer('round_number').notNull(),
+  trickNumber: integer('trick_number').notNull(),
+  playerSeat: text('player_seat').notNull(),
+  controlPassedTo: text('control_passed_to').notNull(),
+  partnerAlreadyOut: integer('partner_already_out', { mode: 'boolean' }).notNull().default(false),
+  partnerHasTichu: integer('partner_has_tichu', { mode: 'boolean' }).notNull().default(false),
+  hadPriorLeadOpportunity: integer('had_prior_lead_opportunity', { mode: 'boolean' }).notNull().default(false),
+  dogWasLastCard: integer('dog_was_last_card', { mode: 'boolean' }).notNull().default(false),
+});
+
+// ─── Bomb Inventory (Level 1 — one per bomb resource) ──────────────────
+// REQ-F-SC09: Bomb lifecycle tracking — inventory level
+
+export const bombInventory = sqliteTable('bomb_inventory', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  roundNumber: integer('round_number').notNull(),
+  playerSeat: text('player_seat').notNull(),
+
+  // Bomb identity
+  bombType: text('bomb_type').notNull(), // 'fourOfAKind' | 'straightFlush'
+  cards: text('cards', { mode: 'json' }).notNull(), // int[]
+  rank: integer('rank').notNull(), // 4oaK rank or SFB high card
+  size: integer('size').notNull(), // number of cards
+
+  // Evolution
+  acquiredPhase: text('acquired_phase').notNull(), // 'first8' | 'fullDeal' | 'postPass'
+
+  // SFB tracking (maximal same-suit runs)
+  bombPlaysFromRun: integer('bomb_plays_from_run').notNull().default(0),
+
+  // Overlap with other bombs
+  overlapsWith: text('overlaps_with', { mode: 'json' }), // int[] of bombInventory ids
+
+  // Fate
+  fate: text('fate'), // 'played' | 'brokenUp' | 'heldToEnd'
+  fateTrickNumber: integer('fate_trick_number'),
+  fateTarget: text('fate_target'), // seat
+  outOfTurn: integer('out_of_turn', { mode: 'boolean' }),
+  endOfTrickBomb: integer('end_of_trick_bomb', { mode: 'boolean' }),
+
+  // Context
+  playsSeenWhileHeld: integer('plays_seen_while_held').notNull().default(0),
+
+  // Aggregate flags
+  capturedDragon: integer('captured_dragon', { mode: 'boolean' }).notNull().default(false),
+  wasOverbomb: integer('was_overbomb', { mode: 'boolean' }).notNull().default(false),
+  followedByDog: integer('followed_by_dog', { mode: 'boolean' }).notNull().default(false),
+});
+
+// ─── Bomb Events (Level 2 — play events + wish side effects) ───────────
+// REQ-F-SC10: Bomb lifecycle tracking — event level
+
+export const bombEvents = sqliteTable('bomb_events', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  gameId: integer('game_id').notNull().references(() => games.id),
+  roundNumber: integer('round_number').notNull(),
+  bombInventoryId: integer('bomb_inventory_id').notNull().references(() => bombInventory.id),
+  eventType: text('event_type').notNull(), // 'playBomb' | 'wishSideEffect'
+
+  // playBomb fields
+  trickNumber: integer('trick_number'),
+  followedByDog: integer('followed_by_dog', { mode: 'boolean' }),
+
+  // wishSideEffect fields
+  cardLost: integer('card_lost'),
+  couldHavePlayedBomb: integer('could_have_played_bomb', { mode: 'boolean' }),
+  runLengthChange: integer('run_length_change'),
+});
+
+// ─── Player Global Stats (lifetime counters) ───────────────────────────
+// REQ-F-SC11: Chat counters outside per-game event log
+
+export const playerGlobalStats = sqliteTable('player_global_stats', {
+  userId: text('user_id').primaryKey().references(() => users.id),
+  totalChatMessages: integer('total_chat_messages').notNull().default(0),
+  totalChatCharacters: integer('total_chat_characters').notNull().default(0),
 });
