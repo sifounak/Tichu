@@ -183,8 +183,27 @@ Comprehensive review of all 11 insight categories (A-K). Expanded catalog from ~
 
 ---
 
-## Still To Review
+## Section 4: Capture Architecture (2026-04-09)
 
-- **Section 4: When/Where We Gather Data** — mapping capture points to game engine hooks
-- **Section 5: Database write strategy** — when to persist (in-memory during game, batch at game end, or hybrid)
-- Final spec serialization via `/spec-builder`
+**Decision: Hybrid — pre-play enrichment + post-play observation**
+
+- **GameManager** computes pre-play context (legalPlayCount, playedMinimum, couldHaveGoneOut, actionSource, hand sizes, timestamps) and passes to tracker via direct method call (`eventTracker.recordPrePlayContext(seat, prePlay)`) before sending event to state machine
+- **EventTracker** observes state diffs for post-play data (trick completion, special events, round-end data) and matches with pre-play context
+- Unmatched pre-play contexts (rejected plays) discarded on next `onStateChange`
+
+All capture points mapped to specific game engine hooks — see full details in `plans/statistics-system-redesign.md` Section 4.
+
+## Section 5: Database Write Strategy (2026-04-09)
+
+**Decision: Batch at game end + recovery file serialization**
+
+- All data accumulates in memory during gameplay (~80 KB)
+- Recovery file (JSON) serialized at each round end for crash resilience
+- Single transaction writes all layers at game end
+- Recovery files loaded on server restart to salvage crashed game data
+- Extends existing `savePassStatsOnAbandon` for partial data on abandonment
+
+## Next Steps
+
+- Serialize formal specification via `/spec-builder` with requirement IDs
+- Implementation planning and milestone breakdown
