@@ -143,23 +143,43 @@ After pass resolution — scan hand using `detectAllBombs()`, create inventory r
 
 ---
 
-## Section 3: Missing Insights Review
+## Section 3: Missing Insights Review (2026-04-09)
 
-Cross-referenced 65+ stat catalog against proposed data capture. **No missing raw data found.** All gaps are in the computation layer (deferred).
+Comprehensive review of all 11 insight categories (A-K). Expanded catalog from ~65 to ~100+ named insights. **Only one new data field required** (`playedMinimum` boolean on play-level records). Everything else derivable from existing proposed capture.
 
-| Missing Insight | Data Available? | Notes |
-|----------------|----------------|-------|
-| Pass strategy quality | Yes — full hands pre/post pass, all 6 cards | Needs hand strength heuristic (deferred) |
-| Trick momentum / streaks | Yes — trick results sequence | Future computed stat |
-| Card efficiency | Yes — play-level + trick results | Future computed stat |
-| Defensive plays | Yes — cardsRemainingAfter + playedOnTopOf | Future computed stat |
-| First trick behavior | Yes — trickNumber = 1 filter | Future computed stat |
-| Round duration | **Needs `startedAt` on round record** | Added to Layer 2 |
-| Score context on plays | Yes — trickPointRunningTotal in design | Already planned |
-| Multi-game session analysis | Yes — game timestamps | Future analysis layer |
+### New Insights by Category
 
-### One addition:
-- **Add `startedAt` timestamp to round-level record** — enables round duration analysis without scanning for first play timestamp.
+**A: Game Outcomes** — A11 win method breakdown, A12 game length distribution, A13 scoring trajectory, A14 first-round impact, A15-A18 largest/narrowest win/loss margins
+
+**B: Round Performance** — B8-B10 last-out point stats (captured points kept when partner out first, captured points surrendered when opponent out first, hand points surrendered), B11 2nd-place finish context, B12 round point contribution ratio, B13 round win streak, B14 shutout rounds
+
+**C: Tichu Calling** — C11 Tichu race (opposing Tichu active simultaneously), C12 call frequency trend, C13 double partner Tichu (calling over partner's existing call — success rate of 2nd caller; note only one partner can succeed)
+
+**D: Card Events** — D11 Mahjong lead strategy, D12 Phoenix effectiveness, D13 wish backfire (wishSatisfiedByPartner/wishSatisfiedBySelf), D14 Dragon+Dog pattern
+
+**E: Decision Quality** — E11 trick type preference, E12 pass-to-play ratio, E13 over-commitment detection, `playedMinimum` field (new data capture)
+
+**F: Table Control** — F2 clarified (trick win rate when leading), F8 individual trick win streak, F9 team trick win streak, F10 trick theft rate, F11 tempo disruption
+
+**G: Partnership** — G9 partner rescue (multi-trick sequence: partner has T/GT + passes on opponent's play → you win and sustain control → 5 resolutions: success via Dog, success via partner plays, failed via opponent goes out, failed via opponent wins trick, failed via you go out; track chain length), G10 rescued by partner (inverse of G9)
+
+**H: Opponent Disruption** — H5 mutual Tichu break (go out first to break both partner's and opponent's Tichu; point swing negated 200-600), H6 wish disruption, H7 point capture rate
+
+**I: Luck vs Skill** — I5 bomb luck, I6 special card distribution luck, I7 opponent hand quality (needs heuristic)
+
+**J: Situational** — J4 endgame round behavior, J5 trailing vs leading performance, J6 swing round contribution, J7 target score proximity behavior
+
+**K: Chat** — K3 chat timing (during play vs between rounds), K4 chat after events
+
+### Key Design Decisions from Review
+
+- **F2 clarified:** "Lead retention" → "Trick win rate when leading" (unambiguous)
+- **Trick win streak split:** Individual (F8) vs team (F9) measured separately
+- **Partner rescue (G9/G10):** Defined as multi-trick sequence with clear trigger, continuation, and 5 resolutions
+- **Mutual Tichu break (H5):** Strategic play — go out first with no Tichu call to negate both partner's and opponent's active calls
+- **Double partner Tichu (C13):** At most one partner's Tichu can succeed (whoever goes out first)
+- **Last-out stats (B8-B10):** Three distinct measurements — points kept (partner out first), points surrendered from tricks (opponent out first), points surrendered from hand
+- **playedMinimum:** On leads, measured as weakest of the same combination type chosen (separates "what type to lead" from "which cards of that type")
 
 ---
 
