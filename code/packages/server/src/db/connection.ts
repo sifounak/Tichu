@@ -158,7 +158,7 @@ function syncSchema(client: BetterSqlite3Database): void {
       UNIQUE(user_id, other_user_id, relationship)
     );
 
-    -- REQ-F-DB03: Round player events (audit trail)
+    -- REQ-F-DB03: Round player events (audit trail — LEGACY)
     CREATE TABLE IF NOT EXISTS round_player_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       game_id INTEGER NOT NULL REFERENCES games(id),
@@ -166,6 +166,210 @@ function syncSchema(client: BetterSqlite3Database): void {
       user_id TEXT NOT NULL REFERENCES users(id),
       seat TEXT NOT NULL,
       event_data TEXT NOT NULL
+    );
+
+    -- ═══════════════════════════════════════════════════════════════════
+    -- Statistics Redesign — Raw Event Tables (REQ-F-SC03–SC11)
+    -- ═══════════════════════════════════════════════════════════════════
+
+    -- REQ-F-SC03: Player rounds (structured replacement for round_player_events)
+    CREATE TABLE IF NOT EXISTS player_rounds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL REFERENCES games(id),
+      round_number INTEGER NOT NULL,
+      seat TEXT NOT NULL,
+      user_id TEXT,
+      -- Hands
+      first_8_cards TEXT,
+      full_hand_pre_pass TEXT,
+      passed_to_left TEXT,
+      passed_to_partner TEXT,
+      passed_to_right TEXT,
+      received_from_left TEXT,
+      received_from_partner TEXT,
+      received_from_right TEXT,
+      hand_after_pass TEXT,
+      -- Calls
+      grand_tichu_call INTEGER NOT NULL DEFAULT 0,
+      tichu_call INTEGER NOT NULL DEFAULT 0,
+      tichu_call_phase TEXT,
+      tichu_call_trick_number INTEGER,
+      tichu_call_hand_sizes TEXT,
+      tichu_call_success INTEGER,
+      -- Finish
+      finish_position INTEGER,
+      finish_trick_number INTEGER,
+      -- Points
+      card_points_captured INTEGER NOT NULL DEFAULT 0,
+      hand_points_given_to_opponents INTEGER NOT NULL DEFAULT 0,
+      captured_points_given_to_first_out INTEGER NOT NULL DEFAULT 0,
+      -- Running point total
+      trick_point_running_total TEXT
+    );
+
+    -- REQ-F-SC04: Tricks (merged trick identity + result)
+    CREATE TABLE IF NOT EXISTS tricks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL REFERENCES games(id),
+      round_number INTEGER NOT NULL,
+      trick_number INTEGER NOT NULL,
+      -- Lead info
+      lead_seat TEXT NOT NULL,
+      lead_combination_type TEXT,
+      lead_combination_rank INTEGER,
+      lead_combination_length INTEGER,
+      -- Result info
+      winner_seat TEXT,
+      point_value INTEGER NOT NULL DEFAULT 0,
+      trick_length INTEGER NOT NULL DEFAULT 0,
+      uncontested INTEGER NOT NULL DEFAULT 0,
+      -- Winning combination
+      winning_combination_type TEXT,
+      winning_combination_rank INTEGER,
+      winning_combination_length INTEGER,
+      -- Content flags
+      contains_dragon INTEGER NOT NULL DEFAULT 0,
+      contains_phoenix INTEGER NOT NULL DEFAULT 0,
+      -- Context
+      active_tichu_seats TEXT
+    );
+
+    -- REQ-F-SC05: Plays (one per action within a trick)
+    CREATE TABLE IF NOT EXISTS plays (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL REFERENCES games(id),
+      round_number INTEGER NOT NULL,
+      trick_number INTEGER NOT NULL,
+      sequence_number INTEGER NOT NULL,
+      seat TEXT NOT NULL,
+      -- Action
+      action_type TEXT NOT NULL,
+      action_at TEXT,
+      action_source TEXT,
+      -- Card details (play/bomb only)
+      cards TEXT,
+      combination_type TEXT,
+      combination_rank INTEGER,
+      combination_length INTEGER,
+      phoenix_used_as INTEGER,
+      phoenix_effective_value REAL,
+      is_bomb INTEGER,
+      legal_play_count INTEGER,
+      -- Contextual flags
+      out_of_turn INTEGER,
+      interrupted_seat TEXT,
+      end_of_trick_bomb INTEGER,
+      played_on_top_of TEXT,
+      player_finished INTEGER,
+      cards_remaining_after INTEGER,
+      could_have_gone_out INTEGER,
+      played_minimum INTEGER,
+      -- Hand sizes
+      partner_cards_remaining INTEGER,
+      left_opp_cards_remaining INTEGER,
+      right_opp_cards_remaining INTEGER,
+      -- Pass-specific
+      could_have_played INTEGER,
+      had_bomb_available INTEGER,
+      -- Wish context
+      wish_active INTEGER,
+      wish_rank INTEGER,
+      play_forced_by_wish INTEGER,
+      -- Tichu context
+      partner_tichu_active INTEGER,
+      opponent_tichu_active TEXT,
+      -- Timing
+      turn_started_at TEXT,
+      duration_ms INTEGER
+    );
+
+    -- REQ-F-SC06: Wish events
+    CREATE TABLE IF NOT EXISTS wish_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL REFERENCES games(id),
+      round_number INTEGER NOT NULL,
+      wish_rank INTEGER NOT NULL,
+      trick_number INTEGER NOT NULL,
+      cards_of_rank_remaining INTEGER NOT NULL,
+      cards_of_rank_in_wisher_hand INTEGER NOT NULL,
+      wish_fulfilled_trick INTEGER,
+      wish_fulfilled_by TEXT
+    );
+
+    -- REQ-F-SC07: Dragon gift events
+    CREATE TABLE IF NOT EXISTS dragon_gift_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL REFERENCES games(id),
+      round_number INTEGER NOT NULL,
+      trick_number INTEGER NOT NULL,
+      gifter_seat TEXT NOT NULL,
+      recipient_seat TEXT NOT NULL,
+      trick_point_value INTEGER NOT NULL,
+      recipient_cards_left INTEGER NOT NULL,
+      other_opponent_cards_left INTEGER NOT NULL,
+      gifter_finished_on_play INTEGER NOT NULL DEFAULT 0,
+      recipient_has_tichu INTEGER NOT NULL DEFAULT 0,
+      other_opponent_has_tichu INTEGER NOT NULL DEFAULT 0,
+      gift_was_forced INTEGER NOT NULL DEFAULT 0
+    );
+
+    -- REQ-F-SC08: Dog play events
+    CREATE TABLE IF NOT EXISTS dog_play_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL REFERENCES games(id),
+      round_number INTEGER NOT NULL,
+      trick_number INTEGER NOT NULL,
+      player_seat TEXT NOT NULL,
+      control_passed_to TEXT NOT NULL,
+      partner_already_out INTEGER NOT NULL DEFAULT 0,
+      partner_has_tichu INTEGER NOT NULL DEFAULT 0,
+      had_prior_lead_opportunity INTEGER NOT NULL DEFAULT 0,
+      dog_was_last_card INTEGER NOT NULL DEFAULT 0
+    );
+
+    -- REQ-F-SC09: Bomb inventory (Level 1)
+    CREATE TABLE IF NOT EXISTS bomb_inventory (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL REFERENCES games(id),
+      round_number INTEGER NOT NULL,
+      player_seat TEXT NOT NULL,
+      bomb_type TEXT NOT NULL,
+      cards TEXT NOT NULL,
+      rank INTEGER NOT NULL,
+      size INTEGER NOT NULL,
+      acquired_phase TEXT NOT NULL,
+      bomb_plays_from_run INTEGER NOT NULL DEFAULT 0,
+      overlaps_with TEXT,
+      fate TEXT,
+      fate_trick_number INTEGER,
+      fate_target TEXT,
+      out_of_turn INTEGER,
+      end_of_trick_bomb INTEGER,
+      plays_seen_while_held INTEGER NOT NULL DEFAULT 0,
+      captured_dragon INTEGER NOT NULL DEFAULT 0,
+      was_overbomb INTEGER NOT NULL DEFAULT 0,
+      followed_by_dog INTEGER NOT NULL DEFAULT 0
+    );
+
+    -- REQ-F-SC10: Bomb events (Level 2)
+    CREATE TABLE IF NOT EXISTS bomb_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game_id INTEGER NOT NULL REFERENCES games(id),
+      round_number INTEGER NOT NULL,
+      bomb_inventory_id INTEGER NOT NULL REFERENCES bomb_inventory(id),
+      event_type TEXT NOT NULL,
+      trick_number INTEGER,
+      followed_by_dog INTEGER,
+      card_lost INTEGER,
+      could_have_played_bomb INTEGER,
+      run_length_change INTEGER
+    );
+
+    -- REQ-F-SC11: Player global stats (lifetime counters)
+    CREATE TABLE IF NOT EXISTS player_global_stats (
+      user_id TEXT PRIMARY KEY REFERENCES users(id),
+      total_chat_messages INTEGER NOT NULL DEFAULT 0,
+      total_chat_characters INTEGER NOT NULL DEFAULT 0
     );
   `);
 
@@ -306,5 +510,19 @@ function syncSchema(client: BetterSqlite3Database): void {
     client.exec(`UPDATE player_stats SET you_were_over_bombed = over_bombed WHERE you_were_over_bombed = 0 AND over_bombed > 0`);
   } catch {
     // Table or columns may not exist yet on first run — safe to ignore
+  }
+
+  // REQ-F-SC02: Extend game_rounds with score-at-start and startedAt
+  const gameRoundsNewCols = [
+    'score_ns_at_start INTEGER',
+    'score_ew_at_start INTEGER',
+    'started_at TEXT',
+  ];
+  for (const col of gameRoundsNewCols) {
+    try {
+      client.exec(`ALTER TABLE game_rounds ADD COLUMN ${col}`);
+    } catch {
+      // Column already exists
+    }
   }
 }
