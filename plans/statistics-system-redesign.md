@@ -631,7 +631,69 @@ Comprehensive review of all 11 insight categories. All new insights are derivabl
 
 **Total insights catalog:** Original 65+ expanded to ~100+ named insights across 11 categories.
 
-### Still To Review
+### Section 4: Capture Points in Game Engine (2026-04-09)
 
-- Section 4: When/where data is gathered (capture points in game engine)
-- Section 5: Database write strategy (in-memory vs batch vs hybrid)
+#### Capture Architecture: Hybrid (Pre-Play Enrichment + Post-Play Observation)
+
+**Pre-play enrichment (GameManager):**
+- Computes context before sending event to state machine: `legalPlayCount`, `playedMinimum`, `couldHaveGoneOut`, `actionSource`, hand sizes of all players, `turnStartedAt`/`durationMs`
+- Passes to tracker via direct method call: `eventTracker.recordPrePlayContext(seat, prePlay)`
+- Then sends event to state machine: `actor.send({ type: 'PLAY_CARDS', ... })`
+
+**Post-play observation (EventTracker):**
+- Observes state diffs via `onStateChange()` (existing pattern)
+- Matches pre-play context to observed play
+- Captures trick completion, special events, round-end data
+- Discards unmatched pre-play contexts (rejected plays)
+
+#### Data Layer → Hook Point Mapping
+
+**Layer 1 (Game):** `onGameEnd` callback — existing pattern, no changes.
+
+**Layer 2 (Round):** `startRound` action for `startedAt`/scores-at-start. `scoreAndFinishRound` for scoring fields. Score-at-start must be captured BEFORE round scoring modifies `context.scores`.
+
+**Layer 3 (Player-Round):**
+- Hands: `captureInitialHands` (first 8), `detectPhaseTransitions` (pre-pass, post-pass)
+- Passes: Card Passing → Playing transition in `executeCardExchange`
+- Calls: `recordGrandTichuCall`/`recordRegularTichuCall` — detect via state diff (prev no call, curr has call), read hand sizes from same snapshot
+- Finish: `playCards` action when `hand.length === 0`
+- Points: Computed from `player.tricksWon` at scoring time
+
+**Layer 4+6 (Tricks — merged):**
+- Lead fields: First play of trick (trick creation in `playCards`)
+- Result fields: `completeTrickAndAdvance()` — all trick completion paths funnel here
+- Detected via state diff (prevTrick existed, currTrick is null)
+
+**Layer 5 (Plays):**
+- Pre-play context: GameManager computes and passes via `recordPrePlayContext()`
+- Post-play observation: State diff detects new play in `currentTrick.plays`
+- Passes: State diff detects new seat in `currentTrick.passes`
+- Out-of-turn bombs: `isOutOfTurn` flag from `playCards` action; `interruptedSeat = currentTurn`; `endOfTrickBomb = (state === 'awaitingEndOfTrickBomb')`
+
+**Layer 7 (Special Events):**
+- Wish: Detected when `mahjongWish` transitions null → value (state diff)
+- Dragon gift: `giveDragonTrick` action or auto-gift in `completeTrickAndAdvance`; detected via `dragonGiftedTo` transition
+- Dog: `playCards` Dog branch; detected via `lastDogPlay` transition
+- Bomb inventory: Created after pass resolution (Card Passing → Playing); scan hands with `detectAllBombs()`
+- Bomb events: Erosion on each `playCards` (check overlap with tracked bombs); play events when `combination.isBomb`; `followedByDog` updated on Dog play; fate finalized at round end
+
+### Section 5: Database Write Strategy (2026-04-09)
+
+**Decision: Batch at game end + recovery file serialization**
+
+**During gameplay:**
+- All event data accumulates in memory in the enhanced `RoundEventTracker`
+- At each round end, serialize accumulated data to a JSON recovery file (one per active game)
+
+**At game end:**
+- Single transaction writes all layers: game, rounds, player-rounds, tricks, plays, special events, bomb inventory + events
+- Delete recovery file on successful write
+
+**On server restart:**
+- Check for recovery files; if found, reconstruct and persist salvaged data
+
+**On game abandonment:**
+- Write whatever data exists up to abandonment point (extends existing `savePassStatsOnAbandon`)
+- Clean up recovery file
+
+**Rationale:** ~80 KB in-memory cost is trivial. Server crashes during a 15-30 min card game are rare. One write path with one transaction keeps the system simple. Recovery file provides crash resilience without DB writes during gameplay.
