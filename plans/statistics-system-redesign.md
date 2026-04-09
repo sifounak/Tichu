@@ -530,10 +530,106 @@ SFBs tracked as maximal same-suit runs, not individual sub-bomb permutations. `b
 | # | Original Decision | Updated Decision |
 |---|-------------------|-----------------|
 | 5 | Cards in hand at trick time: No | **Yes** — store `partnerCardsRemaining`, `leftOppCardsRemaining`, `rightOppCardsRemaining` on every play (~3.6 KB/game) |
+| 14 | `playedMinimum` on plays | **New** — boolean, true when chosen play is lowest-ranking legal option. On leads: lowest of the same combination type chosen. |
 
-### Missing Insights Review Result
+### New Insights Catalog Additions (2026-04-09)
 
-Cross-referenced 65+ stat catalog against proposed capture. **No missing raw data found.** All insight gaps are in the computation layer (hand strength heuristic, efficiency metrics, streak detection — all deferred).
+Comprehensive review of all 11 insight categories. All new insights are derivable from existing proposed data capture unless noted otherwise.
+
+#### Category A: Game Outcomes
+| # | Insight | Description |
+|---|---------|-------------|
+| A11 | Win method breakdown | How does team typically win — Tichu bonuses vs card points vs 1-2 finishes? |
+| A12 | Game length distribution | Rounds per game with this player (short/dominant vs long/grindy) |
+| A13 | Scoring trajectory | Score volatility across rounds within games |
+| A14 | First-round impact | Team win rate in round 1 |
+| A15 | Largest win margin | Biggest victory margin (lifetime max) |
+| A16 | Largest loss margin | Biggest defeat margin (lifetime max) |
+| A17 | Narrowest win margin | Closest game won (lifetime min of win differentials) |
+| A18 | Narrowest loss margin | Closest game lost (lifetime min of loss differentials) |
+
+#### Category B: Round Performance
+| # | Insight | Description |
+|---|---------|-------------|
+| B8 | Captured points kept (last out) | Trick points kept by team when going out last (partner went out first) |
+| B9 | Captured points surrendered (last out) | Trick points given to opponents when going out last (opponent went out first) |
+| B10 | Hand points surrendered (last out) | Card points remaining in hand when finishing last, given to opponents |
+| B11 | Second-place finish context | 2nd after partner (1-2 support) vs 2nd after opponent |
+| B12 | Round point contribution ratio | Percentage of team's round points from this player |
+| B13 | Round win streak | Consecutive rounds won by team |
+| B14 | Shutout rounds | Rounds where opponents scored 0 or negative |
+
+#### Category C: Tichu/GT Calling
+| # | Insight | Description |
+|---|---------|-------------|
+| C11 | Tichu race | Opposing Tichu/GT active simultaneously — who wins the race? |
+| C12 | Call frequency trend | Does calling rate change as game progresses (early vs late rounds, by score context)? |
+| C13 | Double partner Tichu | Player calls Tichu over partner's existing Tichu/GT — how often, success rate of second caller, did original caller succeed, did it result in 1-2 finish? Note: at most one partner's Tichu can succeed (whoever goes out first). |
+
+#### Category D: Card Events & Special Cards
+| # | Insight | Description |
+|---|---------|-------------|
+| D11 | Mahjong lead strategy | Combination type/length of trick-1 lead (single=probing, straight=aggressive) |
+| D12 | Phoenix effectiveness | Did the trick where Phoenix was played result in a win for the Phoenix player? |
+| D13 | Wish backfire | Wish fulfilled by wisher's own partner or by wisher themselves (wishSatisfiedByPartner, wishSatisfiedBySelf) |
+| D14 | Dragon + Dog pattern | Player wins trick with Dragon, then leads Dog next trick to pass control to partner |
+
+#### Category E: Decision Quality & Play Style
+| # | Insight | Description |
+|---|---------|-------------|
+| E11 | Trick type preference | What combination types does player prefer to lead? Filtered to leads with legalPlayCount > 1 |
+| E12 | Pass-to-play ratio | When couldHavePlayed=true, fraction of time player actually played vs passed |
+| E13 | Over-commitment detection | Ratio of trick wins in first half vs second half of round |
+| — | `playedMinimum` field | Boolean on play-level records — true when chosen play is lowest-ranking legal option of same combination type. **Requires new data field.** |
+
+#### Category F: Table Control & Tempo
+| # | Insight | Description |
+|---|---------|-------------|
+| F2 | Trick win rate when leading | (Clarified) When you led a trick, how often did you win it? |
+| F8 | Individual trick win streak | Consecutive tricks won by this player |
+| F9 | Team trick win streak | Consecutive tricks won by either partner |
+| F10 | Trick theft rate | Fraction of trick wins where winnerSeat != leadSeat (won someone else's trick) |
+| F11 | Tempo disruption | How play speed changes within a round (speeding up vs slowing down) |
+
+#### Category G: Partnership Coordination
+| # | Insight | Description |
+|---|---------|-------------|
+| G9 | Partner rescue | Multi-trick sequence: partner has active T/GT, passes on opponent's play, you win and sustain control until partner plays or goes out. Five resolutions: success (Dog), success (partner plays), failed (opponent goes out), failed (opponent wins trick), failed (you go out). Track chain length. |
+| G10 | Rescued by partner | Inverse of G9 — same sequence from the Tichu caller's perspective |
+
+#### Category H: Opponent Disruption
+| # | Insight | Description |
+|---|---------|-------------|
+| H5 | Mutual Tichu break | Player goes out first to break both partner's and opponent's Tichu simultaneously. Track point swing negated (200-600 points). |
+| H6 | Wish disruption | From opponent's perspective — how often were you constrained by a wish? |
+| H7 | Point capture rate | How often you win tricks containing high-point cards played by opponents |
+
+#### Category I: Luck vs Skill
+| # | Insight | Description |
+|---|---------|-------------|
+| I5 | Bomb luck | Frequency of bombs dealt vs acquired through passing. From bomb inventory evolution fields. |
+| I6 | Special card distribution luck | How often dealt Dragon, Phoenix, multiple power cards |
+| I7 | Opponent hand quality | Strength of opponents' hands when you play (needs hand strength heuristic) |
+
+#### Category J: Situational / Score-Dependent
+| # | Insight | Description |
+|---|---------|-------------|
+| J4 | Endgame round behavior | How play patterns shift when both teams within one round of winning |
+| J5 | Performance when trailing vs leading | All play patterns bucketed by score position |
+| J6 | Swing round contribution | Player's contribution in high-delta rounds (50+ point swing) |
+| J7 | Target score proximity behavior | Strategy changes when your team is within 100 of target |
+
+#### Category K: Chat Activity
+| # | Insight | Description |
+|---|---------|-------------|
+| K3 | Chat timing | Chat frequency during active play vs between rounds |
+| K4 | Chat after events | Chat frequency after bombs, Tichu calls, losses |
+
+### Summary
+
+**New data fields required:** Only `playedMinimum` (boolean) on play-level records. All other new insights are derivable from existing proposed capture.
+
+**Total insights catalog:** Original 65+ expanded to ~100+ named insights across 11 categories.
 
 ### Still To Review
 
