@@ -13,6 +13,7 @@ import { RoomHandler } from './room/room-handler.js';
 import { GameHandler } from './game/game-handler.js';
 import { createDatabase, type Database } from './db/connection.js';
 import { registerAuthRoutes } from './auth/auth-routes.js';
+import { recoverFromCrash } from './db/event-persistence.js';
 
 export interface AppConfig {
   port: number;
@@ -62,6 +63,12 @@ export function createApp(config: Partial<AppConfig> = {}) {
   try {
     database = createDatabase(dbPath);
     registerAuthRoutes(fastify, database, jwtSecret);
+    // REQ-F-ST05: Recover any event data from previous server crashes
+    try {
+      recoverFromCrash(database);
+    } catch (recoveryErr) {
+      fastify.log.warn(`Event data recovery failed: ${recoveryErr instanceof Error ? recoveryErr.message : recoveryErr}`);
+    }
   } catch (err) {
     fastify.log.warn(`Database unavailable (${err instanceof Error ? err.message : err}). Auth routes disabled.`);
   }

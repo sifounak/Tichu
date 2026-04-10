@@ -37,11 +37,11 @@
 | REQ-F-CP17 | Bot action capture | M3 | game-event-capture.ts:computeRetroactivePrePlay | game-event-capture.test.ts: bot action test | Passed |
 | REQ-F-CP18 | Chat counter capture | M3 | Deferred — requires chat message handler integration (Should-have) | — | Deferred |
 | REQ-F-ST01 | In-memory accumulation | M3 | game-event-capture.ts:accumulator,currentRound | game-event-capture.test.ts: accumulation tests | Passed |
-| REQ-F-ST02 | Recovery file serialization | M4 | | | Pending |
-| REQ-F-ST03 | Batch write at game end | M4 | | | Pending |
-| REQ-F-ST04 | Recovery file cleanup | M4 | | | Pending |
-| REQ-F-ST05 | Server restart recovery | M4 | | | Pending |
-| REQ-F-ST06 | Game abandonment handling | M4 | | | Pending |
+| REQ-F-ST02 | Recovery file serialization | M4 | event-persistence.ts:writeRecoveryFile, game-manager.ts:writeRecoveryFile | event-persistence.test.ts: recovery file tests | Passed |
+| REQ-F-ST03 | Batch write at game end | M4 | event-persistence.ts:writeEventData, room-handler.ts:wireGameEndCallback | event-persistence.test.ts: batch write tests | Passed |
+| REQ-F-ST04 | Recovery file cleanup | M4 | event-persistence.ts:deleteRecoveryFile, room-handler.ts:wireGameEndCallback | event-persistence.test.ts: cleanup test | Passed |
+| REQ-F-ST05 | Server restart recovery | M4 | event-persistence.ts:recoverFromCrash, app.ts:startup | event-persistence.test.ts: recovery tests | Passed |
+| REQ-F-ST06 | Game abandonment handling | M4 | event-persistence.ts:writeEventDataOnAbandon, room-handler.ts:savePassStatsBeforeDestroy | event-persistence.test.ts: abandonment tests | Passed |
 | REQ-F-MC01 | V1 cache table | M5 | | | Pending |
 | REQ-F-MC02 | Full rebuild capability | M5 | | | Pending |
 | REQ-F-MC03 | Incremental update after each game | M5 | | | Pending |
@@ -54,8 +54,8 @@
 | REQ-F-MG05 | Replace playerRelationalStats | M6 | | | Pending |
 | REQ-F-MG06 | Fresh start for historical data | M6 | | | Pending |
 | REQ-NF-01 | Memory overhead ≤150 KB/game | M3 | game-event-capture.ts: in-memory accumulation ~80KB/game | Design analysis: ~80KB estimated per game (well under 150KB) | Passed |
-| REQ-NF-02 | Write latency ≤500ms | M4 | | | Pending |
-| REQ-NF-03 | Recovery file size ≤200 KB | M4 | | | Pending |
+| REQ-NF-02 | Write latency ≤500ms | M4 | event-persistence.ts:writeEventData (single transaction) | event-persistence.test.ts: 8-round game writes in <500ms | Passed |
+| REQ-NF-03 | Recovery file size ≤200 KB | M4 | event-persistence.ts:writeRecoveryFile (JSON serialization) | event-persistence.test.ts: 8-round file under 200KB | Passed |
 | REQ-NF-04 | Cache rebuild ≤10s for 1000 games | M5 | | | Pending |
 | REQ-NF-05 | No gameplay impact (<10ms pre-play) | M3 | game-manager.ts:recordPrePlayForAction — calls getValidPlays (already called during validation) | getValidPlays() is O(n) on hand size; negligible vs 500ms auto-pass timing | Passed |
 | REQ-NF-06 | Backward compatibility | M6 | | | Pending |
@@ -67,3 +67,4 @@
 - **Must-have:** 47 | **Should-have:** 4 (SC11, CP18, and their related NFRs)
 - **M1 status:** 12/12 requirements Passed (SC01-SC11 + MG02)
 - **M3 status:** 19/20 requirements Passed (CP01-CP17, ST01, NF-01, NF-05). 1 Deferred: CP18 (chat counters, Should-have)
+- **M4 status:** 7/7 requirements Passed (ST02-ST06, NF-02, NF-03)
