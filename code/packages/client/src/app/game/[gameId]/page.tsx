@@ -519,11 +519,12 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       setActivePassCardId(null);
       setPassConfirmed(false);
       setShowReceivedCards(false);
+      uiStore.clearSelection();
     } else if (currentPhase === GamePhase.CardPassing) {
       // Entering card passing — reset pass state but not received cards
       setPassConfirmed(false);
     }
-  }, [currentPhase]);
+  }, [currentPhase, uiStore]);
 
   // When cards are received (phase changed to playing and receivedCards populated), show them.
   // Skip on reconnect: if the player has already played cards, they've moved past this phase.
