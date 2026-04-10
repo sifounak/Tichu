@@ -40,6 +40,11 @@ import { BotRunner } from '../bot/bot-runner.js';
 import { Bot } from '../bot/bot.js';
 import { RoundEventTracker } from './round-event-tracker.js';
 import type { RoundEventSummary } from './round-event-types.js';
+// REQ-F-CP01: New event capture system (hybrid pre-play enrichment + post-play observation)
+import { GameEventCapture } from './game-event-capture.js';
+import { buildPrePlayContext } from './pre-play-context.js';
+import { detectCombination } from '@tichu/shared';
+import type { ActionSource, GameEventAccumulator } from './event-types.js';
 
 /**
  * Orchestrates a single game: receives client messages, validates moves
@@ -76,6 +81,10 @@ export class GameManager {
   private readonly eventTracker = new RoundEventTracker();
   /** Accumulated round events: roundNumber → summaries */
   private readonly roundEventHistory = new Map<number, RoundEventSummary[]>();
+  /** REQ-F-CP01/ST01: New event capture system — accumulates structured event data in memory */
+  private readonly eventCapture: GameEventCapture;
+  /** REQ-F-CP02: Track when each player's turn started (for durationMs) */
+  private readonly turnStartTimes = new Map<Seat, string>();
 
   constructor(
     gameId: string,
@@ -94,6 +103,9 @@ export class GameManager {
     // Create the XState game actor
     this.actor = createGameActor(gameId, config);
     this.moveHandler = new MoveHandler(this.actor);
+
+    // REQ-F-CP01: Initialize event capture system
+    this.eventCapture = new GameEventCapture(parseInt(gameId) || 0);
 
     // REQ-F-MP01: Create bot runner for automated bot decisions
     this.botRunner = new BotRunner(this.actor, undefined, this.moveHandler);
@@ -158,11 +170,17 @@ export class GameManager {
         break;
 
       case 'PLAY_CARDS':
+        // REQ-F-CP02: Compute pre-play context before state machine transition
+        this.recordPrePlayForAction(seat, message.cardIds, 'player');
         result = this.moveHandler.handlePlayCards(seat, message.cardIds, message.phoenixAs, message.wish);
+        if (!result.ok) this.eventCapture.discardPrePlayContext(seat);
         break;
 
       case 'PASS_TURN':
+        // REQ-F-CP02: Compute pre-play context for pass action
+        this.recordPrePlayForAction(seat, null, 'player');
         result = this.moveHandler.handlePassTurn(seat);
+        if (!result.ok) this.eventCapture.discardPrePlayContext(seat);
         break;
 
       case 'DECLARE_WISH':
@@ -479,6 +497,8 @@ export class GameManager {
 
     // REQ-F-EC01: Feed state to event tracker before any other logic
     this.eventTracker.onStateChange(this.context);
+    // REQ-F-CP03: Feed state to new event capture system
+    this.eventCapture.onStateChange(this.context);
 
     // Clear any pending auto-pass
     if (this.autoPassTimer) {
@@ -508,6 +528,9 @@ export class GameManager {
         this.eventTracker.finalizeRound();
         const summaries = this.eventTracker.getAllSummaries();
         this.roundEventHistory.set(round.roundNumber, summaries);
+        // REQ-F-CP06: Finalize new event capture round data
+        this.eventCapture.finalizePlayerRoundScoring(round);
+        this.eventCapture.finalizeRound();
       }
       this.broadcastState();
       if (this.scoringTimer) clearTimeout(this.scoringTimer);
@@ -573,6 +596,8 @@ export class GameManager {
     // Manage turn timer
     if (state === 'playing' && round?.currentTurn) {
       this.timer.start(round.currentTurn);
+      // REQ-F-CP02: Track turn start time for pre-play enrichment timing
+      this.turnStartTimes.set(round.currentTurn, new Date().toISOString());
       // REQ-F-TT05: Broadcast immediately so clients receive timer data
       // (bot runner only broadcasts after bot actions, not for human turns)
       this.broadcastState();
@@ -594,6 +619,8 @@ export class GameManager {
           if (shouldAutoPass) {
             this.autoPassTimer = setTimeout(() => {
               if (this.destroyed) return;
+              // REQ-F-CP02/CP17: Record pre-play context for auto-pass
+              this.recordPrePlayForAction(seat, null, 'automation');
               this.actor.send({ type: 'PASS_TURN', seat });
               this.broadcastState();
             }, 500);
@@ -639,6 +666,8 @@ export class GameManager {
 
     // If can pass, let the state machine handle it
     if (canPlayerPass(hand, round.currentTrick, wish)) {
+      // REQ-F-CP02: Record pre-play context for timeout pass
+      this.recordPrePlayForAction(seat, null, 'timeout');
       this.actor.send({ type: 'TURN_TIMEOUT', seat });
       this.broadcastState();
       return;
@@ -647,6 +676,8 @@ export class GameManager {
     // Must play — pick the best auto-play card(s)
     const autoPlay = this.pickAutoPlay(hand, round, wish);
     if (autoPlay) {
+      // REQ-F-CP02: Record pre-play context for timeout auto-play
+      this.recordPrePlayForAction(seat, autoPlay.map(gc => gc.id), 'timeout');
       this.actor.send({ type: 'PLAY_CARDS', seat, cards: autoPlay });
       this.broadcastState();
     }
@@ -770,6 +801,50 @@ export class GameManager {
     });
 
     return opponents[0];
+  }
+
+  /** REQ-F-CP01: Get accumulated event data (for persistence in M4) */
+  getEventAccumulator(): GameEventAccumulator {
+    return this.eventCapture.getAccumulator();
+  }
+
+  /**
+   * REQ-F-CP02: Compute and record pre-play context before a play or pass action.
+   * Called before moveHandler/actor.send to capture enrichment fields.
+   */
+  private recordPrePlayForAction(seat: Seat, cardIds: number[] | null, actionSource: ActionSource): void {
+    const round = this.context.currentRound;
+    if (!round) return;
+
+    const hand = round.players[seat].hand;
+    const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
+    const legalPlays = getValidPlays(hand, round.currentTrick, wish);
+
+    // Determine chosen combination (null for pass)
+    let chosenCombination = null;
+    if (cardIds) {
+      const cards = hand.filter(gc => cardIds.includes(gc.id));
+      if (cards.length > 0) {
+        chosenCombination = detectCombination(cards) ?? null;
+      }
+    }
+
+    const handSizes = {} as Record<Seat, number>;
+    for (const s of SEATS_IN_ORDER) {
+      handSizes[s] = round.players[s].hand.length;
+    }
+
+    const prePlay = buildPrePlayContext({
+      seat,
+      actionSource,
+      legalPlays,
+      chosenCombination,
+      handSize: hand.length,
+      handSizes,
+      turnStartedAt: this.turnStartTimes.get(seat) ?? null,
+    });
+
+    this.eventCapture.recordPrePlayContext(seat, prePlay);
   }
 
   /** Clean up resources */
