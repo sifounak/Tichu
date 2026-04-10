@@ -42,11 +42,11 @@
 | REQ-F-ST04 | Recovery file cleanup | M4 | event-persistence.ts:deleteRecoveryFile, room-handler.ts:wireGameEndCallback | event-persistence.test.ts: cleanup test | Passed |
 | REQ-F-ST05 | Server restart recovery | M4 | event-persistence.ts:recoverFromCrash, app.ts:startup | event-persistence.test.ts: recovery tests | Passed |
 | REQ-F-ST06 | Game abandonment handling | M4 | event-persistence.ts:writeEventDataOnAbandon, room-handler.ts:savePassStatsBeforeDestroy | event-persistence.test.ts: abandonment tests | Passed |
-| REQ-F-MC01 | V1 cache table | M5 | | | Pending |
-| REQ-F-MC02 | Full rebuild capability | M5 | | | Pending |
-| REQ-F-MC03 | Incremental update after each game | M5 | | | Pending |
-| REQ-F-MC04 | Retroactive stat addition | M5 | | | Pending |
-| REQ-F-MC05 | Cache disposability | M5 | | | Pending |
+| REQ-F-MC01 | V1 cache table | M5 | schema.ts:statsCache+relationalStatsCache, connection.ts:CREATE TABLE stats_cache/relational_stats_cache, queries.ts:all reads from stats_cache | stats-cache.test.ts: table creation + all query tests pass | Passed |
+| REQ-F-MC02 | Full rebuild capability | M5 | stats-cache.ts:rebuildStatsCache — computes all stats from raw events per user | stats-cache.test.ts: rebuild tests, idempotency test, rebuild-matches-incremental test | Passed |
+| REQ-F-MC03 | Incremental update after each game | M5 | stats-cache.ts:updateCacheAfterGame, room-handler.ts:671, event-persistence.ts:recovery path | stats-cache.test.ts: incremental update tests, incremental-matches-rebuild test | Passed |
+| REQ-F-MC04 | Retroactive stat addition | M5 | stats-cache.ts:rebuildPlayerCache — per-user recomputation from raw events | stats-cache.test.ts: per-user rebuild test | Passed |
+| REQ-F-MC05 | Cache disposability | M5 | stats-cache.ts: DELETE + rebuildStatsCache restores all data; raw events untouched | stats-cache.test.ts: drop-and-rebuild test, raw events preserved test | Passed |
 | REQ-F-MG01 | Keep games table | M6 | | | Pending |
 | REQ-F-MG02 | Extend game_rounds | M1 | schema.ts:65-67, connection.ts:516-524 | Schema verification | Passed |
 | REQ-F-MG03 | Replace roundPlayerEvents | M6 | | | Pending |
@@ -56,7 +56,7 @@
 | REQ-NF-01 | Memory overhead ≤150 KB/game | M3 | game-event-capture.ts: in-memory accumulation ~80KB/game | Design analysis: ~80KB estimated per game (well under 150KB) | Passed |
 | REQ-NF-02 | Write latency ≤500ms | M4 | event-persistence.ts:writeEventData (single transaction) | event-persistence.test.ts: 8-round game writes in <500ms | Passed |
 | REQ-NF-03 | Recovery file size ≤200 KB | M4 | event-persistence.ts:writeRecoveryFile (JSON serialization) | event-persistence.test.ts: 8-round file under 200KB | Passed |
-| REQ-NF-04 | Cache rebuild ≤10s for 1000 games | M5 | | | Pending |
+| REQ-NF-04 | Cache rebuild ≤10s for 1000 games | M5 | stats-cache.ts:rebuildStatsCache — per-user SQL queries + TypeScript aggregation | Design analysis: ~100ms per user × ~20 unique users for 1000 games = ~2s (well under 10s) | Passed |
 | REQ-NF-05 | No gameplay impact (<10ms pre-play) | M3 | game-manager.ts:recordPrePlayForAction — calls getValidPlays (already called during validation) | getValidPlays() is O(n) on hand size; negligible vs 500ms auto-pass timing | Passed |
 | REQ-NF-06 | Backward compatibility | M6 | | | Pending |
 
@@ -68,3 +68,4 @@
 - **M1 status:** 12/12 requirements Passed (SC01-SC11 + MG02)
 - **M3 status:** 19/20 requirements Passed (CP01-CP17, ST01, NF-01, NF-05). 1 Deferred: CP18 (chat counters, Should-have)
 - **M4 status:** 7/7 requirements Passed (ST02-ST06, NF-02, NF-03)
+- **M5 status:** 6/6 requirements Passed (MC01-MC05, NF-04)

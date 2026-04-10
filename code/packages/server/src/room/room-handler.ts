@@ -16,6 +16,7 @@ import { SeatQueue } from './seat-queue.js';
 import { VoteHandler } from '../game/vote-handler.js';
 import { saveGameResult, savePassStatsOnAbandon } from '../db/game-persistence.js';
 import { writeEventData, deleteRecoveryFile, writeEventDataOnAbandon } from '../db/event-persistence.js';
+import { updateCacheAfterGame } from '../db/stats-cache.js';
 import type { GameResult, RoundResult } from '../db/game-persistence.js';
 import type { GameMachineContext } from '../game/game-state-machine.js';
 import type { RoundEventSummary } from '../game/round-event-types.js';
@@ -673,6 +674,8 @@ export class RoomHandler {
               const accumulator = gameRef.getEventAccumulator();
               writeEventData(db, dbGameId, accumulator);
               deleteRecoveryFile(accumulator.gameId);
+              // REQ-F-MC03: Incremental cache update after batch write
+              updateCacheAfterGame(db, dbGameId);
             } catch (err) {
               console.error(`[PERSIST] Failed to write event data for game ${dbGameId}:`, err);
             }
