@@ -13,6 +13,7 @@ import {
   bombEvents,
 } from './schema.js';
 import type { GameEventAccumulator } from '../game/event-types.js';
+import { updateCacheAfterGame } from './stats-cache.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -309,6 +310,8 @@ export function recoverFromCrash(database: Database): void {
 
         console.log(`[RECOVERY] Recovering event data for game ${accumulator.gameId} (${accumulator.rounds.length} rounds)`);
         writeEventData(database, accumulator.gameId, accumulator);
+        // REQ-F-MC03: Update cache after recovery
+        try { updateCacheAfterGame(database, accumulator.gameId); } catch { /* cache update failure is non-fatal */ }
         fs.unlinkSync(filePath);
         console.log(`[RECOVERY] Successfully recovered game ${accumulator.gameId}`);
       } catch (err) {

@@ -504,3 +504,148 @@ export const playerGlobalStats = sqliteTable('player_global_stats', {
   totalChatMessages: integer('total_chat_messages').notNull().default(0),
   totalChatCharacters: integer('total_chat_characters').notNull().default(0),
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REQ-F-MC01: Materialized Stats Cache — disposable, rebuilt from raw events
+// ═══════════════════════════════════════════════════════════════════════════
+
+// REQ-F-MC01: V1 cache table — same schema as player_stats, rebuildable from raw events
+// REQ-F-MC05: Cache disposability — dropping and rebuilding restores all stats
+export const statsCache = sqliteTable('stats_cache', {
+  userId: text('user_id').primaryKey().references(() => users.id),
+
+  // ── Core stats ──
+  gamesPlayed: integer('games_played').notNull().default(0),
+  gamesWon: integer('games_won').notNull().default(0),
+  winRate: real('win_rate').notNull().default(0),
+  tichuCalls: integer('tichu_calls').notNull().default(0),
+  tichuSuccesses: integer('tichu_successes').notNull().default(0),
+  grandTichuCalls: integer('grand_tichu_calls').notNull().default(0),
+  grandTichuSuccesses: integer('grand_tichu_successes').notNull().default(0),
+  totalRoundsPlayed: integer('total_rounds_played').notNull().default(0),
+  firstFinishes: integer('first_finishes').notNull().default(0),
+  lastUpdatedAt: text('last_updated_at').notNull().default(sql`(datetime('now'))`),
+
+  // ── Group A: Game-level stats ──
+  largestWinDiff: integer('largest_win_diff').notNull().default(0),
+  largestLossDiff: integer('largest_loss_diff').notNull().default(0),
+  gamesForfeited: integer('games_forfeited').notNull().default(0),
+  gamesSpectated: integer('games_spectated').notNull().default(0),
+  oneTwoWins: integer('one_two_wins').notNull().default(0),
+  oneTwoAgainst: integer('one_two_against').notNull().default(0),
+
+  // ── Group B: Round-level stats ──
+  roundsWon: integer('rounds_won').notNull().default(0),
+  opponentTichuBroken: integer('opponent_tichu_broken').notNull().default(0),
+  opponentGrandTichuBroken: integer('opponent_grand_tichu_broken').notNull().default(0),
+  partnerTichuBroken: integer('partner_tichu_broken').notNull().default(0),
+  partnerGrandTichuBroken: integer('partner_grand_tichu_broken').notNull().default(0),
+  lastFinishes: integer('last_finishes').notNull().default(0),
+  tichuBrokenByPartner: integer('tichu_broken_by_partner').notNull().default(0),
+  grandTichuBrokenByPartner: integer('grand_tichu_broken_by_partner').notNull().default(0),
+  gamesRequiringTieBreak: integer('games_requiring_tie_break').notNull().default(0),
+  mostTieBreakRoundsNeeded: integer('most_tie_break_rounds_needed').notNull().default(0),
+  gamesJoinedAfterSpectating: integer('games_joined_after_spectating').notNull().default(0),
+
+  // ── Group C: Card event stats ──
+  roundsWithDragon: integer('rounds_with_dragon').notNull().default(0),
+  roundsWithDragonWon: integer('rounds_with_dragon_won').notNull().default(0),
+  roundsWithPhoenix: integer('rounds_with_phoenix').notNull().default(0),
+  roundsWithPhoenixWon: integer('rounds_with_phoenix_won').notNull().default(0),
+  dragonReceivedInPass: integer('dragon_received_in_pass').notNull().default(0),
+  phoenixReceivedInPass: integer('phoenix_received_in_pass').notNull().default(0),
+  aceReceivedInPass: integer('ace_received_in_pass').notNull().default(0),
+  dogReceivedInPass: integer('dog_received_in_pass').notNull().default(0),
+  dragonTrickWins: integer('dragon_trick_wins').notNull().default(0),
+  dragonGivenAfterOpponentWin: integer('dragon_given_after_opponent_win').notNull().default(0),
+  dogGivenToPartner: integer('dog_given_to_partner').notNull().default(0),
+  dogGivenToOpponent: integer('dog_given_to_opponent').notNull().default(0),
+  dogPlayedForTichuPartner: integer('dog_played_for_tichu_partner').notNull().default(0),
+  dogOpportunitiesForTichuPartner: integer('dog_opportunities_for_tichu_partner').notNull().default(0),
+  handsWithBombs: integer('hands_with_bombs').notNull().default(0),
+  totalBombs: integer('total_bombs').notNull().default(0),
+  fourCardBombs: integer('four_card_bombs').notNull().default(0),
+  fiveCardBombs: integer('five_card_bombs').notNull().default(0),
+  sixPlusCardBombs: integer('six_plus_card_bombs').notNull().default(0),
+  bombsInFirst8: integer('bombs_in_first_8').notNull().default(0),
+  handsWithMultipleBombs: integer('hands_with_multiple_bombs').notNull().default(0),
+  overBombed: integer('over_bombed').notNull().default(0),
+  bombForcedByWish: integer('bomb_forced_by_wish').notNull().default(0),
+  theTichuClean: integer('the_tichu_clean').notNull().default(0),
+  theTichuDirty: integer('the_tichu_dirty').notNull().default(0),
+
+  // ── Phoenix play type tracking ──
+  phoenixUsedAsSingle: integer('phoenix_used_as_single').notNull().default(0),
+  phoenixUsedForPair: integer('phoenix_used_for_pair').notNull().default(0),
+  phoenixUsedInTriple: integer('phoenix_used_in_triple').notNull().default(0),
+  phoenixUsedInFullHouse: integer('phoenix_used_in_full_house').notNull().default(0),
+  phoenixUsedInConsecutivePairs: integer('phoenix_used_in_consecutive_pairs').notNull().default(0),
+  phoenixUsedInStraight: integer('phoenix_used_in_straight').notNull().default(0),
+  longestStraightWithPhoenix: integer('longest_straight_with_phoenix').notNull().default(0),
+
+  // ── Dog control tracking ──
+  dogControlToPartner: integer('dog_control_to_partner').notNull().default(0),
+  dogControlToOpponent: integer('dog_control_to_opponent').notNull().default(0),
+  dogControlToSelf: integer('dog_control_to_self').notNull().default(0),
+  dogStuckAsLastCard: integer('dog_stuck_as_last_card').notNull().default(0),
+
+  // ── Per-size bomb tracking ──
+  bombSize4: integer('bomb_size_4').notNull().default(0),
+  bombSize5: integer('bomb_size_5').notNull().default(0),
+  bombSize6: integer('bomb_size_6').notNull().default(0),
+  bombSize7: integer('bomb_size_7').notNull().default(0),
+  bombSize8: integer('bomb_size_8').notNull().default(0),
+  bombSize9: integer('bomb_size_9').notNull().default(0),
+  bombSize10: integer('bomb_size_10').notNull().default(0),
+  bombSize11: integer('bomb_size_11').notNull().default(0),
+  bombSize12: integer('bomb_size_12').notNull().default(0),
+  bombSize13: integer('bomb_size_13').notNull().default(0),
+  bombSize14: integer('bomb_size_14').notNull().default(0),
+
+  // ── Conflicting bombs ──
+  conflictingBombs: integer('conflicting_bombs').notNull().default(0),
+
+  // ── Over-bomb direction split ──
+  youOverBombed: integer('you_over_bombed').notNull().default(0),
+  youWereOverBombed: integer('you_were_over_bombed').notNull().default(0),
+
+  // ── Extended pass tracking ──
+  dragonGivenInPass: integer('dragon_gave_in_pass').notNull().default(0),
+  phoenixGivenInPass: integer('phoenix_gave_in_pass').notNull().default(0),
+  aceGivenInPass: integer('ace_gave_in_pass').notNull().default(0),
+  mahjongGivenInPass: integer('mahjong_gave_in_pass').notNull().default(0),
+  mahjongReceivedInPass: integer('mahjong_received_in_pass').notNull().default(0),
+  dogReceivedFromPartner: integer('dog_received_from_partner').notNull().default(0),
+  dogReceivedFromOpponent: integer('dog_received_from_opponent').notNull().default(0),
+  bombGivenToPartner: integer('bomb_gave_to_partner').notNull().default(0),
+  bombGivenToOpponent: integer('bomb_gave_to_opponent').notNull().default(0),
+  bombReceivedFromPartner: integer('bomb_received_from_partner').notNull().default(0),
+  bombReceivedFromOpponent: integer('bomb_received_from_opponent').notNull().default(0),
+
+  // ── Dog: hands with dog ──
+  handsWithDog: integer('hands_with_dog').notNull().default(0),
+
+  // ── Pass analysis ──
+  strongPrePassHand: integer('strong_pre_pass_hand').notNull().default(0),
+  keptDogDuringPass: integer('kept_dog_during_pass').notNull().default(0),
+
+  // ── Achievements ──
+  allPowerCardsBeforePass: integer('all_power_cards_before_pass').notNull().default(0),
+  allCardsUnder10AfterPass: integer('all_cards_under_10_after_pass').notNull().default(0),
+  doubleBombInTrick: integer('double_bomb_in_trick').notNull().default(0),
+  allPlayersBombInRound: integer('all_players_bomb_in_round').notNull().default(0),
+});
+
+// REQ-F-MC01: Relational stats cache — per-partner, per-opponent stats
+export const relationalStatsCache = sqliteTable('relational_stats_cache', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: text('user_id').notNull().references(() => users.id),
+  otherUserId: text('other_user_id').notNull().references(() => users.id),
+  relationship: text('relationship').notNull(), // 'partner' | 'opponent'
+  gamesPlayed: integer('games_played').notNull().default(0),
+  gamesWon: integer('games_won').notNull().default(0),
+  oneTwoWins: integer('one_two_wins').notNull().default(0),
+  totalTeamBombs: integer('total_team_bombs').notNull().default(0),
+}, (table) => [
+  unique('relational_stats_cache_unique').on(table.userId, table.otherUserId, table.relationship),
+]);
