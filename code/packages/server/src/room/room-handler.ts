@@ -15,6 +15,7 @@ import { GameStore } from '../game/game-store.js';
 import { SeatQueue } from './seat-queue.js';
 import { VoteHandler } from '../game/vote-handler.js';
 import { saveGameResult, savePassStatsOnAbandon } from '../db/game-persistence.js';
+import { writeEventData, deleteRecoveryFile, writeEventDataOnAbandon } from '../db/event-persistence.js';
 import type { GameResult, RoundResult } from '../db/game-persistence.js';
 import type { GameMachineContext } from '../game/game-state-machine.js';
 import type { RoundEventSummary } from '../game/round-event-types.js';
@@ -663,8 +664,19 @@ export class RoomHandler {
       // REQ-F-PW01: Wire game-end callback for persistence
       if (this.database) {
         const db = this.database;
+        const gameRef = game;
         game.wireGameEndCallback((context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => {
-          this.persistGameResult(db, roomCode, room.players, context, roundEvents, joinedAfterSpectating);
+          const dbGameId = this.persistGameResult(db, roomCode, room.players, context, roundEvents, joinedAfterSpectating);
+          // REQ-F-ST03/ST04: Write event data and clean up recovery file
+          if (dbGameId !== null) {
+            try {
+              const accumulator = gameRef.getEventAccumulator();
+              writeEventData(db, dbGameId, accumulator);
+              deleteRecoveryFile(accumulator.gameId);
+            } catch (err) {
+              console.error(`[PERSIST] Failed to write event data for game ${dbGameId}:`, err);
+            }
+          }
         });
       }
 
@@ -715,7 +727,8 @@ export class RoomHandler {
     this.broadcastRoomUpdate(roomCode);
   }
 
-  /** REQ-F-CS24: Save pass stats from event tracker before game destruction */
+  /** REQ-F-CS24: Save pass stats from event tracker before game destruction.
+   *  REQ-F-ST06: Also persist accumulated event data on abandonment. */
   private savePassStatsBeforeDestroy(roomCode: string, players: RoomPlayer[]): void {
     if (!this.database) return;
     try {
@@ -724,6 +737,16 @@ export class RoomHandler {
 
       const summaries = game.getCurrentRoundSummaries();
       if (summaries.length === 0) return;
+
+      // REQ-F-ST06: Persist event data on game abandonment
+      try {
+        const accumulator = game.getEventAccumulator();
+        if (accumulator.rounds.length > 0) {
+          writeEventDataOnAbandon(this.database, accumulator.gameId, accumulator);
+        }
+      } catch {
+        // Event data persistence failure must not block pass stats or game destruction
+      }
 
       const humanPlayers: Array<{ seat: Seat; userId: string }> = [];
       for (const p of players) {
@@ -742,7 +765,8 @@ export class RoomHandler {
   // ─── Game Persistence (REQ-F-PW01) ─────────────────────────────────────
 
   /** REQ-F-PW01/PW02: Build GameResult + RoundResult[] from context and persist.
-   *  REQ-F-DB04: All inserts in a single transaction (handled by saveGameResult). */
+   *  REQ-F-DB04: All inserts in a single transaction (handled by saveGameResult).
+   *  Returns the database game ID on success, or null on failure. */
   private persistGameResult(
     database: Database,
     roomCode: string,
@@ -750,7 +774,7 @@ export class RoomHandler {
     context: GameMachineContext,
     roundEvents?: Map<number, RoundEventSummary[]>,
     joinedAfterSpectating?: Set<string>,
-  ): void {
+  ): number | null {
     const winnerTeam = context.winner === 'northSouth' ? 'NS' as const : 'EW' as const;
 
     // Build player map: seat → { userId, name }
@@ -810,7 +834,8 @@ export class RoomHandler {
       };
     });
 
-    saveGameResult(database, gameResult, rounds);
+    const dbGameId = saveGameResult(database, gameResult, rounds);
+    return dbGameId;
   }
 
   // ─── Seat Queue (REQ-F-SP07–SP10, SP27, SP28, SP31, SP32) ───────────

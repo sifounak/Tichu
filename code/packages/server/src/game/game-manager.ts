@@ -45,6 +45,7 @@ import { GameEventCapture } from './game-event-capture.js';
 import { buildPrePlayContext } from './pre-play-context.js';
 import { detectCombination } from '@tichu/shared';
 import type { ActionSource, GameEventAccumulator } from './event-types.js';
+import { writeRecoveryFile as serializeRecoveryFile } from '../db/event-persistence.js';
 
 /**
  * Orchestrates a single game: receives client messages, validates moves
@@ -531,6 +532,8 @@ export class GameManager {
         // REQ-F-CP06: Finalize new event capture round data
         this.eventCapture.finalizePlayerRoundScoring(round);
         this.eventCapture.finalizeRound();
+        // REQ-F-ST02: Serialize recovery file at round end
+        this.writeRecoveryFile();
       }
       this.broadcastState();
       if (this.scoringTimer) clearTimeout(this.scoringTimer);
@@ -803,9 +806,21 @@ export class GameManager {
     return opponents[0];
   }
 
-  /** REQ-F-CP01: Get accumulated event data (for persistence in M4) */
+  /** REQ-F-CP01: Get accumulated event data (for persistence) */
   getEventAccumulator(): GameEventAccumulator {
     return this.eventCapture.getAccumulator();
+  }
+
+  /** REQ-F-ST02: Serialize recovery file with current accumulated data */
+  private writeRecoveryFile(): void {
+    try {
+      const acc = this.eventCapture.getAccumulator();
+      if (acc.rounds.length > 0) {
+        serializeRecoveryFile(acc.gameId, acc);
+      }
+    } catch {
+      // Recovery file write failure must not affect gameplay
+    }
   }
 
   /**
