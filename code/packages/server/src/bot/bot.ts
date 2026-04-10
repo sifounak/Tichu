@@ -827,13 +827,20 @@ export class Bot implements BotStrategy {
         }
       }
 
-      // Block singleton Phoenix on anything below Ace (unless all Aces accounted for)
+      // REQ-F-PHX01: Block singleton Phoenix on anything except Aces,
+      // or Kings when all Aces have been physically played
       if (currentTrick) {
         const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
         if (lastPlay && lastPlay.combination.cards.length === 1) {
           const lastCard = lastPlay.combination.cards[0];
-          if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14 && !allAcesAccountedFor) {
-            return 'never';
+          if (lastCard.card.kind === 'standard') {
+            if (lastCard.card.rank === 14) {
+              // Playing over an Ace — fall through to ACCEPTABLE section (REQ-F-PHX03)
+            } else if (lastCard.card.rank === 13 && allAcesPlayed) {
+              // Playing over a King with all Aces out — fall through to ACCEPTABLE (REQ-F-PHX04)
+            } else {
+              return 'never';
+            }
           }
         }
       }

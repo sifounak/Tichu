@@ -105,6 +105,14 @@ export const TrickDisplay = memo(function TrickDisplay({
       ? seatPosition(displayTrick.currentWinner, mySeat)
       : null;
 
+  // Cache sweep target so exit animation has the correct direction even after displayTrick
+  // becomes null (e.g., React batches trick-null + new-trick into a single render)
+  const lastSweepTargetRef = useRef<string | null>(null);
+  if (displaySweepTarget) {
+    lastSweepTargetRef.current = displaySweepTarget;
+  }
+  const effectiveSweepTarget = displaySweepTarget ?? lastSweepTargetRef.current;
+
   // Detect bomb plays for special effect
   const [showBomb, setShowBomb] = useState(false);
   const lastPlay = displayTrick?.plays[displayTrick.plays.length - 1];
@@ -120,10 +128,10 @@ export const TrickDisplay = memo(function TrickDisplay({
 
   // Compute exit animation based on sweep target (or dragon gift recipient)
   // Slide toward the winner at full size, fade out near the end
-  const exitAnim = enabled && displaySweepTarget
+  const exitAnim = enabled && effectiveSweepTarget
     ? {
-        x: EXIT_OFFSETS[displaySweepTarget].x,
-        y: EXIT_OFFSETS[displaySweepTarget].y,
+        x: EXIT_OFFSETS[effectiveSweepTarget].x,
+        y: EXIT_OFFSETS[effectiveSweepTarget].y,
         opacity: 0,
         transition: {
           duration: durations.trickSweep,
@@ -216,7 +224,7 @@ export const TrickDisplay = memo(function TrickDisplay({
       <AnimatePresence mode="wait">
         {displayTrick && displayTrick.plays.length > 0 ? (
           <motion.div
-            key="trick-active"
+            key={`trick-${displayTrick.plays[0].seat}-${displayTrick.plays[0].combination.cards[0]?.id}`}
             className={styles.trickContent}
             exit={exitAnim}
           >
