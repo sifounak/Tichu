@@ -38,8 +38,6 @@ import { VoteHandler } from './vote-handler.js';
 import { projectGameState, projectSpectatorView } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
 import { Bot } from '../bot/bot.js';
-import { RoundEventTracker } from './round-event-tracker.js';
-import type { RoundEventSummary } from './round-event-types.js';
 // REQ-F-CP01: New event capture system (hybrid pre-play enrichment + post-play observation)
 import { GameEventCapture } from './game-event-capture.js';
 import { buildPrePlayContext } from './pre-play-context.js';
@@ -75,13 +73,9 @@ export class GameManager {
   /** Seats occupied by players who are choosing which vacated seat to take */
   private readonly choosingSeats = new Set<Seat>();
   /** REQ-F-PW01: Callback invoked when game reaches gameOver state */
-  private onGameEnd?: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => void;
+  private onGameEnd?: (context: GameMachineContext, joinedAfterSpectating: Set<string>) => void;
   /** REQ-F-SO15: Track players who joined as spectators then were promoted mid-game */
   private readonly joinedAfterSpectating = new Set<string>();
-  /** REQ-F-EC01: State-diff observer for mid-round card events */
-  private readonly eventTracker = new RoundEventTracker();
-  /** Accumulated round events: roundNumber → summaries */
-  private readonly roundEventHistory = new Map<number, RoundEventSummary[]>();
   /** REQ-F-CP01/ST01: New event capture system — accumulates structured event data in memory */
   private readonly eventCapture: GameEventCapture;
   /** REQ-F-CP02: Track when each player's turn started (for durationMs) */
@@ -298,18 +292,13 @@ export class GameManager {
 
   /** REQ-F-PW01: Wire the game-end callback — called when game reaches gameOver state.
    *  Called by room-handler to register persistence logic. */
-  wireGameEndCallback(onGameEnd: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => void): void {
+  wireGameEndCallback(onGameEnd: (context: GameMachineContext, joinedAfterSpectating: Set<string>) => void): void {
     this.onGameEnd = onGameEnd;
   }
 
   /** REQ-F-SO15: Mark a userId as having joined the game after spectating */
   markJoinedAfterSpectating(userId: string): void {
     this.joinedAfterSpectating.add(userId);
-  }
-
-  /** REQ-F-CS24: Get current round event summaries (for pass stats on abandon) */
-  getCurrentRoundSummaries(): RoundEventSummary[] {
-    return this.eventTracker.getAllSummaries();
   }
 
   /** REQ-F-CS24: Check if game is past card passing phase (pass data captured) */
@@ -496,8 +485,6 @@ export class GameManager {
     const state = this.stateValue;
     const round = this.context.currentRound;
 
-    // REQ-F-EC01: Feed state to event tracker before any other logic
-    this.eventTracker.onStateChange(this.context);
     // REQ-F-CP03: Feed state to new event capture system
     this.eventCapture.onStateChange(this.context);
 
@@ -524,12 +511,8 @@ export class GameManager {
     // Round scoring: save round event summaries, then broadcast
     if (state === 'roundScoring') {
       this.timer.stop();
-      // REQ-F-EC04: Archive round events before advancing
+      // REQ-F-CP06: Finalize new event capture round data
       if (round) {
-        this.eventTracker.finalizeRound();
-        const summaries = this.eventTracker.getAllSummaries();
-        this.roundEventHistory.set(round.roundNumber, summaries);
-        // REQ-F-CP06: Finalize new event capture round data
         this.eventCapture.finalizePlayerRoundScoring(round);
         this.eventCapture.finalizeRound();
         // REQ-F-ST02: Serialize recovery file at round end
@@ -552,7 +535,7 @@ export class GameManager {
       this.broadcastState();
       if (this.onGameEnd) {
         try {
-          this.onGameEnd(this.context, this.roundEventHistory, this.joinedAfterSpectating);
+          this.onGameEnd(this.context, this.joinedAfterSpectating);
         } catch {
           // Persistence failure must not crash the game server
         }
