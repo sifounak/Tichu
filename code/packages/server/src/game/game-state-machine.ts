@@ -1037,13 +1037,11 @@ function scoreAndFinishRound(
   round: RoundState,
   context: GameMachineContext,
 ): Partial<GameMachineContext> {
-  // Add all remaining active players to finishOrder so scoring covers everyone
-  // (e.g. 1-2 finish leaves 2 opponents unfinished — their Tichu calls must still be scored)
+  // Build a full 4-player finish order for scoring (last player's cards go to opponents, etc.)
+  // but don't modify the round's finishOrder or per-player finishOrder — remaining players
+  // should still show their cards in the client view, not appear as "Out".
   const activePlayers = SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null);
-  for (const seat of activePlayers) {
-    round.finishOrder.push(seat);
-    round.players[seat].finishOrder = round.finishOrder.length;
-  }
+  const scoringFinishOrder = [...round.finishOrder, ...activePlayers];
 
   round.phase = GamePhase.RoundScoring;
 
@@ -1071,7 +1069,7 @@ function scoreAndFinishRound(
 
   const roundScore = scoreRound(
     round.roundNumber,
-    round.finishOrder,
+    scoringFinishOrder,
     tricksWon,
     handsRemaining,
     tichuCalls,
