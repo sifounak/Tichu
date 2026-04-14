@@ -19,6 +19,9 @@ export class GameStore {
   /** Reverse lookup: room code → game ID */
   private readonly roomToGame = new Map<string, string>();
 
+  /** Pending reconnection TTL timers by game ID */
+  private readonly reconnectionTTLs = new Map<string, ReturnType<typeof setTimeout>>();
+
   /** Shared disconnect handler for all games */
   readonly disconnectHandler: DisconnectHandler;
 
@@ -53,6 +56,29 @@ export class GameStore {
     this.roomToGame.set(roomCode, gameId);
 
     return manager;
+  }
+
+  /** Register a pre-built GameManager (from snapshot restore). */
+  restoreGame(manager: GameManager, options?: { ttlMs?: number }): void {
+    this.games.set(manager.gameId, manager);
+    this.roomToGame.set(manager.roomCode, manager.gameId);
+
+    if (options?.ttlMs) {
+      const timer = setTimeout(() => {
+        this.reconnectionTTLs.delete(manager.gameId);
+        this.destroyGame(manager.gameId);
+      }, options.ttlMs);
+      this.reconnectionTTLs.set(manager.gameId, timer);
+    }
+  }
+
+  /** Cancel reconnection TTL for a game (called when first human reconnects). */
+  cancelReconnectionTTL(gameId: string): void {
+    const timer = this.reconnectionTTLs.get(gameId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectionTTLs.delete(gameId);
+    }
   }
 
   /** Get a game by its ID */
@@ -101,6 +127,11 @@ export class GameStore {
 
   /** Clean up all games */
   dispose(): void {
+    for (const timer of this.reconnectionTTLs.values()) {
+      clearTimeout(timer);
+    }
+    this.reconnectionTTLs.clear();
+
     for (const [, manager] of this.games) {
       manager.destroy();
     }
