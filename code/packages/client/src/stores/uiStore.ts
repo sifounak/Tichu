@@ -108,6 +108,10 @@ export interface UiStore {
   setVoteCountdown: (seconds: number) => void;
   clearPlayerVoteState: () => void;
 
+  /* --- Server Restart --- */
+  serverRestarting: boolean;
+  setServerRestarting: (value: boolean) => void;
+
   /* --- Error Toast --- */
   errorToast: string | null;
   showErrorToast: (message: string) => void;
@@ -246,6 +250,10 @@ export const useUiStore = create<UiStore>()((set) => ({
   setVoteCountdown: (seconds) => set({ voteCountdown: seconds }),
   clearPlayerVoteState: () =>
     set({ activeVote: null, voteResult: null, kickTargetMode: false, voteCountdown: 0 }),
+
+  /* --- Server Restart --- */
+  serverRestarting: false,
+  setServerRestarting: (value) => set({ serverRestarting: value }),
 
   /* --- Error Toast --- */
   errorToast: null,
