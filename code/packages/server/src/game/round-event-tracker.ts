@@ -6,6 +6,13 @@ import type {
   Seat,
   RoundState,
 } from '@tichu/shared';
+import type { EventTrackerSnapshot } from './game-serializer.js';
+import {
+  serializeMap,
+  deserializeMap,
+  serializeSet,
+  deserializeSet,
+} from './game-serializer.js';
 import {
   isDragon,
   isPhoenix,
@@ -512,6 +519,28 @@ export class RoundEventTracker {
         this.summaries.get(seat)!.allPlayersBombInRound = true;
       }
     }
+  }
+
+  // ─── Serialization ────────────────────────────────────────────────────────
+
+  /** Snapshot this tracker's accumulated state for persistence. prevRound is ephemeral and not serialized. */
+  serialize(): EventTrackerSnapshot {
+    return {
+      summaries: serializeMap(this.summaries),
+      currentRoundNumber: this.currentRoundNumber,
+      processedBombCount: serializeMap(this.processedBombCount),
+      dogStuckDetected: serializeSet(this.dogStuckDetected),
+    };
+  }
+
+  /** Restore a RoundEventTracker from a snapshot produced by serialize(). */
+  static restore(snapshot: EventTrackerSnapshot): RoundEventTracker {
+    const tracker = new RoundEventTracker();
+    tracker.summaries = deserializeMap(snapshot.summaries);
+    tracker.currentRoundNumber = snapshot.currentRoundNumber;
+    tracker.processedBombCount = deserializeMap<Seat, number>(snapshot.processedBombCount as Record<string, number>);
+    tracker.dogStuckDetected = deserializeSet<SeatType>(snapshot.dogStuckDetected);
+    return tracker;
   }
 
   /** REQ-F-CS13: Detect conflicting bombs in dealt hand (14 cards after exchange) */
