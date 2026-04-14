@@ -696,6 +696,7 @@ export const gameMachine = setup({
     passTurn: assign(({ context, event }) => {
       if (event.type !== 'PASS_TURN' || !context.currentRound) return {};
       const round = structuredClone(context.currentRound) as RoundState;
+      round.lastDogPlay = null; // Clear transient animation signal to prevent replay
       round.dragonGiftedTo = null; // REQ-F-DRA03: Clear ephemeral dragon gift signal
       const seat = event.seat;
 
@@ -881,6 +882,8 @@ export const gameMachine = setup({
           actions: assign(({ context, event }) => {
             if (event.type !== 'REGULAR_TICHU_CALL' || !context.currentRound) return {};
             const round = structuredClone(context.currentRound) as RoundState;
+            round.lastDogPlay = null; // Clear transient animation signal to prevent replay
+            round.dragonGiftedTo = null;
             const player = round.players[event.seat];
             // Can only call Tichu before first play and if no existing call
             if (!player.hasPlayed && player.tipiCall === 'none') {
@@ -895,6 +898,8 @@ export const gameMachine = setup({
           actions: assign(({ context, event }) => {
             if (event.type !== 'DECLARE_WISH' || !context.currentRound) return {};
             const round = structuredClone(context.currentRound) as RoundState;
+            round.lastDogPlay = null; // Clear transient animation signal to prevent replay
+            round.dragonGiftedTo = null;
             if (!round.currentTrick) return {};
 
             // Only process if the last play was by this player and contained Mahjong
