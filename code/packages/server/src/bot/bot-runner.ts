@@ -8,8 +8,10 @@
 import type { Seat, RoundState } from '@tichu/shared';
 import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong, detectAllBombs, canBeat, getCardPoints } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext } from './bot-interface.js';
+import { Bot } from './bot.js';
 import type { GameActor, GameMachineContext, GameEvent } from '../game/game-state-machine.js';
 import type { MoveHandler } from '../game/move-handler.js';
+import type { BotSnapshot } from '../game/game-serializer.js';
 
 /** Configuration for bot timing */
 export interface BotRunnerConfig {
@@ -123,6 +125,39 @@ export class BotRunner {
     this.pendingTimers.clear();
     this.grandTichuTimers.clear();
     this.bots.clear();
+  }
+
+  // ─── Serialization ──────────────────────────────────────────────────────────
+
+  /**
+   * Serialize all bot states keyed by seat.
+   * Only bots that are instances of Bot (not arbitrary BotStrategy) are included.
+   */
+  serialize(): Record<string, BotSnapshot> {
+    const result: Record<string, BotSnapshot> = {};
+    for (const [seat, strategy] of this.bots) {
+      if (strategy instanceof Bot) {
+        result[seat] = strategy.serialize();
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Restore a BotRunner from serialized bot states.
+   * Creates a new BotRunner and repopulates it with restored Bot instances.
+   */
+  static restore(
+    botStates: Record<string, BotSnapshot>,
+    actor: GameActor,
+    moveHandler?: MoveHandler,
+  ): BotRunner {
+    const runner = new BotRunner(actor, undefined, moveHandler);
+    for (const [seat, snapshot] of Object.entries(botStates)) {
+      const bot = Bot.restore(snapshot);
+      runner.addBot(seat as Seat, bot);
+    }
+    return runner;
   }
 
   /** Check if all active (non-finished) players are bots */
