@@ -256,6 +256,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         leaveRoom();
         gameStore.reset();
         router.push('/lobby');
+      } else if (msg.type === 'SERVER_SHUTTING_DOWN') {
+        uiStore.setServerRestarting(true);
       } else if (msg.type === 'ERROR') {
         if (msg.code === 'PARTNER_ALREADY_CALLED') {
           // Parse partner call level from message (format: "PARTNER_ALREADY_CALLED:grandTichu")
@@ -274,10 +276,16 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
+  const handleStatusChange = useCallback((s: import('@/hooks/useWebSocket').ConnectionStatus) => {
+    uiStore.setConnectionStatus(s);
+    if (s === 'connected') {
+      uiStore.setServerRestarting(false);
+    }
+  }, [uiStore]);
   const { status, send, disconnect } = useWebSocket({
     url: wsUrl,
     onMessage: handleMessage,
-    onStatusChange: uiStore.setConnectionStatus,
+    onStatusChange: handleStatusChange,
     enabled: authReady,
   });
 
@@ -861,8 +869,29 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     send({ type: 'LEAVE_ROOM' });
   };
 
+  const serverRestarting = uiStore.serverRestarting;
+
   return (
     <>
+      {/* Server restart banner */}
+      {serverRestarting && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          background: '#f59e0b',
+          color: '#1c1917',
+          textAlign: 'center',
+          padding: '10px 16px',
+          fontWeight: 600,
+          fontSize: '14px',
+          letterSpacing: '0.01em',
+        }}>
+          Server restarting — reconnecting automatically...
+        </div>
+      )}
       {/* Room code + Spectators + Leave Room */}
       <div style={{
         position: 'fixed',
