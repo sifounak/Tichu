@@ -21,6 +21,8 @@ export interface RoomManagerOptions {
  * Manages game rooms: creation, joining, leaving, configuration, bot seats.
  */
 export class RoomManager {
+  onRoomDestroyed: ((roomCode: string) => void) | null = null;
+
   private readonly rooms = new Map<string, Room>();
   private readonly userToRoom = new Map<string, string>();
   private readonly userToSeat = new Map<string, Seat>();
@@ -661,6 +663,9 @@ export class RoomManager {
         this.removeUser(userId);
       }
     }
+
+    // Notify subscribers (e.g., GameStore) so they can clean up too
+    this.onRoomDestroyed?.(roomCode);
   }
 
   private generateUniqueCode(): string {
