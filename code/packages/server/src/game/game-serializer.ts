@@ -29,6 +29,13 @@ export function deserializeMap<K extends string, V>(
   return new Map(Object.entries(obj)) as Map<K, V>;
 }
 
+/** Deserialize a Map that originally had numeric keys (JSON stringifies them). */
+export function deserializeNumericKeyMap<V>(
+  obj: Record<string, V>,
+): Map<number, V> {
+  return new Map(Object.entries(obj).map(([k, v]) => [Number(k), v]));
+}
+
 // ─── Snapshot Types ────────────────────────────────────────────────────────
 
 export interface SerializedContext {

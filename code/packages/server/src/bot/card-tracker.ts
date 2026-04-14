@@ -13,7 +13,7 @@ import {
   serializeSet,
   deserializeSet,
   serializeMap,
-  deserializeMap,
+  deserializeNumericKeyMap,
 } from '../game/game-serializer.js';
 
 /** The "top 10" cards worth tracking: 4 Aces, 4 Kings, Dragon, Phoenix */
@@ -366,9 +366,9 @@ export class CardTracker {
     tracker.dragonPlayedBy = snapshot.dragonPlayedBy;
     tracker.phoenixPlayed = snapshot.phoenixPlayed;
     tracker.phoenixPlayedBy = snapshot.phoenixPlayedBy;
-    tracker.playedByRank = deserializeMap(snapshot.playedByRank);
+    tracker.playedByRank = deserializeNumericKeyMap(snapshot.playedByRank);
     tracker.processedCardIds = deserializeSet(snapshot.processedCardIds);
-    tracker.ownHandRankCounts = deserializeMap(snapshot.ownHandRankCounts);
+    tracker.ownHandRankCounts = deserializeNumericKeyMap(snapshot.ownHandRankCounts);
     tracker.ownHandHasDragon = snapshot.ownHandHasDragon;
     tracker.ownHandHasPhoenix = snapshot.ownHandHasPhoenix;
     return tracker;
