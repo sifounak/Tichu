@@ -7,6 +7,7 @@ import type {
   Seat,
 } from '@tichu/shared';
 import type { Room, RoomSpectator, LobbyEntry } from '@tichu/shared';
+import type { RoomSnapshot } from '../game/game-serializer.js';
 
 const SEATS: readonly Seat[] = ['north', 'east', 'south', 'west'];
 const ROOM_CODE_LENGTH = 6;
@@ -20,6 +21,8 @@ export interface RoomManagerOptions {
  * Manages game rooms: creation, joining, leaving, configuration, bot seats.
  */
 export class RoomManager {
+  onRoomDestroyed: ((roomCode: string) => void) | null = null;
+
   private readonly rooms = new Map<string, Room>();
   private readonly userToRoom = new Map<string, string>();
   private readonly userToSeat = new Map<string, Seat>();
@@ -553,6 +556,69 @@ export class RoomManager {
     return this.rooms.size;
   }
 
+  /** Serialize all rooms that have an active game in progress. */
+  serializeActiveRooms(): RoomSnapshot[] {
+    const snapshots: RoomSnapshot[] = [];
+
+    for (const room of this.rooms.values()) {
+      if (!room.gameInProgress) continue;
+
+      // Build seatToUserId from seatToUser map, filtering to this room
+      const seatToUserId: Record<string, string> = {};
+      for (const [key, userId] of this.seatToUser) {
+        const [roomCode, seat] = key.split(':');
+        if (roomCode === room.roomCode) {
+          seatToUserId[seat] = userId;
+        }
+      }
+
+      snapshots.push({
+        roomCode: room.roomCode,
+        roomName: room.roomName,
+        hostSeat: room.hostSeat,
+        players: room.players.map(p => ({
+          seat: p.seat,
+          name: p.name,
+          isBot: p.isBot,
+        })),
+        config: room.config,
+        gameInProgress: true,
+        seatToUserId,
+      });
+    }
+
+    return snapshots;
+  }
+
+  /** Restore rooms from snapshots (called on server restart). */
+  restoreRooms(snapshots: RoomSnapshot[]): void {
+    for (const snapshot of snapshots) {
+      const room: Room = {
+        roomCode: snapshot.roomCode,
+        roomName: snapshot.roomName,
+        hostSeat: snapshot.hostSeat,
+        players: snapshot.players.map(p => ({
+          seat: p.seat,
+          name: p.name,
+          isBot: p.isBot,
+          // Humans start disconnected; bots are always "connected"
+          isConnected: p.isBot,
+        })),
+        spectators: [],
+        config: snapshot.config,
+        gameInProgress: true,
+        createdAt: Date.now(),
+      };
+
+      this.rooms.set(snapshot.roomCode, room);
+
+      // Rebuild userId maps for human players
+      for (const [seat, userId] of Object.entries(snapshot.seatToUserId)) {
+        this.assignUser(userId, snapshot.roomCode, seat as Seat);
+      }
+    }
+  }
+
   dispose(): void {
     this.stopCleanup();
     this.rooms.clear();
@@ -597,6 +663,9 @@ export class RoomManager {
         this.removeUser(userId);
       }
     }
+
+    // Notify subscribers (e.g., GameStore) so they can clean up too
+    this.onRoomDestroyed?.(roomCode);
   }
 
   private generateUniqueCode(): string {

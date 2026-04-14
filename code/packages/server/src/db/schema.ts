@@ -240,3 +240,18 @@ export const roundPlayerEvents = sqliteTable('round_player_events', {
   seat: text('seat').notNull(),
   eventData: text('event_data', { mode: 'json' }).notNull(),
 });
+
+// ─── Active Game State (transient, for graceful restart) ────────────────
+
+export const activeGames = sqliteTable('active_games', {
+  gameId: text('game_id').primaryKey(),
+  roomCode: text('room_code').notNull(),
+  stateBlob: text('state_blob').notNull(),
+  savedAt: text('saved_at').notNull().default(sql`(datetime('now'))`),
+});
+
+export const activeRooms = sqliteTable('active_rooms', {
+  roomCode: text('room_code').primaryKey(),
+  roomBlob: text('room_blob').notNull(),
+  savedAt: text('saved_at').notNull().default(sql`(datetime('now'))`),
+});

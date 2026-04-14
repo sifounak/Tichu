@@ -40,6 +40,7 @@ import {
   isCardInMultiCardCombo,
 } from './bot-strategy-utils.js';
 import { CardTracker } from './card-tracker.js';
+import type { BotSnapshot } from '../game/game-serializer.js';
 
 // ─── Hand Plan ───────────────────────────────────────────────────────────────
 
@@ -1921,5 +1922,57 @@ export class Bot implements BotStrategy {
   // REQ-F-PTS03: Accessor for PTS consecutive leads (testing)
   getPtsConsecutiveLeads(): number {
     return this.ptsConsecutiveLeads;
+  }
+
+  // ─── Serialization ────────────────────────────────────────────────────────
+
+  serialize(): BotSnapshot {
+    return {
+      seat: this.mySeat,
+      cardTracker: this.cardTracker.serialize(),
+      handPlan: this.handPlan,
+      planCreated: this.planCreated,
+      currentRound: this.currentRound,
+      scoreDiff: this.scoreDiff,
+      passedToRight: this.passedToRight,
+      mahjongPlayedInStraight: this.mahjongPlayedInStraight,
+      gameScores: this.gameScores,
+      targetScore: this.targetScore,
+      partnerPassedCard: this.partnerPassedCard,
+      partnerStrengthDetected: this.partnerStrengthDetected,
+      partnerStrengthChecked: this.partnerStrengthChecked,
+      uncontestedSingleCounts: { ...this.uncontestedSingleCounts },
+      uncontestedSingleLastRank: { ...this.uncontestedSingleLastRank },
+      lastTricksWonCounts: { ...this.lastTricksWonCounts },
+      lastSeenTrickType: this.lastSeenTrickType,
+      ptsConsecutiveLeads: this.ptsConsecutiveLeads,
+      lastLeadSeat: this.lastLeadSeat,
+      lastRoundState: this.lastRoundState,
+    };
+  }
+
+  static restore(snapshot: BotSnapshot): Bot {
+    const bot = new Bot();
+    bot.mySeat = snapshot.seat;
+    bot.cardTracker = CardTracker.restore(snapshot.cardTracker);
+    bot.handPlan = snapshot.handPlan as typeof bot.handPlan;
+    bot.planCreated = snapshot.planCreated;
+    bot.currentRound = snapshot.currentRound;
+    bot.scoreDiff = snapshot.scoreDiff;
+    bot.passedToRight = snapshot.passedToRight;
+    bot.mahjongPlayedInStraight = snapshot.mahjongPlayedInStraight;
+    bot.gameScores = snapshot.gameScores;
+    bot.targetScore = snapshot.targetScore;
+    bot.partnerPassedCard = snapshot.partnerPassedCard;
+    bot.partnerStrengthDetected = snapshot.partnerStrengthDetected;
+    bot.partnerStrengthChecked = snapshot.partnerStrengthChecked;
+    bot.uncontestedSingleCounts = { ...snapshot.uncontestedSingleCounts };
+    bot.uncontestedSingleLastRank = { ...snapshot.uncontestedSingleLastRank };
+    bot.lastTricksWonCounts = { ...snapshot.lastTricksWonCounts };
+    bot.lastSeenTrickType = snapshot.lastSeenTrickType;
+    bot.ptsConsecutiveLeads = snapshot.ptsConsecutiveLeads;
+    bot.lastLeadSeat = snapshot.lastLeadSeat;
+    bot.lastRoundState = snapshot.lastRoundState;
+    return bot;
   }
 }

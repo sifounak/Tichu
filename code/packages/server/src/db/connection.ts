@@ -167,6 +167,19 @@ function syncSchema(client: BetterSqlite3Database): void {
       seat TEXT NOT NULL,
       event_data TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS active_games (
+      game_id TEXT PRIMARY KEY,
+      room_code TEXT NOT NULL,
+      state_blob TEXT NOT NULL,
+      saved_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS active_rooms (
+      room_code TEXT PRIMARY KEY,
+      room_blob TEXT NOT NULL,
+      saved_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   // REQ-F-AU10: Add username column to existing users table (for existing DBs)

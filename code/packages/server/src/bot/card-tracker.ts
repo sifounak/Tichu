@@ -8,6 +8,13 @@ import {
   getTeam,
   SEATS_IN_ORDER,
 } from '@tichu/shared';
+import type { CardTrackerSnapshot } from '../game/game-serializer.js';
+import {
+  serializeSet,
+  deserializeSet,
+  serializeMap,
+  deserializeNumericKeyMap,
+} from '../game/game-serializer.js';
 
 /** The "top 10" cards worth tracking: 4 Aces, 4 Kings, Dragon, Phoenix */
 export interface TrackedCard {
@@ -329,5 +336,41 @@ export class CardTracker {
       if (gc.card.rank === 10 || gc.card.rank === 13) return 10;
     }
     return 0;
+  }
+
+  // ─── Serialization ──────────────────────────────────────────────────────────
+
+  /**
+   * Serialize the tracker state to a plain object for persistence.
+   */
+  serialize(): CardTrackerSnapshot {
+    return {
+      dragonPlayed: this.dragonPlayed,
+      dragonPlayedBy: this.dragonPlayedBy,
+      phoenixPlayed: this.phoenixPlayed,
+      phoenixPlayedBy: this.phoenixPlayedBy,
+      playedByRank: serializeMap(this.playedByRank),
+      processedCardIds: serializeSet(this.processedCardIds),
+      ownHandRankCounts: serializeMap(this.ownHandRankCounts),
+      ownHandHasDragon: this.ownHandHasDragon,
+      ownHandHasPhoenix: this.ownHandHasPhoenix,
+    };
+  }
+
+  /**
+   * Restore a CardTracker from a serialized snapshot.
+   */
+  static restore(snapshot: CardTrackerSnapshot): CardTracker {
+    const tracker = new CardTracker();
+    tracker.dragonPlayed = snapshot.dragonPlayed;
+    tracker.dragonPlayedBy = snapshot.dragonPlayedBy;
+    tracker.phoenixPlayed = snapshot.phoenixPlayed;
+    tracker.phoenixPlayedBy = snapshot.phoenixPlayedBy;
+    tracker.playedByRank = deserializeNumericKeyMap(snapshot.playedByRank);
+    tracker.processedCardIds = deserializeSet(snapshot.processedCardIds);
+    tracker.ownHandRankCounts = deserializeNumericKeyMap(snapshot.ownHandRankCounts);
+    tracker.ownHandHasDragon = snapshot.ownHandHasDragon;
+    tracker.ownHandHasPhoenix = snapshot.ownHandHasPhoenix;
+    return tracker;
   }
 }
