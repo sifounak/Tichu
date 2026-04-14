@@ -93,6 +93,18 @@ export class Broadcaster {
     return sent;
   }
 
+  /** Broadcast a message to every connected client (all rooms, all users) */
+  broadcastToAll(message: ServerMessage): number {
+    const sockets = this.connections.getAllSockets();
+    let sent = 0;
+    for (const ws of sockets) {
+      if (this.send(ws, message)) {
+        sent++;
+      }
+    }
+    return sent;
+  }
+
   /** Send an error message to a specific WebSocket */
   sendError(ws: WebSocket, code: string, errorMessage: string): boolean {
     return this.send(ws, { type: 'ERROR', code, message: errorMessage });

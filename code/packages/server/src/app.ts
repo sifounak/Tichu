@@ -13,6 +13,8 @@ import { RoomHandler } from './room/room-handler.js';
 import { GameHandler } from './game/game-handler.js';
 import { createDatabase, type Database } from './db/connection.js';
 import { registerAuthRoutes } from './auth/auth-routes.js';
+import { saveActiveGames, saveActiveRooms, loadActiveGames, loadActiveRooms, clearActiveGames, clearActiveRooms } from './db/active-game-persistence.js';
+import { GameManager } from './game/game-manager.js';
 
 export interface AppConfig {
   port: number;
@@ -85,6 +87,11 @@ export function createApp(config: Partial<AppConfig> = {}) {
   // REQ-F-GMR01: Route game messages (play, pass, tichu, etc.) to GameManager
   const gameHandler = new GameHandler(router, connections, broadcaster, gameStore);
 
+  // Wire room destruction → game cleanup
+  roomHandler.roomManager.onRoomDestroyed = (roomCode) => {
+    gameStore.destroyGameByRoom(roomCode);
+  };
+
   // Create WebSocket server (no HTTP server — uses Fastify's)
   const wss = new WebSocketServer({ noServer: true });
 
@@ -128,6 +135,8 @@ export function createApp(config: Partial<AppConfig> = {}) {
       const game = gameStore.getGameByRoom(existingRoom);
       if (game) {
         game.handleReconnect(ws, existingSeat);
+        gameStore.cancelReconnectionTTL(game.gameId);
+        game.resumeAfterRestore();
       }
     } else {
       // REQ-F-SP13: Detect returning spectator
@@ -213,6 +222,12 @@ export function createApp(config: Partial<AppConfig> = {}) {
       await fastify.listen({ port: cfg.port, host: cfg.host });
       connections.startHeartbeat();
       roomHandler.roomManager.startCleanup();
+
+      const restored = this.restoreActiveGames();
+      if (restored > 0) {
+        fastify.log.info(`Restored ${restored} active games from previous session`);
+      }
+
       fastify.log.info(`Tichu server listening on port ${cfg.port}`);
     },
 
@@ -224,6 +239,61 @@ export function createApp(config: Partial<AppConfig> = {}) {
       wss.close();
       if (database) database.close();
       await fastify.close();
+    },
+
+    /** Restore active games and rooms from the database (after server restart). */
+    restoreActiveGames(): number {
+      if (!database) return 0;
+      const roomSnapshots = loadActiveRooms(database);
+      const gameSnapshots = loadActiveGames(database);
+      if (gameSnapshots.length === 0) return 0;
+
+      roomHandler.roomManager.restoreRooms(roomSnapshots);
+
+      const TTL_MS = 5 * 60 * 1000;
+      for (const snapshot of gameSnapshots) {
+        try {
+          const manager = GameManager.restore(
+            snapshot,
+            broadcaster,
+            gameStore.disconnectHandler,
+            gameStore.voteHandler,
+          );
+          gameStore.restoreGame(manager, { ttlMs: TTL_MS });
+          fastify.log.info(`Restored game ${snapshot.gameId} for room ${snapshot.roomCode}`);
+        } catch (err) {
+          fastify.log.error(`Failed to restore game ${snapshot.gameId}: ${err}`);
+        }
+      }
+
+      clearActiveGames(database);
+      clearActiveRooms(database);
+      return gameSnapshots.length;
+    },
+
+    /** Serialize active games to DB, broadcast shutdown, then stop. */
+    async serializeAndShutdown(): Promise<void> {
+      // 1. Broadcast shutdown notice to all connected clients
+      broadcaster.broadcastToAll({ type: 'SERVER_SHUTTING_DOWN' });
+
+      // 2. Serialize active games and rooms to DB
+      if (database && gameStore.size > 0) {
+        const gameSnapshots = gameStore.activeGameIds
+          .map((id) => gameStore.getGame(id))
+          .filter((g): g is GameManager => g !== undefined)
+          .map((g) => g.serialize());
+        const roomSnapshots = roomHandler.roomManager.serializeActiveRooms();
+        try {
+          saveActiveGames(database, gameSnapshots);
+          saveActiveRooms(database, roomSnapshots);
+          fastify.log.info(`Serialized ${gameSnapshots.length} games and ${roomSnapshots.length} rooms`);
+        } catch (err) {
+          fastify.log.error(`Failed to serialize game state: ${err}`);
+        }
+      }
+
+      // 3. Normal shutdown
+      await this.stop();
     },
   };
 }

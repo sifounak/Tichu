@@ -28,6 +28,7 @@ import {
 import type { Broadcaster } from '../ws/broadcaster.js';
 import {
   createGameActor,
+  createGameActorFromSnapshot,
   type GameActor,
   type GameMachineContext,
 } from './game-state-machine.js';
@@ -40,6 +41,12 @@ import { BotRunner } from '../bot/bot-runner.js';
 import { Bot } from '../bot/bot.js';
 import { RoundEventTracker } from './round-event-tracker.js';
 import type { RoundEventSummary } from './round-event-types.js';
+import type { GameSnapshot } from './game-serializer.js';
+import {
+  serializeSet,
+  deserializeSet,
+  deserializeNumericKeyMap,
+} from './game-serializer.js';
 
 /**
  * Orchestrates a single game: receives client messages, validates moves
@@ -52,30 +59,32 @@ export class GameManager {
   readonly gameId: string;
   readonly roomCode: string;
 
-  private readonly actor: GameActor;
-  private readonly timer: TurnTimer;
-  private readonly moveHandler: MoveHandler;
-  private readonly broadcaster: Broadcaster;
-  private readonly disconnectHandler: DisconnectHandler;
-  private readonly voteHandler: VoteHandler;
-  private readonly botRunner: BotRunner;
+  private actor!: GameActor;
+  private timer!: TurnTimer;
+  private moveHandler!: MoveHandler;
+  private broadcaster!: Broadcaster;
+  private disconnectHandler!: DisconnectHandler;
+  private voteHandler!: VoteHandler;
+  private botRunner!: BotRunner;
   private destroyed = false;
   private autoPassTimer: ReturnType<typeof setTimeout> | null = null;
   private scoringTimer: ReturnType<typeof setTimeout> | null = null;
   private endOfTrickBombTimer: ReturnType<typeof setTimeout> | null = null;
   private endOfTrickBombWindowEndTime: number | null = null;
   /** Seats that have been vacated (player left mid-game, waiting for replacement) */
-  private readonly vacatedSeats = new Set<Seat>();
+  private vacatedSeats = new Set<Seat>();
   /** Seats occupied by players who are choosing which vacated seat to take */
-  private readonly choosingSeats = new Set<Seat>();
+  private choosingSeats = new Set<Seat>();
   /** REQ-F-PW01: Callback invoked when game reaches gameOver state */
   private onGameEnd?: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => void;
   /** REQ-F-SO15: Track players who joined as spectators then were promoted mid-game */
-  private readonly joinedAfterSpectating = new Set<string>();
+  private joinedAfterSpectating = new Set<string>();
   /** REQ-F-EC01: State-diff observer for mid-round card events */
-  private readonly eventTracker = new RoundEventTracker();
+  private eventTracker = new RoundEventTracker();
   /** Accumulated round events: roundNumber → summaries */
-  private readonly roundEventHistory = new Map<number, RoundEventSummary[]>();
+  private roundEventHistory = new Map<number, RoundEventSummary[]>();
+  /** Set to true when this instance was created by restore(), cleared by resumeAfterRestore() */
+  private restoredFromSnapshot = false;
 
   constructor(
     gameId: string,
@@ -770,6 +779,164 @@ export class GameManager {
     });
 
     return opponents[0];
+  }
+
+  // ─── Serialization / Restore ──────────────────────────────────────────────
+
+  /** Capture the full GameManager state as a JSON-serializable snapshot. */
+  serialize(): GameSnapshot {
+    // XState persisted snapshot contains the raw context. Sets are not
+    // JSON-serializable (JSON.stringify(new Set()) === "{}"), so we must
+    // convert them to arrays before saving.
+    const machineSnap = this.actor.getPersistedSnapshot() as any;
+    if (machineSnap?.context) {
+      const ctx = machineSnap.context;
+      if (ctx.grandTichuDecisions instanceof Set) {
+        ctx.grandTichuDecisions = [...ctx.grandTichuDecisions];
+      }
+      if (ctx.cardPassDecisions instanceof Set) {
+        ctx.cardPassDecisions = [...ctx.cardPassDecisions];
+      }
+    }
+
+    return {
+      gameId: this.gameId,
+      roomCode: this.roomCode,
+      machineSnapshot: machineSnap,
+      vacatedSeats: serializeSet(this.vacatedSeats),
+      choosingSeats: serializeSet(this.choosingSeats),
+      joinedAfterSpectating: serializeSet(this.joinedAfterSpectating),
+      roundEventHistory: Object.fromEntries(
+        Array.from(this.roundEventHistory.entries()).map(
+          ([k, v]) => [String(k), v],
+        ),
+      ),
+      currentRoundEvents: this.eventTracker.serialize(),
+      endOfTrickBombWindowEndTime: this.endOfTrickBombWindowEndTime,
+      timerState: this.timer.serialize(),
+      botSeats: this.botRunner.getBotSeats(),
+      botStates: this.botRunner.serialize(),
+      config: this.context.config,
+    };
+  }
+
+  /**
+   * Reconstruct a GameManager from a serialized snapshot.
+   *
+   * The restored instance is fully functional but does NOT start turn timers
+   * or trigger bot decisions automatically. Call `resumeAfterRestore()` once
+   * the first human player reconnects to kick those off.
+   */
+  static restore(
+    snapshot: GameSnapshot,
+    broadcaster: Broadcaster,
+    disconnectHandler: DisconnectHandler,
+    voteHandler: VoteHandler,
+  ): GameManager {
+    // Bypass the normal constructor by using Object.create
+    const instance = Object.create(GameManager.prototype) as GameManager;
+
+    // Identity
+    (instance as any).gameId = snapshot.gameId;
+    (instance as any).roomCode = snapshot.roomCode;
+
+    // External dependencies
+    instance.broadcaster = broadcaster;
+    instance.disconnectHandler = disconnectHandler;
+    instance.voteHandler = voteHandler;
+
+    // Rehydrate Sets in the machine snapshot context before restoring the actor.
+    // After serialize(), Sets are stored as arrays. If data was saved before
+    // that fix, JSON.stringify(Set) produced "{}" — handle both cases.
+    const machineSnap = snapshot.machineSnapshot as any;
+    if (machineSnap?.context) {
+      const ctx = machineSnap.context;
+      if (ctx.grandTichuDecisions != null && !(ctx.grandTichuDecisions instanceof Set)) {
+        ctx.grandTichuDecisions = Array.isArray(ctx.grandTichuDecisions)
+          ? new Set(ctx.grandTichuDecisions)
+          : new Set();
+      }
+      if (ctx.cardPassDecisions != null && !(ctx.cardPassDecisions instanceof Set)) {
+        ctx.cardPassDecisions = Array.isArray(ctx.cardPassDecisions)
+          ? new Set(ctx.cardPassDecisions)
+          : new Set();
+      }
+    }
+
+    // Restore the XState actor from the persisted snapshot
+    instance.actor = createGameActorFromSnapshot(machineSnap);
+
+    // Wire MoveHandler and BotRunner with the restored actor
+    instance.moveHandler = new MoveHandler(instance.actor);
+    instance.botRunner = BotRunner.restore(
+      snapshot.botStates,
+      instance.actor,
+      instance.moveHandler,
+    );
+
+    // Restore turn timer (created but NOT started)
+    if (snapshot.timerState) {
+      instance.timer = TurnTimer.restore(snapshot.timerState, (seat) => {
+        instance.handleTurnTimeout(seat);
+      });
+    } else {
+      // Timer was disabled or inactive — create a disabled timer
+      const turnTimerSeconds = snapshot.config.turnTimerSeconds ?? null;
+      instance.timer = new TurnTimer(turnTimerSeconds, (seat) => {
+        instance.handleTurnTimeout(seat);
+      });
+    }
+
+    // Restore Sets
+    instance.vacatedSeats = deserializeSet(snapshot.vacatedSeats);
+    instance.choosingSeats = deserializeSet(snapshot.choosingSeats);
+    instance.joinedAfterSpectating = deserializeSet(snapshot.joinedAfterSpectating);
+
+    // Restore round event history (numeric key map)
+    instance.roundEventHistory = deserializeNumericKeyMap(snapshot.roundEventHistory);
+
+    // Restore current round event tracker
+    instance.eventTracker = RoundEventTracker.restore(snapshot.currentRoundEvents);
+
+    // Scalar fields
+    instance.endOfTrickBombWindowEndTime = snapshot.endOfTrickBombWindowEndTime;
+    instance.destroyed = false;
+    instance.autoPassTimer = null;
+    instance.scoringTimer = null;
+    instance.endOfTrickBombTimer = null;
+    instance.restoredFromSnapshot = true;
+
+    // Subscribe to actor state changes (same as constructor)
+    instance.actor.subscribe((snap) => {
+      if (instance.destroyed) return;
+      instance.onStateChange(snap);
+    });
+
+    // Start the actor (required for XState to process events)
+    instance.actor.start();
+
+    return instance;
+  }
+
+  /**
+   * Called once after the first human reconnects to a restored game.
+   * Restarts turn timers and triggers bot decisions if applicable.
+   */
+  resumeAfterRestore(): void {
+    if (!this.restoredFromSnapshot) return;
+    this.restoredFromSnapshot = false;
+
+    const ctx = this.context;
+    const round = ctx.currentRound;
+    if (!round || !round.currentTurn) return;
+
+    // If it's a human's turn and timers are configured, start a fresh timer
+    if (this.timer.isEnabled()) {
+      this.timer.start(round.currentTurn);
+    }
+
+    // If it's a bot's turn, trigger bot decision
+    this.botRunner.onStateChange(() => this.broadcastState());
   }
 
   /** Clean up resources */

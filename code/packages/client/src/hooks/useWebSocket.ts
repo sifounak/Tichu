@@ -80,6 +80,11 @@ export function useWebSocket({
             ws.send(JSON.stringify({ type: 'HEARTBEAT_PONG' }));
             return;
           }
+          // Server is about to restart — reset retry count and allow auto-reconnect
+          if (result.data.type === 'SERVER_SHUTTING_DOWN') {
+            retryCountRef.current = 0;
+            intentionalCloseRef.current = false;
+          }
           onMessageRef.current(result.data);
         } else {
           console.warn('[WS] Invalid server message:', result.error.issues);

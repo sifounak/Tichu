@@ -192,6 +192,11 @@ export class ConnectionManager {
     return null;
   }
 
+  /** Return all connected WebSocket instances */
+  getAllSockets(): WebSocket[] {
+    return Array.from(this.clients.keys());
+  }
+
   /** Total number of connected clients */
   get size(): number {
     return this.clients.size;

@@ -163,6 +163,9 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   // Heartbeat (application-level — requires JavaScript to respond, unlike protocol-level ping/pong)
   z.object({ type: z.literal('HEARTBEAT_PING') }),
 
+  // Graceful restart notification
+  z.object({ type: z.literal('SERVER_SHUTTING_DOWN') }),
+
   // Error
   z.object({ type: z.literal('ERROR'), code: z.string(), message: z.string() }),
 ]);
