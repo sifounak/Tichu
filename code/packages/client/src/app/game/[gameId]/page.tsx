@@ -847,11 +847,16 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     { seat: mySeat!, call: gameStore.myTichuCall },
     ...gameStore.otherPlayers.map((p) => ({ seat: p.seat, call: p.tichuCall })),
   ];
-  // Seats whose Tichu call has failed (another player went out first)
+  // Seats whose Tichu call has failed or succeeded
   const firstOut = view.finishOrder.length > 0 ? view.finishOrder[0] : null;
   const tichuFailedSeats = new Set(
     tichuCalls
       .filter((tc) => tc.call !== 'none' && firstOut !== null && firstOut !== tc.seat)
+      .map((tc) => tc.seat),
+  );
+  const tichuSucceededSeats = new Set(
+    tichuCalls
+      .filter((tc) => tc.call !== 'none' && firstOut !== null && firstOut === tc.seat)
       .map((tc) => tc.seat),
   );
 
@@ -1157,6 +1162,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
             seatNames={seatNames}
             mySeat={mySeat!}
             tichuFailedSeats={tichuFailedSeats}
+            tichuSucceededSeats={tichuSucceededSeats}
             vacatedSeats={gameStore.vacatedSeats}
           />
         </div>
