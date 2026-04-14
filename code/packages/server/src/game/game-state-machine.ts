@@ -1104,4 +1104,10 @@ export function createGameActor(gameId: string, config?: Partial<GameConfig>) {
   });
 }
 
+export function createGameActorFromSnapshot(snapshot: unknown) {
+  return createActor(gameMachine, {
+    snapshot: snapshot as any,
+  });
+}
+
 export type GameActor = ActorRefFrom<typeof gameMachine>;
