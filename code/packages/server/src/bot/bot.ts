@@ -809,7 +809,6 @@ export class Bot implements BotStrategy {
     const hasPhoenix = combo.cards.some((gc) => isPhoenix(gc.card));
     if (!hasPhoenix) return 'neutral';
 
-    const allAcesAccountedFor = this.cardTracker.allAcesAccountedFor();
     const allAcesPlayed = this.cardTracker.allAcesPlayed();
 
     // ─── NEVER rules ───
