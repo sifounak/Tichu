@@ -2,6 +2,7 @@ import type {
   Seat,
   Team,
   GameConfig,
+  RoomConfig,
   GameCard,
   RoundScore,
   RoundState,
@@ -119,7 +120,7 @@ export interface RoomSnapshot {
   roomName: string;
   hostSeat: Seat;
   players: Array<{ seat: Seat; name: string; isBot: boolean }>;
-  config: GameConfig;
+  config: RoomConfig;
   gameInProgress: true;
   seatToUserId: Record<string, string>;
 }
