@@ -1106,6 +1106,7 @@ export function createGameActor(gameId: string, config?: Partial<GameConfig>) {
 
 export function createGameActorFromSnapshot(snapshot: unknown) {
   return createActor(gameMachine, {
+    input: { gameId: '' },
     snapshot: snapshot as any,
   });
 }
