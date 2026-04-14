@@ -1,6 +1,7 @@
 // REQ-F-MP09: Optional turn timer with auto-pass on timeout
 
 import type { Seat } from '@tichu/shared';
+import type { TimerSnapshot } from './game-serializer.js';
 
 /** Callback fired when a player's turn times out */
 export type TurnTimeoutCallback = (seat: Seat) => void;
@@ -89,5 +90,30 @@ export class TurnTimer {
   /** Dispose of the timer (call on cleanup) */
   dispose(): void {
     this.stop();
+  }
+
+  /**
+   * Serialize the current timer state to a snapshot.
+   * Returns null when the timer is disabled or not currently active.
+   */
+  serialize(): TimerSnapshot | null {
+    if (this.durationMs === null || this.currentSeat === null || this.startTime === null) {
+      return null;
+    }
+    return {
+      currentSeat: this.currentSeat,
+      startTime: this.startTime,
+      durationMs: this.durationMs,
+    };
+  }
+
+  /**
+   * Restore a TurnTimer from a snapshot.
+   * The timer is created with the correct duration but is NOT started —
+   * the caller starts it explicitly after the first human reconnects.
+   */
+  static restore(snapshot: TimerSnapshot, onTimeout: TurnTimeoutCallback): TurnTimer {
+    const durationSeconds = snapshot.durationMs / 1000;
+    return new TurnTimer(durationSeconds, onTimeout);
   }
 }
