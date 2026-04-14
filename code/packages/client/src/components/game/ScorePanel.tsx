@@ -20,6 +20,8 @@ export interface ScorePanelProps {
   mySeat: Seat;
   /** Seats whose Tichu call has failed (another player went out first) */
   tichuFailedSeats?: Set<Seat>;
+  /** Seats whose Tichu call succeeded (they went out first) */
+  tichuSucceededSeats?: Set<Seat>;
   /** Seats that are currently vacated (empty) */
   vacatedSeats?: Seat[];
 }
@@ -44,6 +46,7 @@ export const ScorePanel = memo(function ScorePanel({
   seatNames,
   mySeat,
   tichuFailedSeats,
+  tichuSucceededSeats,
   vacatedSeats,
 }: ScorePanelProps) {
   const [expanded, setExpanded] = useState(false);
@@ -56,12 +59,14 @@ export const ScorePanel = memo(function ScorePanel({
   function renderName(seat: Seat) {
     const call = callMap.get(seat);
     const failed = call && tichuFailedSeats?.has(seat);
+    const succeeded = call && tichuSucceededSeats?.has(seat);
     const isEmpty = vacatedSeats?.includes(seat);
+    const stateClass = failed ? styles.tichuBadgeFailed : succeeded ? styles.tichuBadgeSucceeded : '';
     return (
       <span className={styles.playerName}>
         {isEmpty ? '(Empty)' : seatNames[seat]}
         {call && (
-          <span className={`${styles.tichuBadge} ${call === 'grandTichu' ? styles.grandTichu : styles.tichu} ${failed ? styles.tichuBadgeFailed : ''}`}>
+          <span className={`${styles.tichuBadge} ${call === 'grandTichu' ? styles.grandTichu : styles.tichu} ${stateClass}`}>
             {call === 'grandTichu' ? 'GT' : 'T'}
           </span>
         )}

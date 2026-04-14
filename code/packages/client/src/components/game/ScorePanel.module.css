@@ -61,11 +61,16 @@
   color: white;
 }
 
-/* Failed Tichu badge — strikethrough */
+/* Failed Tichu badge — grey with strikethrough (matches PlayerSeat banner) */
 .tichuBadgeFailed {
-  opacity: 0.6;
+  background: #666;
   text-decoration: line-through;
   text-decoration-thickness: 2px;
+}
+
+/* Succeeded Tichu badge — green (matches PlayerSeat banner) */
+.tichuBadgeSucceeded {
+  background: #43a047;
 }
 
 .historyToggle {
