@@ -17,6 +17,9 @@ export default defineConfig({
         'src/**/index.ts',       // Barrel exports
       ],
       reporter: ['text', 'html', 'json'],
+      thresholds: {
+        statements: 80,
+      },
     },
   },
   resolve: {

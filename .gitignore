@@ -6,6 +6,7 @@ node_modules/
 dist/
 .next/
 out/
+*.tsbuildinfo
 
 # Environment
 .env
@@ -32,6 +33,12 @@ coverage/
 
 # Turbo
 .turbo/
+
+# Runtime data
+code/packages/server/data/
+
+# Superpowers plugin
+.superpowers/
 
 # Misc
 *.log

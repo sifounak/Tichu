@@ -155,43 +155,40 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         uiStore.setDisconnectVoteRequired(true);
       } else if (msg.type === 'DISCONNECT_VOTE_UPDATE') {
         // REQ-F-ES04: Per-seat vote status update
-        uiStore.setDisconnectVotes((msg as any).votes);
-        uiStore.setDisconnectCountdown(Math.ceil((msg as any).timeoutMs / 1000));
+        uiStore.setDisconnectVotes(msg.votes);
+        uiStore.setDisconnectCountdown(Math.ceil(msg.timeoutMs / 1000));
       } else if (msg.type === 'VOTE_STARTED') {
         // REQ-F-PV05/PV07: Vote started — show overlay
-        const m = msg as any;
         uiStore.setActiveVote({
-          voteId: m.voteId,
-          voteType: m.voteType,
-          initiatorSeat: m.initiatorSeat,
-          targetSeat: m.targetSeat,
+          voteId: msg.voteId,
+          voteType: msg.voteType,
+          initiatorSeat: msg.initiatorSeat,
+          targetSeat: msg.targetSeat,
           votes: {},
-          timeoutMs: m.timeoutMs,
+          timeoutMs: msg.timeoutMs,
         });
         uiStore.setKickTargetMode(false);
-        uiStore.setVoteCountdown(Math.ceil(m.timeoutMs / 1000));
+        uiStore.setVoteCountdown(Math.ceil(msg.timeoutMs / 1000));
       } else if (msg.type === 'VOTE_UPDATE') {
         // REQ-NF-PV01: Real-time vote update
-        const m = msg as any;
         uiStore.setActiveVote({
           ...uiStore.activeVote!,
-          votes: m.votes,
-          timeoutMs: m.timeoutMs,
+          votes: msg.votes,
+          timeoutMs: msg.timeoutMs,
         });
-        uiStore.setVoteCountdown(Math.ceil(m.timeoutMs / 1000));
+        uiStore.setVoteCountdown(Math.ceil(msg.timeoutMs / 1000));
       } else if (msg.type === 'VOTE_RESULT') {
         // REQ-F-PV16-PV19: Vote resolved
-        const m = msg as any;
         uiStore.setActiveVote(null);
         // REQ-F-PV16: Build kick success message with player name from seatNames
-        let resultMessage = m.message;
-        if (m.voteType === 'kick' && m.passed && m.targetSeat && !resultMessage) {
-          const targetName = roomPlayers.find(p => p.seat === m.targetSeat)?.name ?? m.targetSeat;
+        let resultMessage = msg.message;
+        if (msg.voteType === 'kick' && msg.passed && msg.targetSeat && !resultMessage) {
+          const targetName = roomPlayers.find(p => p.seat === msg.targetSeat)?.name ?? msg.targetSeat;
           resultMessage = `${targetName} was kicked!`;
         }
         uiStore.setVoteResult({
-          voteType: m.voteType,
-          passed: m.passed,
+          voteType: msg.voteType,
+          passed: msg.passed,
           message: resultMessage,
         });
         // Clear result after 2 seconds
@@ -204,27 +201,27 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         gameStore.applyServerMessage(msg);
       } else if (msg.type === 'SEAT_OFFERED') {
         // REQ-F-ES06: Seat offer for spectator (multi-seat support)
-        uiStore.setSeatOffer({ seats: (msg as any).seats as Seat[], timeoutMs: (msg as any).timeoutMs });
+        uiStore.setSeatOffer({ seats: msg.seats as Seat[], timeoutMs: msg.timeoutMs });
       } else if (msg.type === 'QUEUE_STATUS') {
         // REQ-F-SP08b: Queue status update
         uiStore.setQueueStatus({
-          decidingSpectator: (msg as any).decidingSpectator,
-          position: (msg as any).position,
-          timeoutMs: (msg as any).timeoutMs,
+          decidingSpectator: msg.decidingSpectator,
+          position: msg.position,
+          timeoutMs: msg.timeoutMs,
         });
       } else if (msg.type === 'SEATS_AVAILABLE') {
         // REQ-F-SP08c: Seats up for grabs
-        uiStore.setAvailableSeats((msg as any).seats as Seat[]);
+        uiStore.setAvailableSeats(msg.seats as Seat[]);
       } else if (msg.type === 'ROOM_CLOSED') {
         // REQ-F-SP15: Room closed — return to lobby
         leaveRoom();
         gameStore.reset();
-        sessionStorage.setItem('tichu_kicked_message', (msg as any).message ?? 'The room was closed');
+        sessionStorage.setItem('tichu_kicked_message', msg.message ?? 'The room was closed');
         router.push('/lobby');
       } else if (msg.type === 'ROOM_JOINED') {
         // REQ-F-SP09: Spectator promoted to player — update seat
         const roomStore = useRoomStore.getState();
-        roomStore.setRoom((msg as any).roomCode, (msg as any).seat);
+        roomStore.setRoom(msg.roomCode, msg.seat);
         // Clear spectator queue state
         uiStore.setSeatOffer(null);
         uiStore.setQueueStatus(null);
@@ -233,24 +230,24 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         // REQ-F-CG13: Handle room updates for pre-room state
         const rs = useRoomStore.getState();
         rs.updateRoom(
-          (msg as any).roomName,
-          (msg as any).players,
-          (msg as any).hostSeat,
-          (msg as any).config as GameConfig,
-          (msg as any).gameInProgress,
-          (msg as any).spectatorCount ?? 0,
-          (msg as any).spectatorNames ?? [],
-          (msg as any).readyPlayers ?? [],
+          msg.roomName,
+          msg.players,
+          msg.hostSeat,
+          msg.config as GameConfig,
+          msg.gameInProgress,
+          msg.spectatorCount ?? 0,
+          msg.spectatorNames ?? [],
+          msg.readyPlayers ?? [],
         );
         // REQ-F-PV18: Game ended (restart vote) — reset game store so PreRoomView shows
-        if (!(msg as any).gameInProgress && gameStore.gameId) {
+        if (!msg.gameInProgress && gameStore.gameId) {
           gameStore.reset();
           uiStore.clearPlayerVoteState();
         }
       } else if (msg.type === 'KICKED') {
         leaveRoom();
         gameStore.reset();
-        sessionStorage.setItem('tichu_kicked_message', (msg as any).message ?? 'You were kicked');
+        sessionStorage.setItem('tichu_kicked_message', msg.message ?? 'You were kicked');
         router.push('/lobby');
       } else if (msg.type === 'ROOM_LEFT') {
         leaveRoom();

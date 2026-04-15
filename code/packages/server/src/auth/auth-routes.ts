@@ -38,8 +38,8 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
         password: body.password,
       });
       return { token: result.token, userId: result.userId };
-    } catch (err: any) {
-      return reply.status(409).send({ error: err.message });
+    } catch (err: unknown) {
+      return reply.status(409).send({ error: err instanceof Error ? err.message : 'Registration failed' });
     }
   });
 
@@ -54,8 +54,8 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
     try {
       const result = await loginAccount(database, jwtSecret, body.identifier, body.password);
       return { token: result.token, userId: result.userId, username: result.username };
-    } catch (err: any) {
-      return reply.status(401).send({ error: err.message });
+    } catch (err: unknown) {
+      return reply.status(401).send({ error: err instanceof Error ? err.message : 'Login failed' });
     }
   });
 
@@ -86,6 +86,7 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
   });
 
   // ─── REQ-F-API02: Partner stats ──────────────────────────────────────
+  // @deprecated Superseded by /api/players/:userId/relationships — no client callers
 
   fastify.get('/api/players/:userId/partners', async (request) => {
     const { userId } = request.params as { userId: string };
@@ -94,6 +95,7 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
   });
 
   // ─── REQ-F-API03: Opponent stats ────────────────────────────────────
+  // @deprecated Superseded by /api/players/:userId/relationships — no client callers
 
   fastify.get('/api/players/:userId/opponents', async (request) => {
     const { userId } = request.params as { userId: string };
@@ -149,6 +151,7 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
   });
 
   // ─── Recent games ────────────────────────────────────────────────────
+  // @deprecated No client callers — consider removing or wiring to a UI
 
   fastify.get('/api/games/recent', async (request, reply) => {
     const query = request.query as { limit?: string };

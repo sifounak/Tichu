@@ -41,6 +41,8 @@ export class RoundEventTracker {
   private processedBombCount = new Map<Seat, number>();
   /** REQ-F-CS07: Track seats that have been detected as stuck with Dog (once per round) */
   private dogStuckDetected = new Set<SeatType>();
+  /** Track Dog ownership pre-pass for keptDogDuringPass (resolved in capturePostPassAnalysis) */
+  private hadDogPrePass = new Set<Seat>();
 
   /** Get accumulated summaries for all seats */
   getSummaries(): Map<Seat, RoundEventSummary> {
@@ -59,6 +61,7 @@ export class RoundEventTracker {
     this.currentRoundNumber = roundNumber;
     this.processedBombCount.clear();
     this.dogStuckDetected.clear();
+    this.hadDogPrePass.clear();
     for (const seat of SEATS_IN_ORDER) {
       this.summaries.set(seat, createBlankSummary(seat, roundNumber));
     }
@@ -481,7 +484,7 @@ export class RoundEventTracker {
       // Strong = 2+ of Dragon/Phoenix/Aces
       if (powerCardCount >= 2) summary.strongPrePassHand = true;
       // Track dog ownership pre-pass for keptDogDuringPass (resolved in capturePostPassAnalysis)
-      if (hasDogPrePass) (summary as any)._hadDogPrePass = true;
+      if (hasDogPrePass) this.hadDogPrePass.add(summary.seat);
     }
   }
 
@@ -500,11 +503,10 @@ export class RoundEventTracker {
       if (allUnder10 && hand.length > 0) summary.allCardsUnder10AfterPass = true;
 
       // Kept Dog during pass: had Dog before AND still have it after
-      const hadDogPrePass = (summary as any)._hadDogPrePass === true;
-      if (hadDogPrePass) {
+      if (this.hadDogPrePass.has(summary.seat)) {
         const hasDogPostPass = hand.some(gc => isDog(gc.card));
         if (hasDogPostPass) summary.keptDogDuringPass = true;
-        delete (summary as any)._hadDogPrePass;
+        this.hadDogPrePass.delete(summary.seat);
       }
     }
   }

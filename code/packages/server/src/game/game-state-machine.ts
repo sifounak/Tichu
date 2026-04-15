@@ -10,7 +10,7 @@
 // REQ-F-MP09: Optional turn timer
 // REQ-F-BI01: Out-of-turn bomb interrupts
 
-import { setup, assign, createActor, type ActorRefFrom } from 'xstate';
+import { setup, assign, createActor, type ActorRefFrom, type SnapshotFrom } from 'xstate';
 import type {
   GameCard,
   Rank,
@@ -1108,9 +1108,12 @@ export function createGameActor(gameId: string, config?: Partial<GameConfig>) {
 }
 
 export function createGameActorFromSnapshot(snapshot: unknown) {
+  // XState 5 typing gap: createActor requires the exact machine snapshot type,
+  // but we're restoring from JSON (unknown). Safe because the snapshot was
+  // originally produced by getPersistedSnapshot() on the same machine definition.
   return createActor(gameMachine, {
     input: { gameId: '' },
-    snapshot: snapshot as any,
+    snapshot: snapshot as SnapshotFrom<typeof gameMachine>,
   });
 }
 

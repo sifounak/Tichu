@@ -185,10 +185,10 @@ export function verifyToken(token: string, jwtSecret: string): AuthTokenPayload 
     const decoded = jwt.verify(token, jwtSecret);
     if (
       typeof decoded === 'object' && decoded !== null &&
-      typeof (decoded as any).userId === 'string' &&
-      typeof (decoded as any).email === 'string'
+      'userId' in decoded && typeof decoded.userId === 'string' &&
+      'email' in decoded && typeof decoded.email === 'string'
     ) {
-      return { userId: (decoded as any).userId, email: (decoded as any).email };
+      return { userId: decoded.userId, email: decoded.email };
     }
     return null;
   } catch {
