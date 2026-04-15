@@ -564,6 +564,7 @@ describe('GameStateMachine', () => {
         'roundScoring',
         'grandTichuDecision',
         'awaitingDragonGift',
+        'awaitingEndOfTrickBomb',
         'gameOver',
       ]).toContain(finalState);
       actor.stop();
