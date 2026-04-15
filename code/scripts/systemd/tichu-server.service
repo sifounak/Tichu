@@ -1,0 +1,28 @@
+# REQ-F-DS07: systemd unit file for Fastify game server
+# REQ-NF-DS03: Consistent paths — /files/.www/tichu_source
+#
+# Install:
+#   sudo cp tichu-server.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable tichu-server
+
+[Unit]
+Description=Tichu Game Server (Fastify + WebSocket)
+After=network.target
+Documentation=https://github.com/yourusername/tichu
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/files/.www/tichu_source/code/packages/server
+ExecStart=/usr/bin/node dist/index.js
+EnvironmentFile=/files/.www/tichu_source/code/scripts/.env.prod
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
