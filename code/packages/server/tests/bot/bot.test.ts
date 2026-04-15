@@ -83,6 +83,15 @@ describe('Bot', () => {
     nextId = 1;
   });
 
+  // ─── Difficulty ──────────────────────────────────────────────────────────
+
+  describe('difficulty', () => {
+    it('reports difficulty as expert', () => {
+      const bot = new Bot();
+      expect(bot.difficulty).toBe('expert');
+    });
+  });
+
   // ─── Grand Tichu (REQ-F-GT01, REQ-F-GT02) ──────────────────────────────
 
   describe('chooseGrandTichu', () => {
