@@ -92,7 +92,23 @@ function playFullRound(actor: ReturnType<typeof createTestActor>): void {
   let safety = 0;
   while (safety < 200) {
     const snap = actor.getSnapshot();
-    if (snap.value !== 'playing') break;
+    const state = snap.value;
+
+    // Handle end-of-trick bomb window
+    if (state === 'awaitingEndOfTrickBomb') {
+      actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+      safety++;
+      continue;
+    }
+
+    // Handle round scoring
+    if (state === 'roundScoring') {
+      actor.send({ type: 'ADVANCE_FROM_SCORING' });
+      safety++;
+      continue;
+    }
+
+    if (state !== 'playing') break;
 
     const round = snap.context.currentRound!;
     const seat = round.currentTurn!;

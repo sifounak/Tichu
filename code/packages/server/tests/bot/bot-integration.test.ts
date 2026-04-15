@@ -46,6 +46,7 @@ function flushTimers(): Promise<void> {
 const VALID_GAME_STATES = [
   'gameOver', 'playing', 'grandTichuDecision', 'cardPassing',
   'cardPassing', 'roundScoring', 'awaitingDragonGift',
+  'awaitingEndOfTrickBomb',
 ];
 
 /**
@@ -60,13 +61,23 @@ async function driveGameToCompletion(
   let iterations = 0;
 
   while (getState(actor) !== 'gameOver' && iterations < maxIterations) {
-    runner.onStateChange();
+    const state = getState(actor);
+
+    if (state === 'awaitingEndOfTrickBomb') {
+      // Let bots attempt bombs, then send timeout to advance
+      runner.onStateChange();
+      await flushTimers();
+      if (getState(actor) === 'awaitingEndOfTrickBomb') {
+        actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+      }
+    } else if (state === 'roundScoring') {
+      actor.send({ type: 'ADVANCE_FROM_SCORING' });
+    } else {
+      runner.onStateChange();
+    }
+
     await flushTimers();
     iterations++;
-
-    if (getState(actor) === 'roundScoring') {
-      await flushTimers();
-    }
   }
 
   return {

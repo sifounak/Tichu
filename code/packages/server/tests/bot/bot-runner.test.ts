@@ -524,18 +524,23 @@ describe('BotRunner full game smoke test', () => {
     const maxIterations = 5000;
 
     while (getState(actor) !== 'gameOver' && iterations < maxIterations) {
-      runner.onStateChange();
-      await flushTimers();
-      iterations++;
-
       const state = getState(actor);
 
-      // If stuck in roundScoring, the machine should auto-transition
-      // to next round or gameOver
-      if (state === 'roundScoring') {
-        // roundScoring auto-transitions, just flush
+      if (state === 'awaitingEndOfTrickBomb') {
+        // Let bots attempt bombs, then send timeout to advance
+        runner.onStateChange();
         await flushTimers();
+        if (getState(actor) === 'awaitingEndOfTrickBomb') {
+          actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+        }
+      } else if (state === 'roundScoring') {
+        actor.send({ type: 'ADVANCE_FROM_SCORING' });
+      } else {
+        runner.onStateChange();
       }
+
+      await flushTimers();
+      iterations++;
     }
 
     // Game should eventually end (or at least get far)
