@@ -178,7 +178,7 @@ export function saveGameResult(
             roundNumber,
             userId: player.userId,
             seat: summary.seat,
-            eventData: summary as any,
+            eventData: summary as unknown,
           }).run();
 
           // Upsert Group C stats
@@ -599,8 +599,8 @@ export function getGameTichuSummaries(
   for (const row of results) {
     if (!summaries.has(row.game_id)) summaries.set(row.game_id, []);
     summaries.get(row.game_id)!.push({
-      tichuCalls: typeof row.tichu_calls === 'string' ? JSON.parse(row.tichu_calls) : row.tichu_calls as any,
-      finishOrder: typeof row.finish_order === 'string' ? JSON.parse(row.finish_order) : row.finish_order as any,
+      tichuCalls: typeof row.tichu_calls === 'string' ? JSON.parse(row.tichu_calls) as Record<string, string> : row.tichu_calls as Record<string, string>,
+      finishOrder: typeof row.finish_order === 'string' ? JSON.parse(row.finish_order) as Seat[] : row.finish_order as Seat[],
     });
   }
   return summaries;

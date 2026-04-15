@@ -48,6 +48,16 @@ import {
   deserializeNumericKeyMap,
 } from './game-serializer.js';
 
+/** Minimal shape of the XState persisted snapshot for serialize/restore operations. */
+interface PersistedSnapshotLike {
+  context?: {
+    grandTichuDecisions?: Set<Seat> | Seat[];
+    cardPassDecisions?: Set<Seat> | Seat[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 /**
  * Orchestrates a single game: receives client messages, validates moves
  * via the shared engine, transitions the state machine, and broadcasts updates.
@@ -184,7 +194,7 @@ export class GameManager {
 
       case 'DISCONNECT_VOTE':
         // REQ-F-ES04: Vote type narrowed to 'wait' | 'kick' — disconnect-handler rewrite in M2
-        this.disconnectHandler.handleVote(this.roomCode, seat, message.vote as any);
+        this.disconnectHandler.handleVote(this.roomCode, seat, message.vote);
         return; // Vote handler manages its own broadcasts
 
       // REQ-F-PV20: Player-initiated vote messages
@@ -209,8 +219,8 @@ export class GameManager {
       console.error(`[INVALID_MOVE] seat=${seat} type=${message.type} state=${stateVal} error=${result.error}`);
       // Use structured error code for partner safeguard; generic INVALID_MOVE for others
       const errorCode = result.error === 'PARTNER_ALREADY_CALLED' ? 'PARTNER_ALREADY_CALLED' : 'INVALID_MOVE';
-      const errorMessage = result.error === 'PARTNER_ALREADY_CALLED'
-        ? `PARTNER_ALREADY_CALLED:${(result as any).partnerCall}`
+      const errorMessage = result.error === 'PARTNER_ALREADY_CALLED' && 'partnerCall' in result
+        ? `PARTNER_ALREADY_CALLED:${result.partnerCall}`
         : result.error;
       this.broadcaster.sendError(ws, errorCode, errorMessage);
       return;
@@ -788,7 +798,7 @@ export class GameManager {
     // XState persisted snapshot contains the raw context. Sets are not
     // JSON-serializable (JSON.stringify(new Set()) === "{}"), so we must
     // convert them to arrays before saving.
-    const machineSnap = this.actor.getPersistedSnapshot() as any;
+    const machineSnap = this.actor.getPersistedSnapshot() as PersistedSnapshotLike;
     if (machineSnap?.context) {
       const ctx = machineSnap.context;
       if (ctx.grandTichuDecisions instanceof Set) {
@@ -836,9 +846,9 @@ export class GameManager {
     // Bypass the normal constructor by using Object.create
     const instance = Object.create(GameManager.prototype) as GameManager;
 
-    // Identity
-    (instance as any).gameId = snapshot.gameId;
-    (instance as any).roomCode = snapshot.roomCode;
+    // Identity — bypass readonly for Object.create hydration
+    (instance as { gameId: string }).gameId = snapshot.gameId;
+    (instance as { roomCode: string }).roomCode = snapshot.roomCode;
 
     // External dependencies
     instance.broadcaster = broadcaster;
@@ -848,7 +858,7 @@ export class GameManager {
     // Rehydrate Sets in the machine snapshot context before restoring the actor.
     // After serialize(), Sets are stored as arrays. If data was saved before
     // that fix, JSON.stringify(Set) produced "{}" — handle both cases.
-    const machineSnap = snapshot.machineSnapshot as any;
+    const machineSnap = snapshot.machineSnapshot as PersistedSnapshotLike;
     if (machineSnap?.context) {
       const ctx = machineSnap.context;
       if (ctx.grandTichuDecisions != null && !(ctx.grandTichuDecisions instanceof Set)) {

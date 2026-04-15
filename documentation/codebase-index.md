@@ -1,5 +1,7 @@
 # Tichu Web Game — Codebase Index
 
+For architecture decision rationale, see [decisions/](decisions/).
+
 ## Tech Stack & Infrastructure
 
 | Layer | Technology |
@@ -8,11 +10,11 @@
 | Language | TypeScript (strict, ES2022, ESM) |
 | Frontend | Next.js 15 (App Router), React 19, Zustand 5, Framer Motion 12 |
 | Backend | Fastify 5, ws (WebSocket), XState 5 (state machine) |
-| Database | PostgreSQL via Drizzle ORM + postgres.js |
+| Database | SQLite via Drizzle ORM + better-sqlite3 |
 | Auth | bcryptjs + JWT (7-day expiry) |
 | Validation | Zod (all WebSocket messages) |
 | Testing | Vitest 3 + @testing-library/react |
-| Style | CSS Modules + CSS custom properties (design tokens in globals.css) |
+| Style | CSS Modules + Tailwind v4 + CSS custom properties (design tokens in globals.css) |
 | Formatting | Prettier (single quotes, trailing commas, 100 width) |
 
 ## Repository Structure
