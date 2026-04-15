@@ -45,6 +45,7 @@ function createMockDatabase(): Database {
           where: vi.fn().mockResolvedValue(undefined),
         }),
       }),
+      all: vi.fn().mockReturnValue([]),
       execute: vi.fn().mockResolvedValue({ rows: [] }),
     } as any,
     client: {} as any,

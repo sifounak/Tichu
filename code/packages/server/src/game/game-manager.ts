@@ -39,14 +39,17 @@ import { VoteHandler } from './vote-handler.js';
 import { projectGameState, projectSpectatorView } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
 import { Bot } from '../bot/bot.js';
-import { RoundEventTracker } from './round-event-tracker.js';
-import type { RoundEventSummary } from './round-event-types.js';
 import type { GameSnapshot } from './game-serializer.js';
 import {
   serializeSet,
   deserializeSet,
-  deserializeNumericKeyMap,
 } from './game-serializer.js';
+// REQ-F-CP01: New event capture system (hybrid pre-play enrichment + post-play observation)
+import { GameEventCapture } from './game-event-capture.js';
+import { buildPrePlayContext } from './pre-play-context.js';
+import { detectCombination } from '@tichu/shared';
+import type { ActionSource, GameEventAccumulator } from './event-types.js';
+import { writeRecoveryFile as serializeRecoveryFile } from '../db/event-persistence.js';
 
 /** Minimal shape of the XState persisted snapshot for serialize/restore operations. */
 interface PersistedSnapshotLike {
@@ -86,13 +89,13 @@ export class GameManager {
   /** Seats occupied by players who are choosing which vacated seat to take */
   private choosingSeats = new Set<Seat>();
   /** REQ-F-PW01: Callback invoked when game reaches gameOver state */
-  private onGameEnd?: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => void;
+  private onGameEnd?: (context: GameMachineContext, joinedAfterSpectating: Set<string>) => void;
   /** REQ-F-SO15: Track players who joined as spectators then were promoted mid-game */
-  private joinedAfterSpectating = new Set<string>();
-  /** REQ-F-EC01: State-diff observer for mid-round card events */
-  private eventTracker = new RoundEventTracker();
-  /** Accumulated round events: roundNumber → summaries */
-  private roundEventHistory = new Map<number, RoundEventSummary[]>();
+  private readonly joinedAfterSpectating = new Set<string>();
+  /** REQ-F-CP01/ST01: New event capture system — accumulates structured event data in memory */
+  private readonly eventCapture: GameEventCapture;
+  /** REQ-F-CP02: Track when each player's turn started (for durationMs) */
+  private readonly turnStartTimes = new Map<Seat, string>();
   /** Set to true when this instance was created by restore(), cleared by resumeAfterRestore() */
   private restoredFromSnapshot = false;
 
@@ -113,6 +116,9 @@ export class GameManager {
     // Create the XState game actor
     this.actor = createGameActor(gameId, config);
     this.moveHandler = new MoveHandler(this.actor);
+
+    // REQ-F-CP01: Initialize event capture system
+    this.eventCapture = new GameEventCapture(parseInt(gameId) || 0);
 
     // REQ-F-MP01: Create bot runner for automated bot decisions
     this.botRunner = new BotRunner(this.actor, undefined, this.moveHandler);
@@ -177,11 +183,17 @@ export class GameManager {
         break;
 
       case 'PLAY_CARDS':
+        // REQ-F-CP02: Compute pre-play context before state machine transition
+        this.recordPrePlayForAction(seat, message.cardIds, 'player');
         result = this.moveHandler.handlePlayCards(seat, message.cardIds, message.phoenixAs, message.wish);
+        if (!result.ok) this.eventCapture.discardPrePlayContext(seat);
         break;
 
       case 'PASS_TURN':
+        // REQ-F-CP02: Compute pre-play context for pass action
+        this.recordPrePlayForAction(seat, null, 'player');
         result = this.moveHandler.handlePassTurn(seat);
+        if (!result.ok) this.eventCapture.discardPrePlayContext(seat);
         break;
 
       case 'DECLARE_WISH':
@@ -298,18 +310,13 @@ export class GameManager {
 
   /** REQ-F-PW01: Wire the game-end callback — called when game reaches gameOver state.
    *  Called by room-handler to register persistence logic. */
-  wireGameEndCallback(onGameEnd: (context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => void): void {
+  wireGameEndCallback(onGameEnd: (context: GameMachineContext, joinedAfterSpectating: Set<string>) => void): void {
     this.onGameEnd = onGameEnd;
   }
 
   /** REQ-F-SO15: Mark a userId as having joined the game after spectating */
   markJoinedAfterSpectating(userId: string): void {
     this.joinedAfterSpectating.add(userId);
-  }
-
-  /** REQ-F-CS24: Get current round event summaries (for pass stats on abandon) */
-  getCurrentRoundSummaries(): RoundEventSummary[] {
-    return this.eventTracker.getAllSummaries();
   }
 
   /** REQ-F-CS24: Check if game is past card passing phase (pass data captured) */
@@ -496,8 +503,8 @@ export class GameManager {
     const state = this.stateValue;
     const round = this.context.currentRound;
 
-    // REQ-F-EC01: Feed state to event tracker before any other logic
-    this.eventTracker.onStateChange(this.context);
+    // REQ-F-CP03: Feed state to new event capture system
+    this.eventCapture.onStateChange(this.context);
 
     // Clear any pending auto-pass
     if (this.autoPassTimer) {
@@ -522,11 +529,12 @@ export class GameManager {
     // Round scoring: save round event summaries, then broadcast
     if (state === 'roundScoring') {
       this.timer.stop();
-      // REQ-F-EC04: Archive round events before advancing
+      // REQ-F-CP06: Finalize new event capture round data
       if (round) {
-        this.eventTracker.finalizeRound();
-        const summaries = this.eventTracker.getAllSummaries();
-        this.roundEventHistory.set(round.roundNumber, summaries);
+        this.eventCapture.finalizePlayerRoundScoring(round);
+        this.eventCapture.finalizeRound();
+        // REQ-F-ST02: Serialize recovery file at round end
+        this.writeRecoveryFile();
       }
       this.broadcastState();
       if (this.scoringTimer) clearTimeout(this.scoringTimer);
@@ -545,7 +553,7 @@ export class GameManager {
       this.broadcastState();
       if (this.onGameEnd) {
         try {
-          this.onGameEnd(this.context, this.roundEventHistory, this.joinedAfterSpectating);
+          this.onGameEnd(this.context, this.joinedAfterSpectating);
         } catch {
           // Persistence failure must not crash the game server
         }
@@ -592,6 +600,8 @@ export class GameManager {
     // Manage turn timer
     if (state === 'playing' && round?.currentTurn) {
       this.timer.start(round.currentTurn);
+      // REQ-F-CP02: Track turn start time for pre-play enrichment timing
+      this.turnStartTimes.set(round.currentTurn, new Date().toISOString());
       // REQ-F-TT05: Broadcast immediately so clients receive timer data
       // (bot runner only broadcasts after bot actions, not for human turns)
       this.broadcastState();
@@ -613,6 +623,8 @@ export class GameManager {
           if (shouldAutoPass) {
             this.autoPassTimer = setTimeout(() => {
               if (this.destroyed) return;
+              // REQ-F-CP02/CP17: Record pre-play context for auto-pass
+              this.recordPrePlayForAction(seat, null, 'automation');
               this.actor.send({ type: 'PASS_TURN', seat });
               this.broadcastState();
             }, 500);
@@ -658,6 +670,8 @@ export class GameManager {
 
     // If can pass, let the state machine handle it
     if (canPlayerPass(hand, round.currentTrick, wish)) {
+      // REQ-F-CP02: Record pre-play context for timeout pass
+      this.recordPrePlayForAction(seat, null, 'timeout');
       this.actor.send({ type: 'TURN_TIMEOUT', seat });
       this.broadcastState();
       return;
@@ -666,6 +680,8 @@ export class GameManager {
     // Must play — pick the best auto-play card(s)
     const autoPlay = this.pickAutoPlay(hand, round, wish);
     if (autoPlay) {
+      // REQ-F-CP02: Record pre-play context for timeout auto-play
+      this.recordPrePlayForAction(seat, autoPlay.map(gc => gc.id), 'timeout');
       this.actor.send({ type: 'PLAY_CARDS', seat, cards: autoPlay });
       this.broadcastState();
     }
@@ -816,12 +832,6 @@ export class GameManager {
       vacatedSeats: serializeSet(this.vacatedSeats),
       choosingSeats: serializeSet(this.choosingSeats),
       joinedAfterSpectating: serializeSet(this.joinedAfterSpectating),
-      roundEventHistory: Object.fromEntries(
-        Array.from(this.roundEventHistory.entries()).map(
-          ([k, v]) => [String(k), v],
-        ),
-      ),
-      currentRoundEvents: this.eventTracker.serialize(),
       endOfTrickBombWindowEndTime: this.endOfTrickBombWindowEndTime,
       timerState: this.timer.serialize(),
       botSeats: this.botRunner.getBotSeats(),
@@ -900,13 +910,11 @@ export class GameManager {
     // Restore Sets
     instance.vacatedSeats = deserializeSet(snapshot.vacatedSeats);
     instance.choosingSeats = deserializeSet(snapshot.choosingSeats);
-    instance.joinedAfterSpectating = deserializeSet(snapshot.joinedAfterSpectating);
+    (instance as unknown as { joinedAfterSpectating: Set<string> }).joinedAfterSpectating = deserializeSet(snapshot.joinedAfterSpectating);
 
-    // Restore round event history (numeric key map)
-    instance.roundEventHistory = deserializeNumericKeyMap(snapshot.roundEventHistory);
-
-    // Restore current round event tracker
-    instance.eventTracker = RoundEventTracker.restore(snapshot.currentRoundEvents);
+    // REQ-F-CP01: Initialize fresh event capture for restored game
+    (instance as unknown as { eventCapture: GameEventCapture }).eventCapture = new GameEventCapture(parseInt(snapshot.gameId) || 0);
+    (instance as unknown as { turnStartTimes: Map<Seat, string> }).turnStartTimes = new Map();
 
     // Scalar fields
     instance.endOfTrickBombWindowEndTime = snapshot.endOfTrickBombWindowEndTime;
@@ -947,6 +955,62 @@ export class GameManager {
 
     // If it's a bot's turn, trigger bot decision
     this.botRunner.onStateChange(() => this.broadcastState());
+  }
+
+  /** REQ-F-CP01: Get accumulated event data (for persistence) */
+  getEventAccumulator(): GameEventAccumulator {
+    return this.eventCapture.getAccumulator();
+  }
+
+  /** REQ-F-ST02: Serialize recovery file with current accumulated data */
+  private writeRecoveryFile(): void {
+    try {
+      const acc = this.eventCapture.getAccumulator();
+      if (acc.rounds.length > 0) {
+        serializeRecoveryFile(acc.gameId, acc);
+      }
+    } catch {
+      // Recovery file write failure must not affect gameplay
+    }
+  }
+
+  /**
+   * REQ-F-CP02: Compute and record pre-play context before a play or pass action.
+   * Called before moveHandler/actor.send to capture enrichment fields.
+   */
+  private recordPrePlayForAction(seat: Seat, cardIds: number[] | null, actionSource: ActionSource): void {
+    const round = this.context.currentRound;
+    if (!round) return;
+
+    const hand = round.players[seat].hand;
+    const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
+    const legalPlays = getValidPlays(hand, round.currentTrick, wish);
+
+    // Determine chosen combination (null for pass)
+    let chosenCombination = null;
+    if (cardIds) {
+      const cards = hand.filter(gc => cardIds.includes(gc.id));
+      if (cards.length > 0) {
+        chosenCombination = detectCombination(cards) ?? null;
+      }
+    }
+
+    const handSizes = {} as Record<Seat, number>;
+    for (const s of SEATS_IN_ORDER) {
+      handSizes[s] = round.players[s].hand.length;
+    }
+
+    const prePlay = buildPrePlayContext({
+      seat,
+      actionSource,
+      legalPlays,
+      chosenCombination,
+      handSize: hand.length,
+      handSizes,
+      turnStartedAt: this.turnStartTimes.get(seat) ?? null,
+    });
+
+    this.eventCapture.recordPrePlayContext(seat, prePlay);
   }
 
   /** Clean up resources */
