@@ -14,10 +14,11 @@ import { RoomManager } from './room-manager.js';
 import { GameStore } from '../game/game-store.js';
 import { SeatQueue } from './seat-queue.js';
 import { VoteHandler } from '../game/vote-handler.js';
-import { saveGameResult, savePassStatsOnAbandon } from '../db/game-persistence.js';
+import { saveGameResult } from '../db/game-persistence.js';
+import { writeEventData, deleteRecoveryFile, writeEventDataOnAbandon } from '../db/event-persistence.js';
+import { updateCacheAfterGame } from '../db/stats-cache.js';
 import type { GameResult, RoundResult } from '../db/game-persistence.js';
 import type { GameMachineContext } from '../game/game-state-machine.js';
-import type { RoundEventSummary } from '../game/round-event-types.js';
 
 /**
  * Handles room-related WebSocket messages by routing them to the RoomManager.
@@ -663,8 +664,21 @@ export class RoomHandler {
       // REQ-F-PW01: Wire game-end callback for persistence
       if (this.database) {
         const db = this.database;
-        game.wireGameEndCallback((context: GameMachineContext, roundEvents: Map<number, RoundEventSummary[]>, joinedAfterSpectating: Set<string>) => {
-          this.persistGameResult(db, roomCode, room.players, context, roundEvents, joinedAfterSpectating);
+        const gameRef = game;
+        game.wireGameEndCallback((context: GameMachineContext, joinedAfterSpectating: Set<string>) => {
+          const dbGameId = this.persistGameResult(db, roomCode, room.players, context, joinedAfterSpectating);
+          // REQ-F-ST03/ST04: Write event data and clean up recovery file
+          if (dbGameId !== null) {
+            try {
+              const accumulator = gameRef.getEventAccumulator();
+              writeEventData(db, dbGameId, accumulator);
+              deleteRecoveryFile(accumulator.gameId);
+              // REQ-F-MC03: Incremental cache update after batch write
+              updateCacheAfterGame(db, dbGameId);
+            } catch (err) {
+              console.error(`[PERSIST] Failed to write event data for game ${dbGameId}:`, err);
+            }
+          }
         });
       }
 
@@ -715,42 +729,35 @@ export class RoomHandler {
     this.broadcastRoomUpdate(roomCode);
   }
 
-  /** REQ-F-CS24: Save pass stats from event tracker before game destruction */
-  private savePassStatsBeforeDestroy(roomCode: string, players: RoomPlayer[]): void {
+  /** REQ-F-ST06: Persist accumulated event data on game abandonment. */
+  private savePassStatsBeforeDestroy(roomCode: string, _players: RoomPlayer[]): void {
     if (!this.database) return;
     try {
       const game = this.gameStore.getGameByRoom(roomCode);
       if (!game || !game.isPastCardPassPhase()) return;
 
-      const summaries = game.getCurrentRoundSummaries();
-      if (summaries.length === 0) return;
-
-      const humanPlayers: Array<{ seat: Seat; userId: string }> = [];
-      for (const p of players) {
-        if (p.isBot) continue;
-        const userId = this.roomManager.getUserIdAtSeat(roomCode, p.seat);
-        if (userId) humanPlayers.push({ seat: p.seat, userId });
+      // REQ-F-ST06: Persist event data on game abandonment
+      const accumulator = game.getEventAccumulator();
+      if (accumulator.rounds.length > 0) {
+        writeEventDataOnAbandon(this.database, accumulator.gameId, accumulator);
       }
-      if (humanPlayers.length === 0) return;
-
-      savePassStatsOnAbandon(this.database, humanPlayers, summaries);
     } catch {
-      // Pass stat persistence failure must not block game destruction
+      // Event data persistence failure must not block game destruction
     }
   }
 
   // ─── Game Persistence (REQ-F-PW01) ─────────────────────────────────────
 
   /** REQ-F-PW01/PW02: Build GameResult + RoundResult[] from context and persist.
-   *  REQ-F-DB04: All inserts in a single transaction (handled by saveGameResult). */
+   *  REQ-F-DB04: All inserts in a single transaction (handled by saveGameResult).
+   *  Returns the database game ID on success, or null on failure. */
   private persistGameResult(
     database: Database,
     roomCode: string,
     players: RoomPlayer[],
     context: GameMachineContext,
-    roundEvents?: Map<number, RoundEventSummary[]>,
-    joinedAfterSpectating?: Set<string>,
-  ): void {
+    _joinedAfterSpectating?: Set<string>,
+  ): number | null {
     const winnerTeam = context.winner === 'northSouth' ? 'NS' as const : 'EW' as const;
 
     // Build player map: seat → { userId, name }
@@ -765,21 +772,13 @@ export class RoomHandler {
 
     const gameResult: GameResult = {
       roomCode,
-      startedAt: new Date(), // approximate — exact start time not tracked in context
+      startedAt: new Date(),
       winnerTeam,
       finalScoreNS: context.scores.northSouth,
       finalScoreEW: context.scores.eastWest,
       targetScore: context.config.targetScore,
       roundCount: context.roundHistory.length,
       players: playerMap,
-      // Pass full context data for Group A/B stat computation
-      scores: context.scores,
-      winner: context.winner,
-      roundScores: context.roundHistory,
-      // REQ-F-EC04: Pass round events for Group C stat persistence
-      roundEvents,
-      // REQ-F-SO14: Pass spectator-to-player transition set
-      joinedAfterSpectating,
     };
 
     // Convert RoundScore[] to RoundResult[]
@@ -810,7 +809,8 @@ export class RoomHandler {
       };
     });
 
-    saveGameResult(database, gameResult, rounds);
+    const dbGameId = saveGameResult(database, gameResult, rounds);
+    return dbGameId;
   }
 
   // ─── Seat Queue (REQ-F-SP07–SP10, SP27, SP28, SP31, SP32) ───────────

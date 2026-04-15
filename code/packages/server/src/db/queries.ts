@@ -154,7 +154,7 @@ export function getLeaderboard(
         THEN CAST(ps.grand_tichu_successes AS REAL) / ps.grand_tichu_calls
         ELSE 0
       END as grandTichuSuccessRate
-    FROM player_stats ps
+    FROM stats_cache ps
     JOIN users u ON u.id = ps.user_id
     WHERE ps.games_played >= ${minGames}
     ORDER BY ps.win_rate DESC, ps.games_played DESC
@@ -306,7 +306,7 @@ export function getPlayerProfile(
       ps.all_cards_under_10_after_pass as allCardsUnder10AfterPass,
       ps.double_bomb_in_trick as doubleBombInTrick,
       ps.all_players_bomb_in_round as allPlayersBombInRound
-    FROM player_stats ps
+    FROM stats_cache ps
     JOIN users u ON u.id = ps.user_id
     WHERE ps.user_id = ${userId}
     LIMIT 1
@@ -342,7 +342,7 @@ export function getPlayerPartners(
         THEN CAST(prs.games_won AS REAL) / prs.games_played
         ELSE 0
       END as winRate
-    FROM player_relational_stats prs
+    FROM relational_stats_cache prs
     LEFT JOIN users u ON u.id = prs.other_user_id
     WHERE prs.user_id = ${userId} AND prs.relationship = 'partner'
     ORDER BY prs.games_played DESC
@@ -367,7 +367,7 @@ export function getPlayerOpponents(
         THEN CAST(prs.games_won AS REAL) / prs.games_played
         ELSE 0
       END as winRate
-    FROM player_relational_stats prs
+    FROM relational_stats_cache prs
     LEFT JOIN users u ON u.id = prs.other_user_id
     WHERE prs.user_id = ${userId} AND prs.relationship = 'opponent'
     ORDER BY prs.games_played DESC
@@ -416,7 +416,7 @@ export function getPlayerRelationships(
         ELSE 0 END as opponentWinRate,
       SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.one_two_wins ELSE 0 END) as opponentOneTwoWins,
       SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.total_team_bombs ELSE 0 END) as opponentTotalTeamBombs
-    FROM player_relational_stats prs
+    FROM relational_stats_cache prs
     LEFT JOIN users u ON u.id = prs.other_user_id
     WHERE prs.user_id = ${userId}
     GROUP BY prs.other_user_id

@@ -8,8 +8,6 @@ import type {
   RoundState,
   CombinationType,
 } from '@tichu/shared';
-import type { RoundEventSummary } from './round-event-types.js';
-
 // ─── Conversion Helpers ────────────────────────────────────────────────────
 
 export function serializeSet<T>(set: Set<T>): T[] {
@@ -92,13 +90,6 @@ export interface BotSnapshot {
   lastRoundState: RoundState | null;
 }
 
-export interface EventTrackerSnapshot {
-  summaries: Record<string, RoundEventSummary>;
-  currentRoundNumber: number;
-  processedBombCount: Record<string, number>;
-  dogStuckDetected: Seat[];
-}
-
 export interface GameSnapshot {
   gameId: string;
   roomCode: string;
@@ -106,8 +97,6 @@ export interface GameSnapshot {
   vacatedSeats: Seat[];
   choosingSeats: Seat[];
   joinedAfterSpectating: string[];
-  roundEventHistory: Record<string, RoundEventSummary[]>;
-  currentRoundEvents: EventTrackerSnapshot;
   endOfTrickBombWindowEndTime: number | null;
   timerState: TimerSnapshot | null;
   botSeats: Seat[];
