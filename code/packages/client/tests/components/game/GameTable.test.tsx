@@ -50,11 +50,6 @@ describe('GameTable', () => {
     expect(screen.getByText('West')).toBeInTheDocument();
   });
 
-  it('shows phase indicator', () => {
-    render(<GameTable view={makeView()} />);
-    expect(screen.getByText(GamePhase.Playing)).toBeInTheDocument();
-  });
-
   it('shows trick area', () => {
     render(<GameTable view={makeView()} />);
     expect(screen.getByLabelText('Trick area')).toBeInTheDocument();

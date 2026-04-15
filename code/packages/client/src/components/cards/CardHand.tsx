@@ -28,7 +28,7 @@ export const CardHand = memo(function CardHand({
   faceDown = false,
 }: CardHandProps) {
   const sortedCards = useMemo(
-    () => [...cards].sort((a, b) => cardSortKey(b.card) - cardSortKey(a.card)),
+    () => [...cards].sort((a, b) => cardSortKey(a.card) - cardSortKey(b.card)),
     [cards],
   );
 
