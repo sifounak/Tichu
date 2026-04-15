@@ -59,8 +59,8 @@ export function cardAriaLabel(card: Card): string {
 
 /**
  * Sort key for ordering cards in hand.
- * Ascending left-to-right: lowest-value cards on the left, highest on the right.
- * Order (left to right): Dog, Mahjong, 2…A by rank, Phoenix, Dragon
+ * Hand is sorted descending left-to-right: highest-value cards on the left, lowest on the right.
+ * Order (left to right): Dragon, Phoenix, A…2 by rank, Mahjong, Dog
  *
  * Dog = 0 (leftmost), standard cards by ascending rank,
  * Dragon = 16 (rightmost).
