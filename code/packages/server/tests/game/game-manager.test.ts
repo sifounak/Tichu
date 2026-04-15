@@ -3,6 +3,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { GameManager } from '../../src/game/game-manager.js';
 import { DisconnectHandler } from '../../src/game/disconnect-handler.js';
+import { VoteHandler } from '../../src/game/vote-handler.js';
 import type { Broadcaster } from '../../src/ws/broadcaster.js';
 import type { WebSocket } from 'ws';
 import type { Seat, GameCard, ClientMessage, GameConfig, Rank } from '@tichu/shared';
@@ -32,14 +33,16 @@ function createMockWs(): WebSocket {
 function createTestManager(config?: Partial<GameConfig>) {
   const broadcaster = createMockBroadcaster();
   const disconnectHandler = new DisconnectHandler(broadcaster);
+  const voteHandler = new VoteHandler(broadcaster);
   const manager = new GameManager(
     'test-game',
     'ROOM1',
     broadcaster,
     disconnectHandler,
+    voteHandler,
     config,
   );
-  return { manager, broadcaster, disconnectHandler };
+  return { manager, broadcaster, disconnectHandler, voteHandler };
 }
 
 /** Seat all 4 players */
@@ -198,9 +201,12 @@ describe('GameManager', () => {
         'ROOM1',
         expect.any(Object),
         'lobby',
-        [],
-        [],
-        null, // disconnectVoteStatus
+        [],      // vacatedSeats
+        [],      // choosingSeats
+        null,    // disconnectVoteStatus
+        null,    // activeVote
+        expect.objectContaining({ startTime: null }),  // timerInfo
+        null,    // endOfTrickBombWindowEndTime
       );
     });
   });

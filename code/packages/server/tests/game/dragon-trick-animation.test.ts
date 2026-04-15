@@ -98,7 +98,15 @@ function advanceUntilSeatLeads(
   maxAttempts = 20,
 ): boolean {
   for (let i = 0; i < maxAttempts; i++) {
-    const round = actor.getSnapshot().context.currentRound!;
+    // Handle end-of-trick bomb window before checking turn
+    if (actor.getSnapshot().value === 'awaitingEndOfTrickBomb') {
+      actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+    }
+
+    const snap = actor.getSnapshot();
+    if (snap.value !== 'playing') return false;
+
+    const round = snap.context.currentRound!;
     if (round.currentTurn === targetSeat) return true;
 
     // Current leader plays a single, others pass
@@ -111,9 +119,9 @@ function advanceUntilSeatLeads(
     // Others pass
     let nextSeat = getNextActiveSeat(leader, actor.getSnapshot().context.currentRound!);
     for (let p = 0; p < 3; p++) {
-      const snap = actor.getSnapshot();
-      if (snap.value !== 'playing') break;
-      if (snap.context.currentRound?.currentTurn !== nextSeat) break;
+      const snap2 = actor.getSnapshot();
+      if (snap2.value !== 'playing') break;
+      if (snap2.context.currentRound?.currentTurn !== nextSeat) break;
       actor.send({ type: 'PASS_TURN', seat: nextSeat });
       if (p < 2) {
         const ns = actor.getSnapshot();

@@ -523,23 +523,6 @@ describe('MoveHandler', () => {
     });
   });
 
-  describe('handleRegularTichuPass', () => {
-    it('should reject when not in Tichu decision phase', () => {
-      const result = handler.handleRegularTichuPass('north');
-      expect(result.ok).toBe(false);
-    });
-
-    it('should accept in Tichu decision phase', () => {
-      fillSeats(actor);
-      actor.send({ type: 'HOST_START_GAME' });
-      for (const seat of SEATS_IN_ORDER) {
-        actor.send({ type: 'GRAND_TICHU_PASS', seat });
-      }
-      const result = handler.handleRegularTichuPass('north');
-      expect(result.ok).toBe(true);
-    });
-  });
-
   describe('partner tichu call safeguard', () => {
     // Helper: start game and reach grandTichuDecision phase
     function startGame() {

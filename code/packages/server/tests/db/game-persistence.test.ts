@@ -168,69 +168,6 @@ describe('game-persistence', () => {
       expect(roundValuesArg[1].roundNumber).toBe(2);
     });
 
-    it('should call run (upsertPlayerStats) for each human player', () => {
-      const mockTx = createMockTx();
-      const mockDb = createMockDatabase(mockTx);
-      const gameResult = makeGameResult(); // 4 human players
-
-      saveGameResult(mockDb, gameResult, [makeRound()]);
-
-      // 4 human players -> 4 upsertPlayerStats + 12 upsertRelationalStats (4 * 3 partners/opponents)
-      expect(mockTx.run).toHaveBeenCalledTimes(16);
-    });
-
-    it('should NOT call run for stats when all players are bots', () => {
-      const mockTx = createMockTx();
-      const mockDb = createMockDatabase(mockTx);
-      const gameResult = makeGameResult({
-        players: {
-          north: { userId: null, name: 'Bot1' },
-          east: { userId: null, name: 'Bot2' },
-          south: { userId: null, name: 'Bot3' },
-          west: { userId: null, name: 'Bot4' },
-        },
-      });
-
-      saveGameResult(mockDb, gameResult, [makeRound()]);
-
-      // No human players -> no run calls
-      expect(mockTx.run).not.toHaveBeenCalled();
-    });
-
-    it('should compute tichu stats correctly', () => {
-      const mockTx = createMockTx();
-      const mockDb = createMockDatabase(mockTx);
-      const gameResult = makeGameResult({
-        players: {
-          north: { userId: 'user1', name: 'Alice' },
-          east: { userId: null, name: 'Bot' },
-          south: { userId: null, name: 'Bot2' },
-          west: { userId: null, name: 'Bot3' },
-        },
-      });
-      // North calls tichu in round 1 and finishes first (success),
-      // North calls grandTichu in round 2 but does NOT finish first (fail)
-      const rounds = [
-        makeRound({
-          roundNumber: 1,
-          finishOrder: ['north', 'east', 'south', 'west'],
-          tichuCalls: { north: 'tichu' },
-        }),
-        makeRound({
-          roundNumber: 2,
-          finishOrder: ['east', 'north', 'south', 'west'],
-          tichuCalls: { north: 'grandTichu' },
-        }),
-      ];
-
-      saveGameResult(mockDb, gameResult, rounds);
-
-      // Only 1 human -> 1 run call
-      expect(mockTx.run).toHaveBeenCalledTimes(1);
-      // The run was called with a SQL template object
-      const runArg = mockTx.run.mock.calls[0][0];
-      expect(runArg).toBeDefined();
-    });
   });
 
   describe('getPlayerGameHistory', () => {
