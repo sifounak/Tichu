@@ -240,9 +240,6 @@ export class Bot implements BotStrategy {
     const isStrongHand = hasStrength(hand);
 
     // ─ REQ-F-PASS06/07: Dog routing ─
-    // Never give Dog to partner if they called Grand Tichu
-    const partnerCalledGT = this.lastRoundState
-      && this.lastRoundState.players[partner].tipiCall === 'grandTichu';
     let dogRecipient: Seat | null = null;
     if (hasDog) {
       // Check if any opponent called GT/T (available from lastRoundState set by setContext)
@@ -257,10 +254,10 @@ export class Bot implements BotStrategy {
           isDragon(gc.card) ||
           (gc.card.kind === 'standard' && gc.card.rank === 14),
         ).length + findBombs(hand).length;
-        if (leadGetters < 3 && !partnerCalledGT) {
+        if (leadGetters < 3) {
           dogRecipient = partner; // May need help regaining control
         } else {
-          dogRecipient = rightOpp; // Self-sufficient or partner called GT → Dog to right
+          dogRecipient = rightOpp; // Self-sufficient → Dog to right
         }
       } else {
         // Weak hand — Dog to left opponent
@@ -271,40 +268,7 @@ export class Bot implements BotStrategy {
     // ─ REQ-F-PASS01/02: Partner card selection (strength concentration) ─
     let partnerCard: GameCard | null = null;
 
-    // Check if partner called Grand Tichu — always give strongest non-bomb-breaking card
-    const partnerGT = this.lastRoundState
-      && this.lastRoundState.players[partner].tipiCall === 'grandTichu';
-
-    if (partnerGT) {
-      // Partner called Grand Tichu: give strongest card that doesn't break a bomb
-      // Priority: Phoenix > Dragon > Ace > King > Mah Jong > Q-2 (never Dog)
-      const bombCardIds = new Set(findBombs(hand).flatMap(b => b.cards.map(c => c.id)));
-      const candidates: GameCard[] = [];
-      // Phoenix first (highest priority)
-      const phoenix = hand.find(gc => isPhoenix(gc.card));
-      if (phoenix && !bombCardIds.has(phoenix.id)) candidates.push(phoenix);
-      // Dragon (can't be part of a bomb)
-      const dragon = hand.find(gc => isDragon(gc.card));
-      if (dragon) candidates.push(dragon);
-      // Standard cards sorted by rank descending (Ace=14, King=13, then Q-2)
-      const standardDesc = hand
-        .filter(gc => gc.card.kind === 'standard')
-        .sort((a, b) => (b.card as { rank: number }).rank - (a.card as { rank: number }).rank);
-      // Add Ace and King first (priority above Mah Jong)
-      for (const gc of standardDesc) {
-        if ((gc.card as { rank: number }).rank >= 13 && !bombCardIds.has(gc.id)) candidates.push(gc);
-      }
-      // Mah Jong (priority between King and Queen)
-      const mahjong = hand.find(gc => isMahjong(gc.card));
-      if (mahjong && !bombCardIds.has(mahjong.id)) candidates.push(mahjong);
-      // Remaining standard cards Q(12) down to 2
-      for (const gc of standardDesc) {
-        if ((gc.card as { rank: number }).rank < 13 && !bombCardIds.has(gc.id)) candidates.push(gc);
-      }
-
-      // Pick the first candidate (highest priority non-bomb-breaking card)
-      partnerCard = candidates[0] ?? sorted[sorted.length - 1];
-    } else if (!isStrongHand) {
+    if (!isStrongHand) {
       // Weak hand: pass best card to partner (Fuegi: concentrate strength)
       // Dragon > Phoenix > Ace > highest standard
       if (hasDragon) {
@@ -810,38 +774,18 @@ export class Bot implements BotStrategy {
     const hasPhoenix = combo.cards.some((gc) => isPhoenix(gc.card));
     if (!hasPhoenix) return 'neutral';
 
+    const allAcesAccountedFor = this.cardTracker.allAcesAccountedFor();
     const allAcesPlayed = this.cardTracker.allAcesPlayed();
 
     // ─── NEVER rules ───
 
-    // REQ-F-PHX01: Phoenix as singleton — only allowed on Aces, Kings (if all Aces
-    // accounted for), or as 2nd-to-last card when the remaining card is a sure winner.
-    if (combo.cards.length === 1) {
-      // 2nd-to-last card exception: Phoenix + guaranteed winner (Dragon, Ace, etc.)
-      if (hand.length === 2) {
-        const otherCard = hand.find((gc) => !isPhoenix(gc.card));
-        if (otherCard && (isDragon(otherCard.card) ||
-            (otherCard.card.kind === 'standard' && otherCard.card.rank === 14) ||
-            (allAcesPlayed && otherCard.card.kind === 'standard' && otherCard.card.rank === 13))) {
-          return 'acceptable';
-        }
-      }
-
-      // REQ-F-PHX01: Block singleton Phoenix on anything except Aces,
-      // or Kings when all Aces have been physically played
-      if (currentTrick) {
-        const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
-        if (lastPlay && lastPlay.combination.cards.length === 1) {
-          const lastCard = lastPlay.combination.cards[0];
-          if (lastCard.card.kind === 'standard') {
-            if (lastCard.card.rank === 14) {
-              // Playing over an Ace — fall through to ACCEPTABLE section (REQ-F-PHX03)
-            } else if (lastCard.card.rank === 13 && allAcesPlayed) {
-              // Playing over a King with all Aces out — fall through to ACCEPTABLE (REQ-F-PHX04)
-            } else {
-              return 'never';
-            }
-          }
+    // REQ-F-PHX01: Phoenix as singleton on top of single < Ace, unless all Aces accounted
+    if (currentTrick && combo.cards.length === 1) {
+      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
+      if (lastPlay && lastPlay.combination.cards.length === 1) {
+        const lastCard = lastPlay.combination.cards[0];
+        if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14 && !allAcesAccountedFor) {
+          return 'never';
         }
       }
     }
@@ -1147,8 +1091,6 @@ export class Bot implements BotStrategy {
         if (planned.cards.length === 1 && isDog(planned.cards[0].card)) continue;
         // REQ-F-PHX01: Skip Phoenix singleton leads (only +0.5, weak)
         if (planned.cards.length === 1 && isPhoenix(planned.cards[0].card)) continue;
-        // REQ-F-PHX10: Skip Phoenix combos early in round
-        if (hand.length >= 10 && planned.cards.some((gc) => isPhoenix(gc.card))) continue;
         const match = validPlays.find((vp) =>
           vp.cards.length === planned.cards.length &&
           vp.cards.every((c) => planned.cards.some((p) => p.id === c.id)),
@@ -1184,8 +1126,6 @@ export class Bot implements BotStrategy {
         !opponentNearExit && !needsDogPlay) continue;
       // Skip Phoenix singleton (weak lead)
       if (combo.cards.length === 1 && isPhoenix(combo.cards[0].card)) continue;
-      // REQ-F-PHX10: Avoid leading combos with Phoenix early — keep opponents guessing
-      if (hand.length >= 10 && combo.cards.some((gc) => isPhoenix(gc.card))) continue;
       // REQ-F-DEF01/FOL03: Avoid leading Ace pairs — split for individual wins
       if (combo.type === CombinationType.Pair && combo.rank === 14) {
         const remaining = hand.filter((gc) => !combo.cards.some((c) => c.id === gc.id));
@@ -1685,18 +1625,6 @@ export class Bot implements BotStrategy {
         );
         if (nonPhoenixPlay) return this.toDecision(nonPhoenixPlay);
         // If all plays use Phoenix, pass if we can
-        if (canPass) return { action: 'pass' };
-      }
-
-      // REQ-F-PHX10: Avoid Phoenix early — keep opponents guessing by saving Phoenix
-      // when there are non-Phoenix alternatives and we still have many cards.
-      const cheapestUsesPhoenix = cheapest.cards.some((gc) => isPhoenix(gc.card));
-      if (cheapestUsesPhoenix && hand.length >= 10 && phoenixEval !== 'acceptable') {
-        const nonPhoenixPlay = ranked.find(
-          (c) => !c.cards.some((gc) => isPhoenix(gc.card)),
-        );
-        if (nonPhoenixPlay) return this.toDecision(nonPhoenixPlay);
-        // No alternative — pass rather than reveal Phoenix early (if possible)
         if (canPass) return { action: 'pass' };
       }
 
