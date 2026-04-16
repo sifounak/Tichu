@@ -30,10 +30,10 @@ describe('CardHand', () => {
     ];
     render(<CardHand cards={cards} selectedIds={new Set()} />);
     const buttons = screen.getAllByRole('button');
-    // Sorted order ascending (left to right): Jade 2, Star A, Phoenix
-    expect(buttons[0]).toHaveAttribute('data-card-id', '2');
+    // Sorted order descending (highest on left): Phoenix, Star A, Jade 2
+    expect(buttons[0]).toHaveAttribute('data-card-id', '1');
     expect(buttons[1]).toHaveAttribute('data-card-id', '0');
-    expect(buttons[2]).toHaveAttribute('data-card-id', '1');
+    expect(buttons[2]).toHaveAttribute('data-card-id', '2');
   });
 
   it('marks selected cards', () => {
