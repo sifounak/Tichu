@@ -15,7 +15,7 @@ For architecture decision rationale, see [decisions/](decisions/).
 | Validation | Zod (all WebSocket messages) |
 | Testing | Vitest 3 + @testing-library/react |
 | Style | CSS Modules + Tailwind v4 + CSS custom properties (design tokens in globals.css) |
-| Formatting | Prettier (single quotes, trailing commas, 100 width) |
+| Formatting | ESLint (single quotes, trailing commas) |
 
 ## Repository Structure
 
@@ -31,13 +31,10 @@ c:/MATLAB/Claude/Tichu/
 │   ├── tsconfig.base.json   # Shared compiler options
 │   ├── turbo.json           # Build orchestration
 │   ├── eslint.config.js
-│   ├── .prettierrc
-│   ├── docker-compose.yml   # PostgreSQL for local dev
 │   └── dev-start.sh         # Kill ports → build → start server + client
 ├── documentation/           # Feature docs
 ├── specifications/          # Specs + RTMs
-├── conversations/           # Transcript history
-├── results/                 # Milestone artifacts
+├── plans/                   # Implementation plans
 └── CLAUDE.md                # Project rules (mandates /diligent-developer)
 ```
 
