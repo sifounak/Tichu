@@ -32,9 +32,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Rebuild native modules
-        run: pnpm rebuild better-sqlite3
+        env:
+          npm_config_build_from_source: true
 
       - name: Build
         run: pnpm build
