@@ -14,9 +14,6 @@ jobs:
       run:
         working-directory: code
 
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
       - uses: actions/checkout@v4
 
@@ -32,8 +29,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        env:
-          npm_config_build_from_source: true
 
       - name: Build
         run: pnpm build
