@@ -9,7 +9,7 @@
 [Unit]
 Description=Tichu Game Server (Fastify + WebSocket)
 After=network.target
-Documentation=https://github.com/yourusername/tichu
+Documentation=https://github.com/sifounak/Tichu
 
 [Service]
 Type=simple
