@@ -1,5 +1,9 @@
-# REQ-F-DS07: systemd unit file for Fastify game server
-# REQ-NF-DS03: Consistent paths — /files/.www/tichu_source
+# systemd unit file for Fastify game server
+#
+# Edit the paths below to match your deploy target directory.
+# Default layout assumes:
+#   /files/.www/tichu/built/server/   — deployed server artifacts
+#   /files/.www/tichu/.env.prod       — production environment file
 #
 # Install:
 #   sudo cp tichu-server.service /etc/systemd/system/
@@ -15,9 +19,9 @@ Documentation=https://github.com/sifounak/Tichu
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/files/.www/tichu_source/code/packages/server
+WorkingDirectory=/files/.www/tichu/built/server
 ExecStart=/usr/bin/node dist/index.js
-EnvironmentFile=/files/.www/tichu_source/code/scripts/.env.prod
+EnvironmentFile=/files/.www/tichu/.env.prod
 Environment=NODE_ENV=production
 Restart=always
 RestartSec=5
