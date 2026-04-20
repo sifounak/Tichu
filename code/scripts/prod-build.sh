@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# REQ-F-DS04: Prod build script — install deps, build all packages for production
-# REQ-F-DS12: Prerequisite validation
-# REQ-NF-DS03: All paths reference /files/.www/tichu_source
+# Production build script — compile all packages and assemble portable build/ artifact.
 # Sources .env.prod for NEXT_PUBLIC_* build-time vars.
-# Usage: bash code/scripts/prod-build.sh
+#
+# Usage:
+#   bash code/scripts/prod-build.sh [path/to/.env.prod]
+#
+# If no .env.prod path is given, falls back to $SCRIPT_DIR/.env.prod.
+# The build output goes to <repo>/code/build/ (gitignored).
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -11,20 +14,23 @@ CODE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SHARED_DIR="$CODE_DIR/packages/shared"
 SERVER_DIR="$CODE_DIR/packages/server"
 CLIENT_DIR="$CODE_DIR/packages/client"
+BUILD_DIR="$CODE_DIR/build"
 
 export NODE_ENV=production
 
 # ─── 0. Source production environment ────────────────────────────────────
-# EC-001: Check .env.prod existence
-if [ -f "$SCRIPT_DIR/.env.prod" ]; then
-  echo "=== Loading .env.prod ==="
+ENV_FILE="${1:-$SCRIPT_DIR/.env.prod}"
+if [ -f "$ENV_FILE" ]; then
+  echo "=== Loading $ENV_FILE ==="
   set -a
-  . "$SCRIPT_DIR/.env.prod"
+  . "$ENV_FILE"
   set +a
 else
-  echo "ERROR: $SCRIPT_DIR/.env.prod not found."
-  echo "Create it from the template:"
-  echo "  cp $SCRIPT_DIR/.env.prod.example $SCRIPT_DIR/.env.prod"
+  echo "ERROR: $ENV_FILE not found."
+  echo "Usage: bash code/scripts/prod-build.sh [path/to/.env.prod]"
+  echo ""
+  echo "Create one from the template:"
+  echo "  cp $SCRIPT_DIR/.env.prod.example /your/deploy/dir/.env.prod"
   echo "Then edit it with your production values (especially JWT_SECRET)."
   exit 1
 fi
@@ -37,7 +43,7 @@ if ! command -v pnpm >/dev/null 2>&1; then MISSING="$MISSING pnpm"; fi
 
 if [ -n "$MISSING" ]; then
   echo "ERROR: Missing required tools:$MISSING"
-  echo "Install Node.js (20+) and pnpm before running this script."
+  echo "Install Node.js (22+) and pnpm before running this script."
   exit 1
 fi
 echo "Prerequisites OK (node $(node --version), pnpm $(pnpm --version))"
@@ -73,17 +79,53 @@ cd "$CLIENT_DIR"
 npx next build
 echo "Client package built."
 
-# ─── 4. Validate build outputs ──────────────────────────────────────────
-echo "=== Validating build outputs ==="
+# ─── 4. Validate compile outputs ────────────────────────────────────────
+echo "=== Validating compile outputs ==="
 VALID=true
 if [ ! -d "$SHARED_DIR/dist" ]; then echo "ERROR: shared/dist missing"; VALID=false; fi
 if [ ! -d "$SERVER_DIR/dist" ]; then echo "ERROR: server/dist missing"; VALID=false; fi
-if [ ! -d "$CLIENT_DIR/.next" ]; then echo "ERROR: client/.next missing"; VALID=false; fi
+if [ ! -d "$CLIENT_DIR/.next/standalone" ]; then echo "ERROR: client/.next/standalone missing"; VALID=false; fi
 
 if [ "$VALID" = false ]; then
-  echo "Build validation FAILED — one or more outputs missing."
+  echo "Compile validation FAILED — one or more outputs missing."
   exit 1
 fi
 
+# ─── 5. Assemble portable build/ directory ───────────────────────────────
+echo "=== Assembling build directory ==="
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
+
+# Server: use pnpm deploy to resolve workspace deps into real files
+echo "  Assembling server..."
+cd "$CODE_DIR"
+pnpm --filter @tichu/server deploy "$BUILD_DIR/server" --prod
+
+# pnpm deploy does not copy the package's own dist/ — copy it manually
+cp -r "$SERVER_DIR/dist" "$BUILD_DIR/server/dist"
+
+# Client: copy Next.js standalone output
+echo "  Assembling client..."
+cp -r "$CLIENT_DIR/.next/standalone/." "$BUILD_DIR/client/"
+
+# Standalone does NOT include static assets — copy them into the right location
+mkdir -p "$BUILD_DIR/client/packages/client/.next"
+cp -r "$CLIENT_DIR/.next/static" "$BUILD_DIR/client/packages/client/.next/static"
+
+# ─── 6. Validate build outputs ──────────────────────────────────────────
+echo "=== Validating build outputs ==="
+VALID=true
+if [ ! -f "$BUILD_DIR/server/dist/index.js" ]; then echo "ERROR: build/server/dist/index.js missing"; VALID=false; fi
+if [ ! -d "$BUILD_DIR/server/node_modules" ]; then echo "ERROR: build/server/node_modules missing"; VALID=false; fi
+if [ ! -f "$BUILD_DIR/client/packages/client/server.js" ]; then echo "ERROR: build/client/packages/client/server.js missing"; VALID=false; fi
+if [ ! -d "$BUILD_DIR/client/packages/client/.next/static" ]; then echo "ERROR: build/client/.next/static missing"; VALID=false; fi
+
+if [ "$VALID" = false ]; then
+  echo "Build assembly validation FAILED."
+  exit 1
+fi
+
+echo ""
 echo "=== Build complete ==="
-echo "All packages built successfully for production."
+echo "Portable build artifact: $BUILD_DIR/"
+echo "Deploy with: bash code/scripts/prod-deploy.sh <target-directory>"

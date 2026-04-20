@@ -1,5 +1,9 @@
-# REQ-F-DS08: systemd unit file for Next.js web client
-# REQ-NF-DS03: Consistent paths — /files/.www/tichu_source
+# systemd unit file for Next.js web client (standalone mode)
+#
+# Edit the paths below to match your deploy target directory.
+# Default layout assumes:
+#   /files/.www/tichu/built/client/   — deployed client artifacts (Next.js standalone)
+#   /files/.www/tichu/.env.prod       — production environment file
 #
 # Install:
 #   sudo cp tichu-client.service /etc/systemd/system/
@@ -15,10 +19,12 @@ Documentation=https://github.com/sifounak/Tichu
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/files/.www/tichu_source/code/packages/client
-ExecStart=/usr/bin/npx next start --port 3000
-EnvironmentFile=/files/.www/tichu_source/code/scripts/.env.prod
+WorkingDirectory=/files/.www/tichu/built/client/packages/client
+ExecStart=/usr/bin/node server.js
+EnvironmentFile=/files/.www/tichu/.env.prod
 Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
 Restart=always
 RestartSec=5
 StandardOutput=journal

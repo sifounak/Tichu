@@ -1,49 +1,118 @@
 #!/usr/bin/env bash
-# REQ-F-DS06: Prod deploy script — pull latest code, build, restart services
-# REQ-F-DS11: Script composability (calls prod-start.sh -> prod-build.sh)
-# Usage: bash code/scripts/prod-deploy.sh
+# Production deploy script — copy build/ artifacts to a target directory and restart services.
+#
+# Usage:
+#   bash code/scripts/prod-deploy.sh <target-directory>
+#
+# Example:
+#   bash code/scripts/prod-deploy.sh /files/.www/tichu/built
+#
+# Prerequisites:
+#   - Run prod-build.sh first to create the build/ directory.
+#   - Place .env.prod in the target's parent directory (e.g., /files/.www/tichu/.env.prod).
+#   - The target's parent should also contain a data/ directory for the SQLite database.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CODE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_DIR="$(cd "$CODE_DIR/.." && pwd)"
+BUILD_DIR="$CODE_DIR/build"
+
+# ─── 0. Validate arguments ──────────────────────────────────────────────
+TARGET="${1:?Usage: bash code/scripts/prod-deploy.sh <target-directory>}"
 
 echo "=== Tichu Production Deploy ==="
-echo "  Time: $(date '+%Y-%m-%d %H:%M:%S')"
-echo "  Repo: $REPO_DIR"
-echo ""
-
-# ─── 1. Pull latest code ────────────────────────────────────────────────
-echo "=== Pulling latest code ==="
-cd "$REPO_DIR"
-
-# EC-002: Warn about dirty working tree
-if [ -n "$(git status --porcelain)" ]; then
-  echo "WARNING: Working tree has uncommitted changes:"
-  git status --short
-  echo ""
-  echo "Git pull may fail or merge conflicts may occur."
-  echo "Continuing anyway..."
-  echo ""
-fi
-
-BEFORE_HASH="$(git rev-parse --short HEAD)"
-git pull
-AFTER_HASH="$(git rev-parse --short HEAD)"
-
-if [ "$BEFORE_HASH" = "$AFTER_HASH" ]; then
-  echo "Already up to date ($AFTER_HASH)."
-else
-  echo "Updated: $BEFORE_HASH -> $AFTER_HASH"
-fi
-echo ""
-
-# ─── 2. Build and restart ───────────────────────────────────────────────
-bash "$SCRIPT_DIR/prod-start.sh"
-
-# ─── 3. Deploy summary ──────────────────────────────────────────────────
-echo ""
-echo "=== Deploy complete ==="
 echo "  Time:   $(date '+%Y-%m-%d %H:%M:%S')"
-echo "  Commit: $(git rev-parse --short HEAD)"
-echo "  Branch: $(git rev-parse --abbrev-ref HEAD)"
+echo "  Source: $BUILD_DIR"
+echo "  Target: $TARGET"
+echo ""
+
+# ─── 1. Validate build/ exists ──────────────────────────────────────────
+if [ ! -f "$BUILD_DIR/server/dist/index.js" ] || [ ! -d "$BUILD_DIR/client" ]; then
+  echo "ERROR: build/ directory is missing or incomplete."
+  echo "Run prod-build.sh first:"
+  echo "  bash code/scripts/prod-build.sh [path/to/.env.prod]"
+  exit 1
+fi
+echo "Build directory OK."
+
+# ─── 2. Validate environment ────────────────────────────────────────────
+PARENT_DIR="$(cd "$(dirname "$TARGET")" && pwd)"
+ENV_FILE="$PARENT_DIR/.env.prod"
+DATA_DIR="$PARENT_DIR/data"
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "ERROR: $ENV_FILE not found."
+  echo "Create it from the template:"
+  echo "  cp $SCRIPT_DIR/.env.prod.example $ENV_FILE"
+  echo "Then edit it with your production values (especially JWT_SECRET)."
+  exit 1
+fi
+echo "Environment file OK: $ENV_FILE"
+
+# Ensure persistent data directory exists
+if [ ! -d "$DATA_DIR" ]; then
+  echo "Creating data directory: $DATA_DIR"
+  mkdir -p "$DATA_DIR"
+fi
+echo "Data directory OK: $DATA_DIR"
+
+# ─── 3. Deploy build artifacts ──────────────────────────────────────────
+echo ""
+echo "=== Deploying to $TARGET ==="
+
+# Remove old deployment (server/ and client/ only — preserve any other files)
+rm -rf "$TARGET/server" "$TARGET/client"
+mkdir -p "$TARGET"
+
+echo "  Copying server..."
+cp -r "$BUILD_DIR/server" "$TARGET/server"
+
+echo "  Copying client..."
+cp -r "$BUILD_DIR/client" "$TARGET/client"
+
+echo "Deploy complete."
+
+# ─── 4. Restart systemd services ────────────────────────────────────────
+echo ""
+echo "=== Restarting systemd services ==="
+
+if ! command -v systemctl >/dev/null 2>&1; then
+  echo "WARNING: systemctl not available (not on a systemd Linux system)."
+  echo "Deploy completed successfully — start the services manually."
+  exit 0
+fi
+
+if ! systemctl list-unit-files tichu-server.service >/dev/null 2>&1; then
+  echo "WARNING: tichu-server.service is not installed."
+  echo "Install the systemd services first:"
+  echo "  sudo cp $SCRIPT_DIR/systemd/tichu-server.service /etc/systemd/system/"
+  echo "  sudo cp $SCRIPT_DIR/systemd/tichu-client.service /etc/systemd/system/"
+  echo "  sudo systemctl daemon-reload"
+  echo "  sudo systemctl enable tichu-server tichu-client"
+  echo ""
+  echo "Deploy completed successfully — install services and start manually."
+  exit 0
+fi
+
+sudo systemctl restart tichu-server
+echo "tichu-server restarted."
+
+sudo systemctl restart tichu-client
+echo "tichu-client restarted."
+
+# ─── 5. Show status ─────────────────────────────────────────────────────
+echo ""
+echo "=== Service status ==="
+systemctl status tichu-server --no-pager -l || true
+echo ""
+systemctl status tichu-client --no-pager -l || true
+
+echo ""
+echo "=== Deploy summary ==="
+echo "  Time:   $(date '+%Y-%m-%d %H:%M:%S')"
+echo "  Target: $TARGET"
+if command -v git >/dev/null 2>&1 && [ -d "$REPO_DIR/.git" ]; then
+  echo "  Commit: $(git -C "$REPO_DIR" rev-parse --short HEAD)"
+  echo "  Branch: $(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)"
+fi
