@@ -49,7 +49,28 @@
       "Bash(xargs -I {} basename {})",
       "Read(//c/Users/asifouna/.claude/projects/**)",
       "Bash(grep -l \"Not Started\\\\|Pending\" /c/MATLAB/Claude/Tichu/specifications/*.md)",
-      "Bash(grep -l \"Not Started\" /c/MATLAB/Claude/Tichu/specifications/RTM-*.md)"
+      "Bash(grep -l \"Not Started\" /c/MATLAB/Claude/Tichu/specifications/RTM-*.md)",
+      "Bash(git log *)",
+      "Bash(git ls-tree *)",
+      "Bash(npx --filter @tichu/server vitest run --reporter=verbose)",
+      "Bash(npx --filter @tichu/client vitest run --reporter=verbose)",
+      "Bash(pnpm --filter @tichu/client test)",
+      "Bash(ls conversations/)",
+      "Bash(ls results/)",
+      "Bash(xargs head *)",
+      "Bash(ls code/vitest*)",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(grep -r \"\\\\.prettierrc\\\\|eslint\\\\|turbo\" c:/MATLAB/Claude/Tichu/code/package.json c:/MATLAB/Claude/Tichu/code/packages/*/package.json)",
+      "Bash(grep -r \"prettier\" c:/MATLAB/Claude/Tichu/code/package.json c:/MATLAB/Claude/Tichu/code/packages/*/package.json)",
+      "Bash(git -C c:/MATLAB/Claude/Tichu log --oneline code/docker-compose.yml code/packages/client/Dockerfile code/packages/server/Dockerfile)",
+      "Bash(git -C c:/MATLAB/Claude/Tichu log --all --pretty=format:\"%h %s\" --follow -- code/docker-compose.yml)",
+      "Bash(git -C c:/MATLAB/Claude/Tichu log --all --pretty=format:\"%h %s\" --follow -- code/.prettierrc)",
+      "Bash(grep -i \"postgresql\\\\|postgres\" c:/MATLAB/Claude/Tichu/code/packages/server/src/db/*.ts)",
+      "Bash(wc -l plans/* specifications/*)",
+      "Bash(git -C c:/MATLAB/Claude/Tichu log --oneline -1 -- plans/2026-03-30-partner-tichu-call-safeguard.md plans/2026-04-09-stats-redesign-implementation.md plans/2026-04-14-graceful-restart.md plans/2026-04-15-deployment-scripts.md plans/statistics-system-redesign.md specifications/2026-03-30-partner-tichu-call-safeguard-design.md specifications/2026-04-05-stats-redesign-data-capture-review.md specifications/2026-04-09-statistics-system-redesign.md specifications/2026-04-14-graceful-restart-design.md specifications/2026-04-15-deployment-scripts.md specifications/RTM-statistics-system-redesign.md)",
+      "Read(//dev/**)",
+      "Bash(pnpm deploy *)",
+      "Bash(git check-ignore *)"
     ],
     "additionalDirectories": [
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\matlab-test-generator\\references",
@@ -58,7 +79,8 @@
       "c:\\MATLAB\\Claude\\basic-matlab-skills\\.claude\\skills\\diligent-developer",
       "C:\\MATLAB\\Claude\\Tichu\\code\\packages\\shared\\src\\types",
       "C:\\MATLAB\\Claude\\Tichu\\code\\packages\\server\\src",
-      "C:\\Users\\asifouna\\.claude\\plans"
+      "C:\\Users\\asifouna\\.claude\\plans",
+      "\\tmp"
     ]
   }
 }
