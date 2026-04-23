@@ -137,11 +137,16 @@ interface DragonGiftRow {
 
 // ─── JSON parsing helpers ──────────────────────────────────────────────
 
+// Accepts either a JSON array (e.g. full hand "[0,1,2]") or a JSON scalar number
+// (e.g. a single passed card "42"). Pass-direction columns store one card id; hand
+// columns store arrays. Both share this helper so scalars lift to single-element arrays.
 function parseJsonArray(val: string | null): number[] {
-  if (!val) return [];
+  if (val === null || val === undefined) return [];
   try {
     const parsed = typeof val === 'string' ? JSON.parse(val) : val;
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) return parsed;
+    if (typeof parsed === 'number') return [parsed];
+    return [];
   } catch { return []; }
 }
 

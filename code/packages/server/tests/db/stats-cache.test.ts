@@ -264,6 +264,51 @@ describe('Stats Cache', () => {
       expect(row!.hands_with_dog).toBe(1);
     });
 
+    it('should count dragon/phoenix/ace/mahjong given and received in pass', () => {
+      // Regression: pass-direction columns store a single card id (scalar) per player,
+      // not an array. parseJsonArray must lift scalars to single-element arrays so the
+      // stats-cache `.includes()` checks fire correctly.
+      const gameId = insertTestGame(database, { northUserId: 'user1' });
+      const acc = makeMinimalAccumulator(gameId);
+      const pr = acc.rounds[0]!.playerRounds.find(p => p.seat === 'north')!;
+      // North gives: Dragon → left (east), Phoenix → partner (south), Ace → right (west)
+      pr.passedToLeft = DRAGON_ID;
+      pr.passedToPartner = PHOENIX_ID;
+      pr.passedToRight = 12; // Jade Ace
+      // North receives: Mahjong ← left, Dog ← partner, 5 ← right
+      pr.receivedFromLeft = MAHJONG_ID;
+      pr.receivedFromPartner = DOG_ID;
+      pr.receivedFromRight = 5;
+      writeEventData(database, gameId, acc);
+
+      rebuildStatsCache(database);
+
+      const row = getCacheRow(database, 'user1');
+      expect(row!.dragon_gave_in_pass).toBe(1);
+      expect(row!.phoenix_gave_in_pass).toBe(1);
+      expect(row!.ace_gave_in_pass).toBe(1);
+      expect(row!.mahjong_received_in_pass).toBe(1);
+      expect(row!.dog_received_from_partner).toBe(1);
+      expect(row!.dog_received_from_opponent).toBe(0);
+      expect(row!.dog_given_to_partner).toBe(0);
+    });
+
+    it('should count dog given to partner vs opponent direction separately', () => {
+      const gameId = insertTestGame(database, { northUserId: 'user1' });
+      const acc = makeMinimalAccumulator(gameId);
+      const pr = acc.rounds[0]!.playerRounds.find(p => p.seat === 'north')!;
+      pr.passedToPartner = DOG_ID;
+      pr.passedToLeft = 0;
+      pr.passedToRight = 1;
+      writeEventData(database, gameId, acc);
+
+      rebuildStatsCache(database);
+
+      const row = getCacheRow(database, 'user1');
+      expect(row!.dog_given_to_partner).toBe(1);
+      expect(row!.dog_given_to_opponent).toBe(0);
+    });
+
     it('should detect last-place finishes', () => {
       const gameId = insertTestGame(database, { northUserId: 'user1' });
       const acc = makeMinimalAccumulator(gameId, { finishPosition: 4 });
