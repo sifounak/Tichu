@@ -668,6 +668,23 @@ export class GameEventCapture {
       trickRecord.winningCombinationLength = winningPlay.combination.length;
     }
 
+    // Mark the winning bomb as having captured the Dragon, if applicable.
+    // Dragon can't be part of a bomb (bombs are 4oaK of standard ranks or straight-flushes),
+    // so containsDragon + winner-bombed means someone else led/played the dragon earlier
+    // and the bomber won the trick carrying it. trackBombErosion has already set fate='played'
+    // on the matching inventory row for this trick.
+    if (winningPlay && containsDragon && winningPlay.combination.isBomb) {
+      const winnerBombs = this.bombInventoryBySeat.get(winnerSeat);
+      if (winnerBombs) {
+        for (const bomb of winnerBombs) {
+          if (bomb.fate === 'played' && bomb.fateTrickNumber === this.trickNumber) {
+            bomb.capturedDragon = true;
+            break;
+          }
+        }
+      }
+    }
+
     // Update running point totals for the winner
     const winnerPoints = this.runningPointsBySeat.get(winnerSeat) ?? 0;
     this.runningPointsBySeat.set(winnerSeat, winnerPoints + pointValue);

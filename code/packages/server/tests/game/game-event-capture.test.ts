@@ -1021,6 +1021,217 @@ describe('GameEventCapture', () => {
       const finalized = acc.rounds[0].bombInventory[0];
       expect(finalized.fate).toBe('heldToEnd');
     });
+
+    it('should mark capturedDragon when the winning combination of a dragon trick is a bomb', () => {
+      // Scenario: East leads Dragon as a Single. North bombs with four-sevens and wins.
+      // On trick completion the winning bomb should be flagged capturedDragon = true.
+      const dragon = card('dragon', undefined, undefined, 100);
+      const bombCards = [
+        card('standard', 7, 'jade', 1),
+        card('standard', 7, 'sword', 2),
+        card('standard', 7, 'pagoda', 3),
+        card('standard', 7, 'star', 4),
+      ];
+
+      capture.initRound(1, 0, 0);
+      capture.initPlayerRounds(1, 1, {
+        north: { userId: 'u1' },
+        east: { userId: 'u2' },
+        south: { userId: 'u3' },
+        west: { userId: 'u4' },
+      });
+
+      // Seed bomb inventory for North in both the per-round list and the
+      // internal per-seat map (normally populated when hands are captured).
+      const roundData = capture.getCurrentRound()!;
+      const northBomb = {
+        gameId: 1,
+        roundNumber: 1,
+        playerSeat: 'north' as Seat,
+        bombType: 'fourOfAKind' as const,
+        cards: bombCards.map(c => c.id),
+        rank: 7,
+        size: 4,
+        acquiredPhase: 'postPass' as const,
+        bombPlaysFromRun: 0,
+        overlapsWith: [],
+        fate: null,
+        fateTrickNumber: null,
+        fateTarget: null,
+        outOfTurn: null,
+        endOfTrickBomb: null,
+        playsSeenWhileHeld: 0,
+        capturedDragon: false,
+        wasOverbomb: false,
+        followedByDog: false,
+      };
+      roundData.bombInventory.push(northBomb);
+      (capture as unknown as { bombInventoryBySeat: Map<Seat, unknown[]> })
+        .bombInventoryBySeat.set('north', [northBomb]);
+
+      const players = {
+        north: makePlayerState('north', { hand: bombCards }),
+        east: makePlayerState('east', { hand: [dragon, card('standard', 9, 'jade', 50)] }),
+        south: makePlayerState('south', { hand: [card('standard', 8, 'jade', 51)] }),
+        west: makePlayerState('west', { hand: [card('standard', 6, 'jade', 52)] }),
+      };
+
+      // State 0: Playing phase, no trick started yet. Establishes a prevContext
+      // so the s0→s1 transition fires detectPlays (which creates the trick record).
+      const s0 = makeRound({
+        phase: GamePhase.Playing,
+        currentTurn: 'east',
+        currentTrick: null,
+        players,
+      });
+
+      // State 1: East leads Dragon as a Single, currentTurn=south.
+      const s1 = makeRound({
+        phase: GamePhase.Playing,
+        currentTurn: 'south',
+        currentTrick: makeTrick({
+          plays: [{
+            seat: 'east',
+            combination: { type: CombinationType.Single, cards: [dragon], rank: 15, length: 1, isBomb: false },
+          }],
+          leadSeat: 'east',
+          currentWinner: 'east',
+        }),
+        players,
+      });
+
+      // State 2: North bombs over the dragon, trackBombErosion runs and flips
+      // the inventory bomb's fate to 'played' with fateTrickNumber=<current>.
+      const s2 = makeRound({
+        phase: GamePhase.Playing,
+        currentTurn: 'east', // wraps to next player after winner
+        currentTrick: makeTrick({
+          plays: [
+            s1.currentTrick!.plays[0]!,
+            {
+              seat: 'north',
+              combination: { type: CombinationType.FourBomb, cards: bombCards, rank: 7, length: 4, isBomb: true },
+            },
+          ],
+          leadSeat: 'east',
+          currentWinner: 'north',
+        }),
+        players: {
+          ...s1.players,
+          north: makePlayerState('north', { hand: [] }),
+        },
+      });
+
+      // State 3: Trick cleared, which triggers detectTrickCompletion
+      // against the previous (complete) trick.
+      const s3 = makeRound({
+        phase: GamePhase.Playing,
+        currentTurn: 'north',
+        currentTrick: null,
+        players: s2.players,
+      });
+
+      capture.onStateChange(makeContext(s0));
+      capture.onStateChange(makeContext(s1));
+      capture.onStateChange(makeContext(s2));
+      capture.onStateChange(makeContext(s3));
+
+      const finalized = capture.getCurrentRound()!.bombInventory[0]!;
+      expect(finalized.fate).toBe('played');
+      expect(finalized.capturedDragon).toBe(true);
+    });
+
+    it('should not mark capturedDragon when the trick has no dragon', () => {
+      // Same bomb-wins-trick setup, but lead is a plain Single (no dragon).
+      const bombCards = [
+        card('standard', 7, 'jade', 1),
+        card('standard', 7, 'sword', 2),
+        card('standard', 7, 'pagoda', 3),
+        card('standard', 7, 'star', 4),
+      ];
+
+      capture.initRound(1, 0, 0);
+      capture.initPlayerRounds(1, 1, {
+        north: { userId: 'u1' },
+        east: { userId: 'u2' },
+        south: { userId: 'u3' },
+        west: { userId: 'u4' },
+      });
+
+      const roundData = capture.getCurrentRound()!;
+      const northBomb = {
+        gameId: 1,
+        roundNumber: 1,
+        playerSeat: 'north' as Seat,
+        bombType: 'fourOfAKind' as const,
+        cards: bombCards.map(c => c.id),
+        rank: 7,
+        size: 4,
+        acquiredPhase: 'postPass' as const,
+        bombPlaysFromRun: 0,
+        overlapsWith: [],
+        fate: null,
+        fateTrickNumber: null,
+        fateTarget: null,
+        outOfTurn: null,
+        endOfTrickBomb: null,
+        playsSeenWhileHeld: 0,
+        capturedDragon: false,
+        wasOverbomb: false,
+        followedByDog: false,
+      };
+      roundData.bombInventory.push(northBomb);
+      (capture as unknown as { bombInventoryBySeat: Map<Seat, unknown[]> })
+        .bombInventoryBySeat.set('north', [northBomb]);
+
+      const lead = card('standard', 9, 'jade', 60);
+      const players = {
+        north: makePlayerState('north', { hand: bombCards }),
+        east: makePlayerState('east', { hand: [lead] }),
+        south: makePlayerState('south', { hand: [] }),
+        west: makePlayerState('west', { hand: [] }),
+      };
+      const s0 = makeRound({
+        phase: GamePhase.Playing,
+        currentTurn: 'east',
+        currentTrick: null,
+        players,
+      });
+      const s1 = makeRound({
+        phase: GamePhase.Playing,
+        currentTurn: 'south',
+        currentTrick: makeTrick({
+          plays: [{
+            seat: 'east',
+            combination: { type: CombinationType.Single, cards: [lead], rank: 9, length: 1, isBomb: false },
+          }],
+          leadSeat: 'east',
+          currentWinner: 'east',
+        }),
+        players,
+      });
+      const s2 = makeRound({
+        ...s1,
+        currentTrick: makeTrick({
+          plays: [
+            s1.currentTrick!.plays[0]!,
+            { seat: 'north', combination: { type: CombinationType.FourBomb, cards: bombCards, rank: 7, length: 4, isBomb: true } },
+          ],
+          leadSeat: 'east',
+          currentWinner: 'north',
+        }),
+      });
+      const s3 = makeRound({ ...s2, currentTrick: null });
+
+      capture.onStateChange(makeContext(s0));
+      capture.onStateChange(makeContext(s1));
+      capture.onStateChange(makeContext(s2));
+      capture.onStateChange(makeContext(s3));
+
+      const finalized = capture.getCurrentRound()!.bombInventory[0]!;
+      expect(finalized.fate).toBe('played');
+      expect(finalized.capturedDragon).toBe(false);
+    });
   });
 
   // ─── Auto-init round from state change ─────────────────────────
