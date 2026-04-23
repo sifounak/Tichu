@@ -109,4 +109,31 @@ export class Broadcaster {
   sendError(ws: WebSocket, code: string, errorMessage: string): boolean {
     return this.send(ws, { type: 'ERROR', code, message: errorMessage });
   }
+
+  /**
+   * REQ-F-SJ05, SJ06: Send a structured seat-claim rejection with payload
+   * the client dialog uses to show occupant name + optional reclaim action.
+   */
+  sendSeatClaimRejected(
+    ws: WebSocket,
+    payload: {
+      reason: string;
+      originalSeat: Seat;
+      requestedSeat: Seat;
+      currentOccupantDisplayName: string | null;
+      offerClaimOriginal: boolean;
+    },
+  ): boolean {
+    return this.send(ws, {
+      type: 'SEAT_CLAIM_REJECTED',
+      reason: payload.reason,
+      originalSeat: payload.originalSeat,
+      requestedSeat: payload.requestedSeat,
+      currentOccupant:
+        payload.currentOccupantDisplayName === null
+          ? null
+          : { displayName: payload.currentOccupantDisplayName },
+      offerClaimOriginal: payload.offerClaimOriginal,
+    });
+  }
 }

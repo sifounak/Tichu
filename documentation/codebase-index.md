@@ -102,7 +102,8 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 |------|----------|---------|
 | `room-manager.ts` | `RoomManager` | CRUD rooms, assign seats, add/remove bots, swap seats, track disconnections, periodic cleanup (30 min). Room codes: 6-char alphanumeric. Destroys room when all humans leave (REQ-F-ES15). |
 | `room-handler.ts` | `RoomHandler` | WebSocket handlers for CREATE_ROOM, JOIN_ROOM, LEAVE_ROOM, CONFIGURE_ROOM, ADD_BOT, REMOVE_BOT, SWAP_SEATS, GET_LOBBY, START_GAME. Host-only validation. Broadcasts ROOM_UPDATE. Wires disconnect kick callback → seat queue. Sends ROOM_CLOSED to spectators on all-leave. |
-| `seat-queue.ts` | `SeatQueue` | FIFO seat queue for spectator→player promotion. Phases: offering (one-at-a-time with 30s timeout), up-for-grabs (first-come-first-served). Multi-seat picking, no-recycle on pass/timeout, per-spectator ordinal positions. |
+| `seat-queue.ts` | `SeatQueue` | FIFO seat queue for spectator→player promotion. Phases: offering (one-at-a-time with 30s timeout), up-for-grabs (first-come-first-served). Multi-seat picking, no-recycle on pass/timeout, per-spectator ordinal positions. Eligibility-gated per REQ-F-SJ08/SJ10–SJ11: ineligible spectators (prior-seat holders) are silently skipped in the ordered queue; free-for-all rejects ineligible claimants with the exact REQ-F-SJ11 text. |
+| `seat-eligibility.ts` | `validateClaim` / `isClaimValidationActive` | Pure rule engine for REQ-F-SJ01–SJ06 seat-claim validation. Called from room-handler at CLAIM_SEAT / CHOOSE_SEAT / mid-game JOIN_ROOM entry points and from the SeatQueue's eligibility callback. |
 
 ### Game Logic (`game/`)
 
@@ -210,7 +211,8 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 | `DisconnectOverlay.tsx` | Disconnect notification + vote UI (Wait/Bot/Abandon) with countdown. |
 | `DragonGiftModal.tsx` | Choose opponent for dragon trick gift. |
 | `AnimatedScore.tsx` | Number tally count-up animation. |
-| `PreRoomView.tsx` | Pre-game room setup: seat layout with bot controls (host), ready system, settings panel, room code display. |
+| `PreRoomView.tsx` | Pre-game room setup: seat layout with bot controls (host), ready system, settings panel, room code display. Also hosts the REQ-F-SJ07 seat-claim rejection dialog (via `SeatClaimRejectedDialog`). |
+| `SeatClaimRejectedDialog.tsx` | REQ-F-SJ07: modal shown on `SEAT_CLAIM_REJECTED`. Displays the server-authored reason text; offers a "Claim {originalSeat} instead" action when `offerClaimOriginal=true`. Rendered from both PreRoomView (pre-room) and the game-page root (in-game) so every rejection path surfaces the same dialog. |
 
 #### Lobby (`lobby/`)
 
@@ -263,6 +265,8 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 **Meta:** PLAYER_DISCONNECTED, PLAYER_RECONNECTED, DISCONNECT_VOTE_REQUIRED, DISCONNECT_VOTE_UPDATE, CHAT_RECEIVED, ERROR
 
 **Queue:** SEAT_OFFERED (multi-seat), QUEUE_STATUS (per-spectator ordinal), SEATS_AVAILABLE (up-for-grabs), ROOM_CLOSED
+
+**Seat-claim validation:** SEAT_CLAIM_REJECTED (REQ-F-SJ05/SJ06/SJ07/SJ11 — server refuses a seat claim on eligibility grounds; payload carries `reason`, `originalSeat`, `requestedSeat`, `currentOccupant`, `offerClaimOriginal` for the client dialog)
 
 ---
 

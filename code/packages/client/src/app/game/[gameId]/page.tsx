@@ -25,6 +25,7 @@ import { ScorePanel } from '@/components/game/ScorePanel';
 import { TichuBanner } from '@/components/game/TichuBanner';
 import { ChatPanel } from '@/components/game/ChatPanel';
 import { SpectatorOverlay } from '@/components/game/SpectatorOverlay';
+import { SeatClaimRejectedDialog } from '@/components/game/SeatClaimRejectedDialog';
 import { Card } from '@/components/cards/Card';
 import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
@@ -212,6 +213,16 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       } else if (msg.type === 'SEATS_AVAILABLE') {
         // REQ-F-SP08c: Seats up for grabs
         uiStore.setAvailableSeats(msg.seats as Seat[]);
+      } else if (msg.type === 'SEAT_CLAIM_REJECTED') {
+        // REQ-F-SJ07: Server refused a seat claim on eligibility grounds.
+        // Surface the server-authored reason + optional reclaim-original action.
+        uiStore.setSeatClaimRejection({
+          reason: msg.reason,
+          originalSeat: msg.originalSeat as Seat,
+          requestedSeat: msg.requestedSeat as Seat,
+          currentOccupant: msg.currentOccupant,
+          offerClaimOriginal: msg.offerClaimOriginal,
+        });
       } else if (msg.type === 'ROOM_CLOSED') {
         // REQ-F-SP15: Room closed — return to lobby
         leaveRoom();
@@ -745,6 +756,9 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           onDeclineSeat={isPreRoomSpectator ? () => { uiStore.setQueueStatus({ decidingSpectator: '', position: 0, timeoutMs: 0 }); send({ type: 'DECLINE_SEAT' }); } : undefined}
           spectatorCount={spectatorCount}
           spectatorNames={spectatorNames}
+          seatClaimRejection={uiStore.seatClaimRejection}
+          onDismissSeatClaimRejection={() => uiStore.clearSeatClaimRejection()}
+          onClaimOriginalSeat={(seat) => send({ type: 'CLAIM_SEAT', seat })}
         />
       </>
     );
@@ -1146,6 +1160,13 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
         />
       )}
+
+      {/* REQ-F-SJ07: Mid-game seat-claim rejection dialog (mirrors the pre-room case) */}
+      <SeatClaimRejectedDialog
+        rejection={uiStore.seatClaimRejection}
+        onClose={() => uiStore.clearSeatClaimRejection()}
+        onClaimOriginal={(seat) => send({ type: 'CLAIM_SEAT', seat })}
+      />
 
 
       {/* REQ-F-DI05: Score panel */}

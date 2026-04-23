@@ -962,6 +962,43 @@ export class GameManager {
     return this.eventCapture.getAccumulator();
   }
 
+  /**
+   * REQ-F-SJ02: Return the seat this user previously occupied in this game,
+   * or null if they have no record. Consults both finalized rounds (via the
+   * accumulator) and the in-progress round (via the capture module). Used by
+   * seat-eligibility validation during live games — the DB `player_rounds`
+   * table only receives rows at game-end, so that source is unavailable
+   * mid-game.
+   *
+   * If the user appears in multiple seats (which SJ04–SJ06 enforcement is
+   * meant to prevent), returns the earliest seat observed.
+   */
+  getPreviousSeatForUser(userId: string): Seat | null {
+    const accumulator = this.eventCapture.getAccumulator();
+    for (const round of accumulator.rounds) {
+      for (const pr of round.playerRounds) {
+        if (pr.userId === userId) return pr.seat;
+      }
+    }
+    const currentRound = this.eventCapture.getCurrentRound();
+    if (currentRound) {
+      for (const pr of currentRound.playerRounds) {
+        if (pr.userId === userId) return pr.seat;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * REQ-F-SJ01: True once round 1 has been dealt for this game. Before then,
+   * seat-eligibility validation is bypassed (unrestricted seat-claim logic).
+   */
+  hasRoundBeenDealt(): boolean {
+    const accumulator = this.eventCapture.getAccumulator();
+    if (accumulator.rounds.length > 0) return true;
+    return this.eventCapture.getCurrentRound() !== null;
+  }
+
   /** REQ-F-ST02: Serialize recovery file with current accumulated data */
   private writeRecoveryFile(): void {
     try {

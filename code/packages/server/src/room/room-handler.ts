@@ -19,6 +19,8 @@ import { writeEventData, deleteRecoveryFile, writeEventDataOnAbandon } from '../
 import { updateCacheAfterGame } from '../db/stats-cache.js';
 import type { GameResult, RoundResult } from '../db/game-persistence.js';
 import type { GameMachineContext } from '../game/game-state-machine.js';
+// REQ-F-SJ01-SJ06: Seat-claim eligibility enforcement (server-authoritative).
+import { validateClaim, type SeatOccupant, type ClaimResult } from './seat-eligibility.js';
 
 /**
  * Handles room-related WebSocket messages by routing them to the RoomManager.
@@ -143,6 +145,22 @@ export class RoomHandler {
     }
 
     try {
+      // REQ-F-SJ04-SJ06, REQ-NF-SJ01-NF-SJ02: Pre-check eligibility before
+      // mutating room state. RoomManager.joinRoom picks the first empty seat,
+      // so we need to anticipate it to run the check.
+      if (room?.gameInProgress) {
+        const nextSeat = SEATS_IN_ORDER.find(
+          (s) => !room.players.some((p) => p.seat === s),
+        );
+        if (nextSeat) {
+          const result = this.checkSeatClaimEligibility(msg.roomCode, info.userId, nextSeat);
+          if (result.kind === 'rejected') {
+            this.broadcaster.sendSeatClaimRejected(ws, result);
+            return;
+          }
+        }
+      }
+
       const { room: joinedRoom, seat } = this.roomManager.joinRoom(info.userId, msg.roomCode, msg.playerName);
       this.connections.assignToRoom(ws, joinedRoom.roomCode, seat);
 
@@ -547,6 +565,17 @@ export class RoomHandler {
     const currentSeat = info.seat;
     const chosenSeat = msg.seat;
 
+    // REQ-F-SJ04-SJ06, REQ-NF-SJ01-NF-SJ02: Enforce eligibility on cross-seat
+    // mid-game choice. Same-seat (reclaim current) is implicitly allowed and
+    // skips the check.
+    if (chosenSeat !== currentSeat) {
+      const result = this.checkSeatClaimEligibility(info.roomCode, info.userId, chosenSeat);
+      if (result.kind === 'rejected') {
+        this.broadcaster.sendSeatClaimRejected(ws, result);
+        return;
+      }
+    }
+
     // If choosing a different seat, swap in the room
     if (chosenSeat !== currentSeat) {
       try {
@@ -853,6 +882,49 @@ export class RoomHandler {
         onGetCurrentSpectators: (rc) => {
           return this.roomManager.getSpectatorUserIds(rc);
         },
+        // REQ-F-SJ08, SJ10: Server-authoritative eligibility gate for queue
+        // processing (silent-skip) and free-for-all claims.
+        onCheckEligibility: (userId, seat) => {
+          return this.checkSeatClaimEligibility(roomCode, userId, seat).kind === 'allowed';
+        },
+        // REQ-F-SJ11: Ineligible free-for-all claimant receives the exact
+        // rejection text verbatim. Invariant: the caller fires this callback
+        // only after `onCheckEligibility` returned false, which requires a
+        // non-null prior seat — so `originalSeat` must be set here.
+        // `offerClaimOriginal=false` per spec ("must wait for your previous
+        // seat to become available").
+        onIneligibleFreeForAllClaim: (userId) => {
+          const ws = this.connections.getSocketByUserId(userId);
+          if (!ws) return;
+          const game = this.gameStore.getGameByRoom(roomCode);
+          const originalSeat = game?.getPreviousSeatForUser(userId) ?? null;
+          if (originalSeat === null) {
+            console.warn(
+              `[SeatQueue:${roomCode}] onIneligibleFreeForAllClaim fired `
+              + `without prior seat for userId=${userId}; sending generic error`,
+            );
+            this.broadcaster.sendError(ws, 'CLAIM_FAILED', 'Cannot claim seat');
+            return;
+          }
+          this.broadcaster.sendSeatClaimRejected(ws, {
+            reason:
+              'You are ineligible to take the empty seat because you '
+              + 'previously sat in a different seat during this game. '
+              + 'You must wait for your previous seat to become available '
+              + 'before you can join the game.',
+            originalSeat,
+            requestedSeat: originalSeat,
+            currentOccupantDisplayName: null,
+            offerClaimOriginal: false,
+          });
+        },
+        // REQ-F-SJ08: Structured log entry for silent skip (R4 mitigation).
+        onSilentSkip: (rc, userId, seats) => {
+          console.log(
+            `[SeatQueue:${rc}] silently skipped ineligible spectator `
+            + `userId=${userId} availableSeats=${seats.join(',')}`,
+          );
+        },
       });
       this.seatQueues.set(roomCode, queue);
     }
@@ -868,6 +940,51 @@ export class RoomHandler {
         this.roomManager.setReady(roomCode, player.seat);
       }
     }
+  }
+
+  /**
+   * REQ-F-SJ01-SJ06, REQ-NF-SJ01-NF-SJ02: Shared seat-claim eligibility check
+   * used by all entry points (CLAIM_SEAT, CHOOSE_SEAT, mid-game JOIN_ROOM).
+   *
+   * Returns `{ kind: 'allowed' }` when either:
+   *   - validation is not yet active (no round dealt in this room), or
+   *   - the user has no prior seat in the live game, or
+   *   - SJ03-SJ06 pass the claim.
+   * Returns `{ kind: 'rejected', ... }` otherwise. Callers must send the
+   * rejection payload to the client and skip the seat mutation.
+   */
+  private checkSeatClaimEligibility(
+    roomCode: string,
+    userId: string,
+    requestedSeat: Seat,
+  ): ClaimResult {
+    const game = this.gameStore.getGameByRoom(roomCode);
+    // REQ-F-SJ01: validation engages only after round 1 has been dealt.
+    if (!game || !game.hasRoundBeenDealt()) return { kind: 'allowed' };
+
+    const originalSeat = game.getPreviousSeatForUser(userId);
+    const occupants = this.buildOccupantMap(roomCode);
+    return validateClaim(originalSeat, requestedSeat, occupants);
+  }
+
+  /**
+   * Build the occupancy snapshot `validateClaim` needs — one entry per seat
+   * covering empty / bot / human cases.
+   */
+  private buildOccupantMap(roomCode: string): Record<Seat, SeatOccupant> {
+    const room = this.roomManager.getRoom(roomCode);
+    const map = {} as Record<Seat, SeatOccupant>;
+    for (const seat of SEATS_IN_ORDER) {
+      const player = room?.players.find((p) => p.seat === seat);
+      if (!player) {
+        map[seat] = { empty: true, isBot: false };
+      } else if (player.isBot) {
+        map[seat] = { empty: false, isBot: true, displayName: player.name };
+      } else {
+        map[seat] = { empty: false, isBot: false, displayName: player.name };
+      }
+    }
+    return map;
   }
 
   /** REQ-F-ES06, REQ-F-ES13: Start seat queue if spectators exist and seats are available.
@@ -900,6 +1017,18 @@ export class RoomHandler {
     if (!queue || !queue.isActive()) {
       this.broadcaster.sendError(ws, 'NO_QUEUE', 'No active seat queue');
       return;
+    }
+
+    // REQ-F-SJ04-SJ06, REQ-NF-SJ01-NF-SJ02: Server-authoritative eligibility
+    // check. Only enforceable when a specific seat was requested (multi-
+    // vacancy pick). If omitted, the queue will assign the first available
+    // seat and the check falls through to the queue layer (REQ-F-SJ08 in M3).
+    if (msg?.seat) {
+      const result = this.checkSeatClaimEligibility(info.roomCode, info.userId, msg.seat);
+      if (result.kind === 'rejected') {
+        this.broadcaster.sendSeatClaimRejected(ws, result);
+        return;
+      }
     }
 
     // REQ-F-ES07: Pass optional seat for multi-vacancy picking

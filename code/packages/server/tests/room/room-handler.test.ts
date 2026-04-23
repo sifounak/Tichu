@@ -45,6 +45,10 @@ function createMockConnections(): ConnectionManager {
       const info = clients.get(ws);
       if (info) { info.roomCode = roomCode; info.seat = seat as any; }
     }),
+    assignAsSpectator: vi.fn((ws: WebSocket, roomCode: string) => {
+      const info = clients.get(ws);
+      if (info) { info.roomCode = roomCode; info.seat = null; }
+    }),
     removeFromRoom: vi.fn((ws: WebSocket) => {
       const info = clients.get(ws);
       if (info) { info.roomCode = null; info.seat = null; }
@@ -75,6 +79,7 @@ function createMockBroadcaster(): Broadcaster {
     broadcastGameState: vi.fn().mockReturnValue(4),
     broadcastToSpectators: vi.fn().mockReturnValue(0),
     sendError: vi.fn().mockReturnValue(true),
+    sendSeatClaimRejected: vi.fn().mockReturnValue(true),
   } as unknown as Broadcaster;
 }
 
@@ -329,6 +334,142 @@ describe('RoomHandler', () => {
       expect(game.handleMessage).toHaveBeenCalledWith(
         ws1, 'south', { type: 'START_GAME' },
       );
+    });
+  });
+
+  // Verifies: REQ-F-SJ01, SJ03-SJ06, REQ-NF-SJ01, NF-SJ02
+  describe('seat-claim eligibility enforcement (REQ-NF-SJ02)', () => {
+    let roomCode: string;
+    let stubGame: any;
+
+    beforeEach(async () => {
+      // Fill all 4 seats and start a game so room.gameInProgress = true.
+      await router.handleMessage(ws1, JSON.stringify({ type: 'CREATE_ROOM', playerName: 'Alice' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'north' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'east' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'ADD_BOT', seat: 'west' }));
+      await router.handleMessage(ws1, JSON.stringify({ type: 'START_GAME' }));
+      roomCode = handler.roomManager.getUserRoom('user1')!;
+
+      // Stub the live-game lookup: round 1 dealt, user's prior seat is 'south'
+      // for any caller. Every entry point below must reject cross-seat attempts.
+      stubGame = {
+        hasRoundBeenDealt: vi.fn().mockReturnValue(true),
+        getPreviousSeatForUser: vi.fn().mockReturnValue('south' as Seat),
+        handleChooseSeat: vi.fn(),
+        handleSeatFilled: vi.fn(),
+        handleSeatVacated: vi.fn(),
+        sendSpectatorState: vi.fn(),
+        markJoinedAfterSpectating: vi.fn(),
+      };
+      (gameStore.getGameByRoom as any).mockReturnValue(stubGame);
+    });
+
+    // REQ-NF-SJ01, NF-SJ02, F-SJ06: Even if a forged client sends CHOOSE_SEAT
+    // bypassing the UI pre-filter, the server rejects cross-seat changes.
+    it('CHOOSE_SEAT: rejects cross-seat change and does not touch game state', async () => {
+      await router.handleMessage(ws1, JSON.stringify({ type: 'CHOOSE_SEAT', seat: 'north' }));
+
+      expect(broadcaster.sendSeatClaimRejected).toHaveBeenCalledWith(
+        ws1,
+        expect.objectContaining({
+          kind: 'rejected',
+          originalSeat: 'south',
+          requestedSeat: 'north',
+          offerClaimOriginal: false,
+        }),
+      );
+      expect(stubGame.handleChooseSeat).not.toHaveBeenCalled();
+    });
+
+    // REQ-NF-SJ02, F-SJ06: Mid-game JOIN_ROOM is validated before the room
+    // state mutates. Bob previously held 'south'; north is the only free seat.
+    it('JOIN_ROOM mid-game: rejects and does not seat the player', async () => {
+      // Vacate north so the next-seat heuristic picks it up.
+      await router.handleMessage(ws1, JSON.stringify({ type: 'REMOVE_BOT', seat: 'north' }));
+
+      const ws2 = createMockWs();
+      (connections.addClient as any)(ws2, 'user2', 'Bob');
+
+      await router.handleMessage(ws2, JSON.stringify({
+        type: 'JOIN_ROOM',
+        roomCode,
+        playerName: 'Bob',
+      }));
+
+      expect(broadcaster.sendSeatClaimRejected).toHaveBeenCalledWith(
+        ws2,
+        expect.objectContaining({
+          kind: 'rejected',
+          originalSeat: 'south',
+          requestedSeat: 'north',
+        }),
+      );
+      // Seat not assigned — info.seat stays null.
+      const info = connections.getClientInfo(ws2);
+      expect(info?.seat).toBeNull();
+      // Room state unchanged — still 3 players (Alice + 2 bots).
+      const room = handler.roomManager.getRoom(roomCode);
+      expect(room?.players).toHaveLength(3);
+    });
+
+    // REQ-NF-SJ02, F-SJ06: CLAIM_SEAT with an explicit seat is validated
+    // against the user's prior seat before handing off to the queue.
+    it('CLAIM_SEAT with explicit seat: rejects and does not invoke the queue', async () => {
+      // Room is full — Bob auto-joins as spectator.
+      const ws2 = createMockWs();
+      (connections.addClient as any)(ws2, 'user2', 'Bob');
+      await router.handleMessage(ws2, JSON.stringify({
+        type: 'JOIN_ROOM',
+        roomCode,
+        playerName: 'Bob',
+      }));
+
+      // Inject an active mock queue so the handler proceeds to the eligibility
+      // check. A real queue would require orchestrating a vacation + spectator
+      // flow, which is tangential to the rule under test.
+      const mockQueue = {
+        isActive: vi.fn().mockReturnValue(true),
+        handleClaim: vi.fn().mockReturnValue(true),
+        phase: 'offer',
+        cleanup: vi.fn(),
+      };
+      (handler as any).seatQueues.set(roomCode, mockQueue);
+
+      await router.handleMessage(ws2, JSON.stringify({
+        type: 'CLAIM_SEAT',
+        seat: 'north',
+      }));
+
+      expect(broadcaster.sendSeatClaimRejected).toHaveBeenCalledWith(
+        ws2,
+        expect.objectContaining({
+          kind: 'rejected',
+          originalSeat: 'south',
+          requestedSeat: 'north',
+        }),
+      );
+      expect(mockQueue.handleClaim).not.toHaveBeenCalled();
+    });
+
+    // REQ-F-SJ01: When no round has been dealt yet, validation short-circuits
+    // to allowed. Proves the gate is anchored on hasRoundBeenDealt().
+    it('allows cross-seat CHOOSE_SEAT when no round has been dealt yet', async () => {
+      stubGame.hasRoundBeenDealt.mockReturnValue(false);
+
+      await router.handleMessage(ws1, JSON.stringify({ type: 'CHOOSE_SEAT', seat: 'north' }));
+
+      expect(broadcaster.sendSeatClaimRejected).not.toHaveBeenCalled();
+      expect(stubGame.handleChooseSeat).toHaveBeenCalledWith('south', 'north');
+    });
+
+    // REQ-F-SJ04: Reclaiming the original seat (same seat as prior) is always
+    // allowed — exercised via CHOOSE_SEAT no-op where chosenSeat === currentSeat.
+    it('CHOOSE_SEAT to the same seat bypasses validation (reclaim)', async () => {
+      await router.handleMessage(ws1, JSON.stringify({ type: 'CHOOSE_SEAT', seat: 'south' }));
+
+      expect(broadcaster.sendSeatClaimRejected).not.toHaveBeenCalled();
+      expect(stubGame.handleChooseSeat).toHaveBeenCalledWith('south', 'south');
     });
   });
 

@@ -166,6 +166,16 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   // Graceful restart notification
   z.object({ type: z.literal('SERVER_SHUTTING_DOWN') }),
 
+  // REQ-F-SJ05, SJ06: Seat-claim rejection with client dialog payload
+  z.object({
+    type: z.literal('SEAT_CLAIM_REJECTED'),
+    reason: z.string(),
+    originalSeat: seatSchema,
+    requestedSeat: seatSchema,
+    currentOccupant: z.object({ displayName: z.string() }).nullable(),
+    offerClaimOriginal: z.boolean(),
+  }),
+
   // Error
   z.object({ type: z.literal('ERROR'), code: z.string(), message: z.string() }),
 ]);

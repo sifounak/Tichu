@@ -28,6 +28,16 @@ export function createDatabase(dbPath: string): Database {
   // Enable WAL mode for better concurrent read performance
   client.pragma('journal_mode = WAL');
 
+  // REQ-NF-SA05: stats-cache queries use SQLite row-value IN tuple syntax (3.15+).
+  // Abort at startup if the bundled SQLite is too old rather than fail opaquely later.
+  const versionRow = client.prepare('SELECT sqlite_version() AS v').get() as { v: string };
+  const [maj, min] = versionRow.v.split('.').map(Number);
+  if (maj < 3 || (maj === 3 && min < 15)) {
+    throw new Error(
+      `SQLite ${versionRow.v} does not support row-value IN tuple syntax (requires 3.15+)`,
+    );
+  }
+
   // Ensure all tables exist (idempotent — CREATE TABLE IF NOT EXISTS)
   syncSchema(client);
 
