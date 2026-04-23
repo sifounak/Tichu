@@ -117,6 +117,7 @@ interface BombInventoryRow {
   acquired_phase: string;
   fate: string | null;
   was_overbomb: number;
+  captured_dragon: number;
 }
 
 interface DogPlayRow {
@@ -126,13 +127,6 @@ interface DogPlayRow {
   control_passed_to: string;
   partner_has_tichu: number;
   dog_was_last_card: number;
-}
-
-interface DragonGiftRow {
-  game_id: number;
-  round_number: number;
-  gifter_seat: string;
-  recipient_seat: string;
 }
 
 // ─── JSON parsing helpers ──────────────────────────────────────────────
@@ -234,7 +228,7 @@ interface StatsResult {
   aceReceivedInPass: number;
   dogReceivedInPass: number;
   dragonTrickWins: number;
-  dragonGivenAfterOpponentWin: number;
+  capturedDragonWithBomb: number;
   dogGivenToPartner: number;
   dogGivenToOpponent: number;
   dogPlayedForTichuPartner: number;
@@ -310,7 +304,7 @@ function createEmptyStats(): StatsResult {
     roundsWithDragon: 0, roundsWithDragonWon: 0,
     roundsWithPhoenix: 0, roundsWithPhoenixWon: 0,
     dragonReceivedInPass: 0, phoenixReceivedInPass: 0, aceReceivedInPass: 0, dogReceivedInPass: 0,
-    dragonTrickWins: 0, dragonGivenAfterOpponentWin: 0,
+    dragonTrickWins: 0, capturedDragonWithBomb: 0,
     dogGivenToPartner: 0, dogGivenToOpponent: 0,
     dogPlayedForTichuPartner: 0, dogOpportunitiesForTichuPartner: 0,
     handsWithBombs: 0, totalBombs: 0, fourCardBombs: 0, fiveCardBombs: 0, sixPlusCardBombs: 0,
@@ -465,7 +459,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
   // REQ-F-SA05: Per-bomb stats filtered by (game_id, round_number, seat) tuples.
   const myBombs = db.all(sql`
     SELECT game_id, round_number, player_seat, bomb_type, rank, size,
-           acquired_phase, fate, was_overbomb
+           acquired_phase, fate, was_overbomb, captured_dragon
     FROM bomb_inventory
     WHERE (game_id, round_number, player_seat) IN (
       SELECT game_id, round_number, seat FROM player_rounds WHERE user_id = ${userId}
@@ -480,13 +474,6 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     FROM dog_play_events
     WHERE game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
   `) as DogPlayRow[];
-
-  // ── 10. Get dragon gift events ──
-  const allDragonGifts = db.all(sql`
-    SELECT game_id, round_number, gifter_seat, recipient_seat
-    FROM dragon_gift_events
-    WHERE game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
-  `) as DragonGiftRow[];
 
   // ═══════════════════════════════════════════════════════════════════════
   // Compute Game-Level Stats
@@ -763,11 +750,12 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     }
   }
 
-  // REQ-F-SA08: dragon-gift credit only if user held the recipient seat for that specific round.
-  for (const gift of allDragonGifts) {
-    if (!validGameRoundSeat.has(`${gift.game_id}-${gift.round_number}-${gift.recipient_seat}`)) continue;
-    if (getTeam(gift.gifter_seat as Seat) !== getTeam(gift.recipient_seat as Seat)) {
-      stats.dragonGivenAfterOpponentWin++;
+  // REQ-F-SA08: captured-dragon-with-bomb credit only if user held the bomber's seat for that round.
+  // Counts inventory bombs whose fate was 'played' AND whose winning trick contained the dragon.
+  // Set by GameEventCapture.detectTrickCompletion when a bomb wins a dragon trick.
+  for (const bomb of filteredBombs) {
+    if (bomb.captured_dragon === 1) {
+      stats.capturedDragonWithBomb++;
     }
   }
 
@@ -1163,7 +1151,7 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
       rounds_with_dragon, rounds_with_dragon_won,
       rounds_with_phoenix, rounds_with_phoenix_won,
       dragon_received_in_pass, phoenix_received_in_pass, ace_received_in_pass, dog_received_in_pass,
-      dragon_trick_wins, dragon_given_after_opponent_win,
+      dragon_trick_wins, captured_dragon_with_bomb,
       dog_given_to_partner, dog_given_to_opponent,
       dog_played_for_tichu_partner, dog_opportunities_for_tichu_partner,
       hands_with_bombs, total_bombs, four_card_bombs, five_card_bombs, six_plus_card_bombs,
@@ -1199,7 +1187,7 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
       ${stats.roundsWithDragon}, ${stats.roundsWithDragonWon},
       ${stats.roundsWithPhoenix}, ${stats.roundsWithPhoenixWon},
       ${stats.dragonReceivedInPass}, ${stats.phoenixReceivedInPass}, ${stats.aceReceivedInPass}, ${stats.dogReceivedInPass},
-      ${stats.dragonTrickWins}, ${stats.dragonGivenAfterOpponentWin},
+      ${stats.dragonTrickWins}, ${stats.capturedDragonWithBomb},
       ${stats.dogGivenToPartner}, ${stats.dogGivenToOpponent},
       ${stats.dogPlayedForTichuPartner}, ${stats.dogOpportunitiesForTichuPartner},
       ${stats.handsWithBombs}, ${stats.totalBombs}, ${stats.fourCardBombs}, ${stats.fiveCardBombs}, ${stats.sixPlusCardBombs},

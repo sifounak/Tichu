@@ -34,7 +34,7 @@ export default function CardStatsPage() {
           <StatCard label="Trick Wins" value={profile.dragonTrickWins} coloredLabel />
           <StatCard label="Rounds Held" value={profile.roundsWithDragon} coloredLabel />
           <StatCard label="Rounds Won w/ Dragon" value={profile.roundsWithDragonWon} coloredLabel />
-          <StatCard label="Gifted to Opponent" value={profile.dragonGivenAfterOpponentWin} coloredLabel />
+          <StatCard label="Captured w/ Bomb" value={profile.capturedDragonWithBomb} coloredLabel />
         </div>
       </StatSection>
 

@@ -906,11 +906,12 @@ describe('Stats Cache', () => {
         VALUES (?, 3, 1, 1, 'north', 'play', '[15]', 'Single', 1, 1)`,
       ).run(gameId);
 
-      // ── bomb_inventory: A's 4-card bomb in round 1, acquired first8, played ──
+      // ── bomb_inventory: A's 4-card bomb in round 1, acquired first8, played,
+      //    captured the dragon (bombed a dragon trick and won it) ──
       client.prepare(
         `INSERT INTO bomb_inventory (game_id, round_number, player_seat, bomb_type, cards,
-          rank, size, acquired_phase, fate, was_overbomb)
-        VALUES (?, 1, 'north', 'FourOfAKind', '[1,14,27,40]', 2, 4, 'first8', 'played', 0)`,
+          rank, size, acquired_phase, fate, was_overbomb, captured_dragon)
+        VALUES (?, 1, 'north', 'FourOfAKind', '[1,14,27,40]', 2, 4, 'first8', 'played', 0, 1)`,
       ).run(gameId);
 
       // ── bomb_inventory: B's 5-card bomb in round 4, played (post-pass), was_overbomb ──
@@ -932,13 +933,6 @@ describe('Stats Cache', () => {
         `INSERT INTO tricks (game_id, round_number, trick_number, lead_seat, winner_seat,
           point_value, contains_dragon)
         VALUES (?, 3, 2, 'north', 'north', 25, 1)`,
-      ).run(gameId);
-
-      // ── dragon_gift_events: east gifts dragon to north in round 2 (to A) ──
-      client.prepare(
-        `INSERT INTO dragon_gift_events (game_id, round_number, trick_number, gifter_seat,
-          recipient_seat, trick_point_value, recipient_cards_left, other_opponent_cards_left)
-        VALUES (?, 2, 1, 'east', 'north', 25, 10, 10)`,
       ).run(gameId);
 
       // ── dog_play_events: B plays dog in round 3, control to partner (south) ──
@@ -980,9 +974,9 @@ describe('Stats Cache', () => {
       expect(rowA.dragon_trick_wins).toBe(1);
       expect(rowB.dragon_trick_wins).toBe(1);
 
-      // REQ-F-SA08 (dragon_gift_events): A is recipient in round 2 from opponent
-      expect(rowA.dragon_given_after_opponent_win).toBe(1);
-      expect(rowB.dragon_given_after_opponent_win).toBe(0);
+      // REQ-F-SA08 (bomb_inventory.captured_dragon): A bombed a dragon trick in round 1
+      expect(rowA.captured_dragon_with_bomb).toBe(1);
+      expect(rowB.captured_dragon_with_bomb).toBe(0);
 
       // REQ-F-SA07 (dog_play_events): B plays dog in round 3, control to partner
       expect(rowA.dog_control_to_partner).toBe(0);

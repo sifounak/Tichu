@@ -38,7 +38,7 @@ export interface PlayerProfile {
   aceReceivedInPass: number;
   dogReceivedInPass: number;
   dragonTrickWins: number;
-  dragonGivenAfterOpponentWin: number;
+  capturedDragonWithBomb: number;
   dogGivenToPartner: number;
   dogGivenToOpponent: number;
   dogPlayedForTichuPartner: number;

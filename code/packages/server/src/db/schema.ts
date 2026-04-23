@@ -386,7 +386,7 @@ export const statsCache = sqliteTable('stats_cache', {
   aceReceivedInPass: integer('ace_received_in_pass').notNull().default(0),
   dogReceivedInPass: integer('dog_received_in_pass').notNull().default(0),
   dragonTrickWins: integer('dragon_trick_wins').notNull().default(0),
-  dragonGivenAfterOpponentWin: integer('dragon_given_after_opponent_win').notNull().default(0),
+  capturedDragonWithBomb: integer('captured_dragon_with_bomb').notNull().default(0),
   dogGivenToPartner: integer('dog_given_to_partner').notNull().default(0),
   dogGivenToOpponent: integer('dog_given_to_opponent').notNull().default(0),
   dogPlayedForTichuPartner: integer('dog_played_for_tichu_partner').notNull().default(0),
