@@ -472,4 +472,15 @@ function syncSchema(client: BetterSqlite3Database): void {
       // Column already exists
     }
   }
+
+  // Rename stats_cache.dragon_given_after_opponent_win → captured_dragon_with_bomb.
+  // CREATE TABLE IF NOT EXISTS above is a no-op on existing tables, so pre-rename
+  // DBs keep the old column and every read/write of the cache fails.
+  try {
+    client.exec(
+      `ALTER TABLE stats_cache RENAME COLUMN dragon_given_after_opponent_win TO captured_dragon_with_bomb`,
+    );
+  } catch {
+    // Already renamed, or fresh DB created with the new name
+  }
 }
