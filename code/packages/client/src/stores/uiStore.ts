@@ -86,6 +86,17 @@ export interface UiStore {
   setQueueStatus: (status: { decidingSpectator: string; position: number; timeoutMs: number } | null) => void;
   setAvailableSeats: (seats: Seat[]) => void;
 
+  /* --- Seat-Claim Rejection (REQ-F-SJ07) --- */
+  seatClaimRejection: {
+    reason: string;
+    originalSeat: Seat;
+    requestedSeat: Seat;
+    currentOccupant: { displayName: string } | null;
+    offerClaimOriginal: boolean;
+  } | null;
+  setSeatClaimRejection: (rejection: UiStore['seatClaimRejection']) => void;
+  clearSeatClaimRejection: () => void;
+
   /* --- Player Vote (REQ-F-PV01–PV28) --- */
   activeVote: {
     voteId: string;
@@ -238,6 +249,11 @@ export const useUiStore = create<UiStore>()((set) => ({
   clearSeatOffer: () => set({ seatOffer: null }),
   setQueueStatus: (status) => set({ queueStatus: status, seatOffer: null }),
   setAvailableSeats: (seats) => set({ availableSeats: seats, seatOffer: null, queueStatus: null }),
+
+  /* --- Seat-Claim Rejection --- */
+  seatClaimRejection: null,
+  setSeatClaimRejection: (rejection) => set({ seatClaimRejection: rejection }),
+  clearSeatClaimRejection: () => set({ seatClaimRejection: null }),
 
   /* --- Player Vote --- */
   activeVote: null,

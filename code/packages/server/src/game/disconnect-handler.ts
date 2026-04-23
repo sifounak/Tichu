@@ -1,161 +1,151 @@
-// REQ-F-ES04: Disconnect handling with Wait/Kick vote
-// REQ-F-ES14: Reconnect after Wait vote
-// REQ-F-ES17: Multi-player disconnect vote
+// REQ-F-SJ12, SJ13: Passive grace-period handling on involuntary disconnect.
+// REQ-F-ES04/ES14/ES17 (superseded): previously a vote-based keep/kick scheme —
+// replaced by a passive 60s hold. Reconnect within the window restores the
+// seat without validation; expiry releases the seat and re-enters seat-claim
+// logic for returning users (REQ-F-SJ04-SJ06).
 
 import type { Seat } from '@tichu/shared';
 import type { Broadcaster } from '../ws/broadcaster.js';
 
-/** REQ-F-ES04: Vote options — Wait to keep seat reserved, Kick to vacate */
+/** Back-compat export: the vote scheme is gone but the type is still imported
+ *  elsewhere (and the `DISCONNECT_VOTE` client message is dead-but-accepted). */
 export type DisconnectVote = 'wait' | 'kick';
 
-/** REQ-F-ES04: Result of the vote */
+/** Outcome reported to `onVoteResult`. With the vote scheme removed, only
+ *  `'kick'` (grace expired) is ever produced — `'waiting'` / `'pending'` are
+ *  retained for back-compat with the callback signature. */
 export type VoteOutcome = 'waiting' | 'kick' | 'pending';
 
-/** State for a disconnect vote session (supports multi-disconnect) */
-interface VoteSession {
-  /** REQ-F-ES17: All disconnected seats in this session */
+/** State for a single room's grace-period session. */
+interface GraceSession {
+  /** REQ-F-SJ12: All disconnected seats currently under grace in this room. */
   disconnectedSeats: Set<Seat>;
-  /** Per-voter seat → vote choice (voters can change their vote) */
-  votes: Map<Seat, DisconnectVote>;
-  /** Auto-kick timeout handle */
+  /** Timeout handle for the grace expiry. */
   timeoutHandle: ReturnType<typeof setTimeout>;
-  /** When the vote started (for remaining time calculation) */
+  /** Wall-clock start time — used to compute remaining time for projection. */
   startedAt: number;
 }
 
 /**
- * REQ-F-ES04: Manages player disconnection, voting, and reconnection.
+ * REQ-F-SJ12, SJ13: Tracks involuntary disconnects and enforces a passive
+ * grace period per room.
  *
- * When a player disconnects during a game:
- * 1. Remaining players are notified
- * 2. A vote is initiated: Wait (keep seat reserved) or Kick (vacate seat)
- * 3. 2/3 majority required (ceil(voters/2), min 2); on 45s timeout → auto-kick
- * 4. Players can switch their vote at will; each change broadcasts DISCONNECT_VOTE_UPDATE
- * 5. REQ-F-ES17: Multiple disconnects merge into one session
- * 6. REQ-F-ES14: On reconnect with "wait" result, player auto-restores to seat
+ * Flow:
+ * 1. `handleDisconnect` — seat goes into a 60s hold; remaining players are
+ *    notified via `PLAYER_DISCONNECTED`. The seat is NOT vacated yet.
+ * 2. `handleReconnect` within the window — seat restored in place, no
+ *    seat-claim validation required (REQ-F-SJ12).
+ * 3. On grace expiry — `onVoteResult(roomCode, 'kick', seats)` fires so the
+ *    caller vacates the seat(s). Returning users now go through standard
+ *    seat-claim flow (REQ-F-SJ04-SJ06, SJ13).
+ *
+ * Voluntary `LEAVE_ROOM` and host/vote kicks never pass through this handler
+ * — they release the seat immediately (REQ-F-SJ13).
  */
 export class DisconnectHandler {
-  /** Active vote sessions by room code */
-  private readonly sessions = new Map<string, VoteSession>();
+  /** Active grace sessions by room code. */
+  private readonly sessions = new Map<string, GraceSession>();
 
-  /** Disconnected players: roomCode → Set of seats */
+  /** Disconnected seats by room (independent of session for quick lookup). */
   private readonly disconnected = new Map<string, Set<Seat>>();
 
-  /** REQ-F-ES04: Default vote timeout in ms (45 seconds) */
-  private readonly voteTimeoutMs: number;
+  /** REQ-F-SJ12: Grace period in ms (default 60 seconds). */
+  private readonly graceTimeoutMs: number;
 
-  /** Callback when vote concludes — called once per session with all affected seats */
+  /** Called when the grace period expires — outcome is always `'kick'`. */
   onVoteResult: ((roomCode: string, outcome: VoteOutcome, seats: Seat[]) => void) | null = null;
 
   constructor(
     private readonly broadcaster: Broadcaster,
-    options?: { voteTimeoutMs?: number },
+    options?: { graceTimeoutMs?: number; voteTimeoutMs?: number },
   ) {
-    this.voteTimeoutMs = options?.voteTimeoutMs ?? 45_000;
+    // Accept `voteTimeoutMs` as a deprecated alias so existing callers don't
+    // break during the M2 transition; new code should pass `graceTimeoutMs`.
+    this.graceTimeoutMs = options?.graceTimeoutMs ?? options?.voteTimeoutMs ?? 60_000;
   }
 
-  /** REQ-F-ES04, REQ-F-ES17: Record a player disconnection and start/extend the vote process */
+  /** REQ-F-SJ12: Record an involuntary disconnect and (re)arm the grace timer. */
   handleDisconnect(roomCode: string, seat: Seat): void {
-    // Track disconnection
     if (!this.disconnected.has(roomCode)) {
       this.disconnected.set(roomCode, new Set());
     }
     this.disconnected.get(roomCode)!.add(seat);
 
-    // Notify remaining players
     this.broadcaster.broadcastToRoom(roomCode, {
       type: 'PLAYER_DISCONNECTED',
       seat,
     });
 
-    // REQ-F-ES17: If session already exists, add seat to it; otherwise start new
-    const existingSession = this.sessions.get(roomCode);
-    if (existingSession) {
-      existingSession.disconnectedSeats.add(seat);
-      // Remove any vote this seat may have cast (they're now disconnected)
-      existingSession.votes.delete(seat);
-      // Broadcast updated vote state
-      this.broadcastVoteUpdate(roomCode);
+    const existing = this.sessions.get(roomCode);
+    if (existing) {
+      // Additional seat dropped inside the existing window — merge, leave the
+      // original timer in place. Per spec the hold is per-event, not per-seat.
+      existing.disconnectedSeats.add(seat);
     } else {
-      this.startVote(roomCode, seat);
+      this.startGrace(roomCode, seat);
     }
   }
 
-  /** REQ-F-ES14: Handle a player reconnecting */
+  /** REQ-F-SJ12: Reconnect within grace restores the seat without validation. */
   handleReconnect(roomCode: string, seat: Seat): void {
     const disconnectedSeats = this.disconnected.get(roomCode);
     if (disconnectedSeats) {
       disconnectedSeats.delete(seat);
-      if (disconnectedSeats.size === 0) {
-        this.disconnected.delete(roomCode);
-      }
+      if (disconnectedSeats.size === 0) this.disconnected.delete(roomCode);
     }
 
-    // Notify remaining players
     this.broadcaster.broadcastToRoom(roomCode, {
       type: 'PLAYER_RECONNECTED',
       seat,
     });
 
-    // REQ-F-ES14: Cancel vote only if ALL disconnected players have reconnected
     const session = this.sessions.get(roomCode);
     if (session) {
       session.disconnectedSeats.delete(seat);
       if (session.disconnectedSeats.size === 0) {
-        // All disconnected players reconnected — cancel the vote
         clearTimeout(session.timeoutHandle);
         this.sessions.delete(roomCode);
-        // Broadcast that vote is resolved (implicitly by no longer sending updates)
-      } else {
-        // Still have disconnected players — update vote display
-        this.broadcastVoteUpdate(roomCode);
       }
     }
   }
 
-  /** REQ-F-ES04: Record a vote from a connected player. Players can switch votes freely. */
-  handleVote(roomCode: string, voterSeat: Seat, vote: DisconnectVote): VoteOutcome {
-    const session = this.sessions.get(roomCode);
-    if (!session) return 'pending';
-
-    // Can't vote if you're one of the disconnected players
-    if (session.disconnectedSeats.has(voterSeat)) return 'pending';
-
-    session.votes.set(voterSeat, vote);
-
-    // Broadcast vote update after each vote change
-    this.broadcastVoteUpdate(roomCode);
-
-    return this.evaluateVotes(roomCode);
+  /** Back-compat no-op: the vote scheme has been removed but the client
+   *  protocol still carries `DISCONNECT_VOTE` messages until M5 drops them. */
+  handleVote(_roomCode: string, _voterSeat: Seat, _vote: DisconnectVote): VoteOutcome {
+    return 'pending';
   }
 
-  /** Check if a seat is disconnected in a room */
+  /** True while `seat` is inside its grace window. */
   isDisconnected(roomCode: string, seat: Seat): boolean {
     return this.disconnected.get(roomCode)?.has(seat) ?? false;
   }
 
-  /** Get all disconnected seats in a room */
+  /** All seats currently under grace in `roomCode`. */
   getDisconnectedSeats(roomCode: string): Seat[] {
     return Array.from(this.disconnected.get(roomCode) ?? []);
   }
 
-  /** Get current vote status for a room (for state projection) */
-  getVoteStatus(roomCode: string): { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null {
+  /**
+   * Status object consumed by state projection. With the vote scheme gone,
+   * `votes` is always empty; `timeoutMs` is the remaining grace period in ms.
+   * Returns null when no seat is under grace.
+   */
+  getVoteStatus(roomCode: string): {
+    votes: Record<string, 'wait' | 'kick' | null>;
+    disconnectedSeats: Seat[];
+    timeoutMs: number;
+  } | null {
     const session = this.sessions.get(roomCode);
     if (!session) return null;
 
-    const votes: Record<string, 'wait' | 'kick' | null> = {};
-    const allSeats: Seat[] = ['north', 'east', 'south', 'west'];
-    for (const seat of allSeats) {
-      if (session.disconnectedSeats.has(seat)) {
-        votes[seat] = null; // Disconnected players don't vote
-      } else {
-        votes[seat] = session.votes.get(seat) ?? null;
-      }
-    }
-
+    const votes: Record<string, 'wait' | 'kick' | null> = {
+      north: null,
+      east: null,
+      south: null,
+      west: null,
+    };
     const elapsed = Date.now() - session.startedAt;
-    const remaining = Math.max(0, this.voteTimeoutMs - elapsed);
+    const remaining = Math.max(0, this.graceTimeoutMs - elapsed);
 
     return {
       votes,
@@ -164,12 +154,16 @@ export class DisconnectHandler {
     };
   }
 
-  /** Check if a vote session is active for a room */
-  hasActiveVote(roomCode: string): boolean {
-    return this.sessions.has(roomCode);
+  /**
+   * Always false — the vote scheme is gone. Kept so existing gating in
+   * game-manager (`if (disconnectHandler.hasActiveVote) block kick vote`)
+   * no longer blocks other votes during a grace hold.
+   */
+  hasActiveVote(_roomCode: string): boolean {
+    return false;
   }
 
-  /** Clean up all state for a room */
+  /** Clean up all state for a room. */
   cleanupRoom(roomCode: string): void {
     const session = this.sessions.get(roomCode);
     if (session) {
@@ -179,7 +173,7 @@ export class DisconnectHandler {
     this.disconnected.delete(roomCode);
   }
 
-  /** Clean up all state */
+  /** Clean up everything. */
   dispose(): void {
     for (const [, session] of this.sessions) {
       clearTimeout(session.timeoutHandle);
@@ -188,91 +182,28 @@ export class DisconnectHandler {
     this.disconnected.clear();
   }
 
-  /** Start a vote session for a disconnected player */
-  private startVote(roomCode: string, disconnectedSeat: Seat): void {
-    // REQ-F-ES04: Auto-kick after 45s if no 2/3 majority
+  /** REQ-F-SJ12: Start the grace session for a newly disconnected seat. */
+  private startGrace(roomCode: string, seat: Seat): void {
     const timeoutHandle = setTimeout(() => {
-      this.resolveVote(roomCode, 'kick');
-    }, this.voteTimeoutMs);
+      this.expireGrace(roomCode);
+    }, this.graceTimeoutMs);
 
-    const session: VoteSession = {
-      disconnectedSeats: new Set([disconnectedSeat]),
-      votes: new Map(),
+    this.sessions.set(roomCode, {
+      disconnectedSeats: new Set([seat]),
       timeoutHandle,
       startedAt: Date.now(),
-    };
-
-    this.sessions.set(roomCode, session);
-
-    // REQ-F-ES04: Notify players that a vote is needed
-    this.broadcaster.broadcastToRoom(roomCode, {
-      type: 'DISCONNECT_VOTE_REQUIRED',
-      disconnectedSeats: [disconnectedSeat],
     });
-
-    // Also send initial vote update with empty votes
-    this.broadcastVoteUpdate(roomCode);
   }
 
-  /** REQ-F-ES04: Evaluate the current votes and resolve if majority reached */
-  private evaluateVotes(roomCode: string): VoteOutcome {
+  /** REQ-F-SJ12, SJ13: Grace expired — release all held seats. */
+  private expireGrace(roomCode: string): void {
     const session = this.sessions.get(roomCode);
-    if (!session) return 'pending';
-
-    // REQ-F-ES17: Dynamic voter count based on connected players
-    const totalPlayers = 4;
-    const voterCount = totalPlayers - session.disconnectedSeats.size;
-
-    // Majority = ceil(voters / 2) but at least 2; sole remaining voter has full authority
-    const majorityThreshold = voterCount <= 1 ? 1 : Math.max(2, Math.ceil(voterCount / 2));
-
-    // Count votes
-    let waitVotes = 0;
-    let kickVotes = 0;
-    for (const [, vote] of session.votes) {
-      if (vote === 'wait') waitVotes++;
-      if (vote === 'kick') kickVotes++;
-    }
-
-    // Check for majority
-    if (kickVotes >= majorityThreshold) {
-      return this.resolveVote(roomCode, 'kick');
-    }
-    if (waitVotes >= majorityThreshold) {
-      return this.resolveVote(roomCode, 'waiting');
-    }
-
-    // All voted but no majority → default to kick
-    if (session.votes.size >= voterCount) {
-      return this.resolveVote(roomCode, 'kick');
-    }
-
-    return 'pending';
-  }
-
-  /** Finalize a vote and notify via callback */
-  private resolveVote(roomCode: string, outcome: VoteOutcome): VoteOutcome {
-    const session = this.sessions.get(roomCode);
-    if (!session) return outcome;
+    if (!session) return;
 
     clearTimeout(session.timeoutHandle);
     const seats = Array.from(session.disconnectedSeats);
     this.sessions.delete(roomCode);
 
-    this.onVoteResult?.(roomCode, outcome, seats);
-    return outcome;
-  }
-
-  /** REQ-F-ES04: Broadcast DISCONNECT_VOTE_UPDATE with per-seat votes and remaining time */
-  private broadcastVoteUpdate(roomCode: string): void {
-    const status = this.getVoteStatus(roomCode);
-    if (!status) return;
-
-    this.broadcaster.broadcastToRoom(roomCode, {
-      type: 'DISCONNECT_VOTE_UPDATE',
-      votes: status.votes,
-      disconnectedSeats: status.disconnectedSeats,
-      timeoutMs: status.timeoutMs,
-    });
+    this.onVoteResult?.(roomCode, 'kick', seats);
   }
 }

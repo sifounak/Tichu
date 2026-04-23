@@ -15,6 +15,7 @@ import { GameTable } from './GameTable';
 import { PlayerSeat } from './PlayerSeat';
 import { VoteOverlay } from './VoteOverlay';
 import { LeaveConfirmDialog } from './LeaveConfirmDialog';
+import { SeatClaimRejectedDialog, type SeatClaimRejection } from './SeatClaimRejectedDialog';
 import { useUiStore } from '@/stores/uiStore';
 import styles from './PreRoomView.module.css';
 
@@ -40,6 +41,12 @@ interface PreRoomViewProps {
   spectatorCount?: number;
   /** Spectator names for tooltip */
   spectatorNames?: string[];
+  /** REQ-F-SJ07: Active seat-claim rejection payload from server, if any */
+  seatClaimRejection?: SeatClaimRejection | null;
+  /** REQ-F-SJ07: Dismiss the rejection dialog (close / background click) */
+  onDismissSeatClaimRejection?: () => void;
+  /** REQ-F-SJ07: Claim the user's original seat instead (offerClaimOriginal path) */
+  onClaimOriginalSeat?: (seat: Seat) => void;
 }
 
 /** Minimal ClientGameView stub so GameTable can calculate seat positions */
@@ -91,6 +98,9 @@ export function PreRoomView({
   onDeclineSeat,
   spectatorCount = 0,
   spectatorNames = [],
+  seatClaimRejection = null,
+  onDismissSeatClaimRejection,
+  onClaimOriginalSeat,
 }: PreRoomViewProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -779,6 +789,13 @@ export function PreRoomView({
           readOnly={isSpectator}
         />
       )}
+
+      {/* REQ-F-SJ07: Seat-claim rejection dialog with optional reclaim-original action */}
+      <SeatClaimRejectedDialog
+        rejection={seatClaimRejection}
+        onClose={onDismissSeatClaimRejection ?? (() => {})}
+        onClaimOriginal={onClaimOriginalSeat ?? (() => {})}
+      />
 
       {/* REQ-F-VI13: Pre-game vote result center status */}
       {uiStore.voteResult && (

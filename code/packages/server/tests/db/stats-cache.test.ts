@@ -476,4 +476,472 @@ describe('Stats Cache', () => {
       expect(row!.games_played).toBe(0);
     });
   });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Verifies: REQ-F-SA01–SA13, SA15 — mid-game attribution correctness
+  // ═══════════════════════════════════════════════════════════════════════
+  describe('mid-game attribution', () => {
+    type SeatMap = Partial<Record<'north' | 'east' | 'south' | 'west', string | null>>;
+
+    /**
+     * Inserts a multi-round game with custom seat occupancy per round.
+     * `games.{seat}_user_id` reflects the *final* occupant (rounds[last]).
+     * `player_rounds` rows reflect the actual occupant of each seat for each round.
+     */
+    function insertMultiRoundGame(opts: {
+      winnerTeam?: 'NS' | 'EW';
+      finalScoreNS?: number;
+      finalScoreEW?: number;
+      targetScore?: number;
+      rounds: Array<{
+        roundNumber: number;
+        oneTwoBonus?: 'NS' | 'EW' | null;
+        totalNS: number;
+        totalEW: number;
+        scoreNsAtStart?: number;
+        scoreEwAtStart?: number;
+        seats: SeatMap; // null => bot, omitted => bot
+        finishOrder?: string; // JSON array; defaults to N,E,S,W
+        tichuCalls?: string; // JSON; defaults to '{}'
+      }>;
+    }): number {
+      const { client } = database;
+      const last = opts.rounds[opts.rounds.length - 1];
+      const finalSeats: SeatMap = last.seats;
+      const result = client.prepare(
+        `INSERT INTO games (room_code, started_at, ended_at, winner_team,
+          final_score_ns, final_score_ew, target_score, round_count,
+          north_user_id, east_user_id, south_user_id, west_user_id,
+          north_name, east_name, south_name, west_name)
+        VALUES ('TEST', datetime('now'), datetime('now'), ?,
+          ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          'N', 'E', 'S', 'W')`,
+      ).run(
+        opts.winnerTeam ?? 'NS',
+        opts.finalScoreNS ?? 1000,
+        opts.finalScoreEW ?? 500,
+        opts.targetScore ?? 1000,
+        opts.rounds.length,
+        finalSeats.north ?? null,
+        finalSeats.east ?? null,
+        finalSeats.south ?? null,
+        finalSeats.west ?? null,
+      );
+      const gameId = Number(result.lastInsertRowid);
+
+      for (const r of opts.rounds) {
+        client.prepare(
+          `INSERT INTO game_rounds (game_id, round_number, card_points_ns, card_points_ew,
+            tichu_bonus_ns, tichu_bonus_ew, one_two_bonus, total_ns, total_ew,
+            finish_order, tichu_calls, score_ns_at_start, score_ew_at_start)
+          VALUES (?, ?, 0, 0, 0, 0, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(
+          gameId,
+          r.roundNumber,
+          r.oneTwoBonus ?? null,
+          r.totalNS,
+          r.totalEW,
+          r.finishOrder ?? '["north","east","south","west"]',
+          r.tichuCalls ?? '{}',
+          r.scoreNsAtStart ?? 0,
+          r.scoreEwAtStart ?? 0,
+        );
+
+        for (const seat of ['north', 'east', 'south', 'west'] as const) {
+          const uid = r.seats[seat] ?? null;
+          client.prepare(
+            `INSERT INTO player_rounds (game_id, round_number, seat, user_id,
+              first_8_cards, full_hand_pre_pass, hand_after_pass,
+              grand_tichu_call, tichu_call, tichu_call_success, finish_position)
+            VALUES (?, ?, ?, ?, NULL, NULL, NULL, 0, 0, NULL, ?)`,
+          ).run(
+            gameId, r.roundNumber, seat, uid,
+            seat === 'north' ? 1 : seat === 'east' ? 2 : seat === 'south' ? 3 : 4,
+          );
+        }
+      }
+      return gameId;
+    }
+
+    beforeEach(() => {
+      insertUser(database, 'userA', 'A');
+      insertUser(database, 'userB', 'B');
+    });
+
+    // Verifies: REQ-F-SA01, SA02, SA03, SA12, SA13, SA15 (winning team, shared seat)
+    it('SA01/SA02/SA12/SA13/SA15: A plays rounds 1-4, B plays 5-8 at same seat, NS wins', () => {
+      const rounds = Array.from({ length: 8 }, (_, i) => ({
+        roundNumber: i + 1,
+        oneTwoBonus: null,
+        totalNS: 125,
+        totalEW: 0,
+        scoreNsAtStart: i * 125,
+        scoreEwAtStart: 0,
+        seats: {
+          north: i < 4 ? 'userA' : 'userB',
+          east: null, south: null, west: null,
+        },
+      }));
+      insertMultiRoundGame({
+        winnerTeam: 'NS',
+        finalScoreNS: 1000, finalScoreEW: 0,
+        targetScore: 1000,
+        rounds,
+      });
+
+      rebuildStatsCache(database);
+
+      const rowA = getCacheRow(database, 'userA');
+      const rowB = getCacheRow(database, 'userB');
+
+      // A: played but was replaced → forfeited, no win credit, no win diff
+      expect(rowA).toBeDefined();
+      expect(rowA!.games_played).toBe(1);
+      expect(rowA!.games_won).toBe(0);
+      expect(rowA!.games_forfeited).toBe(1);
+      expect(rowA!.largest_win_diff).toBe(0);
+      expect(rowA!.games_joined_after_spectating).toBe(0);
+
+      // B: final occupant on winning team with min round > 1 → win + joined-after-spectating
+      expect(rowB).toBeDefined();
+      expect(rowB!.games_played).toBe(1);
+      expect(rowB!.games_won).toBe(1);
+      expect(rowB!.games_forfeited).toBe(0);
+      expect(rowB!.largest_win_diff).toBe(1000);
+      expect(rowB!.games_joined_after_spectating).toBe(1);
+
+      // SA15: disjoint counters
+      expect(rowA!.games_won + rowA!.games_forfeited).toBe(1);
+      expect(rowB!.games_won + rowB!.games_forfeited).toBe(1);
+    });
+
+    // Verifies: REQ-F-SA03, SA12 (losing team, shared seat)
+    it('SA03/SA12: shared seat on losing team — A forfeits, B absorbs loss', () => {
+      const rounds = Array.from({ length: 8 }, (_, i) => ({
+        roundNumber: i + 1,
+        totalNS: 0,
+        totalEW: 125,
+        scoreNsAtStart: 0,
+        scoreEwAtStart: i * 125,
+        seats: {
+          north: i < 4 ? 'userA' : 'userB',
+          east: null, south: null, west: null,
+        },
+      }));
+      insertMultiRoundGame({
+        winnerTeam: 'EW',
+        finalScoreNS: 100, finalScoreEW: 1000,
+        rounds,
+      });
+
+      rebuildStatsCache(database);
+
+      const rowA = getCacheRow(database, 'userA');
+      const rowB = getCacheRow(database, 'userB');
+
+      // A: forfeits, no loss diff credit (gated on final occupancy)
+      expect(rowA!.games_forfeited).toBe(1);
+      expect(rowA!.largest_loss_diff).toBe(0);
+      expect(rowA!.games_won).toBe(0);
+
+      // B: final occupant on losing team → loss diff credited
+      expect(rowB!.games_forfeited).toBe(0);
+      expect(rowB!.largest_loss_diff).toBe(900);
+      expect(rowB!.games_won).toBe(0);
+    });
+
+    // Verifies: REQ-F-SA01, SA12 (bot replaces human)
+    it('SA01/SA12: bot replaces A mid-game — A forfeits, no attribution to bot', () => {
+      const rounds = Array.from({ length: 8 }, (_, i) => ({
+        roundNumber: i + 1,
+        totalNS: 100, totalEW: 0,
+        scoreNsAtStart: i * 100,
+        scoreEwAtStart: 0,
+        seats: {
+          north: i < 3 ? 'userA' : null, // bot from round 4 onward
+          east: null, south: null, west: null,
+        },
+      }));
+      insertMultiRoundGame({
+        winnerTeam: 'NS',
+        finalScoreNS: 800, finalScoreEW: 0,
+        rounds,
+      });
+
+      rebuildStatsCache(database);
+
+      const rowA = getCacheRow(database, 'userA');
+      expect(rowA!.games_played).toBe(1);
+      expect(rowA!.games_won).toBe(0);
+      expect(rowA!.games_forfeited).toBe(1);
+    });
+
+    // Verifies: REQ-F-SA09 — oneTwoWins only counts rounds user played
+    it('SA09: late joiner does not get credit for 1-2 finish in unplayed round', () => {
+      const rounds = Array.from({ length: 8 }, (_, i) => ({
+        roundNumber: i + 1,
+        oneTwoBonus: i === 1 ? ('NS' as const) : null, // 1-2 finish in round 2 only
+        totalNS: 125, totalEW: 0,
+        scoreNsAtStart: i * 125,
+        scoreEwAtStart: 0,
+        seats: {
+          north: i < 4 ? 'userA' : 'userB', // B joins at round 5
+          east: null, south: null, west: null,
+        },
+      }));
+      insertMultiRoundGame({
+        winnerTeam: 'NS',
+        finalScoreNS: 1000, finalScoreEW: 0,
+        rounds,
+      });
+
+      rebuildStatsCache(database);
+
+      const rowA = getCacheRow(database, 'userA');
+      const rowB = getCacheRow(database, 'userB');
+
+      // A played round 2 → credited for the 1-2 win.
+      expect(rowA!.one_two_wins).toBe(1);
+      // B joined at round 5 → no credit for round-2 1-2 win.
+      expect(rowB!.one_two_wins).toBe(0);
+    });
+
+    // Verifies: REQ-F-SA10 — tie-break counters gated on participation in tie-break rounds
+    it('SA10: user did not play any tie-break round → no tie-break credit', () => {
+      // 8 regular rounds where NS and EW both cross the 1000 threshold at round 8,
+      // then 2 tie-break rounds (9 and 10) that B plays but A does not.
+      const rounds = [
+        ...Array.from({ length: 8 }, (_, i) => ({
+          roundNumber: i + 1,
+          totalNS: 125, totalEW: 125, // both teams gain 125 per round
+          scoreNsAtStart: i * 125,
+          scoreEwAtStart: i * 125,
+          seats: {
+            north: 'userA', east: null, south: null, west: null,
+          } as SeatMap,
+        })),
+        ...Array.from({ length: 2 }, (_, i) => ({
+          roundNumber: i + 9,
+          totalNS: 100, totalEW: 0,
+          scoreNsAtStart: 1000 + i * 100,
+          scoreEwAtStart: 1000,
+          seats: {
+            north: 'userB', east: null, south: null, west: null,
+          } as SeatMap,
+        })),
+      ];
+      insertMultiRoundGame({
+        winnerTeam: 'NS',
+        finalScoreNS: 1200, finalScoreEW: 1000,
+        targetScore: 1000,
+        rounds,
+      });
+
+      rebuildStatsCache(database);
+
+      const rowA = getCacheRow(database, 'userA');
+      const rowB = getCacheRow(database, 'userB');
+
+      // A left before tie-break → no credit
+      expect(rowA!.games_requiring_tie_break).toBe(0);
+      expect(rowA!.most_tie_break_rounds_needed).toBe(0);
+      // B played tie-break rounds → credit
+      expect(rowB!.games_requiring_tie_break).toBe(1);
+      expect(rowB!.most_tie_break_rounds_needed).toBe(2);
+    });
+
+    // Verifies: REQ-F-SA03 (regression) + NF-SA03 (clean-game behavior unchanged)
+    it('SA03 regression: clean game with no swaps — final occupant gets all credit', () => {
+      const rounds = Array.from({ length: 3 }, (_, i) => ({
+        roundNumber: i + 1,
+        totalNS: 200, totalEW: 100,
+        scoreNsAtStart: i * 200,
+        scoreEwAtStart: i * 100,
+        seats: {
+          north: 'userA', east: 'userB', south: null, west: null,
+        } as SeatMap,
+      }));
+      insertMultiRoundGame({
+        winnerTeam: 'NS',
+        finalScoreNS: 600, finalScoreEW: 300,
+        rounds,
+      });
+
+      rebuildStatsCache(database);
+
+      const rowA = getCacheRow(database, 'userA');
+      expect(rowA!.games_played).toBe(1);
+      expect(rowA!.games_won).toBe(1);
+      expect(rowA!.games_forfeited).toBe(0);
+      expect(rowA!.largest_win_diff).toBe(300);
+      expect(rowA!.games_joined_after_spectating).toBe(0); // min round == 1
+    });
+
+    // Verifies: REQ-F-SA15 — gamesWon and gamesForfeited are disjoint across
+    // a parametric sweep of mid-game and clean-game fixtures.
+    it('SA15 property sweep: gamesWon and gamesForfeited never both increment', () => {
+      const fixtures: Array<{ winner: 'NS' | 'EW'; firstUser: string; swapUser: string | null; swapRound: number }> = [
+        { winner: 'NS', firstUser: 'userA', swapUser: 'userB', swapRound: 5 },
+        { winner: 'EW', firstUser: 'userA', swapUser: 'userB', swapRound: 5 },
+        { winner: 'NS', firstUser: 'userA', swapUser: null, swapRound: 4 },
+        { winner: 'NS', firstUser: 'userA', swapUser: null, swapRound: 99 }, // no swap
+      ];
+      for (const f of fixtures) {
+        const rounds = Array.from({ length: 6 }, (_, i) => ({
+          roundNumber: i + 1,
+          totalNS: 100, totalEW: 100,
+          scoreNsAtStart: i * 100,
+          scoreEwAtStart: i * 100,
+          seats: {
+            north: i < f.swapRound - 1 ? f.firstUser : f.swapUser,
+            east: null, south: null, west: null,
+          } as SeatMap,
+        }));
+        insertMultiRoundGame({
+          winnerTeam: f.winner,
+          finalScoreNS: f.winner === 'NS' ? 1000 : 500,
+          finalScoreEW: f.winner === 'EW' ? 1000 : 500,
+          rounds,
+        });
+      }
+      rebuildStatsCache(database);
+
+      for (const userId of ['userA', 'userB']) {
+        const row = getCacheRow(database, userId);
+        if (!row) continue;
+        // SA15: disjoint subsets of gamesPlayed
+        expect(row.games_won + row.games_forfeited).toBeLessThanOrEqual(row.games_played);
+      }
+    });
+
+    // Verifies: REQ-F-SA04, SA05, SA06, SA07, SA08 — tuple-filtered attribution
+    // across plays, bomb_inventory, tricks, dragon_gift_events, dog_play_events
+    // when two users share the same seat across rounds of one game.
+    it('SA04-SA08: per-event stats attributed by (game, round, seat) tuple, not final occupant', () => {
+      const rounds = [
+        // Round 1: A at north (score_ns_at_start=0)
+        { roundNumber: 1, totalNS: 100, totalEW: 100, scoreNsAtStart: 0, scoreEwAtStart: 0,
+          seats: { north: 'userA', east: null, south: null, west: null } as SeatMap },
+        // Round 2: A at north
+        { roundNumber: 2, totalNS: 100, totalEW: 100, scoreNsAtStart: 100, scoreEwAtStart: 100,
+          seats: { north: 'userA', east: null, south: null, west: null } as SeatMap },
+        // Round 3: B takes over north
+        { roundNumber: 3, totalNS: 100, totalEW: 100, scoreNsAtStart: 200, scoreEwAtStart: 200,
+          seats: { north: 'userB', east: null, south: null, west: null } as SeatMap },
+        // Round 4: B at north
+        { roundNumber: 4, totalNS: 700, totalEW: 700, scoreNsAtStart: 300, scoreEwAtStart: 300,
+          seats: { north: 'userB', east: null, south: null, west: null } as SeatMap },
+      ];
+      const gameId = insertMultiRoundGame({
+        winnerTeam: 'NS', finalScoreNS: 1000, finalScoreEW: 1000, rounds,
+      });
+
+      const { client } = database;
+
+      // ── plays: A's phoenix-as-Single in round 1 ──
+      client.prepare(
+        `INSERT INTO plays (game_id, round_number, trick_number, sequence_number, seat,
+          action_type, cards, combination_type, combination_length, phoenix_used_as, is_bomb,
+          partner_tichu_active)
+        VALUES (?, 1, 1, 1, 'north', 'play', '[54]', 'Single', 1, 14, 0, 0)`,
+      ).run(gameId);
+
+      // ── plays: A's bomb in round 1 (4-card), forced by wish ──
+      client.prepare(
+        `INSERT INTO plays (game_id, round_number, trick_number, sequence_number, seat,
+          action_type, cards, combination_type, combination_length, is_bomb, play_forced_by_wish)
+        VALUES (?, 1, 2, 1, 'north', 'bomb', '[1,14,27,40]', 'Bomb', 4, 1, 1)`,
+      ).run(gameId);
+
+      // ── plays: B leads round 3 trick 1 with partner_tichu_active ──
+      client.prepare(
+        `INSERT INTO plays (game_id, round_number, trick_number, sequence_number, seat,
+          action_type, cards, combination_type, combination_length, partner_tichu_active)
+        VALUES (?, 3, 1, 1, 'north', 'play', '[15]', 'Single', 1, 1)`,
+      ).run(gameId);
+
+      // ── bomb_inventory: A's 4-card bomb in round 1, acquired first8, played ──
+      client.prepare(
+        `INSERT INTO bomb_inventory (game_id, round_number, player_seat, bomb_type, cards,
+          rank, size, acquired_phase, fate, was_overbomb)
+        VALUES (?, 1, 'north', 'FourOfAKind', '[1,14,27,40]', 2, 4, 'first8', 'played', 0)`,
+      ).run(gameId);
+
+      // ── bomb_inventory: B's 5-card bomb in round 4, played (post-pass), was_overbomb ──
+      client.prepare(
+        `INSERT INTO bomb_inventory (game_id, round_number, player_seat, bomb_type, cards,
+          rank, size, acquired_phase, fate, was_overbomb)
+        VALUES (?, 4, 'north', 'StraightFlush', '[2,3,4,5,6]', 2, 5, 'after_pass', 'played', 1)`,
+      ).run(gameId);
+
+      // ── tricks: round 1 trick 3 has dragon, won by north (A) ──
+      client.prepare(
+        `INSERT INTO tricks (game_id, round_number, trick_number, lead_seat, winner_seat,
+          point_value, contains_dragon)
+        VALUES (?, 1, 3, 'north', 'north', 25, 1)`,
+      ).run(gameId);
+
+      // ── tricks: round 3 trick 2 has dragon, won by north (B) ──
+      client.prepare(
+        `INSERT INTO tricks (game_id, round_number, trick_number, lead_seat, winner_seat,
+          point_value, contains_dragon)
+        VALUES (?, 3, 2, 'north', 'north', 25, 1)`,
+      ).run(gameId);
+
+      // ── dragon_gift_events: east gifts dragon to north in round 2 (to A) ──
+      client.prepare(
+        `INSERT INTO dragon_gift_events (game_id, round_number, trick_number, gifter_seat,
+          recipient_seat, trick_point_value, recipient_cards_left, other_opponent_cards_left)
+        VALUES (?, 2, 1, 'east', 'north', 25, 10, 10)`,
+      ).run(gameId);
+
+      // ── dog_play_events: B plays dog in round 3, control to partner (south) ──
+      client.prepare(
+        `INSERT INTO dog_play_events (game_id, round_number, trick_number, player_seat,
+          control_passed_to, partner_has_tichu, dog_was_last_card)
+        VALUES (?, 3, 3, 'north', 'south', 0, 0)`,
+      ).run(gameId);
+
+      rebuildStatsCache(database);
+
+      const rowA = getCacheRow(database, 'userA')!;
+      const rowB = getCacheRow(database, 'userB')!;
+
+      // REQ-F-SA04 (plays): phoenix-as-Single belongs to A, not B
+      expect(rowA.phoenix_used_as_single).toBe(1);
+      expect(rowB.phoenix_used_as_single).toBe(0);
+
+      // REQ-F-SA04 (plays): bomb_forced_by_wish in round 1 → A only
+      expect(rowA.bomb_forced_by_wish).toBe(1);
+      expect(rowB.bomb_forced_by_wish).toBe(0);
+
+      // REQ-F-SA04 (plays): partner_tichu_active lead in round 3 → B only
+      expect(rowA.dog_opportunities_for_tichu_partner).toBe(0);
+      expect(rowB.dog_opportunities_for_tichu_partner).toBe(1);
+
+      // REQ-F-SA05 (bomb_inventory): A's 4-card, B's 5-card — disjoint
+      expect(rowA.total_bombs).toBe(1);
+      expect(rowA.four_card_bombs).toBe(1);
+      expect(rowA.bomb_size_4).toBe(1);
+      expect(rowA.bombs_in_first_8).toBe(1);
+      expect(rowB.total_bombs).toBe(1);
+      expect(rowB.five_card_bombs).toBe(1);
+      expect(rowB.bomb_size_5).toBe(1);
+      expect(rowB.you_over_bombed).toBe(1);
+      expect(rowA.you_over_bombed).toBe(0);
+
+      // REQ-F-SA06 (tricks): A's dragon trick win in round 1, B's in round 3 — disjoint
+      expect(rowA.dragon_trick_wins).toBe(1);
+      expect(rowB.dragon_trick_wins).toBe(1);
+
+      // REQ-F-SA08 (dragon_gift_events): A is recipient in round 2 from opponent
+      expect(rowA.dragon_given_after_opponent_win).toBe(1);
+      expect(rowB.dragon_given_after_opponent_win).toBe(0);
+
+      // REQ-F-SA07 (dog_play_events): B plays dog in round 3, control to partner
+      expect(rowA.dog_control_to_partner).toBe(0);
+      expect(rowB.dog_control_to_partner).toBe(1);
+    });
+  });
 });

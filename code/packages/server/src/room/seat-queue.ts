@@ -5,6 +5,10 @@
 // REQ-F-ES10: Up For Grabs Phase (broadcast to ALL spectators)
 // REQ-F-ES11: Queue Status for Non-Deciding Spectators (per-spectator ordinal)
 // REQ-F-ES16: Queue Completion
+// REQ-F-SJ08: Silent-skip ineligible spectators during ordered queue
+// REQ-F-SJ09: Spectator order preserved across skip/decline/accept
+// REQ-F-SJ10: Free-for-all phase subject to eligibility rule
+// REQ-F-SJ11: Free-for-all ineligible claim → SEAT_CLAIM_REJECTED with exact text
 
 import type { Seat } from '@tichu/shared';
 
@@ -19,6 +23,24 @@ export interface SeatQueueCallbacks {
   onAllSeatsFilled: (roomCode: string) => void;
   /** REQ-F-ES10: Get current spectator userIds for up-for-grabs broadcast */
   onGetCurrentSpectators: (roomCode: string) => string[];
+  /**
+   * REQ-F-SJ08, SJ10: Returns true when `userId` is eligible to claim `seat`
+   * under the REQ-F-SJ04–SJ06 rule (or when validation is not yet active).
+   * Used to silently skip ineligible spectators in the ordered queue and to
+   * gate free-for-all claims.
+   */
+  onCheckEligibility: (userId: string, seat: Seat) => boolean;
+  /**
+   * REQ-F-SJ11: Called when a spectator attempts a free-for-all claim but
+   * is ineligible for every available seat. Caller is responsible for
+   * sending SEAT_CLAIM_REJECTED with the exact REQ-F-SJ11 text.
+   */
+  onIneligibleFreeForAllClaim: (userId: string) => void;
+  /**
+   * REQ-F-SJ08: Emit a server-side log entry when an ineligible spectator is
+   * silently skipped during ordered queue processing (R4 mitigation).
+   */
+  onSilentSkip: (roomCode: string, userId: string, availableSeats: Seat[]) => void;
 }
 
 // REQ-F-ES06: Multi-seat offer (array for multi-vacancy picking)
@@ -139,13 +161,22 @@ export class SeatQueue {
 
       this.clearTimer();
 
-      // REQ-F-ES07: Pick specific seat if provided and available, otherwise first available
+      // REQ-F-ES07, SJ08: Pick specific seat if provided and available,
+      // otherwise auto-assign the first seat the user is eligible for.
+      // Callers pre-check specific-seat eligibility at the room-handler entry
+      // point (REQ-NF-SJ02); auto-assign must filter here to avoid handing
+      // out an ineligible seat to a user with a prior seat in this game.
       let claimedSeat: Seat;
       if (seat && this.availableSeats.includes(seat)) {
         this.availableSeats = this.availableSeats.filter(s => s !== seat);
         claimedSeat = seat;
       } else {
-        claimedSeat = this.availableSeats.shift()!;
+        const eligibleSeat = this.availableSeats.find((s) =>
+          this.callbacks.onCheckEligibility(userId, s),
+        );
+        if (!eligibleSeat) return false;
+        this.availableSeats = this.availableSeats.filter((s) => s !== eligibleSeat);
+        claimedSeat = eligibleSeat;
       }
 
       this.callbacks.onSeatClaimed(userId, claimedSeat);
@@ -317,6 +348,21 @@ export class SeatQueue {
 
   /** Send SEAT_OFFERED to a specific spectator and start the 30s timer */
   private offerToSpectator(userId: string): void {
+    // REQ-F-SJ08: If the spectator is ineligible for every currently
+    // available seat, silently skip them and advance to the next spectator.
+    // REQ-F-SJ09: Spectator order is preserved — advance currentIndex
+    // without removing the user from spectatorOrder.
+    const hasEligibleSeat = this.availableSeats.some((s) =>
+      this.callbacks.onCheckEligibility(userId, s),
+    );
+    if (!hasEligibleSeat) {
+      this.callbacks.onSilentSkip(this.roomCode, userId, [...this.availableSeats]);
+      this.currentIndex++;
+      this.currentOfferedUserId = null;
+      this.offerNext();
+      return;
+    }
+
     this.currentOfferedUserId = userId;
 
     // REQ-F-ES06: Send all available seats so spectator can pick (multi-vacancy)
@@ -413,13 +459,27 @@ export class SeatQueue {
   /**
    * REQ-F-ES10: Handle claim during "up for grabs" phase.
    * First spectator to respond gets the seat (auto-assign, no seat choice).
+   * REQ-F-SJ10, SJ11: Claim is subject to eligibility; an ineligible user
+   * receives SEAT_CLAIM_REJECTED with the exact REQ-F-SJ11 text.
    */
   private handleUpForGrabsClaim(userId: string): boolean {
     if (this._phase !== 'up-for-grabs') return false;
     if (this.availableSeats.length === 0) return false;
 
-    // REQ-F-ES10: Auto-assign to first available seat (no seat choice in this phase)
-    const seat = this.availableSeats.shift()!;
+    // REQ-F-SJ10, SJ11: Auto-assign to the first seat the user is eligible
+    // for. If they are ineligible for every available seat, emit SJ11
+    // rejection and signal the claim as handled (so the caller does not
+    // send a generic CLAIM_FAILED error on top of the structured dialog).
+    const eligibleIndex = this.availableSeats.findIndex((s) =>
+      this.callbacks.onCheckEligibility(userId, s),
+    );
+    if (eligibleIndex === -1) {
+      this.callbacks.onIneligibleFreeForAllClaim(userId);
+      return true;
+    }
+
+    // REQ-F-ES10: Auto-assign (no seat choice in this phase)
+    const [seat] = this.availableSeats.splice(eligibleIndex, 1);
     this.callbacks.onSeatClaimed(userId, seat);
 
     // REQ-F-ES16: If all seats filled, stop queue

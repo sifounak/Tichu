@@ -218,6 +218,7 @@ interface StatsResult {
   tichuBrokenByPartner: number;
   grandTichuBrokenByPartner: number;
   gamesJoinedAfterSpectating: number;
+  gamesForfeited: number;
   // Group C
   roundsWithDragon: number;
   roundsWithDragonWon: number;
@@ -300,6 +301,7 @@ function createEmptyStats(): StatsResult {
     partnerTichuBroken: 0, partnerGrandTichuBroken: 0,
     lastFinishes: 0, tichuBrokenByPartner: 0, grandTichuBrokenByPartner: 0,
     gamesJoinedAfterSpectating: 0,
+    gamesForfeited: 0,
     roundsWithDragon: 0, roundsWithDragonWon: 0,
     roundsWithPhoenix: 0, roundsWithPhoenixWon: 0,
     dragonReceivedInPass: 0, phoenixReceivedInPass: 0, aceReceivedInPass: 0, dogReceivedInPass: 0,
@@ -329,24 +331,42 @@ function createEmptyStats(): StatsResult {
 }
 
 // REQ-F-MC02: Compute all stats for a user from raw event tables
+// REQ-F-SA01–SA15: Attribution is driven by player_rounds tuples, not by
+// final seat occupancy in the games table. A user who played rounds 1–4 of
+// an 8-round game and was replaced before game end still receives correct
+// per-play/per-round credit for the rounds they actually played.
 function computeStatsForUser(database: Database, userId: string): StatsResult {
   const { db } = database;
   const stats = createEmptyStats();
 
-  // ── 1. Get all games this user participated in ──
+  // REQ-F-SA01–SA11: player_rounds is the authoritative source of "who was
+  // seated at what seat for which round." All downstream filters key off the
+  // (game_id, round_number, seat) tuples present here.
+  const myPlayerRounds = db.all(sql`
+    SELECT game_id, round_number, seat, user_id,
+           first_8_cards, full_hand_pre_pass, passed_to_left, passed_to_partner, passed_to_right,
+           received_from_left, received_from_partner, received_from_right, hand_after_pass,
+           grand_tichu_call, tichu_call, tichu_call_phase, tichu_call_trick_number,
+           tichu_call_hand_sizes, tichu_call_success, finish_position, finish_trick_number
+    FROM player_rounds
+    WHERE user_id = ${userId}
+  `) as PlayerRoundRow[];
+
+  if (myPlayerRounds.length === 0) return stats;
+
+  // Derive game IDs from actual participation — not from games.{seat}_user_id,
+  // which reflects only the final occupant (REQ-F-SA01).
+  const gameIds = [...new Set(myPlayerRounds.map(pr => pr.game_id))];
+
+  // ── Load games metadata for the games this user participated in ──
   const userGames = db.all(sql`
     SELECT id, winner_team, final_score_ns, final_score_ew, target_score,
            north_user_id, east_user_id, south_user_id, west_user_id
     FROM games
-    WHERE north_user_id = ${userId} OR east_user_id = ${userId}
-       OR south_user_id = ${userId} OR west_user_id = ${userId}
+    WHERE id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
   `) as GameRow[];
 
-  if (userGames.length === 0) return stats;
-
-  const gameIds = userGames.map(g => g.id);
-
-  // ── 2. Get all game_rounds for these games ──
+  // ── Get all game_rounds for these games ──
   const allRounds = db.all(sql`
     SELECT game_id, round_number, one_two_bonus, total_ns, total_ew,
            finish_order, tichu_calls, score_ns_at_start, score_ew_at_start
@@ -361,16 +381,33 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     roundsByGame.get(r.game_id)!.push(r);
   }
 
-  // ── 3. Get player_rounds for this user ──
-  const myPlayerRounds = db.all(sql`
-    SELECT game_id, round_number, seat, user_id,
-           first_8_cards, full_hand_pre_pass, passed_to_left, passed_to_partner, passed_to_right,
-           received_from_left, received_from_partner, received_from_right, hand_after_pass,
-           grand_tichu_call, tichu_call, tichu_call_phase, tichu_call_trick_number,
-           tichu_call_hand_sizes, tichu_call_success, finish_position, finish_trick_number
-    FROM player_rounds
-    WHERE user_id = ${userId}
-  `) as PlayerRoundRow[];
+  // REQ-F-SA04–SA08: tuple key used to filter per-play / per-trick / per-bomb /
+  // per-dog / per-dragon events down to only those belonging to rounds this
+  // user actually occupied the seat for.
+  const validGameRoundSeat = new Set<string>();
+  // REQ-F-SA09–SA10: rounds the user actually played, per game, used to gate
+  // round-level aggregates (oneTwoWins, tie-break credit).
+  const myRoundsByGame = new Map<number, Set<number>>();
+  // REQ-F-SA11: team derived from the seat the user occupied during the rounds
+  // they played (single team per user per game is guaranteed by SJ04–SJ06 in
+  // M2; until then, we assert and log if two rounds map to different teams).
+  const myTeamByGame = new Map<number, 'NS' | 'EW'>();
+  for (const pr of myPlayerRounds) {
+    validGameRoundSeat.add(`${pr.game_id}-${pr.round_number}-${pr.seat}`);
+    if (!myRoundsByGame.has(pr.game_id)) myRoundsByGame.set(pr.game_id, new Set());
+    myRoundsByGame.get(pr.game_id)!.add(pr.round_number);
+    const roundTeam = getUserTeamStr(pr.seat as Seat);
+    const existingTeam = myTeamByGame.get(pr.game_id);
+    if (existingTeam === undefined) {
+      myTeamByGame.set(pr.game_id, roundTeam);
+    } else if (existingTeam !== roundTeam) {
+      // Should be impossible once SJ04–SJ06 is enforced. Keep first-seen team.
+      console.warn(
+        `[stats-cache] User ${userId} in game ${pr.game_id} mapped to both teams `
+        + `(existing=${existingTeam}, round ${pr.round_number} seat ${pr.seat} → ${roundTeam}); keeping existing.`,
+      );
+    }
+  }
 
   // ── 4. Get ALL player_rounds for cross-player stats (partner/opponent tichu) ──
   const allPlayerRounds = db.all(sql`
@@ -388,24 +425,20 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     prByGameRound.get(key)!.push(pr);
   }
 
-  // ── 5. Get plays for this user ──
+  // REQ-F-SA04: Per-play stats filtered by (game_id, round_number, seat) tuples.
+  // Narrowed in SQL via row-value IN for perf; JS-side tuple filter re-verifies
+  // against validGameRoundSeat as a defensive regression guard.
   const myPlays = db.all(sql`
     SELECT game_id, round_number, trick_number, sequence_number, seat,
            action_type, cards, combination_type, combination_length,
            phoenix_used_as, is_bomb, play_forced_by_wish,
            partner_tichu_active, could_have_played
     FROM plays
-    WHERE seat IN (SELECT DISTINCT seat FROM player_rounds WHERE user_id = ${userId} AND game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)}))
-      AND game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
+    WHERE (game_id, round_number, seat) IN (
+      SELECT game_id, round_number, seat FROM player_rounds WHERE user_id = ${userId}
+    )
   `) as PlayRow[];
-
-  // We need to filter plays to only those where this user was actually in that seat for that game
-  // Build a set of valid (gameId, seat) pairs
-  const validGameSeat = new Set<string>();
-  for (const pr of myPlayerRounds) {
-    validGameSeat.add(`${pr.game_id}-${pr.seat}`);
-  }
-  const filteredPlays = myPlays.filter(p => validGameSeat.has(`${p.game_id}-${p.seat}`));
+  const filteredPlays = myPlays.filter(p => validGameRoundSeat.has(`${p.game_id}-${p.round_number}-${p.seat}`));
 
   // ── 6. Get ALL plays for double-bomb and all-players-bomb detection ──
   const allPlays = db.all(sql`
@@ -424,15 +457,16 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
       AND contains_dragon = 1
   `) as TrickRow[];
 
-  // ── 8. Get bomb inventory ──
+  // REQ-F-SA05: Per-bomb stats filtered by (game_id, round_number, seat) tuples.
   const myBombs = db.all(sql`
     SELECT game_id, round_number, player_seat, bomb_type, rank, size,
            acquired_phase, fate, was_overbomb
     FROM bomb_inventory
-    WHERE game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
-      AND player_seat IN (SELECT DISTINCT seat FROM player_rounds WHERE user_id = ${userId})
+    WHERE (game_id, round_number, player_seat) IN (
+      SELECT game_id, round_number, seat FROM player_rounds WHERE user_id = ${userId}
+    )
   `) as BombInventoryRow[];
-  const filteredBombs = myBombs.filter(b => validGameSeat.has(`${b.game_id}-${b.player_seat}`));
+  const filteredBombs = myBombs.filter(b => validGameRoundSeat.has(`${b.game_id}-${b.round_number}-${b.player_seat}`));
 
   // ── 9. Get dog play events ──
   const myDogPlays = db.all(sql`
@@ -453,19 +487,35 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
   // Compute Game-Level Stats
   // ═══════════════════════════════════════════════════════════════════════
 
+  // REQ-F-SA01: gamesPlayed = count of games with ≥1 player_rounds row for this user.
   stats.gamesPlayed = userGames.length;
 
   for (const game of userGames) {
-    const seat = getUserSeat(game, userId)!;
-    const myTeamStr = getUserTeamStr(seat);
-    const won = game.winner_team === myTeamStr;
+    // SA02/SA03/SA13: these credits are gated on final-occupancy.
+    const finalSeat = getUserSeat(game, userId);
+    const myTeamStr = myTeamByGame.get(game.id)!;
+    const myRoundsInGame = myRoundsByGame.get(game.id)!;
     const scoreDiff = Math.abs(game.final_score_ns - game.final_score_ew);
+    const myTeamWon = game.winner_team === myTeamStr;
 
-    if (won) {
-      stats.gamesWon++;
-      stats.largestWinDiff = Math.max(stats.largestWinDiff, scoreDiff);
+    if (finalSeat !== null) {
+      // REQ-F-SA02: gamesWon only when final occupant AND team won.
+      // REQ-F-SA03: largestWinDiff / largestLossDiff gated on final occupancy.
+      if (myTeamWon) {
+        stats.gamesWon++;
+        stats.largestWinDiff = Math.max(stats.largestWinDiff, scoreDiff);
+      } else {
+        stats.largestLossDiff = Math.max(stats.largestLossDiff, scoreDiff);
+      }
+      // REQ-F-SA13: joined-after-spectating iff final occupant AND min round > 1.
+      // Reconnect-to-same-seat preserves the user's min round, so this counter
+      // does not trigger for reconnects.
+      const minRound = Math.min(...myRoundsInGame);
+      if (minRound > 1) stats.gamesJoinedAfterSpectating++;
     } else {
-      stats.largestLossDiff = Math.max(stats.largestLossDiff, scoreDiff);
+      // REQ-F-SA12: user participated but is not the final occupant → forfeited,
+      // regardless of team outcome. (SA15: disjoint from gamesWon by construction.)
+      stats.gamesForfeited++;
     }
 
     // 1-2 finishes and tie-break from game_rounds
@@ -473,14 +523,17 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     let cumNS = 0, cumEW = 0;
     let tieBreakDetected = false;
     let tieBreakRounds = 0;
+    let tieBreakFirstRoundIdx = -1;
 
     for (let i = 0; i < rounds.length; i++) {
       const r = rounds[i];
-      // 1-2 finishes
-      if (r.one_two_bonus === myTeamStr) stats.oneTwoWins++;
-      else if (r.one_two_bonus !== null) stats.oneTwoAgainst++;
+      // REQ-F-SA09: credit 1-2 finishes only for rounds the user actually played.
+      if (myRoundsInGame.has(r.round_number)) {
+        if (r.one_two_bonus === myTeamStr) stats.oneTwoWins++;
+        else if (r.one_two_bonus !== null) stats.oneTwoAgainst++;
+      }
 
-      // Tie-break detection using cumulative scores
+      // Walk all rounds for cumulative score (tie-break is a game-level property).
       if (r.score_ns_at_start != null && r.score_ew_at_start != null) {
         cumNS = r.score_ns_at_start + r.total_ns;
         cumEW = r.score_ew_at_start + r.total_ew;
@@ -492,12 +545,23 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
       if (!tieBreakDetected && cumNS >= game.target_score && cumEW >= game.target_score && i < rounds.length - 1) {
         tieBreakDetected = true;
         tieBreakRounds = rounds.length - (i + 1);
+        tieBreakFirstRoundIdx = i + 1;
       }
     }
 
+    // REQ-F-SA10: tie-break counters credit user only if they played a tie-break round.
     if (tieBreakDetected) {
-      stats.gamesRequiringTieBreak++;
-      stats.mostTieBreakRoundsNeeded = Math.max(stats.mostTieBreakRoundsNeeded, tieBreakRounds);
+      let userPlayedTieBreak = false;
+      for (let i = tieBreakFirstRoundIdx; i < rounds.length; i++) {
+        if (myRoundsInGame.has(rounds[i].round_number)) {
+          userPlayedTieBreak = true;
+          break;
+        }
+      }
+      if (userPlayedTieBreak) {
+        stats.gamesRequiringTieBreak++;
+        stats.mostTieBreakRoundsNeeded = Math.max(stats.mostTieBreakRoundsNeeded, tieBreakRounds);
+      }
     }
   }
 
@@ -686,26 +750,18 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
   // Dragon Trick Stats (from tricks table)
   // ═══════════════════════════════════════════════════════════════════════
 
+  // REQ-F-SA06: dragon trick credit only if user held the winning seat for that specific round.
   for (const trick of dragonTricks) {
-    const game = userGames.find(g => g.id === trick.game_id);
-    if (!game) continue;
-    const seat = getUserSeat(game, userId);
-    if (!seat) continue;
-
-    // Dragon trick wins: I won a trick containing the Dragon
-    if (trick.winner_seat === seat) {
+    if (trick.winner_seat == null) continue;
+    if (validGameRoundSeat.has(`${trick.game_id}-${trick.round_number}-${trick.winner_seat}`)) {
       stats.dragonTrickWins++;
     }
   }
 
-  // Dragon gift events: dragonGivenAfterOpponentWin = I received a dragon gift from an opponent
+  // REQ-F-SA08: dragon-gift credit only if user held the recipient seat for that specific round.
   for (const gift of allDragonGifts) {
-    const game = userGames.find(g => g.id === gift.game_id);
-    if (!game) continue;
-    const mySeat = getUserSeat(game, userId);
-    if (!mySeat) continue;
-
-    if (gift.recipient_seat === mySeat && getTeam(gift.gifter_seat as Seat) !== getTeam(mySeat)) {
+    if (!validGameRoundSeat.has(`${gift.game_id}-${gift.round_number}-${gift.recipient_seat}`)) continue;
+    if (getTeam(gift.gifter_seat as Seat) !== getTeam(gift.recipient_seat as Seat)) {
       stats.dragonGivenAfterOpponentWin++;
     }
   }
@@ -714,12 +770,10 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
   // Dog Play Stats
   // ═══════════════════════════════════════════════════════════════════════
 
+  // REQ-F-SA07: dog-play credit only if user held the playing seat for that round.
   for (const dog of myDogPlays) {
-    const game = userGames.find(g => g.id === dog.game_id);
-    if (!game) continue;
-    const mySeat = getUserSeat(game, userId);
-    if (!mySeat || dog.player_seat !== mySeat) continue;
-
+    if (!validGameRoundSeat.has(`${dog.game_id}-${dog.round_number}-${dog.player_seat}`)) continue;
+    const mySeat = dog.player_seat as Seat;
     const partner = getPartner(mySeat);
     if (dog.control_passed_to === partner) {
       stats.dogControlToPartner++;
@@ -788,13 +842,8 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     if (bombsInFirst8Count > 0) stats.bombsInFirst8 += bombsInFirst8Count;
   }
 
-  // youWereOverBombed: count bomb inventory from OTHER players where was_overbomb
-  // and the target was this user's seat in that game
-  // This requires checking bomb_inventory.fate_target — but we don't have that field in our query
-  // For V1, compute from allPlays — bombs played on top of our bombs
-  // Actually, the old tracker uses overBombed for both directions confusingly.
-  // The schema has separate youOverBombed and youWereOverBombed.
-  // youWereOverBombed = someone else overbombed our bomb. We need full bomb inventory for this.
+  // REQ-F-SA05: youWereOverBombed — user was the fate_target of someone else's overbomb,
+  // credited only for rounds the user actually held that seat.
   const allBombs = db.all(sql`
     SELECT game_id, round_number, player_seat, was_overbomb, fate_target, fate
     FROM bomb_inventory
@@ -803,22 +852,14 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
   `) as (BombInventoryRow & { fate_target: string | null })[];
 
   for (const bomb of allBombs) {
-    const game = userGames.find(g => g.id === bomb.game_id);
-    if (!game) continue;
-    const mySeat = getUserSeat(game, userId);
-    if (!mySeat) continue;
-    // Someone overbombed a play. If the target was me, I was overbombed.
-    if (bomb.player_seat !== mySeat && bomb.fate_target === mySeat) {
+    if (bomb.fate_target == null) continue;
+    if (bomb.player_seat === bomb.fate_target) continue;
+    if (validGameRoundSeat.has(`${bomb.game_id}-${bomb.round_number}-${bomb.fate_target}`)) {
       stats.youWereOverBombed++;
     }
   }
 
-  // Conflicting bombs: count from bomb inventory
-  // The old tracker checks if dealt hand (14 cards) has overlapping bomb resources
-  // In bomb_inventory, we can count rounds where there are 2+ bombs that share cards
-  // For simplicity, count rounds where bomb inventory has overlaps_with set
-  // Actually, the old tracker counts 'conflictingBombs' as a round-level event.
-  // For V1, use bomb_inventory overlaps_with field
+  // REQ-F-SA05: conflicting-bombs credit only for rounds the user held the seat.
   const bombOverlaps = db.all(sql`
     SELECT game_id, round_number, player_seat, overlaps_with
     FROM bomb_inventory
@@ -828,10 +869,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
 
   const conflictingRounds = new Set<string>();
   for (const bomb of bombOverlaps) {
-    const game = userGames.find(g => g.id === bomb.game_id);
-    if (!game) continue;
-    const mySeat = getUserSeat(game, userId);
-    if (!mySeat || bomb.player_seat !== mySeat) continue;
+    if (!validGameRoundSeat.has(`${bomb.game_id}-${bomb.round_number}-${bomb.player_seat}`)) continue;
     const overlaps = parseJsonArray(bomb.overlaps_with);
     if (overlaps.length > 0) {
       conflictingRounds.add(`${bomb.game_id}-${bomb.round_number}`);
@@ -855,43 +893,39 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     }
   }
 
-  // Double bomb in trick: 2+ bombs in same trick — ALL players get counted
-  // Group bomb plays by (game, round, trick)
-  const bombsByTrick = new Map<string, Set<string>>();
+  // Double bomb in trick: 2+ bombs in same trick. Credit the user only if they
+  // played the specific round (REQ-F-SA05).
+  const bombsByTrick = new Map<string, { gameId: number; roundNumber: number; seats: Set<string> }>();
   for (const play of allPlays) {
     if (play.is_bomb) {
       const key = `${play.game_id}-${play.round_number}-${play.trick_number}`;
-      if (!bombsByTrick.has(key)) bombsByTrick.set(key, new Set());
-      bombsByTrick.get(key)!.add(play.seat);
+      if (!bombsByTrick.has(key)) {
+        bombsByTrick.set(key, { gameId: play.game_id, roundNumber: play.round_number, seats: new Set() });
+      }
+      bombsByTrick.get(key)!.seats.add(play.seat);
     }
   }
-  for (const [key, seats] of bombsByTrick) {
-    if (seats.size >= 2) {
-      // Check if this user was in this game
-      const [gameIdStr] = key.split('-');
-      const game = userGames.find(g => g.id === Number(gameIdStr));
-      if (game && getUserSeat(game, userId)) {
-        stats.doubleBombInTrick++;
-      }
+  for (const { gameId, roundNumber, seats } of bombsByTrick.values()) {
+    if (seats.size >= 2 && myRoundsByGame.get(gameId)?.has(roundNumber)) {
+      stats.doubleBombInTrick++;
     }
   }
 
-  // All players bomb in round: all 4 seats played at least one bomb
-  const bombSeatsByRound = new Map<string, Set<string>>();
+  // All-players-bomb-in-round: all 4 seats played a bomb this round. Credit the
+  // user only if they played the specific round (REQ-F-SA05).
+  const bombSeatsByRound = new Map<string, { gameId: number; roundNumber: number; seats: Set<string> }>();
   for (const play of allPlays) {
     if (play.is_bomb) {
       const key = `${play.game_id}-${play.round_number}`;
-      if (!bombSeatsByRound.has(key)) bombSeatsByRound.set(key, new Set());
-      bombSeatsByRound.get(key)!.add(play.seat);
+      if (!bombSeatsByRound.has(key)) {
+        bombSeatsByRound.set(key, { gameId: play.game_id, roundNumber: play.round_number, seats: new Set() });
+      }
+      bombSeatsByRound.get(key)!.seats.add(play.seat);
     }
   }
-  for (const [key, seats] of bombSeatsByRound) {
-    if (seats.size >= 4) {
-      const [gameIdStr] = key.split('-');
-      const game = userGames.find(g => g.id === Number(gameIdStr));
-      if (game && getUserSeat(game, userId)) {
-        stats.allPlayersBombInRound++;
-      }
+  for (const { gameId, roundNumber, seats } of bombSeatsByRound.values()) {
+    if (seats.size >= 4 && myRoundsByGame.get(gameId)?.has(roundNumber)) {
+      stats.allPlayersBombInRound++;
     }
   }
 
@@ -1150,7 +1184,7 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
       ${userId}, ${stats.gamesPlayed}, ${stats.gamesWon}, ${stats.winRate},
       ${stats.tichuCalls}, ${stats.tichuSuccesses}, ${stats.grandTichuCalls}, ${stats.grandTichuSuccesses},
       ${stats.totalRoundsPlayed}, ${stats.firstFinishes}, datetime('now'),
-      ${stats.largestWinDiff}, ${stats.largestLossDiff}, 0, 0,
+      ${stats.largestWinDiff}, ${stats.largestLossDiff}, ${stats.gamesForfeited}, 0,
       ${stats.oneTwoWins}, ${stats.oneTwoAgainst},
       ${stats.roundsWon}, ${stats.opponentTichuBroken}, ${stats.opponentGrandTichuBroken},
       ${stats.partnerTichuBroken}, ${stats.partnerGrandTichuBroken},
@@ -1211,13 +1245,17 @@ function writeRelationalStatsToCache(database: Database, userId: string, relStat
 export function rebuildStatsCache(database: Database): void {
   const { db } = database;
 
-  // Get all users who have played games (appear in games table)
+  // Get all users who have played any round — includes users who were swapped
+  // out before the game ended and therefore do not appear in games.{seat}_user_id.
+  // REQ-F-SA01/SA12: users with ≥1 player_rounds row must be discoverable for
+  // gamesPlayed and gamesForfeited attribution.
   const userIds = db.all(sql`
     SELECT DISTINCT user_id FROM (
       SELECT north_user_id AS user_id FROM games WHERE north_user_id IS NOT NULL
       UNION SELECT east_user_id FROM games WHERE east_user_id IS NOT NULL
       UNION SELECT south_user_id FROM games WHERE south_user_id IS NOT NULL
       UNION SELECT west_user_id FROM games WHERE west_user_id IS NOT NULL
+      UNION SELECT user_id FROM player_rounds WHERE user_id IS NOT NULL
     )
   `) as { user_id: string }[];
 
@@ -1242,20 +1280,17 @@ export function rebuildStatsCache(database: Database): void {
 export function updateCacheAfterGame(database: Database, dbGameId: number): void {
   const { db } = database;
 
-  // Get all human players in this game
-  const game = db.all(sql`
-    SELECT north_user_id, east_user_id, south_user_id, west_user_id
-    FROM games WHERE id = ${dbGameId}
-  `) as { north_user_id: string | null; east_user_id: string | null;
-           south_user_id: string | null; west_user_id: string | null }[];
+  // Get all humans who played any round of this game — not just final occupants.
+  // REQ-F-SA01/SA12: swapped-out players must be refreshed so their
+  // gamesPlayed/gamesForfeited counters update after each completed game.
+  const played = db.all(sql`
+    SELECT DISTINCT user_id FROM player_rounds
+    WHERE game_id = ${dbGameId} AND user_id IS NOT NULL
+  `) as { user_id: string }[];
 
-  if (game.length === 0) return;
+  if (played.length === 0) return;
 
-  const g = game[0];
-  const userIds = [g.north_user_id, g.east_user_id, g.south_user_id, g.west_user_id]
-    .filter((id): id is string => id !== null);
-
-  const uniqueIds = [...new Set(userIds)];
+  const uniqueIds = played.map((r) => r.user_id);
 
   for (const userId of uniqueIds) {
     const stats = computeStatsForUser(database, userId);
