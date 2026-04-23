@@ -359,7 +359,7 @@ function syncSchema(client: BetterSqlite3Database): void {
       ace_received_in_pass INTEGER NOT NULL DEFAULT 0,
       dog_received_in_pass INTEGER NOT NULL DEFAULT 0,
       dragon_trick_wins INTEGER NOT NULL DEFAULT 0,
-      dragon_given_after_opponent_win INTEGER NOT NULL DEFAULT 0,
+      captured_dragon_with_bomb INTEGER NOT NULL DEFAULT 0,
       dog_given_to_partner INTEGER NOT NULL DEFAULT 0,
       dog_given_to_opponent INTEGER NOT NULL DEFAULT 0,
       dog_played_for_tichu_partner INTEGER NOT NULL DEFAULT 0,

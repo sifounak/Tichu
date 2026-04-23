@@ -57,7 +57,7 @@ export interface PlayerProfile {
   aceReceivedInPass: number;
   dogReceivedInPass: number;
   dragonTrickWins: number;
-  dragonGivenAfterOpponentWin: number;
+  capturedDragonWithBomb: number;
   dogGivenToPartner: number;
   dogGivenToOpponent: number;
   dogPlayedForTichuPartner: number;
@@ -241,7 +241,7 @@ export function getPlayerProfile(
       ps.ace_received_in_pass as aceReceivedInPass,
       ps.dog_received_in_pass as dogReceivedInPass,
       ps.dragon_trick_wins as dragonTrickWins,
-      ps.dragon_given_after_opponent_win as dragonGivenAfterOpponentWin,
+      ps.captured_dragon_with_bomb as capturedDragonWithBomb,
       ps.dog_given_to_partner as dogGivenToPartner,
       ps.dog_given_to_opponent as dogGivenToOpponent,
       ps.dog_played_for_tichu_partner as dogPlayedForTichuPartner,
