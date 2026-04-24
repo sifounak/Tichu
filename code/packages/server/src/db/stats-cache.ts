@@ -1264,6 +1264,7 @@ export function rebuildStatsCache(database: Database): void {
     const relStats = computeRelationalStatsForUser(database, userId);
     writeRelationalStatsToCache(database, userId, relStats);
   }
+  console.log(`[STATS] Rebuilt stats cache for ${userIds.length} user(s)`);
 }
 
 /**
@@ -1272,6 +1273,7 @@ export function rebuildStatsCache(database: Database): void {
  */
 export function updateCacheAfterGame(database: Database, dbGameId: number): void {
   const { db } = database;
+  console.log(`[STATS] updateCacheAfterGame called for dbGameId=${dbGameId}`);
 
   // Get all humans who played any round of this game — not just final occupants.
   // REQ-F-SA01/SA12: swapped-out players must be refreshed so their
@@ -1281,7 +1283,10 @@ export function updateCacheAfterGame(database: Database, dbGameId: number): void
     WHERE game_id = ${dbGameId} AND user_id IS NOT NULL
   `) as { user_id: string }[];
 
-  if (played.length === 0) return;
+  if (played.length === 0) {
+    console.log(`[STATS] No player_rounds with user_id found for game ${dbGameId} — skipping cache update`);
+    return;
+  }
 
   const uniqueIds = played.map((r) => r.user_id);
 
@@ -1292,6 +1297,7 @@ export function updateCacheAfterGame(database: Database, dbGameId: number): void
     const relStats = computeRelationalStatsForUser(database, userId);
     writeRelationalStatsToCache(database, userId, relStats);
   }
+  console.log(`[STATS] Updated stats cache for ${uniqueIds.length} user(s) after game ${dbGameId}`);
 }
 
 /**
