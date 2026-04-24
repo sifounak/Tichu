@@ -483,4 +483,40 @@ function syncSchema(client: BetterSqlite3Database): void {
   } catch {
     // Already renamed, or fresh DB created with the new name
   }
+
+  // [Stats back-fill] Populate player_rounds.user_id from games.{seat}_user_id
+  // for rows created before the seat→userId resolver was wired (M1).
+  backfillPlayerRoundsUserId(client);
+}
+
+/**
+ * [Stats back-fill] For every player_rounds row where user_id IS NULL,
+ * populate it from games.{seat}_user_id. This recovers attribution for
+ * games created before the seat→userId resolver fix.
+ *
+ * Limitation: uses the FINAL seat occupant (games.{seat}_user_id). If a
+ * pre-fix game had different users at the same seat across rounds, this
+ * back-fill will attribute all rounds to the final occupant. Per-round
+ * occupancy history was never captured in pre-fix games.
+ *
+ * Idempotent: only updates rows where user_id IS NULL.
+ *
+ * Exported for testing.
+ */
+export function backfillPlayerRoundsUserId(client: BetterSqlite3Database): number {
+  const result = client.prepare(`
+    UPDATE player_rounds
+    SET user_id = (
+      SELECT CASE player_rounds.seat
+        WHEN 'north' THEN games.north_user_id
+        WHEN 'east'  THEN games.east_user_id
+        WHEN 'south' THEN games.south_user_id
+        WHEN 'west'  THEN games.west_user_id
+      END
+      FROM games
+      WHERE games.id = player_rounds.game_id
+    )
+    WHERE player_rounds.user_id IS NULL
+  `).run();
+  return result.changes;
 }

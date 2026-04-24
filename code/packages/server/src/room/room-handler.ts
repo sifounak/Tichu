@@ -711,6 +711,12 @@ export class RoomHandler {
         });
       }
 
+      // [Stats]: Wire seat→userId resolver so GameEventCapture can populate
+      // player_rounds.user_id. Without this, per-user stats compute to zero.
+      game.wireSeatUserIdResolver((seat) => {
+        return this.roomManager.getUserIdAtSeat(roomCode, seat) ?? null;
+      });
+
       for (const player of room.players) {
         game.seatPlayer(player.seat);
         if (!player.isBot) {

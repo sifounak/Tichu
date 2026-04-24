@@ -78,6 +78,10 @@ export class GameEventCapture {
   // REQ-F-CP07: Track whether initial hands have been captured
   private initialHandsCaptured = false;
 
+  // Resolver from seat → userId, wired by GameManager. Null or missing
+  // returns mean "no human at that seat" (bots or unseated).
+  private seatUserIdResolver: ((seat: Seat) => string | null) | null = null;
+
   constructor(gameId: number) {
     this.accumulator = createGameAccumulator(gameId);
   }
@@ -90,6 +94,16 @@ export class GameEventCapture {
   /** Get the current in-progress round data (for recovery file serialization) */
   getCurrentRound(): RoundEventData | null {
     return this.currentRound;
+  }
+
+  /**
+   * Wire the seat→userId resolver. Called by GameManager at construction /
+   * restore time, with a closure that reads RoomManager.getUserIdAtSeat.
+   * Without this, auto-init leaves player_rounds.user_id as null and all
+   * per-user stats compute to zero.
+   */
+  wireSeatUserIdResolver(resolver: (seat: Seat) => string | null): void {
+    this.seatUserIdResolver = resolver;
   }
 
   // ─── Pre-Play Context Management ────────────────────────────────────
@@ -169,10 +183,16 @@ export class GameEventCapture {
         context.scores.northSouth,
         context.scores.eastWest,
       );
+      const playersForInit = Object.fromEntries(
+        SEATS_IN_ORDER.map((s) => [
+          s,
+          { userId: this.seatUserIdResolver ? this.seatUserIdResolver(s) : null },
+        ]),
+      ) as Record<Seat, { userId: string | null }>;
       this.initPlayerRounds(
         parseInt(context.gameId) || 0,
         round.roundNumber,
-        Object.fromEntries(SEATS_IN_ORDER.map(s => [s, { userId: null }])) as Record<Seat, { userId: string | null }>,
+        playersForInit,
       );
     }
 

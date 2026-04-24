@@ -266,6 +266,11 @@ export function createApp(config: Partial<AppConfig> = {}) {
             gameStore.disconnectHandler,
             gameStore.voteHandler,
           );
+          // [Stats]: Re-wire seat→userId resolver — GameManager.restore creates
+          // a fresh GameEventCapture which has no resolver by default.
+          manager.wireSeatUserIdResolver((seat) => {
+            return roomHandler.roomManager.getUserIdAtSeat(manager.roomCode, seat) ?? null;
+          });
           gameStore.restoreGame(manager, { ttlMs: TTL_MS });
           fastify.log.info(`Restored game ${snapshot.gameId} for room ${snapshot.roomCode}`);
         } catch (err) {

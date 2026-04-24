@@ -314,6 +314,17 @@ export class GameManager {
     this.onGameEnd = onGameEnd;
   }
 
+  /**
+   * Wire the seat→userId resolver for stats capture. Matches the pattern of
+   * wireKickCallback / wireVoteCallback / wireGameEndCallback — caller is
+   * room-handler.ts::startGameInternal (fresh games) or app.ts::restoreActiveGames
+   * (snapshot restore). Without this, player_rounds.user_id stays null and
+   * per-user stats compute to zero.
+   */
+  wireSeatUserIdResolver(resolver: (seat: Seat) => string | null): void {
+    this.eventCapture.wireSeatUserIdResolver(resolver);
+  }
+
   /** REQ-F-SO15: Mark a userId as having joined the game after spectating */
   markJoinedAfterSpectating(userId: string): void {
     this.joinedAfterSpectating.add(userId);
