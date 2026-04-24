@@ -296,6 +296,21 @@ export class CardTracker {
     return this.getUnaccountedAces() === 0;
   }
 
+  // REQ-F-TRK03: Generic rank accounting for cascading Phoenix singleton guard
+  /**
+   * Check if all standard ranks strictly above `rank` are accounted for
+   * (played or in own hand). Used to decide if Phoenix singleton on rank R
+   * is safe — only safe when no higher-rank cards lurk in opponents' hands.
+   */
+  allRanksAboveAccountedFor(rank: number): boolean {
+    for (let r = rank + 1; r <= 14; r++) {
+      const played = this.playedByRank.get(r)?.count ?? 0;
+      const inHand = this.ownHandRankCounts.get(r) ?? 0;
+      if (played + inHand < 4) return false;
+    }
+    return true;
+  }
+
   /**
    * Whether the Dragon has been played.
    */

@@ -456,6 +456,82 @@ describe('CardTracker', () => {
     });
   });
 
+  // Verifies: REQ-F-TRK03 (cascading rank accounting for Phoenix singleton)
+  describe('allRanksAboveAccountedFor', () => {
+    it('returns true for rank 14 (Ace) — no ranks above Ace', () => {
+      tracker.update(makeRoundState(), 'north', []);
+      expect(tracker.allRanksAboveAccountedFor(14)).toBe(true);
+    });
+
+    it('returns false for rank 13 (King) when Aces are unaccounted', () => {
+      tracker.update(makeRoundState(), 'north', []);
+      expect(tracker.allRanksAboveAccountedFor(13)).toBe(false);
+    });
+
+    it('returns true for rank 13 when all Aces accounted for (in hand + played)', () => {
+      const ace1 = card('standard', 14, 'jade', 5001);
+      const ace2 = card('standard', 14, 'pagoda', 5002);
+      const ace3 = card('standard', 14, 'star', 5003);
+      const ace4 = card('standard', 14, 'sword', 5004);
+      const rs = makeRoundState({
+        players: {
+          north: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [[ace1, ace2]], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      tracker.update(rs, 'north', [ace3, ace4]);
+      expect(tracker.allRanksAboveAccountedFor(13)).toBe(true);
+    });
+
+    it('returns false for rank 12 (Queen) when Kings are unaccounted', () => {
+      // All Aces accounted for, but Kings are not
+      const aces = [
+        card('standard', 14, 'jade', 5001),
+        card('standard', 14, 'pagoda', 5002),
+        card('standard', 14, 'star', 5003),
+        card('standard', 14, 'sword', 5004),
+      ];
+      const rs = makeRoundState({
+        players: {
+          north: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [aces], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      tracker.update(rs, 'north', []);
+      // Aces accounted for, but Kings (rank 13) are not
+      expect(tracker.allRanksAboveAccountedFor(12)).toBe(false);
+    });
+
+    it('returns true for rank 12 when all Aces and Kings accounted for', () => {
+      const aces = [
+        card('standard', 14, 'jade', 5001),
+        card('standard', 14, 'pagoda', 5002),
+        card('standard', 14, 'star', 5003),
+        card('standard', 14, 'sword', 5004),
+      ];
+      const kings = [
+        card('standard', 13, 'jade', 5011),
+        card('standard', 13, 'pagoda', 5012),
+        card('standard', 13, 'star', 5013),
+        card('standard', 13, 'sword', 5014),
+      ];
+      const rs = makeRoundState({
+        players: {
+          north: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [aces], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [kings], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      tracker.update(rs, 'north', []);
+      expect(tracker.allRanksAboveAccountedFor(12)).toBe(true);
+    });
+  });
+
   describe('isDragonPlayed', () => {
     it('returns false initially', () => {
       tracker.update(makeRoundState(), 'north', []);
