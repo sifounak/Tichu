@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRoomStore } from '@/stores/roomStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -205,7 +206,7 @@ export default function LobbyPage() {
             {isLoggedIn ? (
               <UserMenu user={user!} onLogout={handleLogout} />
             ) : (
-              <a
+              <Link
                 href="/login"
                 className="px-3 py-1.5 rounded-lg text-sm font-semibold"
                 style={{
@@ -214,7 +215,7 @@ export default function LobbyPage() {
                 }}
               >
                 Sign In
-              </a>
+              </Link>
             )}
           </div>
         </div>
