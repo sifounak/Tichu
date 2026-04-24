@@ -702,10 +702,15 @@ export class RoomHandler {
               const accumulator = gameRef.getEventAccumulator();
               writeEventData(db, dbGameId, accumulator);
               deleteRecoveryFile(accumulator.gameId);
-              // REQ-F-MC03: Incremental cache update after batch write
-              updateCacheAfterGame(db, dbGameId);
             } catch (err) {
               console.error(`[PERSIST] Failed to write event data for game ${dbGameId}:`, err);
+            }
+            // REQ-F-MC03: Incremental cache update — separate try/catch so
+            // a cache failure doesn't mask a successful event write.
+            try {
+              updateCacheAfterGame(db, dbGameId);
+            } catch (err) {
+              console.error(`[PERSIST] Failed to update stats cache for game ${dbGameId}:`, err);
             }
           }
         });

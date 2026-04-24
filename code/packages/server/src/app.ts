@@ -16,6 +16,7 @@ import { registerAuthRoutes } from './auth/auth-routes.js';
 import { saveActiveGames, saveActiveRooms, loadActiveGames, loadActiveRooms, clearActiveGames, clearActiveRooms } from './db/active-game-persistence.js';
 import { GameManager } from './game/game-manager.js';
 import { recoverFromCrash } from './db/event-persistence.js';
+import { rebuildStatsCache } from './db/stats-cache.js';
 
 export interface AppConfig {
   port: number;
@@ -70,6 +71,13 @@ export function createApp(config: Partial<AppConfig> = {}) {
       recoverFromCrash(database);
     } catch (recoveryErr) {
       fastify.log.warn(`Event data recovery failed: ${recoveryErr instanceof Error ? recoveryErr.message : recoveryErr}`);
+    }
+    // REQ-F-MC02: Rebuild stats cache on startup to ensure consistency
+    // after backfillPlayerRoundsUserId populates previously-NULL user_ids.
+    try {
+      rebuildStatsCache(database);
+    } catch (rebuildErr) {
+      fastify.log.warn(`Stats cache rebuild failed: ${rebuildErr instanceof Error ? rebuildErr.message : rebuildErr}`);
     }
   } catch (err) {
     fastify.log.warn(`Database unavailable (${err instanceof Error ? err.message : err}). Auth routes disabled.`);
