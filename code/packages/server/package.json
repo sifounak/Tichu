@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
     "clean": "rm -rf dist coverage",
-    "wipe-stats": "tsx scripts/wipe-stats-history.ts"
+    "wipe-stats": "tsx scripts/wipe-stats-history.ts",
+    "rebuild-stats": "tsx scripts/rebuild-stats.ts"
   },
   "dependencies": {
     "@tichu/shared": "workspace:*",

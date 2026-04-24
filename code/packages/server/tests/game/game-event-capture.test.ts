@@ -1234,6 +1234,84 @@ describe('GameEventCapture', () => {
     });
   });
 
+  // ─── Seat→userId resolver ───────────────────────────────────────
+
+  describe('seat→userId resolver', () => {
+    it('auto-init uses resolver to populate user_id for each seat', () => {
+      const resolver = (seat: Seat): string | null => {
+        const map: Record<Seat, string | null> = {
+          north: 'user_n', east: 'user_e', south: 'user_s', west: 'user_w',
+        };
+        return map[seat];
+      };
+      capture.wireSeatUserIdResolver(resolver);
+
+      const round = makeRound({
+        roundNumber: 1,
+        phase: GamePhase.GrandTichuDecision,
+        players: {
+          north: makePlayerState('north', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 1)) }),
+          east: makePlayerState('east', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 100)) }),
+          south: makePlayerState('south', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 200)) }),
+          west: makePlayerState('west', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 300)) }),
+        },
+      });
+      const ctx = makeContext(round, { gameId: '42' });
+      capture.onStateChange(ctx);
+
+      const cr = capture.getCurrentRound();
+      expect(cr).not.toBeNull();
+      expect(cr!.playerRounds.find(p => p.seat === 'north')!.userId).toBe('user_n');
+      expect(cr!.playerRounds.find(p => p.seat === 'east')!.userId).toBe('user_e');
+      expect(cr!.playerRounds.find(p => p.seat === 'south')!.userId).toBe('user_s');
+      expect(cr!.playerRounds.find(p => p.seat === 'west')!.userId).toBe('user_w');
+    });
+
+    it('auto-init leaves user_id null when no resolver is wired (pre-fix behavior)', () => {
+      // NO resolver wired
+      const round = makeRound({
+        roundNumber: 1,
+        phase: GamePhase.GrandTichuDecision,
+        players: {
+          north: makePlayerState('north', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 1)) }),
+          east: makePlayerState('east', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 100)) }),
+          south: makePlayerState('south', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 200)) }),
+          west: makePlayerState('west', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 300)) }),
+        },
+      });
+      const ctx = makeContext(round, { gameId: '42' });
+      capture.onStateChange(ctx);
+
+      const cr = capture.getCurrentRound();
+      for (const pr of cr!.playerRounds) {
+        expect(pr.userId).toBeNull();
+      }
+    });
+
+    it('auto-init treats bot seats (resolver returns null) as null userId', () => {
+      capture.wireSeatUserIdResolver((seat) => (seat === 'north' ? 'user_n' : null));
+
+      const round = makeRound({
+        roundNumber: 1,
+        phase: GamePhase.GrandTichuDecision,
+        players: {
+          north: makePlayerState('north', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 1)) }),
+          east: makePlayerState('east', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 100)) }),
+          south: makePlayerState('south', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 200)) }),
+          west: makePlayerState('west', { hand: Array.from({ length: 8 }, (_, i) => card('standard', i + 2, 'jade', i + 300)) }),
+        },
+      });
+      const ctx = makeContext(round, { gameId: '42' });
+      capture.onStateChange(ctx);
+
+      const cr = capture.getCurrentRound();
+      expect(cr!.playerRounds.find(p => p.seat === 'north')!.userId).toBe('user_n');
+      expect(cr!.playerRounds.find(p => p.seat === 'east')!.userId).toBeNull();
+      expect(cr!.playerRounds.find(p => p.seat === 'south')!.userId).toBeNull();
+      expect(cr!.playerRounds.find(p => p.seat === 'west')!.userId).toBeNull();
+    });
+  });
+
   // ─── Auto-init round from state change ─────────────────────────
 
   describe('Auto-init round from state change', () => {
