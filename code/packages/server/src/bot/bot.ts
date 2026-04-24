@@ -754,12 +754,11 @@ export class Bot implements BotStrategy {
    * 1. Following on opponent's Ace → prefer (singleton-killer)
    * 2. Phoenix completes a combination eliminating 3+ cards → prefer (wild)
    * Never play when:
-   * - REQ-F-PHX01: On single < Ace unless all Aces accounted for
-   * - REQ-F-PHX02: In low multi-card (rank < 7) unless going out
+   * - REQ-F-PHX01a: On single rank R unless all ranks above R accounted for (cascading)
+   * - REQ-F-PHX02a: In low multi-card (trick rank < 7) with < 4 cards, unless going out
    *
    * Acceptable when:
-   * - REQ-F-PHX03: Over single Ace (prefer last unaccounted)
-   * - REQ-F-PHX04: Over King if all Aces played
+   * - REQ-F-PHX03a: Over single rank R when all ranks above R accounted for (cascading)
    * - REQ-F-PHX05: In straight (rank >= 10 or length >= 5)
    * - REQ-F-PHX06: In consecutive pairs
    * - REQ-F-PHX07: In triple (rank >= 8)
@@ -774,24 +773,27 @@ export class Bot implements BotStrategy {
     const hasPhoenix = combo.cards.some((gc) => isPhoenix(gc.card));
     if (!hasPhoenix) return 'neutral';
 
-    const allAcesAccountedFor = this.cardTracker.allAcesAccountedFor();
     const allAcesPlayed = this.cardTracker.allAcesPlayed();
 
     // ─── NEVER rules ───
 
-    // REQ-F-PHX01: Phoenix as singleton on top of single < Ace, unless all Aces accounted
+    // REQ-F-PHX01a: Cascading singleton Phoenix guard — Phoenix on rank R is 'never'
+    // unless all standard ranks above R are accounted for (played or in own hand).
+    // E.g., Phoenix on Queen requires all Aces AND Kings accounted for.
     if (currentTrick && combo.cards.length === 1) {
       const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
       if (lastPlay && lastPlay.combination.cards.length === 1) {
         const lastCard = lastPlay.combination.cards[0];
-        if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14 && !allAcesAccountedFor) {
+        if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14
+          && !this.cardTracker.allRanksAboveAccountedFor(lastCard.card.rank)) {
           return 'never';
         }
       }
     }
 
-    // REQ-F-PHX02: Phoenix in low multi-card hand (rank < 7), unless going out
-    if (combo.cards.length > 1 && combo.rank < 7) {
+    // REQ-F-PHX02a: Phoenix in short low multi-card combo (trick rank < 7, < 4 cards),
+    // unless going out. Long combos (4+ cards) are exempt — clearing many losers justifies Phoenix.
+    if (combo.cards.length > 1 && combo.cards.length < 4 && combo.rank < 7) {
       if (hand.length !== combo.cards.length) { // Not going out
         return 'never';
       }
@@ -799,23 +801,15 @@ export class Bot implements BotStrategy {
 
     // ─── ACCEPTABLE scenarios ───
 
-    // REQ-F-PHX03: Over single Ace
+    // REQ-F-PHX03a: Cascading singleton Phoenix acceptance — Phoenix on rank R
+    // is 'acceptable' when all ranks above R are accounted for.
+    // Subsumes old PHX03 (over Ace) and PHX04 (over King if Aces played).
     if (currentTrick && combo.cards.length === 1) {
       const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
       if (lastPlay && lastPlay.combination.cards.length === 1) {
         const lastCard = lastPlay.combination.cards[0];
-        if (lastCard.card.kind === 'standard' && lastCard.card.rank === 14) {
-          return 'acceptable';
-        }
-      }
-    }
-
-    // REQ-F-PHX04: Over King if all Aces already played
-    if (currentTrick && combo.cards.length === 1 && allAcesPlayed) {
-      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
-      if (lastPlay && lastPlay.combination.cards.length === 1) {
-        const lastCard = lastPlay.combination.cards[0];
-        if (lastCard.card.kind === 'standard' && lastCard.card.rank === 13) {
+        if (lastCard.card.kind === 'standard'
+          && this.cardTracker.allRanksAboveAccountedFor(lastCard.card.rank)) {
           return 'acceptable';
         }
       }

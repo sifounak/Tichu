@@ -1098,6 +1098,176 @@ describe('Bot', () => {
     });
   });
 
+  // ─── Phoenix Cascading Singleton & Multi-Card (PHX01a, PHX02a, PHX03a) ──
+
+  describe('Phoenix cascading singleton guard', () => {
+    // Verifies: REQ-F-PHX01a — Phoenix on Queen blocked when Kings unaccounted
+    it('avoids Phoenix on Queen when Kings are unaccounted', () => {
+      const bot = new Bot();
+      const phoenixCard = card('phoenix');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [phoenixCard, c3];
+
+      // All 4 Aces played (accounted for), but Kings NOT accounted for
+      const aces = [
+        card('standard', 14, 'jade', 1401),
+        card('standard', 14, 'pagoda', 1402),
+        card('standard', 14, 'star', 1403),
+        card('standard', 14, 'sword', 1404),
+      ];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 12, 'jade', 1201)], 12) },
+      ]);
+
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [aces], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 12.5);
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [phoenixPlay],
+        canPass: true,
+        roundState: rs,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Should pass — Phoenix on Queen when Kings unaccounted is 'never'
+      expect(decision.action).toBe('pass');
+    });
+
+    // Verifies: REQ-F-PHX03a — Phoenix on Queen accepted when all Aces+Kings accounted
+    it('accepts Phoenix on Queen when all Aces and Kings accounted for', () => {
+      const bot = new Bot();
+      const phoenixCard = card('phoenix');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [phoenixCard, c3];
+
+      const aces = [
+        card('standard', 14, 'jade', 1401),
+        card('standard', 14, 'pagoda', 1402),
+        card('standard', 14, 'star', 1403),
+        card('standard', 14, 'sword', 1404),
+      ];
+      const kings = [
+        card('standard', 13, 'jade', 1301),
+        card('standard', 13, 'pagoda', 1302),
+        card('standard', 13, 'star', 1303),
+        card('standard', 13, 'sword', 1304),
+      ];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 12, 'jade', 1201)], 12) },
+      ]);
+
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [aces], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [kings], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 12.5);
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [phoenixPlay],
+        canPass: true,
+        roundState: rs,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Should play — all ranks above Queen are accounted for
+      expect(decision.action).toBe('play');
+    });
+  });
+
+  describe('Phoenix multi-card length guard', () => {
+    // Verifies: REQ-F-PHX02a — long low combo (4+ cards) allowed with Phoenix
+    it('allows Phoenix in 4+ card low straight (clears many losers)', () => {
+      const bot = new Bot();
+      const phoenixCard = card('phoenix');
+      const c2 = card('standard', 2, 'jade', 201);
+      const c3 = card('standard', 3, 'jade', 301);
+      const c5 = card('standard', 5, 'jade', 501);
+      const c6 = card('standard', 6, 'jade', 601);
+      const cK = card('standard', 13, 'jade', 1301);
+      const hand = [phoenixCard, c2, c3, c5, c6, cK];
+
+      // Phoenix as the 4 in a 2-3-Ph-5-6 straight, trick rank = 6
+      const straightCombo = makeCombo(
+        CombinationType.Straight, [c2, c3, phoenixCard, c5, c6], 6, false, 4,
+      );
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Straight,
+          [card('standard', 2, 'pagoda', 202), card('standard', 3, 'pagoda', 302),
+           card('standard', 4, 'pagoda', 402), card('standard', 5, 'pagoda', 502),
+           card('standard', 6, 'pagoda', 602)], 6) },
+      ]);
+
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [straightCombo],
+        canPass: true,
+        roundState: makeRoundState(),
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // 5-card low straight with Phoenix should be played (clears 5 losers)
+      expect(decision.action).toBe('play');
+    });
+
+    // Verifies: REQ-F-PHX02a — short low combo (< 4 cards) still blocked
+    it('blocks Phoenix in short low combo (pair of 3s)', () => {
+      const bot = new Bot();
+      const phoenixCard = card('phoenix');
+      const c3 = card('standard', 3, 'jade', 301);
+      const cK = card('standard', 13, 'jade', 1301);
+      const hand = [phoenixCard, c3, cK];
+
+      // Phoenix + 3 as a pair of 3s, trick rank = 3
+      const pairCombo = makeCombo(
+        CombinationType.Pair, [c3, phoenixCard], 3, false, 3,
+      );
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Pair,
+          [card('standard', 2, 'pagoda', 202), card('standard', 2, 'star', 203)], 2) },
+      ]);
+
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [pairCombo],
+        canPass: true,
+        roundState: makeRoundState(),
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      // Short low combo — should pass to save Phoenix
+      expect(decision.action).toBe('pass');
+    });
+  });
+
   // ─── Card Tracking Integration (REQ-F-INFO02) ───────────────────────────
 
   describe('card tracking integration', () => {
