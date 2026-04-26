@@ -48,6 +48,7 @@ export default function LobbyPage() {
   const [lobbyLoaded, setLobbyLoaded] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
   const connectionErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasConnectedRef = useRef(false);
 
   // REQ-F-LU07: Load auth state on mount
   const { user, authReady, loadFromStorage, logout } = useAuthStore();
@@ -101,22 +102,27 @@ export default function LobbyPage() {
 
   // Fetch lobby list on connect and periodically
   useEffect(() => {
-    if (status !== 'connected') return;
+    if (status !== 'connected') {
+      setLobbyLoaded(false);
+      return;
+    }
     send({ type: 'GET_LOBBY' });
     // REQ-NF-DL01: Reduced from 5000ms to 2000ms for snappier lobby updates
     const interval = setInterval(() => send({ type: 'GET_LOBBY' }), 2000);
     return () => clearInterval(interval);
   }, [status, send]);
 
-  // Show connection error toast after sustained disconnection
+  // Show connection error toast only after a successful connection has been lost,
+  // or after the initial connection attempt fails (not during the first connecting phase)
   useEffect(() => {
     if (status === 'connected') {
+      hasConnectedRef.current = true;
       if (connectionErrorTimerRef.current) {
         clearTimeout(connectionErrorTimerRef.current);
         connectionErrorTimerRef.current = null;
       }
       setConnectionError(false);
-    } else if (status === 'disconnected') {
+    } else if (status === 'disconnected' && hasConnectedRef.current) {
       // Show immediately when fully disconnected (all retries exhausted)
       setConnectionError(true);
     } else if (status === 'reconnecting') {
@@ -284,7 +290,7 @@ export default function LobbyPage() {
             style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--color-error)' }}
             role="alert"
           >
-            Unable to connect to the game server. {status === 'reconnecting' ? 'Retrying...' : 'Please refresh the page.'}
+            Couldn&apos;t connect to the game server. {status === 'reconnecting' ? 'Retrying...' : 'Please refresh the page.'}
           </div>
         )}
 
@@ -402,9 +408,26 @@ export default function LobbyPage() {
             />
           </div>
 
+          <div style={{ position: 'relative' }}>
+          {!lobbyLoaded && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.5)',
+              borderRadius: 'var(--space-2)',
+            }}>
+              <p style={{ color: 'var(--color-text-primary)', fontSize: '16px', fontWeight: 600 }}>
+                Loading game list...
+              </p>
+            </div>
+          )}
           {filteredRooms.length === 0 ? (
             <p className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
-              {!lobbyLoaded ? 'Loading game list...' : lobbyRooms.length === 0 ? 'No public rooms available. Create one!' : 'No rooms match your search.'}
+              {lobbyRooms.length === 0 ? 'No public rooms available. Create one!' : 'No rooms match your search.'}
             </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -546,6 +569,7 @@ export default function LobbyPage() {
               </table>
             </div>
           )}
+          </div>
         </div>
       </div>
 
