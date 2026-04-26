@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthGuard } from '@/components/AuthGuard';
 import { API_BASE, getUserId, pct, type PlayerProfile } from '@/components/stats/stats-types';
 import { StatCard } from '@/components/stats/StatCard';
 import { StatSection } from '@/components/stats/StatSection';
@@ -33,8 +34,9 @@ export default function StatsOverviewPage() {
   const dogPartnerPct = dogTotal > 0 ? `${Math.round((profile.dogControlToPartner / dogTotal) * 100)}%` : '-';
 
   return (
-    <div>
-      <RecordBanner profile={profile} />
+    <AuthGuard>
+      <div>
+        <RecordBanner profile={profile} />
 
       <StatSection title="Tichu Calls" href="/stats/tichu">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -80,6 +82,7 @@ export default function StatsOverviewPage() {
           <StatCard label="Stacked Deck" value={profile.allPowerCardsBeforePass} subtitle="6+ power cards pre-pass" coloredLabel />
         </div>
       </StatSection>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

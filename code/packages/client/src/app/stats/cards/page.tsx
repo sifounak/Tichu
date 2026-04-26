@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthGuard } from '@/components/AuthGuard';
 import { API_BASE, getUserId, type PlayerProfile } from '@/components/stats/stats-types';
 import { StatCard } from '@/components/stats/StatCard';
 import { StatSection } from '@/components/stats/StatSection';
@@ -27,9 +28,10 @@ export default function CardStatsPage() {
   if (!profile) return <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No stats yet.</p>;
 
   return (
-    <div>
-      {/* Dragon */}
-      <StatSection title="Dragon">
+    <AuthGuard>
+      <div>
+        {/* Dragon */}
+        <StatSection title="Dragon">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="Trick Wins" value={profile.dragonTrickWins} coloredLabel />
           <StatCard label="Rounds Held" value={profile.roundsWithDragon} coloredLabel />
@@ -140,6 +142,7 @@ export default function CardStatsPage() {
           </TablePanel>
         </div>
       </StatSection>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

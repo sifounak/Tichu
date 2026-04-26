@@ -4,6 +4,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { AuthGuard } from '@/components/AuthGuard';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/api\/?$/, '');
 
@@ -38,13 +39,15 @@ interface GameHistoryEntry {
 
 export default function ProfilePage() {
   return (
-    <Suspense fallback={
-      <main className="min-h-dvh flex items-center justify-center" style={{ background: 'var(--color-felt-green-dark)' }}>
-        <p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>
-      </main>
-    }>
-      <ProfileContent />
-    </Suspense>
+    <AuthGuard>
+      <Suspense fallback={
+        <main className="min-h-dvh flex items-center justify-center" style={{ background: 'var(--color-felt-green-dark)' }}>
+          <p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>
+        </main>
+      }>
+        <ProfileContent />
+      </Suspense>
+    </AuthGuard>
   );
 }
 
@@ -65,7 +68,7 @@ function ProfileContent() {
     const userId = queryUserId ?? storageUserId;
 
     if (!userId) {
-      router.push('/login');
+      router.push('/');
       return;
     }
 
