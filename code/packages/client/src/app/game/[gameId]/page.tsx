@@ -14,6 +14,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import { useBombWindow } from '@/hooks/useBombWindow';
 import { useCardSelection } from '@/hooks/useCardSelection';
+import { useNavigationBlock } from '@/hooks/useNavigationBlock';
 import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -649,26 +650,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [disconnect, isSpectator, gameInProgress]);
 
-  // REQ-F-BB01: Intercept browser back button during active game
-  const [backButtonDialogOpen, setBackButtonDialogOpen] = useState(false);
-
-  useEffect(() => {
-    if (isSpectator || !gameInProgress) return;
-
-    // Push sentinel state so back button has something to pop
-    history.pushState({ tichuGame: true }, '');
-
-    const handlePopState = () => {
-      // Re-push to keep URL stable
-      history.pushState({ tichuGame: true }, '');
-      setBackButtonDialogOpen(true);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isSpectator, gameInProgress]);
+  // REQ-F-BB01: Intercept browser back/forward button with confirmation dialog
+  const { dialogOpen: backButtonDialogOpen, confirmNavigation, cancelNavigation } =
+    useNavigationBlock({ enabled: Boolean(roomCode) });
 
   // REQ-F-PV15: Countdown timer for active vote
   useEffect(() => {
@@ -1129,9 +1113,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         <LeaveConfirmDialog
           title={isSpectator ? 'Leave Room?' : 'Leave Game?'}
           subtitle={isSpectator ? '' : 'This will count as a forfeit if you leave.'}
-          onConfirm={handleLeaveGame}
+          onConfirm={() => { confirmNavigation(); handleLeaveGame(); }}
           externalOpen={backButtonDialogOpen}
-          onClose={() => setBackButtonDialogOpen(false)}
+          onClose={cancelNavigation}
         >
           {(openDialog) => (
             <button
