@@ -24,6 +24,12 @@ fi
 
 # ─── 0.1 Prerequisite check ────────────────────────────────────────────
 # REQ-F-DS12: Prerequisite validation
+REQUIRED_NODE_MAJOR=$(cat "$CODE_DIR/.nvmrc" 2>/dev/null | tr -d '[:space:]')
+if [ -z "$REQUIRED_NODE_MAJOR" ]; then
+  echo "ERROR: $CODE_DIR/.nvmrc not found."
+  exit 1
+fi
+
 echo "=== Checking prerequisites ==="
 MISSING=""
 if ! command -v node >/dev/null 2>&1; then MISSING="$MISSING node"; fi
@@ -37,7 +43,15 @@ fi
 
 if [ -n "$MISSING" ]; then
   echo "ERROR: Missing required tools:$MISSING"
-  echo "Install Node.js (20+) and pnpm before running this script."
+  echo "Install Node.js ($REQUIRED_NODE_MAJOR+) and pnpm before running this script."
+  exit 1
+fi
+
+# Verify Node major version meets .nvmrc requirement
+ACTUAL_NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
+if [ "$ACTUAL_NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]; then
+  echo "ERROR: Node.js v$REQUIRED_NODE_MAJOR+ required but found $(node --version)."
+  echo "Install Node.js $REQUIRED_NODE_MAJOR or higher before running."
   exit 1
 fi
 echo "Prerequisites OK (node $(node --version), $PKG_MGR)"
