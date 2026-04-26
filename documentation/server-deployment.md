@@ -6,7 +6,9 @@ Step-by-step guide for deploying Tichu on `sifounakis.com`, tailored to this ser
 
 ```
 /files/.www/tichu/
-├── .env.prod           ← production environment config (secrets — not in git)
+├── .env.prod           ← build-time vars (NEXT_PUBLIC_*, sourced by prod-build.sh)
+├── env.server          ← server runtime vars (PORT, JWT_SECRET, etc.)
+├── env.client          ← client runtime vars (PORT, HOSTNAME)
 ├── data/               ← SQLite database (auto-created on first run)
 ├── source/             ← cloned repository
 │   └── code/
@@ -17,15 +19,23 @@ Step-by-step guide for deploying Tichu on `sifounakis.com`, tailored to this ser
     └── client/
 ```
 
-## Where `.env.prod` lives
+## Where environment files live
 
-**Location: `/files/.www/tichu/.env.prod`** (the parent of `built/`).
+**Location: `/files/.www/tichu/`** (the parent of `built/`).
 
-This is the right place because:
-- Both systemd service files already reference `EnvironmentFile=/files/.www/tichu/.env.prod`
-- The deploy script (`prod-deploy.sh`) looks for `.env.prod` in the parent of the target directory — since the target is `/files/.www/tichu/built`, that parent is `/files/.www/tichu/`
-- It's outside the git repo (`source/`), so secrets never get committed
-- It's next to `data/` and `built/`, keeping all deployment state in one place
+There are three env files, each with a distinct purpose:
+
+| File | Purpose | Used by |
+|------|---------|---------|
+| `.env.prod` | Build-time `NEXT_PUBLIC_*` vars baked into the client | `prod-build.sh` |
+| `env.server` | Server runtime vars (PORT, JWT_SECRET, DB, CORS) | `tichu-server.service` |
+| `env.client` | Client runtime vars (PORT, HOSTNAME) | `tichu-client.service` |
+
+They're kept here because:
+- Each systemd service file references its own `EnvironmentFile` (`env.server` or `env.client`)
+- The deploy script validates both runtime env files exist in the target's parent directory
+- They're outside the git repo (`source/`), so secrets never get committed
+- They're next to `data/` and `built/`, keeping all deployment state in one place
 
 ## Prerequisites
 
@@ -44,41 +54,35 @@ cd /files/.www/tichu
 git clone <repo-url> source
 ```
 
-### Step 2 — Create `.env.prod`
+### Step 2 — Create environment files
 
-The build script needs this file for the `NEXT_PUBLIC_*` variables that get baked into the client at build time. The server reads it at runtime for the remaining variables.
+**Build-time** (for `NEXT_PUBLIC_*` vars baked into the client):
 
 ```bash
-# Check if .env.prod already exists
-if [ ! -f /files/.www/tichu/.env.prod ]; then
-  cp /files/.www/tichu/source/code/scripts/.env.prod.example /files/.www/tichu/.env.prod
-  echo ""
-  echo "==> .env.prod has been created at /files/.www/tichu/.env.prod"
-  echo "==> Edit it now before proceeding:"
-  echo "      nano /files/.www/tichu/.env.prod"
-  echo ""
-  echo "    At minimum, set:"
-  echo "      JWT_SECRET  — run: openssl rand -hex 32"
-  echo "      DATABASE_PATH — should be /files/.www/tichu/data/tichu.sqlite"
-  echo "      CORS_ORIGIN — https://sifounakis.com"
-  echo ""
-  echo "    Do NOT proceed until the file is updated."
-fi
+cp /files/.www/tichu/source/code/scripts/.env.prod.example /files/.www/tichu/.env.prod
+nano /files/.www/tichu/.env.prod
 ```
 
-The expected contents (with your values filled in):
+**Runtime** (separate files for each service):
 
 ```bash
-# ─── Client build-time variables ────────────────────────────────────────
-NEXT_PUBLIC_WS_URL=wss://sifounakis.com/tichu/ws
-NEXT_PUBLIC_API_URL=https://sifounakis.com/tichu/api
-NEXT_PUBLIC_BASE_PATH=/tichu
+sudo cp /files/.www/tichu/source/code/scripts/systemd/env.server /files/.www/tichu/env.server
+sudo cp /files/.www/tichu/source/code/scripts/systemd/env.client /files/.www/tichu/env.client
+sudo nano /files/.www/tichu/env.server
+```
 
-# ─── Server runtime variables ───────────────────────────────────────────
-PORT=3001
-CORS_ORIGIN=https://sifounakis.com
-DATABASE_PATH=/files/.www/tichu/data/tichu.sqlite
-JWT_SECRET=<paste output of: openssl rand -hex 32>
+Edit `env.server` and set real values:
+- **`JWT_SECRET`** — generate with: `openssl rand -hex 32`
+- **`DATABASE_PATH`** — should be `/files/.www/tichu/data/tichu.sqlite`
+- **`CORS_ORIGIN`** — `https://sifounakis.com`
+
+`env.client` can be used as-is (defaults to PORT=3000, HOSTNAME=0.0.0.0).
+
+Secure the files:
+
+```bash
+sudo chown www-data:www-data /files/.www/tichu/env.server /files/.www/tichu/env.client
+sudo chmod 600 /files/.www/tichu/env.server /files/.www/tichu/env.client
 ```
 
 ### Step 3 — Build
@@ -122,8 +126,8 @@ Open a terminal:
 
 ```bash
 cd /files/.www/tichu/built/server
-set -a && . /files/.www/tichu/.env.prod && set +a
-NODE_ENV=production node dist/index.js
+set -a && . /files/.www/tichu/env.server && set +a
+node dist/index.js
 ```
 
 You should see log output indicating the server started on port 3001. Verify:
@@ -141,8 +145,8 @@ Open another terminal:
 
 ```bash
 cd /files/.www/tichu/built/client/packages/client
-set -a && . /files/.www/tichu/.env.prod && set +a
-NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 node server.js
+set -a && . /files/.www/tichu/env.client && set +a
+node server.js
 ```
 
 ### Step 7 — Configure Apache (if not already done)
@@ -196,7 +200,7 @@ sudo systemctl daemon-reload
 
 The service files are pre-configured for this directory layout:
 - `WorkingDirectory` points to `/files/.www/tichu/built/server` and `.../client/packages/client`
-- `EnvironmentFile` points to `/files/.www/tichu/.env.prod`
+- `EnvironmentFile` points to `/files/.www/tichu/env.server` and `env.client` respectively
 - Both run as `www-data` user
 
 If your user isn't `www-data`, edit the service files before enabling.
@@ -207,8 +211,8 @@ If your user isn't `www-data`, edit the service files before enabling.
 # The www-data user needs read access to the deployment and execute on node
 sudo chown -R www-data:www-data /files/.www/tichu/built
 sudo chown -R www-data:www-data /files/.www/tichu/data
-sudo chown www-data:www-data /files/.www/tichu/.env.prod
-sudo chmod 600 /files/.www/tichu/.env.prod
+sudo chown www-data:www-data /files/.www/tichu/env.server /files/.www/tichu/env.client
+sudo chmod 600 /files/.www/tichu/env.server /files/.www/tichu/env.client
 ```
 
 ### Step 11 — Enable and start
@@ -283,11 +287,11 @@ bash scripts/prod-build.sh /files/.www/tichu/.env.prod
 1. Check logs: `sudo journalctl -u tichu-server -n 50`
 2. Verify paths in the service file match your layout
 3. Verify `www-data` can read the files: `sudo -u www-data ls /files/.www/tichu/built/server/dist/`
-4. Verify the env file is readable: `sudo -u www-data cat /files/.www/tichu/.env.prod`
+4. Verify the env files are readable: `sudo -u www-data cat /files/.www/tichu/env.server`
 
 ### Game loads but API calls fail
 
-1. Check `CORS_ORIGIN` in `.env.prod` — must match your domain exactly, no trailing slash
+1. Check `CORS_ORIGIN` in `env.server` — must match your domain exactly, no trailing slash
 2. Verify the server is running: `curl http://localhost:3001/health`
 3. Check Apache ProxyPass rules are inside the correct `<VirtualHost>` block
 
