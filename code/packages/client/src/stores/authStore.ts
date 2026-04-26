@@ -7,6 +7,36 @@ import { create } from 'zustand';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/api\/?$/, '');
 
+const USER_PROFILE_KEY = 'tichu_user_profile';
+
+function saveUserProfile(user: AuthUser): void {
+  try {
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(user));
+  } catch {
+    // localStorage full or unavailable — non-critical
+  }
+}
+
+function loadUserProfile(): AuthUser | null {
+  try {
+    const raw = localStorage.getItem(USER_PROFILE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.userId === 'string' && typeof parsed.username === 'string') {
+      return parsed as AuthUser;
+    }
+  } catch {
+    // Corrupted data — ignore
+  }
+  return null;
+}
+
+function clearAuthStorage(): void {
+  localStorage.removeItem('tichu_token');
+  localStorage.removeItem('tichu_user_id');
+  localStorage.removeItem(USER_PROFILE_KEY);
+}
+
 interface AuthUser {
   userId: string;
   username: string;
@@ -85,6 +115,7 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         isGuest: meData.user.isGuest,
       };
       set({ user, token, loading: false, authReady: true });
+      saveUserProfile(user);
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
@@ -108,14 +139,14 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
       localStorage.setItem('tichu_user_id', data.userId);
       const user: AuthUser = { userId: data.userId, username: data.username, isGuest: false };
       set({ user, token: data.token, loading: false, authReady: true });
+      saveUserProfile(user);
     } catch (err: any) {
       set({ error: err.message, loading: false });
     }
   },
 
   logout: () => {
-    localStorage.removeItem('tichu_token');
-    localStorage.removeItem('tichu_user_id');
+    clearAuthStorage();
     sessionStorage.removeItem('tichu_user_id');
     sessionStorage.removeItem('tichu_player_name');
     set({ user: null, token: null, error: null, authReady: true });
@@ -132,27 +163,32 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
       set({ authReady: true });
       return;
     }
-    // Verify token by fetching /me
+
+    // Optimistic hydration: use cached profile to avoid loading flash
+    const cachedUser = loadUserProfile();
+    if (cachedUser) {
+      set({ user: cachedUser, token, authReady: true });
+    }
+
+    // Background verification: confirm token is still valid
     fetch(`${API_BASE}/api/auth/me`, {
       headers: { 'Authorization': `Bearer ${token}` },
     }).then(res => {
       if (res.ok) return res.json();
       throw new Error('Token expired');
     }).then(data => {
-      set({
-        user: {
-          userId: data.user.id,
-          username: data.user.username ?? data.user.displayName,
-          email: data.user.email,
-          isGuest: data.user.isGuest,
-        },
-        token,
-        authReady: true,
-      });
+      const freshUser: AuthUser = {
+        userId: data.user.id,
+        username: data.user.username ?? data.user.displayName,
+        email: data.user.email,
+        isGuest: data.user.isGuest,
+      };
+      set({ user: freshUser, token, authReady: true });
+      saveUserProfile(freshUser);
     }).catch(() => {
-      localStorage.removeItem('tichu_token');
-      localStorage.removeItem('tichu_user_id');
-      set({ token: null, authReady: true });
+      clearAuthStorage();
+      sessionStorage.removeItem('tichu_user_id');
+      set({ user: null, token: null, authReady: true });
     });
   },
 }));
