@@ -777,17 +777,43 @@ export class Bot implements BotStrategy {
 
     // ─── NEVER rules ───
 
-    // REQ-F-PHX01a: Cascading singleton Phoenix guard — Phoenix on rank R is 'never'
-    // unless all standard ranks above R are accounted for (played or in own hand).
-    // E.g., Phoenix on Queen requires all Aces AND Kings accounted for.
+    // REQ-F-PHX12/PHX13: Strict Phoenix singleton rules
     if (currentTrick && combo.cards.length === 1) {
       const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
       if (lastPlay && lastPlay.combination.cards.length === 1) {
         const lastCard = lastPlay.combination.cards[0];
-        if (lastCard.card.kind === 'standard' && lastCard.card.rank < 14
-          && !this.cardTracker.allRanksAboveAccountedFor(lastCard.card.rank)) {
+        const lastRank = lastCard.card.kind === 'standard' ? lastCard.card.rank
+          : lastCard.card.kind === 'mahjong' ? 1 : 0;
+
+        const remainingAfterPhoenix = hand.filter((gc) => !isPhoenix(gc.card));
+
+        // Exception (a): Phoenix is last card — always acceptable
+        if (remainingAfterPhoenix.length === 0) {
+          return 'acceptable';
+        }
+
+        // Exception (b): Phoenix is second-to-last card and remaining card
+        // guarantees going out next (Dragon or Ace)
+        if (remainingAfterPhoenix.length === 1) {
+          const lastCard2 = remainingAfterPhoenix[0];
+          if (isDragon(lastCard2.card) ||
+            (lastCard2.card.kind === 'standard' && lastCard2.card.rank === 14)) {
+            return 'acceptable';
+          }
+        }
+
+        // REQ-F-PHX13: Hard floor — never below Queen (rank 12)
+        if (lastRank < 12) {
           return 'never';
         }
+
+        // REQ-F-PHX12: Must be played over the highest unaccounted standard rank
+        const highestUnaccounted = this.cardTracker.getHighestUnaccountedStandardRank();
+        if (highestUnaccounted !== null && lastRank < highestUnaccounted) {
+          return 'never';
+        }
+
+        return 'acceptable';
       }
     }
 
@@ -800,20 +826,6 @@ export class Bot implements BotStrategy {
     }
 
     // ─── ACCEPTABLE scenarios ───
-
-    // REQ-F-PHX03a: Cascading singleton Phoenix acceptance — Phoenix on rank R
-    // is 'acceptable' when all ranks above R are accounted for.
-    // Subsumes old PHX03 (over Ace) and PHX04 (over King if Aces played).
-    if (currentTrick && combo.cards.length === 1) {
-      const lastPlay = currentTrick.plays[currentTrick.plays.length - 1];
-      if (lastPlay && lastPlay.combination.cards.length === 1) {
-        const lastCard = lastPlay.combination.cards[0];
-        if (lastCard.card.kind === 'standard'
-          && this.cardTracker.allRanksAboveAccountedFor(lastCard.card.rank)) {
-          return 'acceptable';
-        }
-      }
-    }
 
     // REQ-F-PHX05: In straight with high rank (>= 10) or length >= 5
     if (combo.type === CombinationType.Straight) {

@@ -1268,6 +1268,144 @@ describe('Bot', () => {
     });
   });
 
+  // ─── Strict Phoenix Singleton Rules (REQ-F-PHX12/PHX13) ─────────────────
+
+  describe('REQ-F-PHX12/PHX13: Strict Phoenix singleton rules', () => {
+    function setupBot(hand: GameCard[], roundState: RoundState): Bot {
+      const bot = new Bot();
+      // Populate the card tracker by calling choosePlay with a dummy context
+      // We'll use the cardTracker directly after update
+      (bot as any).cardTracker.update(roundState, 'north', hand);
+      return bot;
+    }
+
+    it('returns never for Phoenix single on Mah Jong (rank 1)', () => {
+      const phoenixCard = card('phoenix');
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [phoenixCard, c5];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('mahjong', undefined, undefined, 902)], 1) },
+      ]);
+
+      const rs = makeRoundState({ currentTrick: trick });
+      const bot = setupBot(hand, rs);
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 1.5);
+      const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
+      expect(result).toBe('never');
+    });
+
+    it('returns never for Phoenix single on 10 (below Queen floor)', () => {
+      const phoenixCard = card('phoenix');
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [phoenixCard, c5];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 10, 'jade', 1001)], 10) },
+      ]);
+
+      const rs = makeRoundState({ currentTrick: trick });
+      const bot = setupBot(hand, rs);
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 10.5);
+      const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
+      expect(result).toBe('never');
+    });
+
+    it('returns acceptable for Phoenix single on Ace when Aces are highest unaccounted', () => {
+      const phoenixCard = card('phoenix');
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [phoenixCard, c5];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 14, 'jade', 1401)], 14) },
+      ]);
+
+      const rs = makeRoundState({ currentTrick: trick });
+      const bot = setupBot(hand, rs);
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 14.5);
+      const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
+      expect(result).toBe('acceptable');
+    });
+
+    it('returns never for Phoenix single on Queen when Kings are unaccounted', () => {
+      const phoenixCard = card('phoenix');
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [phoenixCard, c5];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 12, 'jade', 1201)], 12) },
+      ]);
+
+      // Aces played but Kings NOT accounted — highest unaccounted is 13 (or 14)
+      const rs = makeRoundState({ currentTrick: trick });
+      const bot = setupBot(hand, rs);
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 12.5);
+      const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
+      expect(result).toBe('never');
+    });
+
+    it('returns acceptable for Phoenix as last card regardless of rank', () => {
+      const phoenixCard = card('phoenix');
+      const hand = [phoenixCard]; // Phoenix is the only card
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 5, 'jade', 501)], 5) },
+      ]);
+
+      const rs = makeRoundState({ currentTrick: trick });
+      const bot = setupBot(hand, rs);
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 5.5);
+      const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
+      expect(result).toBe('acceptable');
+    });
+
+    it('returns acceptable for Phoenix second-to-last with Dragon remaining', () => {
+      const phoenixCard = card('phoenix');
+      const dragonCard = card('dragon');
+      const hand = [phoenixCard, dragonCard];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 5, 'jade', 501)], 5) },
+      ]);
+
+      const rs = makeRoundState({ currentTrick: trick });
+      const bot = setupBot(hand, rs);
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 5.5);
+      const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
+      expect(result).toBe('acceptable');
+    });
+
+    it('returns never for Phoenix second-to-last with low single remaining', () => {
+      const phoenixCard = card('phoenix');
+      const c3 = card('standard', 3, 'star', 302);
+      const hand = [phoenixCard, c3];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 5, 'jade', 501)], 5) },
+      ]);
+
+      const rs = makeRoundState({ currentTrick: trick });
+      const bot = setupBot(hand, rs);
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 5.5);
+      const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
+      expect(result).toBe('never');
+    });
+  });
+
   // ─── Card Tracking Integration (REQ-F-INFO02) ───────────────────────────
 
   describe('card tracking integration', () => {
