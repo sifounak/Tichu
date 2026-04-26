@@ -35,21 +35,13 @@ else
   exit 1
 fi
 
-# ─── 0.1 Activate correct Node version ─────────────────────────────────
+# ─── 0.1 Prerequisite check ─────────────────────────────────────────────
 REQUIRED_NODE_MAJOR=$(cat "$CODE_DIR/.nvmrc" 2>/dev/null | tr -d '[:space:]')
 if [ -z "$REQUIRED_NODE_MAJOR" ]; then
   echo "ERROR: $CODE_DIR/.nvmrc not found."
   exit 1
 fi
 
-# If nvm is available, switch to the required version automatically
-if [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
-  . "${NVM_DIR:-$HOME/.nvm}/nvm.sh"
-  echo "=== Activating Node $REQUIRED_NODE_MAJOR via nvm ==="
-  nvm use "$REQUIRED_NODE_MAJOR" || nvm install "$REQUIRED_NODE_MAJOR"
-fi
-
-# ─── 0.2 Prerequisite check ─────────────────────────────────────────────
 echo "=== Checking prerequisites ==="
 MISSING=""
 if ! command -v node >/dev/null 2>&1; then MISSING="$MISSING node"; fi
@@ -61,11 +53,11 @@ if [ -n "$MISSING" ]; then
   exit 1
 fi
 
-# Verify Node major version matches .nvmrc
+# Verify Node major version meets .nvmrc requirement
 ACTUAL_NODE_MAJOR=$(node -p 'process.versions.node.split(".")[0]')
 if [ "$ACTUAL_NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]; then
   echo "ERROR: Node.js v$REQUIRED_NODE_MAJOR+ required but found $(node --version)."
-  echo "Install the correct version or use nvm: nvm install $REQUIRED_NODE_MAJOR"
+  echo "Install Node.js $REQUIRED_NODE_MAJOR or higher before building."
   exit 1
 fi
 echo "Prerequisites OK (node $(node --version), pnpm $(pnpm --version))"
