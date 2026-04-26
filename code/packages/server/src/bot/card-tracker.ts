@@ -312,6 +312,20 @@ export class CardTracker {
   }
 
   /**
+   * REQ-F-PHX12: Get the highest standard rank (14 down to 2) that has
+   * unaccounted cards (not played and not in own hand). Returns null if
+   * all standard ranks are fully accounted for.
+   */
+  getHighestUnaccountedStandardRank(): number | null {
+    for (let r = 14; r >= 2; r--) {
+      const played = this.playedByRank.get(r)?.count ?? 0;
+      const inHand = this.ownHandRankCounts.get(r) ?? 0;
+      if (played + inHand < 4) return r;
+    }
+    return null;
+  }
+
+  /**
    * Whether the Dragon has been played.
    */
   isDragonPlayed(): boolean {

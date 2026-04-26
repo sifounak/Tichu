@@ -532,6 +532,56 @@ describe('CardTracker', () => {
     });
   });
 
+  // Verifies: REQ-F-PHX12 (highest unaccounted standard rank)
+  describe('getHighestUnaccountedStandardRank', () => {
+    it('returns 14 (Ace) when no cards have been played', () => {
+      tracker.update(makeRoundState(), 'north', []);
+      expect(tracker.getHighestUnaccountedStandardRank()).toBe(14);
+    });
+
+    it('returns 13 (King) when all Aces are accounted for', () => {
+      const aces = [
+        card('standard', 14, 'jade', 6001),
+        card('standard', 14, 'pagoda', 6002),
+        card('standard', 14, 'star', 6003),
+        card('standard', 14, 'sword', 6004),
+      ];
+      tracker.update(makeRoundState(), 'north', aces);
+      expect(tracker.getHighestUnaccountedStandardRank()).toBe(13);
+    });
+
+    it('returns 12 (Queen) when all Aces and Kings are accounted for', () => {
+      const aces = [
+        card('standard', 14, 'jade', 6001),
+        card('standard', 14, 'pagoda', 6002),
+        card('standard', 14, 'star', 6003),
+        card('standard', 14, 'sword', 6004),
+      ];
+      const kings = [
+        card('standard', 13, 'jade', 6011),
+        card('standard', 13, 'pagoda', 6012),
+        card('standard', 13, 'star', 6013),
+        card('standard', 13, 'sword', 6014),
+      ];
+      tracker.update(makeRoundState(), 'north', [...aces, ...kings]);
+      expect(tracker.getHighestUnaccountedStandardRank()).toBe(12);
+    });
+
+    it('returns null when all standard ranks are accounted for', () => {
+      // Build a hand with all 52 standard cards (4 suits × 13 ranks)
+      const suits = ['jade', 'pagoda', 'star', 'sword'];
+      const allCards: ReturnType<typeof card>[] = [];
+      let cardId = 7000;
+      for (let rank = 2; rank <= 14; rank++) {
+        for (const suit of suits) {
+          allCards.push(card('standard', rank, suit, cardId++));
+        }
+      }
+      tracker.update(makeRoundState(), 'north', allCards);
+      expect(tracker.getHighestUnaccountedStandardRank()).toBeNull();
+    });
+  });
+
   describe('isDragonPlayed', () => {
     it('returns false initially', () => {
       tracker.update(makeRoundState(), 'north', []);
