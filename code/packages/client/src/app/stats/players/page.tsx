@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthGuard } from '@/components/AuthGuard';
 import { API_BASE, getUserId, perGame, type MergedRelationalStat } from '@/components/stats/stats-types';
 
 export default function PlayersPage() {
@@ -30,8 +31,9 @@ export default function PlayersPage() {
   const sep = { borderLeft: '1px solid rgba(255,255,255,0.06)' };
 
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ maxWidth: '640px', borderCollapse: 'collapse', width: '100%' }}>
+    <AuthGuard>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ maxWidth: '640px', borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>
             <th style={thStyle}>Player</th>
@@ -66,6 +68,7 @@ export default function PlayersPage() {
           ))}
         </tbody>
       </table>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

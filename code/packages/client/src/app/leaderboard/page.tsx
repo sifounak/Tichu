@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { AuthGuard } from '@/components/AuthGuard';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/api\/?$/, '');
 
@@ -40,7 +41,8 @@ export default function LeaderboardPage() {
   }, []);
 
   return (
-    <main className="min-h-dvh p-6" style={{ background: 'var(--color-felt-green-dark)' }}>
+    <AuthGuard>
+      <main className="min-h-dvh p-6" style={{ background: 'var(--color-felt-green-dark)' }}>
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>Leaderboard</h1>
@@ -108,5 +110,6 @@ export default function LeaderboardPage() {
         </div>
       </div>
     </main>
+    </AuthGuard>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthGuard } from '@/components/AuthGuard';
 import { API_BASE, getUserId, pct, type PlayerProfile } from '@/components/stats/stats-types';
 import { StatCard } from '@/components/stats/StatCard';
 import { CompactTable } from '@/components/stats/CompactTable';
@@ -25,8 +26,9 @@ export default function TichuCallsPage() {
   if (!profile) return <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No stats yet.</p>;
 
   return (
-    <div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+    <AuthGuard>
+      <div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <StatCard label="Tichu Success" value={`${profile.tichuSuccesses} / ${profile.tichuCalls}`} subtitle={pct(profile.tichuSuccesses, profile.tichuCalls) !== '-' ? pct(profile.tichuSuccesses, profile.tichuCalls) : undefined} highlight />
         <StatCard label="Grand Tichu Success" value={`${profile.grandTichuSuccesses} / ${profile.grandTichuCalls}`} subtitle={pct(profile.grandTichuSuccesses, profile.grandTichuCalls) !== '-' ? pct(profile.grandTichuSuccesses, profile.grandTichuCalls) : undefined} />
         <StatCard label="Opponent Calls Broken" value={profile.opponentTichuBroken + profile.opponentGrandTichuBroken} />
@@ -55,6 +57,7 @@ export default function TichuCallsPage() {
           ]} />
         </TablePanel>
       </div>
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

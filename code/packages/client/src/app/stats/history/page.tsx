@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthGuard } from '@/components/AuthGuard';
 import { API_BASE, getUserId, type GameHistoryEntry } from '@/components/stats/stats-types';
 
 export default function GameHistoryPage() {
@@ -25,9 +26,10 @@ export default function GameHistoryPage() {
   const userId = getUserId();
 
   return (
-    <div>
-      {/* Header row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '80px 50px 110px 1fr 50px', gap: '0.5rem', padding: '0.4rem 0.6rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+    <AuthGuard>
+      <div>
+        {/* Header row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '80px 50px 110px 1fr 50px', gap: '0.5rem', padding: '0.4rem 0.6rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         {['Date', 'Result', 'Score', 'Players', 'Rounds'].map(h => (
           <span key={h} style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600, textAlign: h === 'Rounds' ? 'right' : 'left' }}>{h}</span>
         ))}
@@ -79,6 +81,7 @@ export default function GameHistoryPage() {
           </div>
         );
       })}
-    </div>
+      </div>
+    </AuthGuard>
   );
 }
