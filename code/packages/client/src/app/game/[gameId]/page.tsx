@@ -1244,48 +1244,52 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {/* REQ-F-SP05: Hide for spectators — they see card counts in PlayerSeat, not actual hands */}
       {phase !== GamePhase.WaitingForPlayers && !isSpectator && (
-        <div style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))' }}>
+        <div style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))', pointerEvents: 'none' }}>
           {/* Pre-game prompts (no hand — hand is always rendered below) */}
           {isPreGame && (
-            <PreGamePhase
-              phase={phase}
-              mySeat={mySeat!}
-              onGrandTichuDecision={handleGrandTichuDecision}
-              passSelection={passSelection}
-              activeCardId={activePassCardId}
-              onSlotClick={handleSlotClick}
-              onSlotRemove={handleSlotRemove}
-              onConfirmPass={handleConfirmPass}
-              passConfirmed={passConfirmed}
-              onCancelPass={handleCancelPass}
-              seatNames={seatNames}
-              grandTichuDecided={view.grandTichuDecided}
-              myTichuCall={gameStore.myTichuCall}
-            />
+            <div style={{ pointerEvents: 'auto' }}>
+              <PreGamePhase
+                phase={phase}
+                mySeat={mySeat!}
+                onGrandTichuDecision={handleGrandTichuDecision}
+                passSelection={passSelection}
+                activeCardId={activePassCardId}
+                onSlotClick={handleSlotClick}
+                onSlotRemove={handleSlotRemove}
+                onConfirmPass={handleConfirmPass}
+                passConfirmed={passConfirmed}
+                onCancelPass={handleCancelPass}
+                seatNames={seatNames}
+                grandTichuDecided={view.grandTichuDecided}
+                myTichuCall={gameStore.myTichuCall}
+              />
+            </div>
           )}
 
           {/* Received cards display — after card exchange */}
           {showReceivedCards && !isPreGame && (
-            <PreGamePhase
-              phase={phase!}
-              mySeat={mySeat!}
-              onGrandTichuDecision={() => {}}
-              passSelection={new Map()}
-              activeCardId={null}
-              onSlotClick={() => {}}
-              onSlotRemove={() => {}}
-              onConfirmPass={() => {}}
-              passConfirmed={false}
-              onCancelPass={() => {}}
-              receivedCards={gameStore.receivedCards}
-              onDismissReceived={() => setShowReceivedCards(false)}
-              seatNames={seatNames}
-            />
+            <div style={{ pointerEvents: 'auto' }}>
+              <PreGamePhase
+                phase={phase!}
+                mySeat={mySeat!}
+                onGrandTichuDecision={() => {}}
+                passSelection={new Map()}
+                activeCardId={null}
+                onSlotClick={() => {}}
+                onSlotRemove={() => {}}
+                onConfirmPass={() => {}}
+                passConfirmed={false}
+                onCancelPass={() => {}}
+                receivedCards={gameStore.receivedCards}
+                onDismissReceived={() => setShowReceivedCards(false)}
+                seatNames={seatNames}
+              />
+            </div>
           )}
 
           {/* Action bar (playing phase only, hidden while viewing received cards) */}
           {!isPreGame && !showReceivedCards && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center', pointerEvents: 'auto' }}>
               <ActionBar
                 canPlay={!gameStore.gameHalted && selection.canPlay}
                 canPass={!gameStore.gameHalted && selection.canPass}
@@ -1329,6 +1333,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           {/* Tichu/Grand Tichu banner — shown between pass area and cards during pre-game / received cards */}
           {(isPreGame || showReceivedCards) && gameStore.myTichuCall !== 'none' && (
             <div style={{
+              pointerEvents: 'auto',
               background: gameStore.myTichuCall === 'grandTichu' ? '#b71c1c' : '#d32f2f',
               color: 'white',
               fontWeight: 800,
@@ -1345,7 +1350,7 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           )}
 
           {/* Card hand — always rendered for visual continuity */}
-          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
+          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'auto', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
             {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
               <button
                 onClick={handleTichu}
