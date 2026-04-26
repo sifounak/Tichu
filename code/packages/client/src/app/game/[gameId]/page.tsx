@@ -1222,6 +1222,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         seatNames={seatNames}
         mustSatisfyWish={!gameStore.gameHalted && mustSatisfyWish}
         endOfTrickBombWindowEndTime={gameStore.endOfTrickBombWindowEndTime}
+        serverClockOffsetMs={gameStore.serverClockOffsetMs}
         compassLayout={isSpectator}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}

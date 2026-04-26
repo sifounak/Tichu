@@ -79,6 +79,7 @@ export function projectGameState(
       turnTimerStartedAt: timerInfo?.startTime ?? null,
       turnTimerDurationMs: timerInfo?.durationMs ?? null,
       endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
+      serverTime: Date.now(),
     };
   }
 
@@ -138,6 +139,7 @@ export function projectGameState(
         }, {} as Record<Seat, GameCard | null>)
       : { north: null, east: null, south: null, west: null } as Record<Seat, GameCard | null>,
     endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
+    serverTime: Date.now(),
   };
 }
 
@@ -214,6 +216,7 @@ export function projectSpectatorView(
       turnTimerStartedAt: timerInfo?.startTime ?? null,
       turnTimerDurationMs: timerInfo?.durationMs ?? null,
       endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
+      serverTime: Date.now(),
     };
   }
 
@@ -258,6 +261,7 @@ export function projectSpectatorView(
     turnTimerStartedAt: timerInfo?.startTime ?? null,
     turnTimerDurationMs: timerInfo?.durationMs ?? null,
     endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
+    serverTime: Date.now(),
   };
 }
 

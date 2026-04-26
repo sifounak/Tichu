@@ -60,6 +60,8 @@ export interface GameStore {
   turnTimerDurationMs: number | null;
   /** End-of-trick bomb window: epoch ms when window expires, null when inactive */
   endOfTrickBombWindowEndTime: number | null;
+  /** Clock offset: serverTime - clientTime at last sync (ms). Add to Date.now() to approximate server time. */
+  serverClockOffsetMs: number;
 
   /* --- Actions --- */
   /** Apply a full GAME_STATE sync from the server */
@@ -100,6 +102,7 @@ const initialState = {
   turnTimerStartedAt: null as number | null,
   turnTimerDurationMs: null as number | null,
   endOfTrickBombWindowEndTime: null as number | null,
+  serverClockOffsetMs: 0,
 };
 
 export const useGameStore = create<GameStore>()((set) => ({
@@ -139,6 +142,7 @@ export const useGameStore = create<GameStore>()((set) => ({
       turnTimerStartedAt: view.turnTimerStartedAt ?? null,
       turnTimerDurationMs: view.turnTimerDurationMs ?? null,
       endOfTrickBombWindowEndTime: view.endOfTrickBombWindowEndTime ?? null,
+      serverClockOffsetMs: view.serverTime ? (view.serverTime - Date.now()) : 0,
     }),
 
   applyServerMessage: (msg: ServerMessage) =>

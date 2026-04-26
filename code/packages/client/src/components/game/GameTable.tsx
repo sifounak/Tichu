@@ -24,6 +24,8 @@ export interface GameTableProps {
   mustSatisfyWish?: boolean;
   /** End-of-trick bomb window end time (epoch ms) for countdown banner */
   endOfTrickBombWindowEndTime?: number | null;
+  /** Clock offset for correcting server timestamps */
+  serverClockOffsetMs?: number;
   /** Whether it's the current player's turn (shows play area glow) */
   isMyTurn?: boolean;
   /** Callback when player chooses a seat (mid-game join with multiple vacated seats) */
@@ -50,7 +52,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -111,6 +113,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           hideNormalLabels={!!activeVote || kickTargetMode}
           turnTimerStartedAt={view.turnTimerStartedAt}
           turnTimerDurationMs={view.turnTimerDurationMs}
+          serverClockOffsetMs={serverClockOffsetMs}
           tichuFailed={view.myTichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
         />
       );
@@ -163,6 +166,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         onAddBot={onAddBot && vacatedSeats.includes(seat) ? () => onAddBot(seat) : undefined}
         turnTimerStartedAt={view.turnTimerStartedAt}
         turnTimerDurationMs={view.turnTimerDurationMs}
+        serverClockOffsetMs={serverClockOffsetMs}
         tichuFailed={other.tichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
       />
     );
@@ -205,6 +209,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
             dragonGiftAnimation={dragonGiftAnimation}
             mustSatisfyWish={mustSatisfyWish}
             endOfTrickBombWindowEndTime={endOfTrickBombWindowEndTime}
+            serverClockOffsetMs={serverClockOffsetMs}
           />
         </div>
       ) : null}

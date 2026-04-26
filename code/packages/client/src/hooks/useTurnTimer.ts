@@ -18,8 +18,10 @@ const INACTIVE: TurnTimerState = {
   stage: 'blue',
 };
 
-function computeRemaining(startedAt: number, durationMs: number): number {
-  return Math.max(0, Math.ceil((startedAt + durationMs - Date.now()) / 1000));
+function computeRemaining(startedAt: number, durationMs: number, clockOffsetMs: number): number {
+  // Adjust server timestamp to local time by subtracting clock offset
+  const localEndTime = startedAt + durationMs - clockOffsetMs;
+  return Math.max(0, Math.ceil((localEndTime - Date.now()) / 1000));
 }
 
 function getStage(remaining: number, total: number): TimerStage {
@@ -39,6 +41,7 @@ function getStage(remaining: number, total: number): TimerStage {
 export function useTurnTimer(
   turnTimerStartedAt: number | null | undefined,
   turnTimerDurationMs: number | null | undefined,
+  serverClockOffsetMs: number = 0,
 ): TurnTimerState {
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
@@ -49,19 +52,19 @@ export function useTurnTimer(
     }
 
     // Compute immediately on mount / value change
-    const initial = computeRemaining(turnTimerStartedAt, turnTimerDurationMs);
+    const initial = computeRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
     setRemainingSeconds(initial);
 
     if (initial <= 0) return;
 
     const interval = setInterval(() => {
-      const remaining = computeRemaining(turnTimerStartedAt, turnTimerDurationMs);
+      const remaining = computeRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
       setRemainingSeconds(remaining);
       if (remaining <= 0) clearInterval(interval);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [turnTimerStartedAt, turnTimerDurationMs]);
+  }, [turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs]);
 
   if (turnTimerStartedAt == null || turnTimerDurationMs == null || turnTimerDurationMs <= 0) {
     return INACTIVE;

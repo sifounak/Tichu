@@ -57,6 +57,8 @@ export interface PlayerSeatProps {
   turnTimerStartedAt?: number | null;
   /** REQ-F-TT05: Total turn timer duration in ms, null when disabled/stopped */
   turnTimerDurationMs?: number | null;
+  /** Clock offset for correcting server timestamps */
+  serverClockOffsetMs?: number;
   /** True when another player went out first, breaking this player's Tichu call */
   tichuFailed?: boolean;
 }
@@ -97,6 +99,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   onAddBot,
   turnTimerStartedAt,
   turnTimerDurationMs,
+  serverClockOffsetMs,
   tichuFailed,
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
@@ -105,7 +108,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   const seatRef = useRef<HTMLDivElement>(null);
 
   // REQ-F-TT06: Client-side turn timer countdown
-  const timer = useTurnTimer(turnTimerStartedAt, turnTimerDurationMs);
+  const timer = useTurnTimer(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
 
   // dragonTarget = always-on purple glow; dragonHoverTarget = purple glow only on hover
   const isDragonActive = dragonTarget || (dragonHoverTarget && hovered);
