@@ -38,22 +38,22 @@ echo "Build directory OK."
 
 # ─── 2. Validate environment ────────────────────────────────────────────
 PARENT_DIR="$(cd "$(dirname "$TARGET")" && pwd)"
-ENV_SERVER="$PARENT_DIR/env.server"
-ENV_CLIENT="$PARENT_DIR/env.client"
+ENV_SERVER="$PARENT_DIR/.env.server"
+ENV_CLIENT="$PARENT_DIR/.env.client"
 DATA_DIR="$PARENT_DIR/data"
 
 ENVS_OK=true
 if [ ! -f "$ENV_SERVER" ]; then
   echo "ERROR: $ENV_SERVER not found."
   echo "Create it from the template:"
-  echo "  sudo cp $SCRIPT_DIR/systemd/env.server $ENV_SERVER"
+  echo "  sudo cp $SCRIPT_DIR/systemd/.env.server $ENV_SERVER"
   echo "Then edit it with your production values (especially JWT_SECRET)."
   ENVS_OK=false
 fi
 if [ ! -f "$ENV_CLIENT" ]; then
   echo "ERROR: $ENV_CLIENT not found."
   echo "Create it from the template:"
-  echo "  sudo cp $SCRIPT_DIR/systemd/env.client $ENV_CLIENT"
+  echo "  sudo cp $SCRIPT_DIR/systemd/.env.client $ENV_CLIENT"
   ENVS_OK=false
 fi
 if [ "$ENVS_OK" = false ]; then exit 1; fi

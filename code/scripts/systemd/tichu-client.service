@@ -3,7 +3,7 @@
 # Edit the paths below to match your deploy target directory.
 # Default layout assumes:
 #   /files/.www/tichu/built/client/   — deployed client artifacts (Next.js standalone)
-#   /files/.www/tichu/env.client      — client environment file
+#   /files/.www/tichu/.env.client      — client environment file
 #
 # Install:
 #   sudo cp tichu-client.service /etc/systemd/system/
@@ -21,7 +21,7 @@ User=www-data
 Group=www-data
 WorkingDirectory=/files/.www/tichu/built/client/packages/client
 ExecStart=/usr/bin/node server.js
-EnvironmentFile=/files/.www/tichu/env.client
+EnvironmentFile=/files/.www/tichu/.env.client
 Restart=always
 RestartSec=5
 StandardOutput=journal
