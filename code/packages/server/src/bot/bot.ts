@@ -1090,6 +1090,24 @@ export class Bot implements BotStrategy {
       if (kingLead) return this.toDecision(kingLead);
     }
 
+    // REQ-F-PHX10/PHX11: Prefer Phoenix in multi-card combos over holding for singleton
+    if (hand.some((gc) => isPhoenix(gc.card))) {
+      const phoenixMultiCombos = validPlays.filter(
+        (c) => c.cards.length > 1 && !c.isBomb && c.cards.some((gc) => isPhoenix(gc.card)),
+      );
+      if (phoenixMultiCombos.length > 0) {
+        // Prefer the largest combo (clears most cards), then lowest rank
+        const best = phoenixMultiCombos.sort((a, b) => {
+          if (b.cards.length !== a.cards.length) return b.cards.length - a.cards.length;
+          return a.rank - b.rank;
+        })[0];
+        const phoenixEval = this.evaluatePhoenixPlay(best, null, hand);
+        if (phoenixEval !== 'never') {
+          return this.toDecision(best);
+        }
+      }
+    }
+
     // Use hand plan when available (excluding Dog and Phoenix singletons)
     if (this.handPlan?.valid && this.handPlan.losersToLead.length > 0) {
       for (const planned of this.handPlan.losersToLead) {

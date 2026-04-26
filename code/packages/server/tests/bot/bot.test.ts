@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { GameCard, Rank, Seat, Combination, TrickState, RoundState } from '@tichu/shared';
-import { CombinationType, Suit } from '@tichu/shared';
+import { CombinationType, Suit, isPhoenix } from '@tichu/shared';
 import { Bot } from '../../src/bot/bot.js';
 import type { BotPlayContext } from '../../src/bot/bot-interface.js';
 
@@ -3961,6 +3961,75 @@ describe('Bot', () => {
         expect(decision.cards.length).toBe(1);
         expect(decision.cards[0].id).toBe(301);
       }
+    });
+  });
+
+  describe('REQ-F-PHX10/PHX11: Prefer Phoenix in multi-card combos when leading', () => {
+    it('prefers straight containing Phoenix over holding Phoenix for singleton use', () => {
+      // Hand: Phoenix, 6, 7, 8, 9, King
+      // Valid plays include: singles for 6,7,8,9,K + straight 6-7-8-9-Phoenix(10)
+      // Bot should play the 5-card straight containing Phoenix
+      const hand = [
+        card('phoenix'),
+        card('standard', 6, 'jade', 601),
+        card('standard', 7, 'jade', 701),
+        card('standard', 8, 'jade', 801),
+        card('standard', 9, 'jade', 901),
+        card('standard', 13, 'pagoda', 1302),
+      ];
+      const validPlays = [
+        makeCombo(CombinationType.Single, [hand[1]], 6),
+        makeCombo(CombinationType.Single, [hand[2]], 7),
+        makeCombo(CombinationType.Single, [hand[3]], 8),
+        makeCombo(CombinationType.Single, [hand[4]], 9),
+        makeCombo(CombinationType.Single, [hand[5]], 13),
+        makeCombo(CombinationType.Straight, [hand[0], hand[1], hand[2], hand[3], hand[4]], 10),
+      ];
+      const roundState = makeRoundState();
+      roundState.players.south.hand = hand;
+      const bot = new Bot();
+      const decision = bot.choosePlay({
+        hand, validPlays, roundState,
+        seat: 'south' as Seat,
+        currentTrick: null,
+        canPass: false,
+        wish: null,
+      });
+      expect(decision.cards!.length).toBe(5);
+      expect(decision.cards!.some((gc) => isPhoenix(gc.card))).toBe(true);
+    });
+
+    it('prefers full house with Phoenix over separate pair lead', () => {
+      // Hand: Phoenix, 8, 8, 5, 5, King
+      // Valid plays: pair 8s, pair 5s, singles, full house (Phoenix+8,8 triple + 5,5 pair)
+      const hand = [
+        card('phoenix'),
+        card('standard', 8, 'jade', 801),
+        card('standard', 8, 'pagoda', 802),
+        card('standard', 5, 'jade', 501),
+        card('standard', 5, 'pagoda', 502),
+        card('standard', 13, 'star', 1303),
+      ];
+      const validPlays = [
+        makeCombo(CombinationType.Pair, [hand[1], hand[2]], 8),
+        makeCombo(CombinationType.Pair, [hand[3], hand[4]], 5),
+        makeCombo(CombinationType.Single, [hand[1]], 8),
+        makeCombo(CombinationType.Single, [hand[3]], 5),
+        makeCombo(CombinationType.Single, [hand[5]], 13),
+        makeCombo(CombinationType.FullHouse, [hand[0], hand[1], hand[2], hand[3], hand[4]], 8),
+      ];
+      const roundState = makeRoundState();
+      roundState.players.south.hand = hand;
+      const bot = new Bot();
+      const decision = bot.choosePlay({
+        hand, validPlays, roundState,
+        seat: 'south' as Seat,
+        currentTrick: null,
+        canPass: false,
+        wish: null,
+      });
+      expect(decision.cards!.length).toBe(5);
+      expect(decision.cards!.some((gc) => isPhoenix(gc.card))).toBe(true);
     });
   });
 });
