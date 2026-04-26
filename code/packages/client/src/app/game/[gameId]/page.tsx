@@ -18,6 +18,7 @@ import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useUiStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
+import { AuthGuard } from '@/components/AuthGuard';
 import { GameTable } from '@/components/game/GameTable';
 import { PlayerSeat } from '@/components/game/PlayerSeat';
 import { ActionBar } from '@/components/game/ActionBar';
@@ -49,7 +50,7 @@ function getGuestId(): string {
   return id;
 }
 
-export default function GamePage(props: { params: Promise<{ gameId: string }> }) {
+function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const { gameId: urlGameId } = use(props.params);
   const router = useRouter();
   const gameStore = useGameStore();
@@ -1660,5 +1661,13 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
         </div>
       )}
     </>
+  );
+}
+
+export default function GamePage(props: { params: Promise<{ gameId: string }> }) {
+  return (
+    <AuthGuard>
+      <GamePageInner {...props} />
+    </AuthGuard>
   );
 }
