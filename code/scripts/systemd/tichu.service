@@ -1,0 +1,31 @@
+# systemd unit file for Tichu (game server + web client)
+#
+# Edit the paths below to match your deploy target directory.
+# Default layout assumes:
+#   /files/.www/tichu/built/       — deployed artifacts (server/ + client/)
+#   /files/.www/tichu/.env.production  — production runtime environment
+#
+# Install:
+#   sudo cp tichu.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable tichu
+
+[Unit]
+Description=Tichu Card Game (Server + Client)
+After=network.target
+Documentation=https://github.com/sifounak/Tichu
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/files/.www/tichu/built
+ExecStart=/usr/bin/bash start.sh
+EnvironmentFile=/files/.www/tichu/.env.production
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

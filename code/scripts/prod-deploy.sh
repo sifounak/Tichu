@@ -9,7 +9,7 @@
 #
 # Prerequisites:
 #   - Run prod-build.sh first to create the build/ directory.
-#   - Place .env.prod in the target's parent directory (e.g., /files/.www/tichu/.env.prod).
+#   - Place .env.production in the target's parent directory (e.g., /files/.www/tichu/.env.production).
 #   - The target's parent should also contain a data/ directory for the SQLite database.
 set -e
 
@@ -38,26 +38,17 @@ echo "Build directory OK."
 
 # ─── 2. Validate environment ────────────────────────────────────────────
 PARENT_DIR="$(cd "$(dirname "$TARGET")" && pwd)"
-ENV_SERVER="$PARENT_DIR/.env.server"
-ENV_CLIENT="$PARENT_DIR/.env.client"
+ENV_FILE="$PARENT_DIR/.env.production"
 DATA_DIR="$PARENT_DIR/data"
 
-ENVS_OK=true
-if [ ! -f "$ENV_SERVER" ]; then
-  echo "ERROR: $ENV_SERVER not found."
+if [ ! -f "$ENV_FILE" ]; then
+  echo "ERROR: $ENV_FILE not found."
   echo "Create it from the template:"
-  echo "  sudo cp $SCRIPT_DIR/systemd/.env.server $ENV_SERVER"
+  echo "  sudo cp $SCRIPT_DIR/systemd/.env.production $ENV_FILE"
   echo "Then edit it with your production values (especially JWT_SECRET)."
-  ENVS_OK=false
+  exit 1
 fi
-if [ ! -f "$ENV_CLIENT" ]; then
-  echo "ERROR: $ENV_CLIENT not found."
-  echo "Create it from the template:"
-  echo "  sudo cp $SCRIPT_DIR/systemd/.env.client $ENV_CLIENT"
-  ENVS_OK=false
-fi
-if [ "$ENVS_OK" = false ]; then exit 1; fi
-echo "Environment files OK: $ENV_SERVER, $ENV_CLIENT"
+echo "Environment file OK: $ENV_FILE"
 
 # Ensure persistent data directory exists
 if [ ! -d "$DATA_DIR" ]; then
@@ -70,7 +61,7 @@ echo "Data directory OK: $DATA_DIR"
 echo ""
 echo "=== Deploying to $TARGET ==="
 
-# Remove old deployment (server/ and client/ only — preserve any other files)
+# Remove old deployment (server/ and client/ only — preserve start.sh and other files)
 rm -rf "$TARGET/server" "$TARGET/client"
 mkdir -p "$TARGET"
 
@@ -80,42 +71,40 @@ cp -r "$BUILD_DIR/server" "$TARGET/server"
 echo "  Copying client..."
 cp -r "$BUILD_DIR/client" "$TARGET/client"
 
+echo "  Copying start script..."
+cp "$SCRIPT_DIR/systemd/start.sh" "$TARGET/start.sh"
+chmod +x "$TARGET/start.sh"
+
 echo "Deploy complete."
 
-# ─── 4. Restart systemd services ────────────────────────────────────────
+# ─── 4. Restart systemd service ─────────────────────────────────────────
 echo ""
-echo "=== Restarting systemd services ==="
+echo "=== Restarting systemd service ==="
 
 if ! command -v systemctl >/dev/null 2>&1; then
   echo "WARNING: systemctl not available (not on a systemd Linux system)."
-  echo "Deploy completed successfully — start the services manually."
+  echo "Deploy completed successfully — start the service manually."
   exit 0
 fi
 
-if ! systemctl list-unit-files tichu-server.service >/dev/null 2>&1; then
-  echo "WARNING: tichu-server.service is not installed."
-  echo "Install the systemd services first:"
-  echo "  sudo cp $SCRIPT_DIR/systemd/tichu-server.service /etc/systemd/system/"
-  echo "  sudo cp $SCRIPT_DIR/systemd/tichu-client.service /etc/systemd/system/"
+if ! systemctl list-unit-files tichu.service >/dev/null 2>&1; then
+  echo "WARNING: tichu.service is not installed."
+  echo "Install it first:"
+  echo "  sudo cp $SCRIPT_DIR/systemd/tichu.service /etc/systemd/system/"
   echo "  sudo systemctl daemon-reload"
-  echo "  sudo systemctl enable tichu-server tichu-client"
+  echo "  sudo systemctl enable tichu"
   echo ""
-  echo "Deploy completed successfully — install services and start manually."
+  echo "Deploy completed successfully — install the service and start manually."
   exit 0
 fi
 
-sudo systemctl restart tichu-server
-echo "tichu-server restarted."
-
-sudo systemctl restart tichu-client
-echo "tichu-client restarted."
+sudo systemctl restart tichu
+echo "tichu restarted."
 
 # ─── 5. Show status ─────────────────────────────────────────────────────
 echo ""
 echo "=== Service status ==="
-systemctl status tichu-server --no-pager -l || true
-echo ""
-systemctl status tichu-client --no-pager -l || true
+systemctl status tichu --no-pager -l || true
 
 echo ""
 echo "=== Deploy summary ==="
