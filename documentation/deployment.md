@@ -31,8 +31,8 @@ code/scripts/
 ├── systemd/
 │   ├── tichu-server.service  # Fastify server unit
 │   ├── tichu-client.service  # Next.js client unit
-│   ├── env.server            # Server runtime env template
-│   └── env.client            # Client runtime env template
+│   ├── .env.server            # Server runtime env template
+│   └── .env.client            # Client runtime env template
 └── apache/
     └── tichu.conf        # Reverse proxy config snippet
 ```
@@ -76,12 +76,12 @@ nano /files/.www/tichu/.env.prod
 **Runtime** (separate files for each service):
 
 ```bash
-sudo cp code/scripts/systemd/env.server /files/.www/tichu/env.server
-sudo cp code/scripts/systemd/env.client /files/.www/tichu/env.client
-sudo nano /files/.www/tichu/env.server
+sudo cp code/scripts/systemd/.env.server /files/.www/tichu/.env.server
+sudo cp code/scripts/systemd/.env.client /files/.www/tichu/.env.client
+sudo nano /files/.www/tichu/.env.server
 ```
 
-Edit `env.server` and set real values:
+Edit `.env.server` and set real values:
 - **`JWT_SECRET`** — generate a random secret: `openssl rand -hex 32`
 - **`DATABASE_PATH`** — verify the path is writable by the `www-data` user
 - **`CORS_ORIGIN`** — your domain (e.g., `https://sifounakis.com`)
@@ -89,8 +89,8 @@ Edit `env.server` and set real values:
 Secure the files:
 
 ```bash
-sudo chown www-data:www-data /files/.www/tichu/env.server /files/.www/tichu/env.client
-sudo chmod 600 /files/.www/tichu/env.server /files/.www/tichu/env.client
+sudo chown www-data:www-data /files/.www/tichu/.env.server /files/.www/tichu/.env.client
+sudo chmod 600 /files/.www/tichu/.env.server /files/.www/tichu/.env.client
 ```
 
 ### 3. Install systemd services
@@ -178,11 +178,11 @@ bash code/scripts/prod-deploy.sh
 | `NEXT_PUBLIC_WS_URL` | `ws://localhost:3001/ws` | `wss://sifounakis.com/tichu/ws` | `.env.prod` | Client (build-time) |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:3001` | `https://sifounakis.com/tichu/api` | `.env.prod` | Client (build-time) |
 | `NEXT_PUBLIC_BASE_PATH` | *(empty)* | `/tichu` | `.env.prod` | Client (build-time) |
-| `PORT` | `3001` | `3001` / `3000` | `env.server` / `env.client` | Server / Client (runtime) |
-| `HOSTNAME` | — | `0.0.0.0` | `env.client` | Client (runtime) |
-| `CORS_ORIGIN` | `http://localhost:3000` | `https://sifounakis.com` | `env.server` | Server (runtime) |
-| `DATABASE_PATH` | `./data/tichu.sqlite` | `/files/.www/tichu/data/tichu.sqlite` | `env.server` | Server (runtime) |
-| `JWT_SECRET` | `tichu-dev-secret` | *(random secret)* | `env.server` | Server (runtime) |
+| `PORT` | `3001` | `3001` / `3000` | `.env.server` / `.env.client` | Server / Client (runtime) |
+| `HOSTNAME` | — | `0.0.0.0` | `.env.client` | Client (runtime) |
+| `CORS_ORIGIN` | `http://localhost:3000` | `https://sifounakis.com` | `.env.server` | Server (runtime) |
+| `DATABASE_PATH` | `./data/tichu.sqlite` | `/files/.www/tichu/data/tichu.sqlite` | `.env.server` | Server (runtime) |
+| `JWT_SECRET` | `tichu-dev-secret` | *(random secret)* | `.env.server` | Server (runtime) |
 
 ## Troubleshooting
 
@@ -216,10 +216,10 @@ pkill -f node
 1. Check logs: `journalctl -u tichu-server -n 50`
 2. Verify the `WorkingDirectory` path exists in the service file
 3. Verify `www-data` user can read the project directory
-4. Verify env files are readable: `sudo -u www-data cat /files/.www/tichu/env.server`
+4. Verify env files are readable: `sudo -u www-data cat /files/.www/tichu/.env.server`
 
 ### Game loads but API calls fail
 
-1. Check `CORS_ORIGIN` in `env.server` matches your domain exactly (no trailing slash)
+1. Check `CORS_ORIGIN` in `.env.server` matches your domain exactly (no trailing slash)
 2. Check Apache ProxyPass rules are inside the correct `<VirtualHost>` block
 3. Verify the server is running: `curl http://localhost:3001/api/leaderboard`
