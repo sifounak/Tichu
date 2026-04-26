@@ -53,6 +53,8 @@ export interface TrickDisplayProps {
   mustSatisfyWish?: boolean;
   /** End-of-trick bomb window: epoch ms when window expires, null when inactive */
   endOfTrickBombWindowEndTime?: number | null;
+  /** Clock offset: serverTime - clientTime (ms). Used to correct server timestamps for local display. */
+  serverClockOffsetMs?: number;
 }
 
 /** Map seat to position relative to player */
@@ -92,6 +94,7 @@ export const TrickDisplay = memo(function TrickDisplay({
   dragonGiftAnimation,
   mustSatisfyWish,
   endOfTrickBombWindowEndTime,
+  serverClockOffsetMs = 0,
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
 
@@ -144,6 +147,7 @@ export const TrickDisplay = memo(function TrickDisplay({
       : undefined;
 
   // End-of-trick bomb window countdown
+  // Adjust server timestamp to local time by subtracting clock offset
   const [bombWindowRemaining, setBombWindowRemaining] = useState<number | null>(null);
   const bombWindowRafRef = useRef(0);
   useEffect(() => {
@@ -151,8 +155,10 @@ export const TrickDisplay = memo(function TrickDisplay({
       setBombWindowRemaining(null);
       return;
     }
+    // Convert server end time to local time: localEndTime = serverEndTime - offset
+    const localEndTime = endOfTrickBombWindowEndTime - serverClockOffsetMs;
     const tick = () => {
-      const remaining = Math.max(0, endOfTrickBombWindowEndTime - Date.now());
+      const remaining = Math.max(0, localEndTime - Date.now());
       setBombWindowRemaining(remaining);
       if (remaining > 0) {
         bombWindowRafRef.current = requestAnimationFrame(tick);
@@ -160,7 +166,7 @@ export const TrickDisplay = memo(function TrickDisplay({
     };
     bombWindowRafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(bombWindowRafRef.current);
-  }, [endOfTrickBombWindowEndTime]);
+  }, [endOfTrickBombWindowEndTime, serverClockOffsetMs]);
 
   return (
     <div className={`${styles.trickDisplay} ${showBomb ? styles.bombFlash : ''}`} aria-label="Trick area">
@@ -310,7 +316,7 @@ export const TrickDisplay = memo(function TrickDisplay({
       {/* End-of-trick bomb window banner */}
       {bombWindowRemaining !== null && bombWindowRemaining > 0 && (
         <div className={styles.endOfTrickBombBanner}>
-          Pausing for end-of-trick bombs: {Math.ceil(bombWindowRemaining / 1000)}...
+          Pausing for end-of-trick bombs: {(bombWindowRemaining / 1000).toFixed(1)}...
         </div>
       )}
     </div>

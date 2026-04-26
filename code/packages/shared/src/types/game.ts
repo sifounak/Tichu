@@ -210,4 +210,6 @@ export interface ClientGameView {
   turnTimerDurationMs?: number | null;
   /** End-of-trick bomb window: epoch timestamp (ms) when window expires, null when inactive */
   endOfTrickBombWindowEndTime?: number | null;
+  /** Server's Date.now() at time of projection — clients use this to correct clock skew on timestamps */
+  serverTime?: number;
 }
