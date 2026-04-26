@@ -1,17 +1,14 @@
 /* REQ-F-MP07: Chat panel — desktop side panel, mobile bottom sheet */
 
-/* Toggle button — centered in the region where the expanded chat panel sits */
+/* Toggle button — small icon button in the lower-right area */
 .toggleButton {
   position: fixed;
-  /* Same bounds as .panel so the button centers in the panel's footprint */
-  top: calc(50vh + calc(48px * var(--scale)));
-  left: calc(87.5vw - calc(171px * var(--scale)));
   right: var(--space-4);
   bottom: calc(256px * var(--scale));
   z-index: 25;
-  width: auto;
-  height: auto;
-  border-radius: var(--space-3);
+  width: calc(56px * var(--scale));
+  height: calc(56px * var(--scale));
+  border-radius: 50%;
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
   cursor: pointer;
@@ -183,13 +180,8 @@
   }
 
   .toggleButton {
-    top: auto;
-    left: auto;
     bottom: calc(80px * var(--scale));
     right: var(--space-3);
-    width: calc(56px * var(--scale));
-    height: calc(56px * var(--scale));
-    border-radius: 50%;
   }
 
   .chatIcon {
