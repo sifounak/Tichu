@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useRoomStore } from '@/stores/roomStore';
 import { useAuthStore } from '@/stores/authStore';
+import { AuthGuard } from '@/components/AuthGuard';
 import { CreateGamePopup } from '@/components/lobby/CreateGamePopup';
 import { UserMenu } from '@/components/lobby/UserMenu';
 import type { CreateGameConfig } from '@/components/lobby/CreateGamePopup';
@@ -157,7 +158,7 @@ export default function LobbyPage() {
   // REQ-F-LU05: Logout handler — redirect to auth page
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    router.push('/');
   };
 
   const handleSort = (col: typeof sortCol) => {
@@ -193,7 +194,8 @@ export default function LobbyPage() {
     sortCol === col ? (sortAsc ? ' \u25B2' : ' \u25BC') : '';
 
   return (
-    <main className="p-6" style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
+    <AuthGuard>
+      <main className="p-6" style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8 relative">
           <h1 className="text-4xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>Tichu Lobby</h1>
@@ -207,7 +209,7 @@ export default function LobbyPage() {
               <UserMenu user={user!} onLogout={handleLogout} />
             ) : (
               <Link
-                href="/login"
+                href="/"
                 className="px-3 py-1.5 rounded-lg text-sm font-semibold"
                 style={{
                   background: 'var(--color-gold-accent)',
@@ -546,5 +548,6 @@ export default function LobbyPage() {
         </div>
       )}
     </main>
+    </AuthGuard>
   );
 }
