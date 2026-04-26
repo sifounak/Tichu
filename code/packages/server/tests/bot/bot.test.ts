@@ -3717,4 +3717,112 @@ describe('Bot', () => {
       expect(decision.action).toBe('pass');
     });
   });
+
+  // ─── REQ-F-MC01: Multi-card preference over singles ──────────────────────
+
+  describe('REQ-F-MC01: Multi-card preference over singles', () => {
+    it('leads triple Jacks instead of single Jack', () => {
+      const bot = new Bot();
+      const j1 = card('standard', 11, 'jade', 1101);
+      const j2 = card('standard', 11, 'pagoda', 1102);
+      const j3 = card('standard', 11, 'star', 1103);
+      const c5 = card('standard', 5, 'jade', 501);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [j1, j2, j3, c5, c3];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [j1], 11),
+        makeCombo(CombinationType.Single, [j2], 11),
+        makeCombo(CombinationType.Single, [j3], 11),
+        makeCombo(CombinationType.Triple, [j1, j2, j3], 11),
+        makeCombo(CombinationType.Single, [c5], 5),
+        makeCombo(CombinationType.Single, [c3], 3),
+      ];
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays,
+        canPass: false,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Should NOT play single Jack — should prefer triple or low single
+        const playedIds = decision.cards.map((c: GameCard) => c.id);
+        const isSingleJack = decision.cards.length === 1 &&
+          playedIds.some((id: number) => [1101, 1102, 1103].includes(id));
+        expect(isSingleJack).toBe(false);
+      }
+    });
+
+    it('does not play single card that is part of a straight', () => {
+      const bot = new Bot();
+      const c5 = card('standard', 5, 'jade', 501);
+      const c6 = card('standard', 6, 'jade', 601);
+      const c7 = card('standard', 7, 'jade', 701);
+      const c8 = card('standard', 8, 'jade', 801);
+      const c9 = card('standard', 9, 'jade', 901);
+      const cK = card('standard', 13, 'pagoda', 1301);
+      const hand = [c5, c6, c7, c8, c9, cK];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c5], 5),
+        makeCombo(CombinationType.Single, [c6], 6),
+        makeCombo(CombinationType.Single, [c7], 7),
+        makeCombo(CombinationType.Single, [c8], 8),
+        makeCombo(CombinationType.Single, [c9], 9),
+        makeCombo(CombinationType.Single, [cK], 13),
+        makeCombo(CombinationType.Straight, [c5, c6, c7, c8, c9], 9),
+      ];
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays,
+        canPass: false,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Should play the straight (5 cards), not singles from it
+        const playedIds = decision.cards.map((c: GameCard) => c.id);
+        const straightCardIds = [501, 601, 701, 801, 901];
+        const isSingleFromStraight = decision.cards.length === 1 &&
+          straightCardIds.includes(playedIds[0]);
+        expect(isSingleFromStraight).toBe(false);
+      }
+    });
+
+    it('plays truly singleton cards as singles', () => {
+      const bot = new Bot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c7 = card('standard', 7, 'pagoda', 701);
+      const cK = card('standard', 13, 'star', 1301);
+      const hand = [c3, c7, cK];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c7], 7),
+        makeCombo(CombinationType.Single, [cK], 13),
+      ];
+
+      const ctx = makePlayContext({
+        hand,
+        validPlays,
+        canPass: false,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Only singles available — should play lowest (3)
+        expect(decision.cards.length).toBe(1);
+        expect(decision.cards[0].id).toBe(301);
+      }
+    });
+  });
 });

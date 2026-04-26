@@ -1085,6 +1085,14 @@ export class Bot implements BotStrategy {
         if (planned.cards.length === 1 && isDog(planned.cards[0].card)) continue;
         // REQ-F-PHX01: Skip Phoenix singleton leads (only +0.5, weak)
         if (planned.cards.length === 1 && isPhoenix(planned.cards[0].card)) continue;
+        // REQ-F-MC01: Skip planned singles whose card appears in a multi-card combo
+        if (planned.cards.length === 1 && planned.cards[0].card.kind === 'standard') {
+          const cardId = planned.cards[0].id;
+          const hasMulti = validPlays.some(
+            (c) => c.cards.length > 1 && !c.isBomb && c.cards.some((gc) => gc.id === cardId),
+          );
+          if (hasMulti) continue;
+        }
         const match = validPlays.find((vp) =>
           vp.cards.length === planned.cards.length &&
           vp.cards.every((c) => planned.cards.some((p) => p.id === c.id)),
@@ -1128,16 +1136,13 @@ export class Bot implements BotStrategy {
         );
         if (!allWinners) continue;
       }
-      // REQ-F-DEF04: Skip singles that are part of a multi-card combo in hand
+      // REQ-F-MC01: Skip singles whose card appears in ANY multi-card combo in validPlays
       if (combo.type === CombinationType.Single && combo.cards[0].card.kind === 'standard') {
-        if (isCardInMultiCardCombo(combo.cards[0], hand)) {
-          // Check if there's a multi-card combo of this rank available
-          const multiCardOfSameRank = ranked.find(
-            (c) => c.cards.length > 1 && !c.isBomb &&
-              c.cards.some((gc) => gc.card.kind === 'standard' && gc.card.rank === combo.rank),
-          );
-          if (multiCardOfSameRank) continue; // Skip the single, prefer the multi-card
-        }
+        const cardId = combo.cards[0].id;
+        const hasMultiCardCombo = validPlays.some(
+          (c) => c.cards.length > 1 && !c.isBomb && c.cards.some((gc) => gc.id === cardId),
+        );
+        if (hasMultiCardCombo) continue;
       }
       // REQ-F-DEF06: For low multi-card combos, prefer those where we have a high follow-up
       if (combo.cards.length > 1 && combo.rank <= 8 && !combo.isBomb) {
