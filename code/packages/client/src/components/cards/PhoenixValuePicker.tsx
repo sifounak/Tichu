@@ -31,7 +31,7 @@ export const PhoenixValuePicker = memo(function PhoenixValuePicker({
         <h3 className={styles.title}>Phoenix Value</h3>
         <p className={styles.subtitle}>Choose the rank for Phoenix:</p>
         <div className={styles.options}>
-          {options.map((rank) => (
+          {[...options].sort((a, b) => b - a).map((rank) => (
             <button
               key={rank}
               className={styles.option}
