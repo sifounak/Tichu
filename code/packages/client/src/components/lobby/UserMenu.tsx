@@ -6,6 +6,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 
 interface UserMenuProps {
   user: { username: string };
@@ -77,7 +78,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
           }}
         >
           {/* REQ-F-LU04: Play Stats */}
-          <a
+          <Link
             href="/stats"
             onClick={() => setOpen(false)}
             style={{
@@ -94,7 +95,7 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           >
             Play Stats
-          </a>
+          </Link>
 
           <div style={{ height: '1px', background: 'var(--color-border)' }} />
 
