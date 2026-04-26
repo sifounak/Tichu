@@ -1,7 +1,7 @@
 // REQ-F-LRC01, REQ-F-LRC02, REQ-F-LRC03: Confirmation dialog shown before leaving a room
 'use client';
 
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 interface LeaveConfirmDialogProps {
@@ -13,6 +13,10 @@ interface LeaveConfirmDialogProps {
   onConfirm: () => void;
   /** Render prop: receives a click handler that opens the dialog */
   children: (openDialog: () => void) => React.ReactNode;
+  /** When true, opens the dialog programmatically (e.g., from back button) */
+  externalOpen?: boolean;
+  /** Called when dialog closes (cancel or confirm) so parent can reset externalOpen */
+  onClose?: () => void;
 }
 
 export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
@@ -20,15 +24,28 @@ export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
   subtitle,
   onConfirm,
   children,
+  externalOpen,
+  onClose,
 }: LeaveConfirmDialogProps) {
   const [show, setShow] = useState(false);
 
   const open = useCallback(() => setShow(true), []);
-  const close = useCallback(() => setShow(false), []);
+  const close = useCallback(() => {
+    setShow(false);
+    onClose?.();
+  }, [onClose]);
   const confirm = useCallback(() => {
     setShow(false);
+    onClose?.();
     onConfirm();
-  }, [onConfirm]);
+  }, [onClose, onConfirm]);
+
+  // Open dialog programmatically when externalOpen becomes true
+  useEffect(() => {
+    if (externalOpen) {
+      setShow(true);
+    }
+  }, [externalOpen]);
 
   return (
     <>

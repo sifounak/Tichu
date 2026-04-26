@@ -648,6 +648,27 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [disconnect, isSpectator, gameInProgress]);
 
+  // REQ-F-BB01: Intercept browser back button during active game
+  const [backButtonDialogOpen, setBackButtonDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (isSpectator || !gameInProgress) return;
+
+    // Push sentinel state so back button has something to pop
+    history.pushState({ tichuGame: true }, '');
+
+    const handlePopState = () => {
+      // Re-push to keep URL stable
+      history.pushState({ tichuGame: true }, '');
+      setBackButtonDialogOpen(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isSpectator, gameInProgress]);
+
   // REQ-F-PV15: Countdown timer for active vote
   useEffect(() => {
     if (!uiStore.activeVote) return;
@@ -1108,6 +1129,8 @@ export default function GamePage(props: { params: Promise<{ gameId: string }> })
           title={isSpectator ? 'Leave Room?' : 'Leave Game?'}
           subtitle={isSpectator ? '' : 'This will count as a forfeit if you leave.'}
           onConfirm={handleLeaveGame}
+          externalOpen={backButtonDialogOpen}
+          onClose={() => setBackButtonDialogOpen(false)}
         >
           {(openDialog) => (
             <button
