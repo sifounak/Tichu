@@ -5,7 +5,7 @@
 // REQ-F-ID02: CREATE_ROOM/JOIN_ROOM use username as playerName
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -45,6 +45,9 @@ export default function LobbyPage() {
   const [showCreatePopup, setShowCreatePopup] = useState(false);
   const [creatingGame, setCreatingGame] = useState(false);
   const [joiningGame, setJoiningGame] = useState(false);
+  const [lobbyLoaded, setLobbyLoaded] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
+  const connectionErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // REQ-F-LU07: Load auth state on mount
   const { user, authReady, loadFromStorage, logout } = useAuthStore();
@@ -71,6 +74,7 @@ export default function LobbyPage() {
     switch (msg.type) {
       case 'LOBBY_LIST':
         setLobbyRooms(msg.rooms as any);
+        setLobbyLoaded(true);
         break;
       case 'ROOM_JOINED':
         setRoom(msg.roomCode, msg.seat);
@@ -103,6 +107,29 @@ export default function LobbyPage() {
     const interval = setInterval(() => send({ type: 'GET_LOBBY' }), 2000);
     return () => clearInterval(interval);
   }, [status, send]);
+
+  // Show connection error toast after sustained disconnection
+  useEffect(() => {
+    if (status === 'connected') {
+      if (connectionErrorTimerRef.current) {
+        clearTimeout(connectionErrorTimerRef.current);
+        connectionErrorTimerRef.current = null;
+      }
+      setConnectionError(false);
+    } else if (status === 'disconnected') {
+      // Show immediately when fully disconnected (all retries exhausted)
+      setConnectionError(true);
+    } else if (status === 'reconnecting') {
+      // Show after 3s of reconnecting to avoid flash on brief blips
+      connectionErrorTimerRef.current = setTimeout(() => setConnectionError(true), 3000);
+      return () => {
+        if (connectionErrorTimerRef.current) {
+          clearTimeout(connectionErrorTimerRef.current);
+          connectionErrorTimerRef.current = null;
+        }
+      };
+    }
+  }, [status]);
 
   // REQ-F-003: Persist playerName across page navigation
   const [roomNameError, setRoomNameError] = useState(false);
@@ -199,9 +226,6 @@ export default function LobbyPage() {
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8 relative">
           <h1 className="text-4xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>Tichu Lobby</h1>
-          <p className="mt-2" style={{ color: 'var(--color-text-secondary)' }}>
-            {status === 'connected' ? 'Connected' : status === 'connecting' ? 'Connecting...' : 'Disconnected'}
-          </p>
 
           {/* REQ-F-LU02: Top-right — user menu (logged in) or sign-in button (guest) */}
           <div className="absolute top-0 right-0">
@@ -251,6 +275,16 @@ export default function LobbyPage() {
             >
               ✕
             </button>
+          </div>
+        )}
+
+        {/* Connection error toast */}
+        {connectionError && (
+          <div className="mb-4 text-center py-3 px-4 rounded-lg"
+            style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--color-error)' }}
+            role="alert"
+          >
+            Unable to connect to the game server. {status === 'reconnecting' ? 'Retrying...' : 'Please refresh the page.'}
           </div>
         )}
 
@@ -370,7 +404,7 @@ export default function LobbyPage() {
 
           {filteredRooms.length === 0 ? (
             <p className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
-              {lobbyRooms.length === 0 ? 'No public rooms available. Create one!' : 'No rooms match your search.'}
+              {!lobbyLoaded ? 'Loading game list...' : lobbyRooms.length === 0 ? 'No public rooms available. Create one!' : 'No rooms match your search.'}
             </p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
