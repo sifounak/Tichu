@@ -77,7 +77,8 @@ export function createApp(config: Partial<AppConfig> = {}) {
     try {
       rebuildStatsCache(database);
     } catch (rebuildErr) {
-      fastify.log.warn(`Stats cache rebuild failed: ${rebuildErr instanceof Error ? rebuildErr.message : rebuildErr}`);
+      const cause = rebuildErr instanceof Error && rebuildErr.cause ? ` Cause: ${rebuildErr.cause}` : '';
+      fastify.log.warn(`Stats cache rebuild failed: ${rebuildErr instanceof Error ? rebuildErr.message : rebuildErr}${cause}`);
     }
   } catch (err) {
     fastify.log.warn(`Database unavailable (${err instanceof Error ? err.message : err}). Auth routes disabled.`);
