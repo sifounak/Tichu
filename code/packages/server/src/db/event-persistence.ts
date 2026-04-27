@@ -18,8 +18,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 // ─── Recovery File Path ─────────────────────────────────────────────────
+// Derive recovery directory from DATABASE_PATH so it lives alongside the
+// database file (e.g. /files/.www/tichu/data/recovery in production) rather
+// than under process.cwd() which may not be writable by the service user.
 
-const RECOVERY_DIR = path.join(process.cwd(), 'data', 'recovery');
+const dbPath = process.env.DATABASE_PATH ?? path.join(process.cwd(), 'data', 'tichu.sqlite');
+const RECOVERY_DIR = path.join(path.dirname(dbPath), 'recovery');
 
 /** Ensure the recovery directory exists */
 function ensureRecoveryDir(): void {
