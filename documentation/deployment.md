@@ -6,8 +6,8 @@ This guide covers setting up the Tichu game for both local development and produ
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| Node.js | 20+ | Runtime |
-| pnpm | 9+ | Package manager |
+| Node.js | 24+ | Runtime |
+| pnpm | 10+ | Package manager |
 | Git | Any | Version control |
 
 Production additionally requires:
@@ -44,7 +44,7 @@ bash code/scripts/dev-start.sh
 
 This will:
 1. Load environment variables from `.env.dev`
-2. Check prerequisites (node, pnpm/npx)
+2. Check prerequisites (node, pnpm)
 3. Kill any stale node processes
 4. Clean build artifacts (`.next`, `dist/`, `tsbuildinfo`)
 5. Build `shared` and `server` packages
@@ -204,7 +204,7 @@ pkill -f node
 
 ### Build fails
 
-1. Verify Node.js version: `node --version` (need 20+)
+1. Verify Node.js version: `node --version` (need 24+)
 2. Verify pnpm is installed: `pnpm --version`
 3. Check if `.env.prod` exists (for prod builds)
 4. Try a clean build: remove all `dist/`, `.next/`, `node_modules/` and re-run

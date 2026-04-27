@@ -76,27 +76,22 @@ echo "=== Installing dependencies ==="
 cd "$CODE_DIR"
 pnpm install --frozen-lockfile
 
-# Rebuild native addons for the current Node.js version.
-# This ensures modules like better-sqlite3 are compiled against the running
-# Node ABI, even if node_modules was cached from a different Node version.
-echo "  Rebuilding native addons..."
-pnpm rebuild
 echo "Dependencies installed."
 
 # ─── 3. Build packages in dependency order ───────────────────────────────
 echo "=== Building shared package ==="
 cd "$SHARED_DIR"
-npx tsc
+pnpm exec tsc
 echo "Shared package built."
 
 echo "=== Building server package ==="
 cd "$SERVER_DIR"
-npx tsc
+pnpm exec tsc
 echo "Server package built."
 
 echo "=== Building client package (production) ==="
 cd "$CLIENT_DIR"
-npx next build
+pnpm exec next build
 echo "Client package built."
 
 # ─── 4. Validate compile outputs ────────────────────────────────────────
@@ -123,6 +118,17 @@ pnpm --filter @tichu/server deploy "$BUILD_DIR/server" --prod
 
 # pnpm deploy does not copy the package's own dist/ — copy it manually
 cp -r "$SERVER_DIR/dist" "$BUILD_DIR/server/dist"
+
+# Rebuild native addons in the deployed server directory.
+# pnpm deploy pulls from the content-addressable store which may contain
+# binaries compiled for a different Node.js version (e.g., Node 22 ABI 127
+# vs Node 24 ABI 137). Rebuilding here ensures they match the current Node.
+echo "  Rebuilding native addons in build/server..."
+cd "$BUILD_DIR/server"
+# NOTE: npm (not pnpm) is intentional here. pnpm deploy creates a standalone
+# directory with a regular node_modules layout, not a pnpm workspace.
+npm rebuild
+cd "$CODE_DIR"
 
 # Client: copy Next.js standalone output
 echo "  Assembling client..."

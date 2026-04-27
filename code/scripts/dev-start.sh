@@ -33,13 +33,7 @@ fi
 echo "=== Checking prerequisites ==="
 MISSING=""
 if ! command -v node >/dev/null 2>&1; then MISSING="$MISSING node"; fi
-if command -v pnpm >/dev/null 2>&1; then
-  PKG_MGR="pnpm"
-elif command -v npx >/dev/null 2>&1; then
-  PKG_MGR="npx"
-else
-  MISSING="$MISSING pnpm/npx"
-fi
+if ! command -v pnpm >/dev/null 2>&1; then MISSING="$MISSING pnpm"; fi
 
 if [ -n "$MISSING" ]; then
   echo "ERROR: Missing required tools:$MISSING"
@@ -54,7 +48,7 @@ if [ "$ACTUAL_NODE_MAJOR" -lt "$REQUIRED_NODE_MAJOR" ]; then
   echo "Install Node.js $REQUIRED_NODE_MAJOR or higher before running."
   exit 1
 fi
-echo "Prerequisites OK (node $(node --version), $PKG_MGR)"
+echo "Prerequisites OK (node $(node --version), pnpm $(pnpm --version))"
 
 # ─── 1. Stop existing processes ─────────────────────────────────────────
 echo "=== Stopping existing processes ==="
@@ -94,12 +88,12 @@ echo "Cleaned: .next, shared/dist, server/dist, tsbuildinfo files"
 # ─── 3. Rebuild packages in dependency order ─────────────────────────────
 echo "=== Building shared package ==="
 cd "$SHARED_DIR"
-npx tsc
+pnpm exec tsc
 echo "Shared package built."
 
 echo "=== Building server package ==="
 cd "$SERVER_DIR"
-npx tsc
+pnpm exec tsc
 echo "Server package built."
 
 # Client (Next.js) builds on-the-fly during dev — no explicit build needed
@@ -107,7 +101,7 @@ echo "Server package built."
 # ─── 4. Start server + client ───────────────────────────────────────────
 echo "=== Starting server (tsx watch — live reload) ==="
 cd "$SERVER_DIR"
-npx tsx watch src/index.ts &
+pnpm exec tsx watch src/index.ts &
 SERVER_PID=$!
 
 for i in $(seq 1 10); do
@@ -123,7 +117,7 @@ done
 
 echo "=== Starting client (next dev) ==="
 cd "$CLIENT_DIR"
-npx next dev --port 3000 &
+pnpm exec next dev --port 3000 &
 CLIENT_PID=$!
 
 for i in $(seq 1 15); do
