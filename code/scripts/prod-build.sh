@@ -80,7 +80,16 @@ pnpm install --frozen-lockfile
 # pnpm install may reuse store-cached binaries compiled for an older
 # Node version. pnpm deploy hardlinks from the store, so the rebuild
 # must happen here in the workspace before the deploy step.
+# Delete the cached binary first — pnpm rebuild may skip recompilation
+# if it considers the existing binary up to date.
+echo "  Rebuilding better-sqlite3 for Node $(node -p process.versions.modules) ABI..."
+find "$CODE_DIR/node_modules/.pnpm" -path "*/better-sqlite3/build/Release/better_sqlite3.node" -delete 2>/dev/null || true
 pnpm rebuild better-sqlite3
+# Verify the binary was actually rebuilt for the current Node ABI
+EXPECTED_ABI=$(node -p process.versions.modules)
+node -e "require('better-sqlite3')" 2>/dev/null \
+  || { echo "ERROR: better-sqlite3 binary does not match Node ABI $EXPECTED_ABI after rebuild."; exit 1; }
+echo "  better-sqlite3 verified for ABI $EXPECTED_ABI."
 echo "Dependencies installed."
 
 # ─── 3. Build packages in dependency order ───────────────────────────────
