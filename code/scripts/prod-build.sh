@@ -119,18 +119,15 @@ pnpm --filter @tichu/server deploy "$BUILD_DIR/server" --prod
 # pnpm deploy does not copy the package's own dist/ — copy it manually
 cp -r "$SERVER_DIR/dist" "$BUILD_DIR/server/dist"
 
-# Rebuild native addons in the deployed server directory.
-# pnpm deploy pulls from the content-addressable store which may contain
-# binaries compiled for a different Node.js version (e.g., Node 22 ABI 127
-# vs Node 24 ABI 137). Rebuilding here ensures they match the current Node.
-echo "  Rebuilding native addons in build/server..."
-cd "$BUILD_DIR/server"
-# NOTE: npm (not pnpm) is intentional here. pnpm deploy creates a standalone
-# directory with a regular node_modules layout, not a pnpm workspace.
-# Target only better-sqlite3 to avoid running prepare scripts (husky, tsc)
-# in other packages that aren't needed and would fail in production.
-npm rebuild better-sqlite3
-cd "$CODE_DIR"
+# Copy the workspace-compiled native addon over the one pnpm deploy placed.
+# pnpm deploy pulls from the content-addressable store which may have a
+# binary compiled for a different Node.js ABI. The workspace copy was built
+# by pnpm install against the current Node version, so it's always correct.
+echo "  Copying native addon (better-sqlite3)..."
+WORKSPACE_SQLITE="$CODE_DIR/node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+DEPLOY_SQLITE="$BUILD_DIR/server/node_modules/.pnpm/better-sqlite3@*/node_modules/better-sqlite3/build/Release/better_sqlite3.node"
+# Use shell glob — exactly one version should match
+cp $WORKSPACE_SQLITE $DEPLOY_SQLITE
 
 # Client: copy Next.js standalone output
 echo "  Assembling client..."
