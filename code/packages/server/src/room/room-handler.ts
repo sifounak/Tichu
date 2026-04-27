@@ -12,6 +12,7 @@ import type { MessageRouter } from '../ws/message-router.js';
 import type { Database } from '../db/connection.js';
 import { RoomManager } from './room-manager.js';
 import { GameStore } from '../game/game-store.js';
+import type { GameManager } from '../game/game-manager.js';
 import { SeatQueue } from './seat-queue.js';
 import { VoteHandler } from '../game/vote-handler.js';
 import { saveGameResult } from '../db/game-persistence.js';
@@ -649,72 +650,7 @@ export class RoomHandler {
     try {
       const game = this.gameStore.createGame(roomCode, room.config);
 
-      // REQ-F-ES04: Wire kick callback — when disconnect vote resolves to kick, vacate seats and start queue
-      game.wireKickCallback((rc, seats) => {
-        this.tryStartSeatQueue(rc, seats);
-        this.broadcastRoomUpdate(rc);
-      });
-
-      // REQ-F-PV22: Wire player vote callback — handle kick and restart outcomes
-      game.wireVoteCallback(
-        (rc, targetSeat) => {
-          // REQ-F-PV16: Kick vote passed — send KICKED to target, vacate seat
-          const targetUserId = this.roomManager.getUserIdAtSeat(rc, targetSeat);
-          if (targetUserId) {
-            // Human player kick
-            const targetWs = this.connections.getSocketByUserId(targetUserId);
-            if (targetWs) {
-              this.broadcaster.send(targetWs, { type: 'KICKED', message: 'You were kicked by vote' });
-              // Use leaveRoom to properly clean up room membership
-              try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
-              this.connections.removeFromRoom(targetWs);
-            }
-          } else {
-            // REQ-F-VI01: Bot kick — bots have no userId in seatToUser, remove directly
-            const room = this.roomManager.getRoom(rc);
-            if (room) {
-              const player = room.players.find(p => p.seat === targetSeat);
-              if (player?.isBot) {
-                try { this.roomManager.removeBot(rc, targetSeat); } catch { /* already removed */ }
-              }
-            }
-          }
-          this.tryStartSeatQueue(rc, [targetSeat]);
-          this.broadcastRoomUpdate(rc);
-        },
-        (rc) => {
-          // REQ-F-PV18: Restart vote passed — destroy and recreate game after 2s delay
-          setTimeout(() => {
-            this.restartGame(rc, triggerWs);
-          }, 2000);
-        },
-      );
-
-      // REQ-F-PW01: Wire game-end callback for persistence
-      if (this.database) {
-        const db = this.database;
-        const gameRef = game;
-        game.wireGameEndCallback((context: GameMachineContext, joinedAfterSpectating: Set<string>) => {
-          const dbGameId = this.persistGameResult(db, roomCode, room.players, context, joinedAfterSpectating);
-          // REQ-F-ST03/ST04: Write event data and clean up recovery file
-          if (dbGameId !== null) {
-            try {
-              const accumulator = gameRef.getEventAccumulator();
-              writeEventData(db, dbGameId, accumulator);
-              deleteRecoveryFile(accumulator.gameId);
-            } catch (err) {
-              console.error(`[PERSIST] Failed to write event data for game ${dbGameId}:`, err);
-            }
-            // REQ-F-MC03: Incremental cache update — separate try/catch so
-            // a cache failure doesn't mask a successful event write.
-            try {
-              updateCacheAfterGame(db, dbGameId);
-            } catch (err) {
-              console.error(`[PERSIST] Failed to update stats cache for game ${dbGameId}:`, err);
-            }
-          }
-        });
-      }
+      this.wireGameCallbacks(game, roomCode);
 
       // [Stats]: Wire seat→userId resolver so GameEventCapture can populate
       // player_rounds.user_id. Without this, per-user stats compute to zero.
@@ -751,8 +687,83 @@ export class RoomHandler {
     }
   }
 
+  /**
+   * Wire kick, vote, and game-end callbacks on a GameManager instance.
+   * Called for both fresh games (startGameInternal) and restored games (app.ts restoreActiveGames).
+   */
+  wireGameCallbacks(game: GameManager, roomCode: string): void {
+    // REQ-F-ES04: Wire kick callback — when disconnect vote resolves to kick, vacate seats and start queue
+    game.wireKickCallback((rc, seats) => {
+      this.tryStartSeatQueue(rc, seats);
+      this.broadcastRoomUpdate(rc);
+    });
+
+    // REQ-F-PV22: Wire player vote callback — handle kick and restart outcomes
+    game.wireVoteCallback(
+      (rc, targetSeat) => {
+        // REQ-F-PV16: Kick vote passed — send KICKED to target, vacate seat
+        const targetUserId = this.roomManager.getUserIdAtSeat(rc, targetSeat);
+        if (targetUserId) {
+          // Human player kick
+          const targetWs = this.connections.getSocketByUserId(targetUserId);
+          if (targetWs) {
+            this.broadcaster.send(targetWs, { type: 'KICKED', message: 'You were kicked by vote' });
+            // Use leaveRoom to properly clean up room membership
+            try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
+            this.connections.removeFromRoom(targetWs);
+          }
+        } else {
+          // REQ-F-VI01: Bot kick — bots have no userId in seatToUser, remove directly
+          const room = this.roomManager.getRoom(rc);
+          if (room) {
+            const player = room.players.find(p => p.seat === targetSeat);
+            if (player?.isBot) {
+              try { this.roomManager.removeBot(rc, targetSeat); } catch { /* already removed */ }
+            }
+          }
+        }
+        this.tryStartSeatQueue(rc, [targetSeat]);
+        this.broadcastRoomUpdate(rc);
+      },
+      (rc) => {
+        // REQ-F-PV18: Restart vote passed — destroy and recreate game after 2s delay
+        setTimeout(() => {
+          this.restartGame(rc);
+        }, 2000);
+      },
+    );
+
+    // REQ-F-PW01: Wire game-end callback for persistence
+    if (this.database) {
+      const db = this.database;
+      const gameRef = game;
+      game.wireGameEndCallback((context: GameMachineContext, joinedAfterSpectating: Set<string>) => {
+        const room = this.roomManager.getRoom(roomCode);
+        const players = room?.players ?? [];
+        const dbGameId = this.persistGameResult(db, roomCode, players, context, joinedAfterSpectating);
+        // REQ-F-ST03/ST04: Write event data and clean up recovery file
+        if (dbGameId !== null) {
+          try {
+            const accumulator = gameRef.getEventAccumulator();
+            writeEventData(db, dbGameId, accumulator);
+            deleteRecoveryFile(accumulator.gameId);
+          } catch (err) {
+            console.error(`[PERSIST] Failed to write event data for game ${dbGameId}:`, err);
+          }
+          // REQ-F-MC03: Incremental cache update — separate try/catch so
+          // a cache failure doesn't mask a successful event write.
+          try {
+            updateCacheAfterGame(db, dbGameId);
+          } catch (err) {
+            console.error(`[PERSIST] Failed to update stats cache for game ${dbGameId}:`, err);
+          }
+        }
+      });
+    }
+  }
+
   /** REQ-F-PV18: Restart the game — destroy current game, return to pre-game lobby */
-  private restartGame(roomCode: string, _fallbackWs: WebSocket): void {
+  private restartGame(roomCode: string): void {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 

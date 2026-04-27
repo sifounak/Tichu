@@ -281,6 +281,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
             return roomHandler.roomManager.getUserIdAtSeat(manager.roomCode, seat) ?? null;
           });
           gameStore.restoreGame(manager, { ttlMs: TTL_MS });
+          roomHandler.wireGameCallbacks(manager, snapshot.roomCode);
           fastify.log.info(`Restored game ${snapshot.gameId} for room ${snapshot.roomCode}`);
         } catch (err) {
           fastify.log.error(`Failed to restore game ${snapshot.gameId}: ${err}`);
