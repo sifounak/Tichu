@@ -120,6 +120,10 @@ export const TrickDisplay = memo(function TrickDisplay({
   const [showBomb, setShowBomb] = useState(false);
   const lastPlay = displayTrick?.plays[displayTrick.plays.length - 1];
   const isBombPlay = lastPlay?.combination.type === 'fourBomb' || lastPlay?.combination.type === 'straightFlushBomb';
+  // Stable identity for the last play — only changes when a new play is actually made
+  const lastPlayId = lastPlay
+    ? `${lastPlay.seat}-${lastPlay.combination.cards.map(c => c.id).join(',')}`
+    : null;
 
   useEffect(() => {
     if (isBombPlay && enabled) {
@@ -127,7 +131,7 @@ export const TrickDisplay = memo(function TrickDisplay({
       const timer = setTimeout(() => setShowBomb(false), durations.bombEffect * 1000);
       return () => clearTimeout(timer);
     }
-  }, [isBombPlay, enabled, durations.bombEffect, lastPlay]);
+  }, [isBombPlay, enabled, durations.bombEffect, lastPlayId]);
 
   // Compute exit animation based on sweep target (or dragon gift recipient)
   // Slide toward the winner at full size, fade out near the end
