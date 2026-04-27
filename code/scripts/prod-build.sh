@@ -76,25 +76,6 @@ echo "=== Installing dependencies ==="
 cd "$CODE_DIR"
 pnpm install --frozen-lockfile
 
-# Ensure better-sqlite3 native addon matches the current Node ABI.
-# pnpm rebuild is unreliable here (silently no-ops), so we check the
-# binary directly and use node-gyp to recompile if needed.
-EXPECTED_ABI=$(node -p process.versions.modules)
-SQLITE_PKG=$(find "$CODE_DIR/node_modules/.pnpm" -path "*/better-sqlite3@*/node_modules/better-sqlite3" -type d | head -1)
-SQLITE_NODE="$SQLITE_PKG/build/Release/better_sqlite3.node"
-
-if [ -f "$SQLITE_NODE" ] && node -e "require('$SQLITE_NODE')" 2>/dev/null; then
-  echo "  better-sqlite3 already built for ABI $EXPECTED_ABI."
-else
-  echo "  Rebuilding better-sqlite3 for Node ABI $EXPECTED_ABI..."
-  cd "$SQLITE_PKG"
-  npx --yes node-gyp rebuild --release
-  cd "$CODE_DIR"
-  # Verify
-  node -e "require('$SQLITE_NODE')" 2>/dev/null \
-    || { echo "ERROR: better-sqlite3 binary does not match Node ABI $EXPECTED_ABI after rebuild."; exit 1; }
-  echo "  better-sqlite3 rebuilt and verified for ABI $EXPECTED_ABI."
-fi
 echo "Dependencies installed."
 
 # ─── 3. Build packages in dependency order ───────────────────────────────
@@ -137,6 +118,27 @@ pnpm --filter @tichu/server deploy "$BUILD_DIR/server" --prod
 
 # pnpm deploy does not copy the package's own dist/ — copy it manually
 cp -r "$SERVER_DIR/dist" "$BUILD_DIR/server/dist"
+
+# Ensure better-sqlite3 native addon matches the current Node ABI.
+# pnpm deploy copies from the content-addressable store which may have a
+# binary compiled for an older Node version. We rebuild directly in the
+# deploy directory using node-gyp (pnpm rebuild silently no-ops here).
+EXPECTED_ABI=$(node -p process.versions.modules)
+DEPLOY_SQLITE_PKG=$(find "$BUILD_DIR/server/node_modules/.pnpm" -path "*/better-sqlite3@*/node_modules/better-sqlite3" -type d | head -1)
+DEPLOY_SQLITE_NODE="$DEPLOY_SQLITE_PKG/build/Release/better_sqlite3.node"
+
+if [ -f "$DEPLOY_SQLITE_NODE" ] && node -e "require('$DEPLOY_SQLITE_NODE')" 2>/dev/null; then
+  echo "  better-sqlite3 already built for ABI $EXPECTED_ABI."
+else
+  echo "  Rebuilding better-sqlite3 for Node ABI $EXPECTED_ABI..."
+  cd "$DEPLOY_SQLITE_PKG"
+  npx --yes node-gyp rebuild --release
+  cd "$CODE_DIR"
+  # Verify
+  node -e "require('$DEPLOY_SQLITE_NODE')" 2>/dev/null \
+    || { echo "ERROR: better-sqlite3 binary does not match Node ABI $EXPECTED_ABI after rebuild."; exit 1; }
+  echo "  better-sqlite3 rebuilt and verified for ABI $EXPECTED_ABI."
+fi
 
 # Client: copy Next.js standalone output
 echo "  Assembling client..."
