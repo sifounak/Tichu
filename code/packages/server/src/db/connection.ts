@@ -484,6 +484,13 @@ function syncSchema(client: BetterSqlite3Database): void {
     // Already renamed, or fresh DB created with the new name
   }
 
+  // Ensure the synthetic __bot__ user exists so relational_stats_cache FK
+  // references are valid when aggregating bot-partner/opponent relationships.
+  client.exec(`
+    INSERT OR IGNORE INTO users (id, display_name, is_guest)
+    VALUES ('__bot__', 'Bot', 0)
+  `);
+
   // [Stats back-fill] Populate player_rounds.user_id from games.{seat}_user_id
   // for rows created before the seat→userId resolver was wired (M1).
   backfillPlayerRoundsUserId(client);
