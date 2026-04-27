@@ -76,6 +76,11 @@ echo "=== Installing dependencies ==="
 cd "$CODE_DIR"
 pnpm install --frozen-lockfile
 
+# Force recompilation of native addons against the current Node ABI.
+# pnpm install may reuse store-cached binaries compiled for an older
+# Node version. pnpm deploy hardlinks from the store, so the rebuild
+# must happen here in the workspace before the deploy step.
+pnpm rebuild better-sqlite3
 echo "Dependencies installed."
 
 # ─── 3. Build packages in dependency order ───────────────────────────────
