@@ -87,7 +87,8 @@ find "$CODE_DIR/node_modules/.pnpm" -path "*/better-sqlite3/build/Release/better
 pnpm rebuild better-sqlite3
 # Verify the binary was actually rebuilt for the current Node ABI
 EXPECTED_ABI=$(node -p process.versions.modules)
-node -e "require('better-sqlite3')" 2>/dev/null \
+SQLITE_NODE=$(find "$CODE_DIR/node_modules/.pnpm" -path "*/better-sqlite3/build/Release/better_sqlite3.node" | head -1)
+node -e "require('$SQLITE_NODE')" 2>/dev/null \
   || { echo "ERROR: better-sqlite3 binary does not match Node ABI $EXPECTED_ABI after rebuild."; exit 1; }
 echo "  better-sqlite3 verified for ABI $EXPECTED_ABI."
 echo "Dependencies installed."
