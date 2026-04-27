@@ -75,6 +75,12 @@ echo "  NEXT_PUBLIC_BASE_PATH=$NEXT_PUBLIC_BASE_PATH"
 echo "=== Installing dependencies ==="
 cd "$CODE_DIR"
 pnpm install --frozen-lockfile
+
+# Rebuild native addons for the current Node.js version.
+# This ensures modules like better-sqlite3 are compiled against the running
+# Node ABI, even if node_modules was cached from a different Node version.
+echo "  Rebuilding native addons..."
+pnpm rebuild
 echo "Dependencies installed."
 
 # ─── 3. Build packages in dependency order ───────────────────────────────
