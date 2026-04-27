@@ -127,7 +127,9 @@ echo "  Rebuilding native addons in build/server..."
 cd "$BUILD_DIR/server"
 # NOTE: npm (not pnpm) is intentional here. pnpm deploy creates a standalone
 # directory with a regular node_modules layout, not a pnpm workspace.
-npm rebuild
+# Target only better-sqlite3 to avoid running prepare scripts (husky, tsc)
+# in other packages that aren't needed and would fail in production.
+npm rebuild better-sqlite3
 cd "$CODE_DIR"
 
 # Client: copy Next.js standalone output
