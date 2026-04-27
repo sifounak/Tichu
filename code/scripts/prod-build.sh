@@ -76,21 +76,25 @@ echo "=== Installing dependencies ==="
 cd "$CODE_DIR"
 pnpm install --frozen-lockfile
 
-# Force recompilation of native addons against the current Node ABI.
-# pnpm install may reuse store-cached binaries compiled for an older
-# Node version. pnpm deploy hardlinks from the store, so the rebuild
-# must happen here in the workspace before the deploy step.
-# Delete the cached binary first — pnpm rebuild may skip recompilation
-# if it considers the existing binary up to date.
-echo "  Rebuilding better-sqlite3 for Node $(node -p process.versions.modules) ABI..."
-find "$CODE_DIR/node_modules/.pnpm" -path "*/better-sqlite3/build/Release/better_sqlite3.node" -delete 2>/dev/null || true
-pnpm rebuild better-sqlite3
-# Verify the binary was actually rebuilt for the current Node ABI
+# Ensure better-sqlite3 native addon matches the current Node ABI.
+# pnpm rebuild is unreliable here (silently no-ops), so we check the
+# binary directly and use node-gyp to recompile if needed.
 EXPECTED_ABI=$(node -p process.versions.modules)
-SQLITE_NODE=$(find "$CODE_DIR/node_modules/.pnpm" -path "*/better-sqlite3/build/Release/better_sqlite3.node" | head -1)
-node -e "require('$SQLITE_NODE')" 2>/dev/null \
-  || { echo "ERROR: better-sqlite3 binary does not match Node ABI $EXPECTED_ABI after rebuild."; exit 1; }
-echo "  better-sqlite3 verified for ABI $EXPECTED_ABI."
+SQLITE_PKG=$(find "$CODE_DIR/node_modules/.pnpm" -path "*/better-sqlite3@*/node_modules/better-sqlite3" -type d | head -1)
+SQLITE_NODE="$SQLITE_PKG/build/Release/better_sqlite3.node"
+
+if [ -f "$SQLITE_NODE" ] && node -e "require('$SQLITE_NODE')" 2>/dev/null; then
+  echo "  better-sqlite3 already built for ABI $EXPECTED_ABI."
+else
+  echo "  Rebuilding better-sqlite3 for Node ABI $EXPECTED_ABI..."
+  cd "$SQLITE_PKG"
+  npx --yes node-gyp rebuild --release
+  cd "$CODE_DIR"
+  # Verify
+  node -e "require('$SQLITE_NODE')" 2>/dev/null \
+    || { echo "ERROR: better-sqlite3 binary does not match Node ABI $EXPECTED_ABI after rebuild."; exit 1; }
+  echo "  better-sqlite3 rebuilt and verified for ABI $EXPECTED_ABI."
+fi
 echo "Dependencies installed."
 
 # ─── 3. Build packages in dependency order ───────────────────────────────
