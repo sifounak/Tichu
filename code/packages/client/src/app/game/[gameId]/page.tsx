@@ -69,6 +69,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const leaveRoom = useRoomStore((s) => s.leaveRoom);
   // Leave confirmation is now handled by LeaveConfirmDialog component
   const [showVoteDropdown, setShowVoteDropdown] = useState(false);
+  const voteDropdownRef = useRef<HTMLDivElement>(null);
   const [codeCopied, setCodeCopied] = useState(false);
 
   // REQ-F-ID01: Use auth identity when logged in, fall back to guest
@@ -675,6 +676,18 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [uiStore, showVoteDropdown]);
 
+  // Click outside vote dropdown to dismiss
+  useEffect(() => {
+    if (!showVoteDropdown) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (voteDropdownRef.current && !voteDropdownRef.current.contains(e.target as Node)) {
+        setShowVoteDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showVoteDropdown]);
+
   // REQ-F-AP01–AP12: Auto-pass until next trick
   const autoPassEnabled = uiStore.autoPassEnabled;
 
@@ -1030,7 +1043,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
         {/* REQ-F-PV01: Start a Vote button + dropdown */}
         {!isSpectator && mySeatFromRoom && (gameInProgress || gameStore.gameId) && !uiStore.activeVote && !uiStore.disconnectVoteRequired && (
-          <div style={{ position: 'relative' }}>
+          <div ref={voteDropdownRef} style={{ position: 'relative' }}>
             <button
               onClick={() => setShowVoteDropdown(!showVoteDropdown)}
               style={{

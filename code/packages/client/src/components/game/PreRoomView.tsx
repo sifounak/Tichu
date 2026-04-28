@@ -8,7 +8,7 @@
 // REQ-F-VI11: Pre-game "Start a Vote" button with Kick Player only
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Seat, GameConfig, RoomPlayer } from '@tichu/shared';
 import type { ClientGameView } from '@tichu/shared';
 import { GameTable } from './GameTable';
@@ -106,6 +106,7 @@ export function PreRoomView({
   const [codeCopied, setCodeCopied] = useState(false);
   // REQ-F-VI11: Pre-game vote state
   const [showVoteDropdown, setShowVoteDropdown] = useState(false);
+  const voteDropdownRef = useRef<HTMLDivElement>(null);
   const [preGameKickTargetMode, setPreGameKickTargetMode] = useState(false);
   const uiStore = useUiStore();
 
@@ -176,6 +177,18 @@ export function PreRoomView({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [preGameKickTargetMode]);
+
+  // Click outside vote dropdown to dismiss
+  useEffect(() => {
+    if (!showVoteDropdown) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (voteDropdownRef.current && !voteDropdownRef.current.contains(e.target as Node)) {
+        setShowVoteDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showVoteDropdown]);
 
   // Build seat→name mapping for VoteOverlay
   const SEAT_LABELS: Record<string, string> = { north: 'North', east: 'East', south: 'South', west: 'West' };
@@ -560,7 +573,7 @@ export function PreRoomView({
 
         {/* REQ-F-VI11: Pre-game "Start a Vote" button — only Kick Player option */}
         {!isSpectator && mySeat && players.length >= 2 && !uiStore.activeVote && (
-          <div style={{ position: 'relative' }}>
+          <div ref={voteDropdownRef} style={{ position: 'relative' }}>
             <button
               onClick={() => { setShowVoteDropdown(!showVoteDropdown); setPreGameKickTargetMode(false); }}
               style={{
