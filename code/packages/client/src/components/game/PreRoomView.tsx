@@ -57,7 +57,7 @@ interface PreRoomViewProps {
 function makeDummyView(mySeat: Seat): ClientGameView {
   return {
     gameId: '',
-    config: { targetScore: 1000, turnTimerSeconds: null, spectatorsAllowed: true, isPrivate: false },
+    config: { targetScore: 1000, turnTimerSeconds: null, spectatorsAllowed: true, isPrivate: false, spectatorChatEnabled: false },
     phase: 'playing' as any,
     scores: { northSouth: 0, eastWest: 0 },
     roundHistory: [],
