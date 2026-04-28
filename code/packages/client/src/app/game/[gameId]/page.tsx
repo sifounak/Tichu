@@ -150,10 +150,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       } else if (msg.type === 'CHAT_RECEIVED') {
         // REQ-F-MP07: Chat message received — SC-04: spectator + system messages
         uiStore.addChatMessage({
-          from: (msg.from as Seat | null),
-          text: msg.text as string,
+          from: msg.from,
+          text: msg.text,
           timestamp: Date.now(),
-          spectatorName: (msg as Record<string, unknown>).spectatorName as string | undefined,
+          spectatorName: msg.spectatorName,
         });
       } else if (msg.type === 'PLAYER_DISCONNECTED') {
         // REQ-F-ES04: Player disconnected
