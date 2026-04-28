@@ -48,6 +48,13 @@ export function useNavigationBlock({ enabled }: UseNavigationBlockOptions): UseN
       guardPushedRef.current = true;
     };
 
+    // Arm after a short delay so Strict Mode's cleanup go(-1) settles before
+    // listeners start reacting. Without this, the async history.go(-1) from
+    // cleanup fires into the newly-mounted listeners and opens the dialog
+    // immediately on mount.
+    let armed = false;
+    const armTimer = setTimeout(() => { armed = true; }, 50);
+
     // --- Layer 1: Navigation API (Chrome/Edge 102+) ---
     let removeNavigationListener: (() => void) | null = null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,7 +62,7 @@ export function useNavigationBlock({ enabled }: UseNavigationBlockOptions): UseN
     if (nav && typeof nav.addEventListener === 'function') {
       const handleNavigate = (e: Event) => {
         const navEvent = e as NavigationEvent;
-        if (navEvent.navigationType !== 'traverse' || !blockedRef.current) return;
+        if (navEvent.navigationType !== 'traverse' || !blockedRef.current || !armed) return;
         navEvent.preventDefault();
         setDialogOpen(true);
       };
@@ -65,7 +72,7 @@ export function useNavigationBlock({ enabled }: UseNavigationBlockOptions): UseN
 
     // --- Layer 2: Capture-phase popstate (Firefox/Safari fallback) ---
     const handlePopState = (e: PopStateEvent) => {
-      if (!blockedRef.current) return;
+      if (!blockedRef.current || !armed) return;
 
       // The guard was popped. Block the event and re-push the guard.
       e.stopImmediatePropagation();
@@ -86,6 +93,7 @@ export function useNavigationBlock({ enabled }: UseNavigationBlockOptions): UseN
 
     // Cleanup function stored in ref so confirmNavigation can call it
     const cleanup = () => {
+      clearTimeout(armTimer);
       removeNavigationListener?.();
       window.removeEventListener('popstate', handlePopState, { capture: true });
       window.removeEventListener('pageshow', handlePageShow);

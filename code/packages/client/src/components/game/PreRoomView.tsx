@@ -47,6 +47,10 @@ interface PreRoomViewProps {
   onDismissSeatClaimRejection?: () => void;
   /** REQ-F-SJ07: Claim the user's original seat instead (offerClaimOriginal path) */
   onClaimOriginalSeat?: (seat: Seat) => void;
+  /** REQ-F-BB01: When true, opens leave dialog programmatically (from back/forward button) */
+  backButtonDialogOpen?: boolean;
+  /** REQ-F-BB01: Called when user cancels the back-button leave dialog */
+  onCancelNavigation?: () => void;
 }
 
 /** Minimal ClientGameView stub so GameTable can calculate seat positions */
@@ -101,6 +105,8 @@ export function PreRoomView({
   seatClaimRejection = null,
   onDismissSeatClaimRejection,
   onClaimOriginalSeat,
+  backButtonDialogOpen,
+  onCancelNavigation,
 }: PreRoomViewProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -650,6 +656,8 @@ export function PreRoomView({
           title="Leave Room?"
           subtitle=""
           onConfirm={onLeave}
+          externalOpen={backButtonDialogOpen}
+          onClose={onCancelNavigation}
         >
           {(openDialog) => (
             <button
