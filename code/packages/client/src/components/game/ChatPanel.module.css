@@ -167,6 +167,46 @@
   cursor: not-allowed;
 }
 
+/* Spectator chat toggle in header */
+.spectatorToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  font-size: var(--font-base);
+}
+
+.spectatorToggleLabel {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+/* Spectator message styling */
+.spectatorMessage {
+  opacity: 0.85;
+}
+
+.spectatorSender {
+  font-size: var(--font-base);
+  font-weight: 700;
+  font-style: italic;
+  color: var(--color-text-muted);
+  margin-right: var(--space-1);
+}
+
+/* System message styling */
+.systemMessage {
+  padding: var(--space-1) 0;
+  text-align: center;
+}
+
+.systemText {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 /* REQ-NF-U01: Mobile — bottom sheet */
 @media (max-width: 640px) {
   .panel {

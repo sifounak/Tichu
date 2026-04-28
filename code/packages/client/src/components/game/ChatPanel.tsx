@@ -6,9 +6,10 @@ import type { Seat } from '@tichu/shared';
 import styles from './ChatPanel.module.css';
 
 export interface ChatMessage {
-  from: Seat;
+  from: Seat | null;
   text: string;
   timestamp: number;
+  spectatorName?: string;
 }
 
 export interface ChatPanelProps {
@@ -20,6 +21,10 @@ export interface ChatPanelProps {
   seatNames?: Record<Seat, string>;
   // REQ-F-SP14: Spectators can read chat but not send
   readOnly?: boolean;
+  isHost?: boolean;
+  isSpectator?: boolean;
+  spectatorChatEnabled?: boolean;
+  onToggleSpectatorChat?: () => void;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -37,7 +42,13 @@ export const ChatPanel = memo(function ChatPanel({
   unreadCount,
   seatNames,
   readOnly = false,
+  isHost = false,
+  isSpectator = false,
+  spectatorChatEnabled = false,
+  onToggleSpectatorChat,
 }: ChatPanelProps) {
+  // Spectators can type when spectator chat is enabled; players always can
+  const effectiveReadOnly = isSpectator ? !spectatorChatEnabled : readOnly;
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -79,6 +90,16 @@ export const ChatPanel = memo(function ChatPanel({
         <div className={styles.panel} role="complementary" aria-label="Chat">
           <div className={styles.header}>
             <span className={styles.headerTitle}>Chat</span>
+            {isHost && onToggleSpectatorChat && (
+              <label className={styles.spectatorToggle} aria-label="Toggle spectator chat">
+                <input
+                  type="checkbox"
+                  checked={spectatorChatEnabled}
+                  onChange={onToggleSpectatorChat}
+                />
+                <span className={styles.spectatorToggleLabel}>Spectator Chat</span>
+              </label>
+            )}
             <button
               className={styles.closeButton}
               onClick={onToggle}
@@ -92,17 +113,37 @@ export const ChatPanel = memo(function ChatPanel({
             {messages.length === 0 && (
               <p className={styles.emptyText}>No messages yet</p>
             )}
-            {messages.map((msg, i) => (
-              <div key={i} className={styles.message}>
-                <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}</span>
-                <span className={styles.messageText}>{msg.text}</span>
-              </div>
-            ))}
+            {messages.map((msg, i) => {
+              if (msg.from === null && msg.spectatorName) {
+                // Spectator message
+                return (
+                  <div key={i} className={`${styles.message} ${styles.spectatorMessage}`}>
+                    <span className={styles.spectatorSender}>{msg.spectatorName} (spectator)</span>
+                    <span className={styles.messageText}>{msg.text}</span>
+                  </div>
+                );
+              }
+              if (msg.from === null) {
+                // System message
+                return (
+                  <div key={i} className={styles.systemMessage}>
+                    <span className={styles.systemText}>{msg.text}</span>
+                  </div>
+                );
+              }
+              // Player message (existing)
+              return (
+                <div key={i} className={styles.message}>
+                  <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}</span>
+                  <span className={styles.messageText}>{msg.text}</span>
+                </div>
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
 
           {/* REQ-F-SP14: Hide input for spectators (readOnly mode) */}
-          {!readOnly && (
+          {!effectiveReadOnly && (
             <form className={styles.inputRow} onSubmit={handleSubmit}>
               <input
                 className={styles.input}
