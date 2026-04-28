@@ -674,8 +674,13 @@ export function PreRoomView({
           )}
         </LeaveConfirmDialog>
 
+        {/* Copy toast — positioned to the right so it doesn't shift buttons */}
         {codeCopied && (
           <div style={{
+            position: 'absolute',
+            top: 0,
+            left: '100%',
+            marginLeft: 'var(--space-2)',
             background: 'var(--color-bg-panel)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--card-border-radius)',
