@@ -60,7 +60,8 @@ export type GameEvent =
   | { type: 'TURN_TIMEOUT'; seat: Seat }
   | { type: 'DECLARE_WISH'; seat: Seat; rank: Rank | null }
   | { type: 'ADVANCE_FROM_SCORING' }
-  | { type: 'END_OF_TRICK_BOMB_TIMEOUT' };
+  | { type: 'END_OF_TRICK_BOMB_TIMEOUT' }
+  | { type: 'RESTART_ROUND' };
 
 // ─── Context Type ───────────────────────────────────────────────────────────
 
@@ -827,6 +828,10 @@ export const gameMachine = setup({
           guard: 'hasPassedCards',
           actions: 'cancelCardPass',
         },
+        RESTART_ROUND: {
+          target: 'grandTichuDecision',
+          actions: 'startRound',
+        },
       },
       always: {
         guard: 'allGrandTichuDecided',
@@ -848,6 +853,10 @@ export const gameMachine = setup({
         CARDS_PASS_CANCELLED: {
           guard: 'hasPassedCards',
           actions: 'cancelCardPass',
+        },
+        RESTART_ROUND: {
+          target: 'grandTichuDecision',
+          actions: 'startRound',
         },
       },
       always: {
@@ -915,6 +924,10 @@ export const gameMachine = setup({
             return { currentRound: round };
           }),
         },
+        RESTART_ROUND: {
+          target: 'grandTichuDecision',
+          actions: 'startRound',
+        },
       },
       always: [
         {
@@ -932,6 +945,7 @@ export const gameMachine = setup({
       ],
     },
 
+
     awaitingEndOfTrickBomb: {
       on: {
         PLAY_CARDS: {
@@ -942,6 +956,10 @@ export const gameMachine = setup({
         END_OF_TRICK_BOMB_TIMEOUT: {
           actions: 'completeTrickFromBombWindow',
           target: 'playing',
+        },
+        RESTART_ROUND: {
+          target: 'grandTichuDecision',
+          actions: 'startRound',
         },
       },
     },
@@ -954,6 +972,10 @@ export const gameMachine = setup({
         },
         // REQ-F-TT05: Timer runs during dragon gift; timeout handled by game-manager
         TURN_TIMEOUT: {},
+        RESTART_ROUND: {
+          target: 'grandTichuDecision',
+          actions: 'startRound',
+        },
       },
     },
 

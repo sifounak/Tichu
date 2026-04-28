@@ -50,7 +50,7 @@ export class Broadcaster {
    * Each player receives their own view with hidden opponent hands.
    * REQ-F-SP06: Spectators (seat === null) receive a spectator-projected view.
    */
-  broadcastGameState(roomCode: string, context: GameMachineContext, machineState: string, vacatedSeats: readonly Seat[] = [], choosingSeats: readonly Seat[] = [], disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null, activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null, timerInfo?: { startTime: number | null; durationMs: number | null }, endOfTrickBombWindowEndTime?: number | null): number {
+  broadcastGameState(roomCode: string, context: GameMachineContext, machineState: string, vacatedSeats: readonly Seat[] = [], choosingSeats: readonly Seat[] = [], disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null, activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null, timerInfo?: { startTime: number | null; durationMs: number | null }, endOfTrickBombWindowEndTime?: number | null): number {
     const clients = this.connections.getClientsInRoom(roomCode);
     let sent = 0;
     // REQ-F-SP05, REQ-NF-SP02: Compute spectator view once (lazy, shared across all spectators)

@@ -22,7 +22,8 @@ const GAME_MESSAGE_TYPES = [
   'DISCONNECT_VOTE',
   // REQ-F-PV20: Player-initiated vote messages
   'START_KICK_VOTE',
-  'START_RESTART_VOTE',
+  'START_RESTART_GAME_VOTE',
+  'START_RESTART_ROUND_VOTE',
   'PLAYER_VOTE',
 ] as const;
 

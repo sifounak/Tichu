@@ -213,8 +213,11 @@ export class GameManager {
       case 'START_KICK_VOTE':
         this.handleStartKickVote(ws, seat, message.targetSeat);
         return;
-      case 'START_RESTART_VOTE':
-        this.handleStartRestartVote(ws, seat);
+      case 'START_RESTART_GAME_VOTE':
+        this.handleStartRestartGameVote(ws, seat);
+        return;
+      case 'START_RESTART_ROUND_VOTE':
+        this.handleStartRestartRoundVote(ws, seat);
         return;
       case 'PLAYER_VOTE':
         this.voteHandler.handleVote(this.roomCode, seat, message.voteId, message.vote);
@@ -291,16 +294,23 @@ export class GameManager {
 
   /** REQ-F-PV22: Wire the player vote result callback.
    *  Called by game-store or room-handler to register the callback. */
-  wireVoteCallback(onKickVotePassed: (roomCode: string, targetSeat: Seat) => void, onRestartVotePassed: (roomCode: string) => void): void {
+  wireVoteCallback(
+    onKickVotePassed: (roomCode: string, targetSeat: Seat) => void,
+    onRestartGameVotePassed: (roomCode: string) => void,
+    onRestartRoundVotePassed: (roomCode: string) => void,
+  ): void {
     this.voteHandler.onVoteResult = (roomCode, voteType, passed, targetSeat) => {
       if (voteType === 'kick' && passed && targetSeat) {
         // REQ-F-PV16: Kick vote passed — vacate the target seat
         this.vacatedSeats.add(targetSeat);
         this.broadcastState();
         onKickVotePassed(roomCode, targetSeat);
-      } else if (voteType === 'restart' && passed) {
-        // REQ-F-PV18: Restart vote passed — handled by GameStore after delay
-        onRestartVotePassed(roomCode);
+      } else if (voteType === 'restartGame' && passed) {
+        // REQ-F-PV18: Restart game vote passed — handled by room-handler after delay
+        onRestartGameVotePassed(roomCode);
+      } else if (voteType === 'restartRound' && passed) {
+        // Restart round vote passed — handled by room-handler after delay
+        onRestartRoundVotePassed(roomCode);
       } else {
         // REQ-F-PV17/PV19: Vote failed — just broadcast to clear vote UI
         this.broadcastState();
@@ -459,8 +469,8 @@ export class GameManager {
     this.voteHandler.startKickVote(this.roomCode, initiatorSeat, targetSeat, humanSeats);
   }
 
-  /** REQ-F-PV04, REQ-F-PV25: Start a restart vote with validation */
-  private handleStartRestartVote(ws: WebSocket, initiatorSeat: Seat): void {
+  /** REQ-F-PV04, REQ-F-PV25: Start a restart-game vote with validation */
+  private handleStartRestartGameVote(ws: WebSocket, initiatorSeat: Seat): void {
     // REQ-F-PV25: No concurrent votes
     if (this.voteHandler.hasActiveVote(this.roomCode)) {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
@@ -477,7 +487,26 @@ export class GameManager {
     }
 
     const humanSeats = this.getHumanSeats();
-    this.voteHandler.startRestartVote(this.roomCode, initiatorSeat, humanSeats);
+    this.voteHandler.startRestartGameVote(this.roomCode, initiatorSeat, humanSeats);
+  }
+
+  /** Start a restart-round vote with validation */
+  private handleStartRestartRoundVote(ws: WebSocket, initiatorSeat: Seat): void {
+    if (this.voteHandler.hasActiveVote(this.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
+      return;
+    }
+    if (this.disconnectHandler.hasActiveVote(this.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'Cannot start vote during disconnect handling');
+      return;
+    }
+    if (this.botRunner.isBot(initiatorSeat)) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
+      return;
+    }
+
+    const humanSeats = this.getHumanSeats();
+    this.voteHandler.startRestartRoundVote(this.roomCode, initiatorSeat, humanSeats);
   }
 
   /** Get all human (non-bot) seats */
@@ -971,6 +1000,16 @@ export class GameManager {
   /** REQ-F-CP01: Get accumulated event data (for persistence) */
   getEventAccumulator(): GameEventAccumulator {
     return this.eventCapture.getAccumulator();
+  }
+
+  /** Get the event capture instance (for restart-round data cleanup) */
+  getEventCapture(): GameEventCapture {
+    return this.eventCapture;
+  }
+
+  /** Send RESTART_ROUND event to the state machine actor */
+  sendRestartRound(): void {
+    this.actor.send({ type: 'RESTART_ROUND' });
   }
 
   /**

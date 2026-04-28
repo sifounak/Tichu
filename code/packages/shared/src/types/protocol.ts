@@ -74,9 +74,10 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   // REQ-F-ES04: Disconnect vote (Wait to keep seat reserved, Kick to vacate)
   z.object({ type: z.literal('DISCONNECT_VOTE'), vote: z.enum(['wait', 'kick']) }),
 
-  // REQ-F-PV20: Player-initiated vote (kick player or restart game)
+  // REQ-F-PV20: Player-initiated votes (kick player, restart game, restart round)
   z.object({ type: z.literal('START_KICK_VOTE'), targetSeat: seatSchema }),
-  z.object({ type: z.literal('START_RESTART_VOTE') }),
+  z.object({ type: z.literal('START_RESTART_GAME_VOTE') }),
+  z.object({ type: z.literal('START_RESTART_ROUND_VOTE') }),
   z.object({ type: z.literal('PLAYER_VOTE'), voteId: z.string(), vote: z.boolean() }),
 
   // REQ-F-VI09: Pre-game kick vote (separate from in-game to avoid routing conflicts)
@@ -153,9 +154,9 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('DISCONNECT_VOTE_UPDATE'), votes: z.record(seatSchema, z.enum(['wait', 'kick']).nullable()), disconnectedSeats: z.array(seatSchema), timeoutMs: z.number() }),
 
   // REQ-F-PV21: Player-initiated vote messages (kick player or restart game)
-  z.object({ type: z.literal('VOTE_STARTED'), voteId: z.string(), voteType: z.enum(['kick', 'restart']), initiatorSeat: seatSchema, targetSeat: seatSchema.optional(), timeoutMs: z.number() }),
+  z.object({ type: z.literal('VOTE_STARTED'), voteId: z.string(), voteType: z.enum(['kick', 'restartGame', 'restartRound']), initiatorSeat: seatSchema, targetSeat: seatSchema.optional(), timeoutMs: z.number() }),
   z.object({ type: z.literal('VOTE_UPDATE'), voteId: z.string(), votes: z.record(seatSchema, z.boolean().nullable()), timeoutMs: z.number() }),
-  z.object({ type: z.literal('VOTE_RESULT'), voteId: z.string(), voteType: z.enum(['kick', 'restart']), passed: z.boolean(), targetSeat: seatSchema.optional(), message: z.string() }),
+  z.object({ type: z.literal('VOTE_RESULT'), voteId: z.string(), voteType: z.enum(['kick', 'restartGame', 'restartRound']), passed: z.boolean(), targetSeat: seatSchema.optional(), message: z.string() }),
 
   // Chat
   z.object({ type: z.literal('CHAT_RECEIVED'), from: seatSchema, text: z.string() }),

@@ -16,7 +16,7 @@ import styles from './VoteOverlay.module.css';
 export interface VoteOverlayProps {
   activeVote: {
     voteId: string;
-    voteType: 'kick' | 'restart';
+    voteType: 'kick' | 'restartGame' | 'restartRound';
     initiatorSeat: Seat;
     targetSeat?: Seat;
     votes: Record<string, boolean | null>;
@@ -68,6 +68,8 @@ export const VoteOverlay = memo(function VoteOverlay({
     dialogMessage = `${initiatorName} has started a vote to kick you`;
   } else if (voteType === 'kick') {
     dialogMessage = `${initiatorName} has started a vote to kick ${targetName}`;
+  } else if (voteType === 'restartRound') {
+    dialogMessage = `${initiatorName} has started a vote to restart the round`;
   } else {
     dialogMessage = `${initiatorName} has started a vote to restart the game`;
   }

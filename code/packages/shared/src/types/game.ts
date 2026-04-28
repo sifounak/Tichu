@@ -198,7 +198,7 @@ export interface ClientGameView {
   /** REQ-F-PV23: Active player-initiated vote (kick or restart), null when no vote */
   activeVote?: {
     voteId: string;
-    voteType: 'kick' | 'restart';
+    voteType: 'kick' | 'restartGame' | 'restartRound';
     initiatorSeat: Seat;
     targetSeat?: Seat;
     votes: Record<string, boolean | null>;
