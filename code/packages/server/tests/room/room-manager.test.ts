@@ -190,6 +190,34 @@ describe('RoomManager', () => {
       manager.startGame(room.roomCode);
       expect(() => manager.configureRoom(room.roomCode, { targetScore: 500 })).toThrow('Game already in progress');
     });
+
+    it('should allow spectatorChatEnabled change during game', () => {
+      const room = manager.createRoom('u1', 'P1');
+      manager.addBot(room.roomCode, 'north');
+      manager.addBot(room.roomCode, 'east');
+      manager.addBot(room.roomCode, 'west');
+      manager.startGame(room.roomCode);
+      manager.configureRoom(room.roomCode, { spectatorChatEnabled: true });
+      expect(room.config.spectatorChatEnabled).toBe(true);
+    });
+
+    it('should reject non-spectatorChatEnabled config changes during game', () => {
+      const room = manager.createRoom('u1', 'P1');
+      manager.addBot(room.roomCode, 'north');
+      manager.addBot(room.roomCode, 'east');
+      manager.addBot(room.roomCode, 'west');
+      manager.startGame(room.roomCode);
+      expect(() => manager.configureRoom(room.roomCode, { targetScore: 500 })).toThrow('Game already in progress');
+    });
+
+    it('should reject mixed config with non-spectatorChatEnabled fields during game', () => {
+      const room = manager.createRoom('u1', 'P1');
+      manager.addBot(room.roomCode, 'north');
+      manager.addBot(room.roomCode, 'east');
+      manager.addBot(room.roomCode, 'west');
+      manager.startGame(room.roomCode);
+      expect(() => manager.configureRoom(room.roomCode, { spectatorChatEnabled: true, targetScore: 500 })).toThrow('Game already in progress');
+    });
   });
 
   // ─── Game start ────────────────────────────────────────────────────

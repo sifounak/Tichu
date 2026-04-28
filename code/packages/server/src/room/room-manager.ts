@@ -213,7 +213,14 @@ export class RoomManager {
   configureRoom(roomCode: string, updates: Partial<GameConfig>): Room {
     const room = this.rooms.get(roomCode);
     if (!room) throw new Error('Room not found.');
-    if (room.gameInProgress) throw new Error('Game already in progress.');
+
+    if (room.gameInProgress) {
+      // Only spectatorChatEnabled can be changed mid-game
+      const keys = Object.keys(updates) as (keyof GameConfig)[];
+      if (keys.length !== 1 || keys[0] !== 'spectatorChatEnabled') {
+        throw new Error('Game already in progress.');
+      }
+    }
 
     Object.assign(room.config, updates);
     return room;
