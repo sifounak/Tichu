@@ -77,6 +77,7 @@ export class RoomManager {
         spectatorsAllowed: true,
         isPrivate: false,
         maxSpectators: 10,
+        spectatorChatEnabled: false,
       },
       gameInProgress: false,
       createdAt: Date.now(),
