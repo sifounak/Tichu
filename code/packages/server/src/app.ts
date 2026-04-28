@@ -101,7 +101,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
   const gameStore = new GameStore(broadcaster);
   const roomHandler = new RoomHandler(router, connections, broadcaster, gameStore, undefined, database);
   // REQ-F-GMR01: Route game messages (play, pass, tichu, etc.) to GameManager
-  const gameHandler = new GameHandler(router, connections, broadcaster, gameStore);
+  const gameHandler = new GameHandler(router, connections, broadcaster, gameStore, roomHandler.roomManager);
 
   // Wire room destruction → game cleanup
   roomHandler.roomManager.onRoomDestroyed = (roomCode) => {
