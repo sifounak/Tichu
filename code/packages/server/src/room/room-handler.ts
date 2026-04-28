@@ -410,9 +410,26 @@ export class RoomHandler {
       return;
     }
 
+    // Capture previous value for change detection
+    const room = this.roomManager.getRoom(info.roomCode);
+    const prevSpectatorChat = room?.config.spectatorChatEnabled;
+
     try {
       this.roomManager.configureRoom(info.roomCode, msg.config);
       this.broadcastRoomUpdate(info.roomCode);
+
+      // SC-05: Broadcast system chat message when spectator chat is toggled
+      const newSpectatorChat = room?.config.spectatorChatEnabled;
+      if (prevSpectatorChat !== newSpectatorChat && newSpectatorChat !== undefined) {
+        const text = newSpectatorChat
+          ? 'Spectator chat has been enabled by the host'
+          : 'Spectator chat has been disabled by the host';
+        this.broadcaster.broadcastToRoom(info.roomCode, {
+          type: 'CHAT_RECEIVED',
+          from: null,
+          text,
+        } as import('@tichu/shared').ServerMessage);
+      }
     } catch (err) {
       this.broadcaster.sendError(ws, 'CONFIGURE_FAILED', (err as Error).message);
     }
