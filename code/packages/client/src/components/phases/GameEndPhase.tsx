@@ -20,6 +20,10 @@ export interface GameEndPhaseProps {
   mySeat: Seat;
   onNewGame: () => void;
   onLeaveRoom: () => void;
+  /** REQ-F-BB01: When true, opens leave dialog programmatically (from back/forward button) */
+  backButtonDialogOpen?: boolean;
+  /** REQ-F-BB01: Called when user cancels the back-button leave dialog */
+  onCancelNavigation?: () => void;
 }
 
 interface TeamStats {
@@ -91,6 +95,8 @@ export const GameEndPhase = memo(function GameEndPhase({
   mySeat,
   onNewGame,
   onLeaveRoom,
+  backButtonDialogOpen,
+  onCancelNavigation,
 }: GameEndPhaseProps) {
   const myTeam = getTeam(mySeat);
   const theirTeam: Team = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
@@ -159,6 +165,8 @@ export const GameEndPhase = memo(function GameEndPhase({
             title="Leave Room?"
             subtitle=""
             onConfirm={onLeaveRoom}
+            externalOpen={backButtonDialogOpen}
+            onClose={onCancelNavigation}
           >
             {(openDialog) => (
               <button className={styles.leaveButton} onClick={openDialog}>

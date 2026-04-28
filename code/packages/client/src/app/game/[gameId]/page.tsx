@@ -784,6 +784,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           seatClaimRejection={uiStore.seatClaimRejection}
           onDismissSeatClaimRejection={() => uiStore.clearSeatClaimRejection()}
           onClaimOriginalSeat={(seat) => send({ type: 'CLAIM_SEAT', seat })}
+          backButtonDialogOpen={backButtonDialogOpen}
+          onCancelNavigation={cancelNavigation}
         />
       </>
     );
@@ -813,7 +815,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           roundHistory={gameStore.roundHistory}
           mySeat={gameStore.mySeat!}
           onNewGame={() => send({ type: 'START_GAME' })}
-          onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
+          onLeaveRoom={() => { confirmNavigation(); send({ type: 'LEAVE_ROOM' }); }}
+          backButtonDialogOpen={backButtonDialogOpen}
+          onCancelNavigation={cancelNavigation}
         />
         <ConnectionStatus status={status} />
       </>
