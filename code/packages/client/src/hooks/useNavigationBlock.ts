@@ -91,31 +91,40 @@ export function useNavigationBlock({ enabled }: UseNavigationBlockOptions): UseN
     };
     window.addEventListener('pageshow', handlePageShow);
 
-    // Cleanup function stored in ref so confirmNavigation can call it
-    const cleanup = () => {
+    // Remove listeners only (no history manipulation).
+    // Used by confirmNavigation — callers navigate explicitly via router.push,
+    // so calling go(-1) here would race with and undo that navigation.
+    const removeListeners = () => {
       clearTimeout(armTimer);
       removeNavigationListener?.();
       window.removeEventListener('popstate', handlePopState, { capture: true });
       window.removeEventListener('pageshow', handlePageShow);
-      // Pop the guard entry so normal navigation works
+    };
+    cleanupRef.current = removeListeners;
+
+    // Full cleanup for effect teardown: remove listeners AND pop the guard entry.
+    // Only runs when `enabled` flips to false or the component unmounts — never
+    // races with an explicit router.push.
+    return () => {
+      removeListeners();
       if (guardPushedRef.current) {
         guardPushedRef.current = false;
         window.history.go(-1);
       }
     };
-    cleanupRef.current = cleanup;
-
-    return cleanup;
   }, [enabled]);
 
   const confirmNavigation = useCallback(() => {
     blockedRef.current = false;
     setDialogOpen(false);
-    // Remove listeners and pop guard entry before caller triggers navigation
+    // Remove listeners but do NOT pop the guard entry — the caller will
+    // navigate away (router.push) and the guard entry becomes irrelevant.
+    // Calling go(-1) here would race with and undo the caller's navigation.
     if (cleanupRef.current) {
       cleanupRef.current();
       cleanupRef.current = null;
     }
+    guardPushedRef.current = false;
   }, []);
 
   const cancelNavigation = useCallback(() => {
