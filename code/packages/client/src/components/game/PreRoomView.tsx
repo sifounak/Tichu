@@ -753,6 +753,14 @@ export function PreRoomView({
                 />
                 <span className={styles.settingsCheckLabel}>Spectators</span>
               </label>
+              <label className={styles.settingsCheckRow}>
+                <input
+                  type="checkbox"
+                  checked={config.spectatorChatEnabled}
+                  onChange={(e) => handleConfigChange({ spectatorChatEnabled: e.target.checked })}
+                />
+                <span className={styles.settingsCheckLabel}>Spectator Chat</span>
+              </label>
             </div>
           ) : (
             <div className={styles.summaryGrid}>
@@ -760,6 +768,7 @@ export function PreRoomView({
               <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
               <span>{config.isPrivate ? 'Private' : 'Public'}</span>
               <span>Spectators: {config.spectatorsAllowed ? 'Yes' : 'No'}</span>
+              <span>Spectator Chat: {config.spectatorChatEnabled ? 'Yes' : 'No'}</span>
             </div>
           )}
         </div>

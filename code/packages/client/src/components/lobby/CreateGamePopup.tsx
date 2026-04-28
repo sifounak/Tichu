@@ -12,6 +12,7 @@ export interface CreateGameConfig {
   turnTimerSeconds: 30 | 60 | 90 | null;
   isPrivate: boolean;
   spectatorsAllowed: boolean;
+  spectatorChatEnabled: boolean;
 }
 
 interface CreateGamePopupProps {
@@ -25,6 +26,7 @@ const DEFAULTS: CreateGameConfig = {
   turnTimerSeconds: null,
   isPrivate: false,
   spectatorsAllowed: true,
+  spectatorChatEnabled: false,
 };
 
 export function CreateGamePopup({ onCancel, onCreate }: CreateGamePopupProps) {
@@ -93,6 +95,16 @@ export function CreateGamePopup({ onCancel, onCreate }: CreateGamePopupProps) {
               onChange={(e) => setConfig({ ...config, spectatorsAllowed: e.target.checked })}
             />
             <span className={styles.checkboxLabel}>Allow Spectators</span>
+          </label>
+
+          {/* Spectator Chat */}
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={config.spectatorChatEnabled}
+              onChange={(e) => setConfig({ ...config, spectatorChatEnabled: e.target.checked })}
+            />
+            <span className={styles.checkboxLabel}>Spectator Chat</span>
           </label>
         </div>
 
