@@ -8,6 +8,7 @@ import type { ConnectionManager } from '../ws/connection-manager.js';
 import type { Broadcaster } from '../ws/broadcaster.js';
 import type { MessageRouter } from '../ws/message-router.js';
 import type { GameStore } from './game-store.js';
+import type { RoomManager } from '../room/room-manager.js';
 
 /** Game message types that should be routed to GameManager */
 const GAME_MESSAGE_TYPES = [
@@ -40,6 +41,7 @@ export class GameHandler {
     private readonly connections: ConnectionManager,
     private readonly broadcaster: Broadcaster,
     private readonly gameStore: GameStore,
+    private readonly roomManager: RoomManager,
   ) {
     // Register all game message types to route through GameManager
     for (const type of GAME_MESSAGE_TYPES) {
@@ -73,18 +75,33 @@ export class GameHandler {
   /**
    * REQ-F-GMR03: Handle chat messages by broadcasting to the room.
    * Chat is not a game-engine action, so it bypasses GameManager.
+   * SC-03: Spectators can send chat when spectatorChatEnabled is true.
    */
   private handleChatMessage(ws: WebSocket, msg: ClientMessage & { type: 'CHAT_MESSAGE' }): void {
     const info = this.connections.getClientInfo(ws);
-    if (!info?.roomCode || !info.seat) {
+    if (!info?.roomCode) {
       this.broadcaster.sendError(ws, 'NOT_IN_GAME', 'You must be in a game to chat');
       return;
     }
 
-    this.broadcaster.broadcastToRoom(info.roomCode, {
-      type: 'CHAT_RECEIVED',
-      from: info.seat,
-      text: msg.text,
-    });
+    if (info.seat) {
+      // Player chat — existing behavior
+      this.broadcaster.broadcastToRoom(info.roomCode, {
+        type: 'CHAT_RECEIVED',
+        from: info.seat,
+        text: msg.text,
+      });
+    } else {
+      // Spectator chat — only when enabled (SC-10: silently ignore when disabled)
+      const room = this.roomManager.getRoom(info.roomCode);
+      if (!room?.config.spectatorChatEnabled) return;
+
+      this.broadcaster.broadcastToRoom(info.roomCode, {
+        type: 'CHAT_RECEIVED',
+        from: null,
+        spectatorName: info.playerName,
+        text: msg.text,
+      } as import('@tichu/shared').ServerMessage);
+    }
   }
 }
