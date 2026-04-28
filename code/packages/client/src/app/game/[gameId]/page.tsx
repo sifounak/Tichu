@@ -148,11 +148,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         // REQ-F-AP12: Auto-pass resets naturally via trick-won detection and phase change.
         // Do NOT reset here — GAME_STATE fires on every state transition, not just reconnect.
       } else if (msg.type === 'CHAT_RECEIVED') {
-        // REQ-F-MP07: Chat message received
+        // REQ-F-MP07: Chat message received — SC-04: spectator + system messages
         uiStore.addChatMessage({
-          from: msg.from as Seat,
+          from: (msg.from as Seat | null),
           text: msg.text as string,
           timestamp: Date.now(),
+          spectatorName: (msg as Record<string, unknown>).spectatorName as string | undefined,
         });
       } else if (msg.type === 'PLAYER_DISCONNECTED') {
         // REQ-F-ES04: Player disconnected
@@ -1570,7 +1571,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {/* REQ-NF-U02: Tichu call banner */}
       {!showReceivedCards && <TichuBanner tichuEvent={uiStore.tichuEvent} />}
 
-      {/* REQ-F-MP07: In-game chat — REQ-F-SP14: readOnly for spectators */}
+      {/* REQ-F-MP07: In-game chat — SC-03: spectator chat when enabled */}
       <ChatPanel
         messages={uiStore.chatMessages}
         onSend={handleChatSend}
@@ -1578,7 +1579,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         onToggle={uiStore.toggleChat}
         unreadCount={uiStore.chatUnread}
         seatNames={seatNames}
-        readOnly={isSpectator}
+        isHost={mySeatFromRoom === hostSeat}
+        isSpectator={isSpectator}
+        spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+        onToggleSpectatorChat={() => send({
+          type: 'CONFIGURE_ROOM',
+          config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
+        })}
       />
 
       {/* Disconnect overlay removed — vacated seats shown inline on player info boxes */}
