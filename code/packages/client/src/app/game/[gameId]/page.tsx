@@ -768,6 +768,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           readyPlayers={readyPlayers}
           send={send as (msg: Record<string, unknown>) => boolean}
           onLeave={() => {
+            confirmNavigation(); // Disarm navigation guard before routing
             send({ type: 'LEAVE_ROOM' });
             leaveRoom();
             gameStore.reset();
