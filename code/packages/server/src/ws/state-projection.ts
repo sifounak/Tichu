@@ -25,7 +25,7 @@ export function projectGameState(
   vacatedSeats: readonly Seat[] = [],
   choosingSeats: readonly Seat[] = [],
   disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
-  activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
+  activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
   timerInfo?: { startTime: number | null; durationMs: number | null },
   endOfTrickBombWindowEndTime?: number | null,
 ): ClientGameView {
@@ -170,7 +170,7 @@ export function projectSpectatorView(
   machineState: string,
   vacatedSeats: readonly Seat[] = [],
   disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
-  activeVote?: { voteId: string; voteType: 'kick' | 'restart'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
+  activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
   timerInfo?: { startTime: number | null; durationMs: number | null },
   endOfTrickBombWindowEndTime?: number | null,
 ): ClientGameView {

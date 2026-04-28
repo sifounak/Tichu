@@ -1086,7 +1086,26 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   Kick Player
                 </button>
                 <button
-                  onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_VOTE' }); }}
+                  onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_ROUND_VOTE' }); }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--color-text-primary)',
+                    padding: 'var(--space-2) var(--space-3)',
+                    fontSize: 'var(--font-base)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                >
+                  Restart Round
+                </button>
+                <button
+                  onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_GAME_VOTE' }); }}
                   style={{
                     display: 'block',
                     width: '100%',

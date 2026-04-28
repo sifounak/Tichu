@@ -8,7 +8,7 @@ import type { Seat } from '@tichu/shared';
 import type { Broadcaster } from '../ws/broadcaster.js';
 
 /** REQ-F-PV22: Vote types */
-export type PlayerVoteType = 'kick' | 'restart';
+export type PlayerVoteType = 'kick' | 'restartGame' | 'restartRound';
 
 /** State for an active player-initiated vote session */
 interface PlayerVoteSession {
@@ -96,21 +96,21 @@ export class VoteHandler {
   }
 
   /**
-   * REQ-F-PV04: Start a restart vote.
+   * REQ-F-PV04: Start a restart-game vote.
    * Eligible voters: all human seats.
    */
-  startRestartVote(roomCode: string, initiatorSeat: Seat, humanSeats: Seat[]): boolean {
+  startRestartGameVote(roomCode: string, initiatorSeat: Seat, humanSeats: Seat[]): boolean {
     if (this.sessions.has(roomCode)) return false;
 
     const eligibleVoters = [...humanSeats];
-    const session = this.createSession('restart', initiatorSeat, eligibleVoters);
+    const session = this.createSession('restartGame', initiatorSeat, eligibleVoters);
     this.sessions.set(roomCode, session);
 
     // REQ-F-PV21: Broadcast VOTE_STARTED
     this.broadcaster.broadcastToRoom(roomCode, {
       type: 'VOTE_STARTED',
       voteId: session.voteId,
-      voteType: 'restart',
+      voteType: 'restartGame',
       initiatorSeat,
       timeoutMs: session.timeoutMs,
     });
@@ -126,6 +126,41 @@ export class VoteHandler {
     }
 
     // REQ-F-PV15: Start timeout
+    session.timeoutHandle = setTimeout(() => {
+      this.resolveVote(roomCode);
+    }, this.voteTimeoutMs);
+
+    return true;
+  }
+
+  /**
+   * Start a restart-round vote.
+   * Same semantics as restart-game: unanimous approval from all human seats.
+   */
+  startRestartRoundVote(roomCode: string, initiatorSeat: Seat, humanSeats: Seat[]): boolean {
+    if (this.sessions.has(roomCode)) return false;
+
+    const eligibleVoters = [...humanSeats];
+    const session = this.createSession('restartRound', initiatorSeat, eligibleVoters);
+    this.sessions.set(roomCode, session);
+
+    this.broadcaster.broadcastToRoom(roomCode, {
+      type: 'VOTE_STARTED',
+      voteId: session.voteId,
+      voteType: 'restartRound',
+      initiatorSeat,
+      timeoutMs: session.timeoutMs,
+    });
+
+    if (eligibleVoters.length <= 1) {
+      if (eligibleVoters.length === 1) {
+        session.votes.set(eligibleVoters[0], true);
+        this.broadcastVoteUpdate(roomCode);
+      }
+      this.resolveVote(roomCode);
+      return true;
+    }
+
     session.timeoutHandle = setTimeout(() => {
       this.resolveVote(roomCode);
     }, this.voteTimeoutMs);
@@ -268,8 +303,10 @@ export class VoteHandler {
     let message: string;
     if (session.voteType === 'kick') {
       message = passed ? '' : 'Vote Failed!'; // Kick success message set by GameManager (needs player name)
+    } else if (session.voteType === 'restartRound') {
+      message = passed ? 'Restarting round!' : 'Restart round vote failed!';
     } else {
-      message = passed ? 'Restarting game!' : 'Restart vote failed!';
+      message = passed ? 'Restarting game!' : 'Restart game vote failed!';
     }
 
     // REQ-F-PV21: Broadcast VOTE_RESULT

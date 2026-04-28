@@ -698,7 +698,7 @@ export class RoomHandler {
       this.broadcastRoomUpdate(rc);
     });
 
-    // REQ-F-PV22: Wire player vote callback — handle kick and restart outcomes
+    // REQ-F-PV22: Wire player vote callback — handle kick, restart-game, and restart-round outcomes
     game.wireVoteCallback(
       (rc, targetSeat) => {
         // REQ-F-PV16: Kick vote passed — send KICKED to target, vacate seat
@@ -726,9 +726,15 @@ export class RoomHandler {
         this.broadcastRoomUpdate(rc);
       },
       (rc) => {
-        // REQ-F-PV18: Restart vote passed — destroy and recreate game after 2s delay
+        // REQ-F-PV18: Restart game vote passed — destroy and recreate game after 2s delay
         setTimeout(() => {
           this.restartGame(rc);
+        }, 2000);
+      },
+      (rc) => {
+        // Restart round vote passed — discard round data and restart round after 2s delay
+        setTimeout(() => {
+          this.restartRound(rc);
         }, 2000);
       },
     );
@@ -767,8 +773,13 @@ export class RoomHandler {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
-    // REQ-F-CS24: Save pass stats before destroying the game
-    this.savePassStatsBeforeDestroy(roomCode, room.players);
+    // Delete recovery file if one exists — the in-memory accumulator is
+    // discarded when GameManager is destroyed, so no data should be persisted
+    // for a voted restart (avoids orphaned event rows with no games entry).
+    const game = this.gameStore.getGameByRoom(roomCode);
+    if (game) {
+      try { deleteRecoveryFile(game.getEventAccumulator().gameId); } catch { /* ignore */ }
+    }
 
     // End the current game and reset ready states so players must re-ready
     this.roomManager.endGame(roomCode);
@@ -778,6 +789,24 @@ export class RoomHandler {
 
     // Broadcast room update — clients will see gameInProgress=false and show PreRoomView
     this.broadcastRoomUpdate(roomCode);
+  }
+
+  /** Restart the current round — discard round data, send RESTART_ROUND to state machine */
+  private restartRound(roomCode: string): void {
+    const game = this.gameStore.getGameByRoom(roomCode);
+    if (!game) return;
+
+    // Discard in-memory event data for the current round (preserves finalized rounds)
+    game.getEventCapture().discardCurrentRound();
+
+    // Delete stale recovery file — next state change will write a fresh one
+    try { deleteRecoveryFile(game.getEventAccumulator().gameId); } catch { /* ignore */ }
+
+    // Send RESTART_ROUND to the state machine — triggers startRound action
+    game.sendRestartRound();
+
+    // Broadcast updated state to all players
+    game.broadcastState();
   }
 
   /** REQ-F-ST06: Persist accumulated event data on game abandonment. */

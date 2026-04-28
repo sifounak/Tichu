@@ -146,6 +146,26 @@ export class GameEventCapture {
     }
   }
 
+  /**
+   * Discard the current in-progress round data without finalizing it.
+   * Used when a restart-round vote passes — clears all round-specific tracking
+   * state but preserves finalized rounds in the accumulator.
+   */
+  discardCurrentRound(): void {
+    this.currentRound = null;
+    this.prevContext = null;
+    this.pendingPrePlay.clear();
+    this.trickNumber = 0;
+    this.sequenceNumber = 0;
+    this.tricksLedBy.clear();
+    this.bombInventoryBySeat.clear();
+    this.playerRoundMap.clear();
+    this.runningPointsBySeat.clear();
+    this.totalPlaysThisRound = 0;
+    this.bombInventoryPlayCountAtCreation.clear();
+    this.initialHandsCaptured = false;
+  }
+
   /** Finalize round data and add to accumulator */
   finalizeRound(): void {
     if (!this.currentRound) return;

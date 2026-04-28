@@ -100,14 +100,14 @@ export interface UiStore {
   /* --- Player Vote (REQ-F-PV01–PV28) --- */
   activeVote: {
     voteId: string;
-    voteType: 'kick' | 'restart';
+    voteType: 'kick' | 'restartGame' | 'restartRound';
     initiatorSeat: Seat;
     targetSeat?: Seat;
     votes: Record<string, boolean | null>;
     timeoutMs: number;
   } | null;
   voteResult: {
-    voteType: 'kick' | 'restart';
+    voteType: 'kick' | 'restartGame' | 'restartRound';
     passed: boolean;
     message: string;
   } | null;
