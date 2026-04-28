@@ -82,6 +82,11 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     ? authUser!.username
     : (typeof window !== 'undefined' ? (sessionStorage.getItem('tichu_player_name') ?? 'Guest') : 'Guest');
 
+  // REQ-F-BB01: Intercept browser back/forward button with confirmation dialog
+  // Placed before handleMessage so confirmNavigation is available for server-initiated navigation
+  const { dialogOpen: backButtonDialogOpen, confirmNavigation, cancelNavigation } =
+    useNavigationBlock({ enabled: Boolean(roomCode) });
+
   // REQ-F-DA01: Dog animation detection and timing
   const { enabled: animEnabled, multiplier: animMultiplier } = useAnimationSettings();
   const dogAnimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -228,6 +233,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         });
       } else if (msg.type === 'ROOM_CLOSED') {
         // REQ-F-SP15: Room closed — return to lobby
+        confirmNavigation(); // Disarm navigation guard before routing
         leaveRoom();
         gameStore.reset();
         sessionStorage.setItem('tichu_kicked_message', msg.message ?? 'The room was closed');
@@ -259,11 +265,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           uiStore.clearPlayerVoteState();
         }
       } else if (msg.type === 'KICKED') {
+        confirmNavigation(); // Disarm navigation guard before routing
         leaveRoom();
         gameStore.reset();
         sessionStorage.setItem('tichu_kicked_message', msg.message ?? 'You were kicked');
         router.push('/lobby');
       } else if (msg.type === 'ROOM_LEFT') {
+        confirmNavigation(); // Disarm navigation guard before routing
         leaveRoom();
         gameStore.reset();
         router.push('/lobby');
@@ -283,7 +291,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         gameStore.applyServerMessage(msg);
       }
     },
-    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers],
+    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers, confirmNavigation],
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
@@ -651,9 +659,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [disconnect, isSpectator, gameInProgress]);
 
-  // REQ-F-BB01: Intercept browser back/forward button with confirmation dialog
-  const { dialogOpen: backButtonDialogOpen, confirmNavigation, cancelNavigation } =
-    useNavigationBlock({ enabled: Boolean(roomCode) });
 
   // REQ-F-PV15: Countdown timer for active vote
   useEffect(() => {
@@ -1172,9 +1177,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           )}
         </LeaveConfirmDialog>
 
-        {/* Copy toast */}
+        {/* Copy toast — positioned to the right so it doesn't shift buttons */}
         {codeCopied && (
           <div style={{
+            position: 'absolute',
+            top: 0,
+            left: '100%',
+            marginLeft: 'var(--space-2)',
             background: 'var(--color-bg-panel)',
             border: '1px solid var(--color-border)',
             borderRadius: 'var(--card-border-radius)',
