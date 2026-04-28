@@ -127,6 +127,7 @@ export interface GameConfig {
   turnTimerSeconds: number | null;
   spectatorsAllowed: boolean;
   isPrivate: boolean;
+  spectatorChatEnabled: boolean;
 }
 
 /** Default game configuration */
@@ -135,6 +136,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   turnTimerSeconds: null,
   spectatorsAllowed: true,
   isPrivate: false,
+  spectatorChatEnabled: false,
 };
 
 /** Full game state across rounds */

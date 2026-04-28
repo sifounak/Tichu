@@ -31,6 +31,7 @@ const roomConfigSchema = z.object({
   turnTimerSeconds: z.union([z.literal(null), z.literal(30), z.literal(60), z.literal(90)]).optional(),
   spectatorsAllowed: z.boolean().optional(),
   isPrivate: z.boolean().optional(),
+  spectatorChatEnabled: z.boolean().optional(),
 });
 
 export const clientMessageSchema = z.discriminatedUnion('type', [
