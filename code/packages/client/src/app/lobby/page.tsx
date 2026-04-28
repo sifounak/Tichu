@@ -390,23 +390,25 @@ export default function LobbyPage() {
             Public Rooms
           </h2>
 
-          {/* Search */}
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="Search by room name or host..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg"
-              style={{
-                background: 'var(--color-felt-green-dark)',
-                color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border)',
-                fontSize: '15px',
-              }}
-              aria-label="Search rooms"
-            />
-          </div>
+          {/* Search — hidden when no rooms exist */}
+          {lobbyRooms.length > 0 && (
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search by room name or host..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg"
+                style={{
+                  background: 'var(--color-felt-green-dark)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border)',
+                  fontSize: '15px',
+                }}
+                aria-label="Search rooms"
+              />
+            </div>
+          )}
 
           <div style={{ position: 'relative' }}>
           {!lobbyLoaded && (
