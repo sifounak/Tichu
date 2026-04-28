@@ -160,7 +160,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('VOTE_RESULT'), voteId: z.string(), voteType: z.enum(['kick', 'restartGame', 'restartRound']), passed: z.boolean(), targetSeat: seatSchema.optional(), message: z.string() }),
 
   // Chat
-  z.object({ type: z.literal('CHAT_RECEIVED'), from: seatSchema, text: z.string() }),
+  z.object({ type: z.literal('CHAT_RECEIVED'), from: seatSchema.nullable(), text: z.string(), spectatorName: z.string().optional() }),
 
   // Heartbeat (application-level — requires JavaScript to respond, unlike protocol-level ping/pong)
   z.object({ type: z.literal('HEARTBEAT_PING') }),
