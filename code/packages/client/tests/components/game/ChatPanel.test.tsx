@@ -78,4 +78,78 @@ describe('ChatPanel (REQ-F-MP07)', () => {
     );
     expect(screen.getByLabelText('Send message')).toBeDisabled();
   });
+
+  it('renders spectator message with name and label', () => {
+    const msgs: ChatMessage[] = [
+      { from: null, text: 'Nice play!', timestamp: 1000, spectatorName: 'Alice' },
+    ];
+    render(
+      <ChatPanel messages={msgs} onSend={vi.fn()} isOpen={true} onToggle={vi.fn()} unreadCount={0} />,
+    );
+    expect(screen.getByText('Alice (spectator)')).toBeInTheDocument();
+    expect(screen.getByText('Nice play!')).toBeInTheDocument();
+  });
+
+  it('renders system message without sender', () => {
+    const msgs: ChatMessage[] = [
+      { from: null, text: 'Spectator chat has been enabled by the host', timestamp: 1000 },
+    ];
+    render(
+      <ChatPanel messages={msgs} onSend={vi.fn()} isOpen={true} onToggle={vi.fn()} unreadCount={0} />,
+    );
+    expect(screen.getByText('Spectator chat has been enabled by the host')).toBeInTheDocument();
+  });
+
+  it('shows host toggle when isHost is true', () => {
+    render(
+      <ChatPanel
+        messages={[]}
+        onSend={vi.fn()}
+        isOpen={true}
+        onToggle={vi.fn()}
+        unreadCount={0}
+        isHost={true}
+        spectatorChatEnabled={false}
+        onToggleSpectatorChat={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('Toggle spectator chat')).toBeInTheDocument();
+  });
+
+  it('does not show host toggle when isHost is false', () => {
+    render(
+      <ChatPanel messages={[]} onSend={vi.fn()} isOpen={true} onToggle={vi.fn()} unreadCount={0} />,
+    );
+    expect(screen.queryByLabelText('Toggle spectator chat')).not.toBeInTheDocument();
+  });
+
+  it('shows input for spectator when spectator chat is enabled', () => {
+    render(
+      <ChatPanel
+        messages={[]}
+        onSend={vi.fn()}
+        isOpen={true}
+        onToggle={vi.fn()}
+        unreadCount={0}
+        isSpectator={true}
+        spectatorChatEnabled={true}
+      />,
+    );
+    expect(screen.getByLabelText('Chat message')).toBeInTheDocument();
+  });
+
+  it('hides input for spectator when spectator chat is disabled', () => {
+    render(
+      <ChatPanel
+        messages={[]}
+        onSend={vi.fn()}
+        isOpen={true}
+        onToggle={vi.fn()}
+        unreadCount={0}
+        isSpectator={true}
+        spectatorChatEnabled={false}
+      />,
+    );
+    expect(screen.queryByLabelText('Chat message')).not.toBeInTheDocument();
+  });
 });
