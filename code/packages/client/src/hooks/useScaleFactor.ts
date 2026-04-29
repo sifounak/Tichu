@@ -45,6 +45,17 @@ export function useScaleFactor(): void {
 
       const scale = Math.min(config.max, Math.max(config.min, raw));
       document.documentElement.style.setProperty('--scale', scale.toString());
+
+      // Seat zoom: in full layout, shrink seats when their natural width
+      // (280px * scale) exceeds 25% of window width.
+      // zoom = min(1, 0.25 * innerWidth / (280 * scale))
+      if (tier === 'full') {
+        const seatNatural = 280 * scale;
+        const seatZoom = Math.min(1, 0.25 * window.innerWidth / seatNatural);
+        document.documentElement.style.setProperty('--seat-zoom', seatZoom.toString());
+      } else {
+        document.documentElement.style.setProperty('--seat-zoom', '1');
+      }
     }
 
     function onResize() {
