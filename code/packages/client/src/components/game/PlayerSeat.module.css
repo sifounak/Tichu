@@ -17,6 +17,8 @@
   max-width: calc(280px * var(--scale));
   will-change: box-shadow, border-color;
   transform: translateZ(0);
+  /* Scale entire seat (box + banners + labels) when it exceeds 25vw */
+  zoom: var(--seat-zoom, 1);
 }
 
 .seatRow {
@@ -463,6 +465,7 @@
   padding: var(--space-1) var(--space-2);
   gap: var(--space-1);
   min-width: 0;
+  zoom: 1;
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .name {
