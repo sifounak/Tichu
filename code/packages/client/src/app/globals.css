@@ -65,15 +65,7 @@
   --card-border-radius-lg: calc(9px * var(--scale));
   --card-overlap-desktop-lg: calc(60px * var(--scale));
 
-  /* Compact card variants (700–1100px: moderate shrink + tighter overlap) */
-  --card-width-compact: calc(105px * var(--scale));
-  --card-height-compact: calc(150px * var(--scale));
-  --card-font-size-compact: calc(24px * var(--scale));
-  --card-suit-size-compact: calc(30px * var(--scale));
-  --card-border-radius-compact: calc(9px * var(--scale));
-  --card-overlap-compact: calc(60px * var(--scale));
-
-  /* Mobile card variants (<700px: smaller cards + tighter overlap) */
+  /* Mobile card variants (<900px: smaller cards + tighter overlap) */
   --card-width-mobile: calc(85px * var(--scale));
   --card-height-mobile: calc(122px * var(--scale));
   --card-font-size-mobile: calc(20px * var(--scale));

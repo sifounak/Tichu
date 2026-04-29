@@ -2,15 +2,14 @@
 
 import { useState, useEffect } from 'react';
 
-export type LayoutTier = 'full' | 'compact' | 'mobile';
+// REQ-F-L01: Two-tier layout system
+export type LayoutTier = 'full' | 'mobile';
 
-const FULL_MIN_WIDTH = 1100;
-const COMPACT_MIN_WIDTH = 700;
+// REQ-F-L02: Breakpoint at 900px
+const FULL_MIN_WIDTH = 900;
 
 function getTier(width: number): LayoutTier {
-  if (width > FULL_MIN_WIDTH) return 'full';
-  if (width >= COMPACT_MIN_WIDTH) return 'compact';
-  return 'mobile';
+  return width >= FULL_MIN_WIDTH ? 'full' : 'mobile';
 }
 
 /**
@@ -18,9 +17,8 @@ function getTier(width: number): LayoutTier {
  * a data-layout attribute on :root for CSS targeting.
  *
  * Tiers:
- *  - 'full'    (>1100px): original card-table layout, no changes
- *  - 'compact' (700–1100px): two-row opponents, chrome row
- *  - 'mobile'  (<700px): same as compact, scaled smaller
+ *  - 'full'   (≥900px): CSS grid card-table layout
+ *  - 'mobile' (<900px): flexbox column layout
  */
 export function useLayoutTier(): LayoutTier {
   const [tier, setTier] = useState<LayoutTier>('full');
@@ -34,19 +32,16 @@ export function useLayoutTier(): LayoutTier {
 
     update();
 
-    const mqFull = window.matchMedia(`(max-width: ${FULL_MIN_WIDTH}px)`);
-    const mqCompact = window.matchMedia(`(max-width: ${COMPACT_MIN_WIDTH}px)`);
+    const mq = window.matchMedia(`(max-width: ${FULL_MIN_WIDTH - 1}px)`);
 
     function onChange() {
       update();
     }
 
-    mqFull.addEventListener('change', onChange);
-    mqCompact.addEventListener('change', onChange);
+    mq.addEventListener('change', onChange);
 
     return () => {
-      mqFull.removeEventListener('change', onChange);
-      mqCompact.removeEventListener('change', onChange);
+      mq.removeEventListener('change', onChange);
     };
   }, []);
 

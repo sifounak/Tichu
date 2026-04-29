@@ -458,44 +458,7 @@
   .turnLabelRed { animation: none; opacity: 1; }
 }
 
-/* REQ-NF-U01: Compact tier seats (700–1100px) */
-:root[data-layout="compact"] .seat {
-  padding: var(--space-2) var(--space-3);
-  gap: var(--space-1);
-  min-width: calc(180px * var(--scale));
-  max-width: calc(240px * var(--scale));
-}
-
-:root[data-layout="compact"] .name {
-  font-size: calc(22px * var(--scale));
-}
-
-:root[data-layout="compact"] .avatar {
-  width: calc(60px * var(--scale));
-  height: calc(60px * var(--scale));
-}
-
-:root[data-layout="compact"] .initial {
-  font-size: var(--font-2xl);
-}
-
-:root[data-layout="compact"] .tichuBanner {
-  top: calc(-36px * var(--scale));
-  font-size: var(--font-sm);
-}
-
-:root[data-layout="compact"] .turnLabel,
-:root[data-layout="compact"] .leaderLabel,
-:root[data-layout="compact"] .passLabel,
-:root[data-layout="compact"] .voteLabel,
-:root[data-layout="compact"] .dragonLabel,
-:root[data-layout="compact"] .playerVoteLabel,
-:root[data-layout="compact"] .passConfirmedLabel {
-  font-size: calc(20px * var(--scale));
-  bottom: calc(-32px * var(--scale));
-}
-
-/* REQ-NF-U01: Mobile tier seats (<700px) */
+/* REQ-NF-U01: Mobile tier seats (<900px) */
 :root[data-layout="mobile"] .seat {
   padding: var(--space-1) var(--space-2);
   gap: var(--space-1);

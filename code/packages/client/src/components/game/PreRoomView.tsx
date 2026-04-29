@@ -145,7 +145,7 @@ export function PreRoomView({
   const amReady = mySeat ? readyPlayers.includes(mySeat) : false;
   // Spectators always see compass layout (N top, S bottom, W left, E right)
   const effectiveSeat = mySeat ?? 'south';
-  const isCompactLayout = layoutTier !== 'full';
+  const isMobileLayout = layoutTier !== 'full';
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomCode);
@@ -480,7 +480,7 @@ export function PreRoomView({
         left: 'calc(148px * var(--scale))',
         transform: 'translate(-50%, -50%)',
         zIndex: 30,
-        display: isCompactLayout ? 'none' : 'flex',
+        display: isMobileLayout ? 'none' : 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 'var(--space-1)',
@@ -585,7 +585,7 @@ export function PreRoomView({
 
         {/* REQ-F-VI11: Pre-game "Start a Vote" button — only Kick Player option */}
         {!isSpectator && mySeat && players.length >= 2 && !uiStore.activeVote && (
-          <div ref={!isCompactLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
+          <div ref={!isMobileLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
             <button
               onClick={() => { setShowVoteDropdown(!showVoteDropdown); setPreGameKickTargetMode(false); }}
               style={{
@@ -731,7 +731,7 @@ export function PreRoomView({
 
       {/* Game table with pre-room seat rendering and center content */}
       {/* Compact/mobile top-left chrome column: [Room: #####] # watching / [Start a Vote] / [Leave Game] */}
-      {isCompactLayout && (
+      {isMobileLayout && (
         <div style={{
           position: 'fixed',
           top: 'var(--space-1)',
@@ -783,7 +783,7 @@ export function PreRoomView({
 
           {/* Row 2: Start a Vote (players only) */}
           {!isSpectator && mySeat && players.length >= 2 && !uiStore.activeVote && (
-            <div ref={isCompactLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
+            <div ref={isMobileLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
               <button
                 onClick={() => { setShowVoteDropdown(!showVoteDropdown); setPreGameKickTargetMode(false); }}
                 style={{
@@ -897,7 +897,7 @@ export function PreRoomView({
       {mySeat && (
         <div style={{
           position: 'fixed',
-          bottom: isCompactLayout ? 'calc(34px * var(--scale))' : 'calc(200px * var(--scale))',
+          bottom: isMobileLayout ? 'calc(34px * var(--scale))' : 'calc(200px * var(--scale))',
           left: 0,
           right: 0,
           zIndex: 20,

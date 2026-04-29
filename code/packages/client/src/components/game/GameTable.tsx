@@ -177,7 +177,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
 
   const seat = renderSeatOverride ?? renderSeat;
 
-  const isCompact = layoutTier !== 'full';
+  const isMobile = layoutTier !== 'full';
 
   return (
     <div className={styles.table} aria-label="Game table">
@@ -186,8 +186,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         {seat(seatPositions.top)}
       </div>
 
-      {/* Opponents — side-by-side row in compact/mobile, separate grid areas in full */}
-      {isCompact ? (
+      {/* Opponents — side-by-side row in mobile, separate grid areas in full */}
+      {isMobile ? (
         <div className={styles.opponentsRow}>
           <div>{seat(seatPositions.left)}</div>
           <div>{seat(seatPositions.right)}</div>

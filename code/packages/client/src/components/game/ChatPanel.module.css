@@ -210,8 +210,8 @@
   font-style: italic;
 }
 
-/* Compact mode: inline toggle button for chrome row */
-.compactToggleButton {
+/* Mobile mode: inline toggle button for chrome row */
+.mobileToggleButton {
   position: relative;
   width: calc(36px * var(--scale));
   height: calc(36px * var(--scale));
@@ -226,16 +226,16 @@
   flex-shrink: 0;
 }
 
-.compactToggleButton:hover {
+.mobileToggleButton:hover {
   background: var(--color-felt-green-light);
 }
 
-.compactToggleButton .chatIcon {
+.mobileToggleButton .chatIcon {
   width: calc(20px * var(--scale));
   height: calc(20px * var(--scale));
 }
 
-.compactToggleButton .unreadBadge {
+.mobileToggleButton .unreadBadge {
   position: absolute;
   top: -3px;
   right: -3px;
@@ -245,16 +245,16 @@
   font-size: calc(9px * var(--scale));
 }
 
-/* Compact mode: backdrop overlay */
-.compactBackdrop {
+/* Mobile mode: backdrop overlay */
+.mobileBackdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 49;
 }
 
-/* Compact mode: centered overlay panel */
-.compactPanel {
+/* Mobile mode: centered overlay panel */
+.mobilePanel {
   position: fixed;
   top: 50%;
   left: 50%;

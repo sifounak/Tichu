@@ -1,6 +1,6 @@
 /* REQ-NF-U01: Responsive game table with CSS Grid */
-/* Full tier (>1100px): 3x3 grid — partner top-center, opponents left/right, player bottom-center */
-/* Compact/Mobile tiers: flexbox column — partner row, opponents row, trick area, bottom spacer */
+/* Full tier (≥900px): 3x3 grid — partner top-center, opponents left/right, player bottom-center */
+/* Mobile tier (<900px): flexbox column — partner row, opponents row, trick area, bottom spacer */
 
 .table {
   display: grid;
@@ -115,49 +115,7 @@
   box-shadow: 0 0 calc(24px * var(--scale)) rgba(74, 158, 255, 0.5);
 }
 
-/* ===== Compact tier (700–1100px): flexbox column layout ===== */
-:root[data-layout="compact"] .table {
-  display: flex;
-  flex-direction: column;
-  grid-template-columns: none;
-  grid-template-rows: none;
-  grid-template-areas: none;
-  padding: var(--space-2);
-  gap: var(--space-1);
-}
-
-:root[data-layout="compact"] .top {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  flex-shrink: 0;
-  padding-top: calc(44px * var(--scale));
-  /* Keep partner seat clickable above center area */
-  position: relative;
-  z-index: 1;
-}
-
-:root[data-layout="compact"] .center {
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  transform: none;
-  flex: 1;
-  min-height: calc(140px * var(--scale));
-  /* Horizontal padding for whitespace; top margin clears opponent indicator labels */
-  margin: calc(36px * var(--scale)) var(--space-4) 0;
-  overflow: hidden;
-  /* Reset z-index inherited from full layout so center doesn't cover partner/opponents */
-  z-index: auto;
-}
-
-:root[data-layout="compact"] .bottom {
-  min-height: calc(240px * var(--scale));
-  flex-shrink: 0;
-}
-
-/* ===== Mobile tier (<700px): same column layout, tighter spacing ===== */
+/* ===== Mobile tier (<900px): flexbox column layout ===== */
 :root[data-layout="mobile"] .table {
   display: flex;
   flex-direction: column;
