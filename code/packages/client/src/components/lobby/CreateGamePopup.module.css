@@ -14,7 +14,7 @@
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 24px 32px;
-  width: 400px;
+  width: 270px;
   max-width: 90vw;
 }
 
@@ -26,48 +26,8 @@
   margin-bottom: 20px;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+.formWrapper {
   margin-bottom: 24px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.label {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-.input,
-.select {
-  width: 100%;
-  padding: 6px 12px;
-  border-radius: 6px;
-  background: var(--color-felt-green-dark);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  text-align: center;
-  font-size: 0.875rem;
-}
-
-.checkboxRow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.checkboxLabel {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
 }
 
 .buttons {
@@ -77,9 +37,10 @@
 }
 
 .createBtn {
-  padding: 10px 24px;
+  padding: 6px 12px;
   border-radius: 8px;
   font-weight: 600;
+  font-size: 0.9rem;
   background: var(--color-gold-accent);
   color: var(--color-felt-green-dark);
   border: none;
@@ -92,9 +53,10 @@
 }
 
 .cancelBtn {
-  padding: 10px 24px;
+  padding: 6px 12px;
   border-radius: 8px;
   font-weight: 600;
+  font-size: 0.9rem;
   background: rgba(255, 255, 255, 0.1);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
