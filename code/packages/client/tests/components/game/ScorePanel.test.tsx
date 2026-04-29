@@ -67,9 +67,12 @@ describe('ScorePanel', () => {
       { seat: 'south' as const, call: 'tichu' as const },
       { seat: 'north' as const, call: 'grandTichu' as const },
     ];
-    render(<ScorePanel {...baseProps} tichuCalls={calls} />);
-    expect(screen.getByText('T')).toBeInTheDocument();
-    expect(screen.getByText('GT')).toBeInTheDocument();
+    const { container } = render(<ScorePanel {...baseProps} tichuCalls={calls} />);
+    // Component now applies CSS banner classes to player name divs instead of text badges
+    const charlie = screen.getByText('Charlie');
+    const alice = screen.getByText('Alice');
+    expect(charlie.className).toMatch(/nameBannerTichu/);
+    expect(alice.className).toMatch(/nameBannerGrandTichu/);
   });
 
   it('hides tichu calls when none active', () => {
@@ -87,10 +90,10 @@ describe('ScorePanel', () => {
     const user = userEvent.setup();
     render(<ScorePanel {...baseProps} roundHistory={roundHistory} />);
     await user.click(screen.getByText('History (2)'));
-    expect(screen.getByText('R1')).toBeInTheDocument();
-    expect(screen.getByText('R2')).toBeInTheDocument();
+    // History rows no longer show round labels; they show team totals directly
     // mySeat=south → myTeam=northSouth, history shows myTeam first
     expect(screen.getByText('175')).toBeInTheDocument();
+    expect(screen.getByText('25')).toBeInTheDocument();
   });
 
   it('hides history toggle when no rounds', () => {

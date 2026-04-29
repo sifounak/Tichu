@@ -3,6 +3,7 @@
 
 import { memo } from 'react';
 import type { ClientGameView, Seat } from '@tichu/shared';
+import type { LayoutTier } from '@/hooks/useLayoutTier';
 import { useUiStore } from '@/stores/uiStore';
 import { PlayerSeat } from './PlayerSeat';
 import { TrickDisplay } from './TrickDisplay';
@@ -42,6 +43,8 @@ export interface GameTableProps {
   onAddBot?: (seat: Seat) => void;
   /** Fixed compass orientation (N top, S bottom, W left, E right) for spectators */
   compassLayout?: boolean;
+  /** Current layout tier for responsive behavior */
+  layoutTier?: LayoutTier;
 }
 
 function getOtherPlayer(view: ClientGameView, seat: Seat) {
@@ -52,7 +55,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout, layoutTier = 'full' }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -174,6 +177,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
 
   const seat = renderSeatOverride ?? renderSeat;
 
+  const isCompact = layoutTier !== 'full';
+
   return (
     <div className={styles.table} aria-label="Game table">
       {/* Partner (top) */}
@@ -181,10 +186,22 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         {seat(seatPositions.top)}
       </div>
 
-      {/* Left opponent */}
-      <div className={styles.left}>
-        {seat(seatPositions.left)}
-      </div>
+      {/* Opponents — side-by-side row in compact/mobile, separate grid areas in full */}
+      {isCompact ? (
+        <div className={styles.opponentsRow}>
+          <div>{seat(seatPositions.left)}</div>
+          <div>{seat(seatPositions.right)}</div>
+        </div>
+      ) : (
+        <>
+          <div className={styles.left}>
+            {seat(seatPositions.left)}
+          </div>
+          <div className={styles.right}>
+            {seat(seatPositions.right)}
+          </div>
+        </>
+      )}
 
       {/* Center area — custom content, TrickDisplay, or hidden */}
       {centerContent ? (
@@ -213,11 +230,6 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           />
         </div>
       ) : null}
-
-      {/* Right opponent */}
-      <div className={styles.right}>
-        {seat(seatPositions.right)}
-      </div>
 
       {/* Player (bottom) — rendered in the fixed bottom panel in page.tsx, or custom content */}
       <div className={styles.bottom}>

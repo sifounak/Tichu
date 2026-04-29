@@ -2,7 +2,7 @@
 // REQ-NF-U02: Framer Motion card deal + selection animations
 'use client';
 
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useRef, useState, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { GameCard, CardId } from '@tichu/shared';
 import { Card, type CardState } from './Card';
@@ -33,7 +33,44 @@ export const CardHand = memo(function CardHand({
   );
 
   const { durations, enabled } = useAnimationSettings();
-  const { containerRef, handleKeyDown } = useRovingTabIndex(sortedCards.length);
+  const { containerRef: rovingRef, handleKeyDown } = useRovingTabIndex(sortedCards.length);
+
+  // Auto-scale: shrink the hand when cards would overflow the container
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [handScale, setHandScale] = useState(1);
+
+  const updateHandScale = useCallback(() => {
+    const wrapper = wrapperRef.current;
+    const inner = innerRef.current;
+    if (!wrapper || !inner) return;
+    const available = wrapper.clientWidth;
+    if (available <= 0) return;
+    // Temporarily reset scale to measure natural width
+    const prev = inner.style.transform;
+    inner.style.transform = 'none';
+    const natural = inner.scrollWidth;
+    inner.style.transform = prev;
+    if (natural > available) {
+      setHandScale(Math.max(0.5, available / natural));
+    } else {
+      setHandScale(1);
+    }
+  }, []);
+
+  useEffect(() => {
+    updateHandScale();
+    const ro = new ResizeObserver(() => updateHandScale());
+    if (wrapperRef.current) ro.observe(wrapperRef.current);
+    return () => ro.disconnect();
+  }, [updateHandScale, sortedCards.length]);
+
+  // Combine refs for roving tab index and inner measurement
+  const setInnerRef = useCallback((el: HTMLDivElement | null) => {
+    (innerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    // rovingRef is a RefObject, assign manually
+    (rovingRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+  }, [rovingRef]);
 
   function getState(id: CardId): CardState {
     if (faceDown) return 'faceDown';
@@ -43,12 +80,14 @@ export const CardHand = memo(function CardHand({
   }
 
   return (
+    <div ref={wrapperRef} className={styles.handWrapper}>
     <div
-      ref={containerRef}
+      ref={setInnerRef}
       className={styles.hand}
       role="group"
       aria-label="Your hand"
       onKeyDown={handleKeyDown}
+      style={handScale < 1 ? { transform: `scale(${handScale})`, transformOrigin: 'bottom center' } : undefined}
     >
       <AnimatePresence mode="popLayout">
         {sortedCards.map((gc, i) => (
@@ -75,6 +114,7 @@ export const CardHand = memo(function CardHand({
           </motion.div>
         ))}
       </AnimatePresence>
+    </div>
     </div>
   );
 });

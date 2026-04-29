@@ -1,3 +1,11 @@
+/* Wrapper constrains hand to available width for auto-scale detection */
+.handWrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  overflow: visible;
+}
+
 /* Card hand fan layout with overlap */
 .hand {
   display: flex;
@@ -16,13 +24,20 @@
   margin-left: 0;
 }
 
-/* REQ-NF-U01: Mobile overlap */
-@media (max-width: 640px) {
-  .cardSlot {
-    margin-left: calc(-1 * var(--card-overlap-mobile));
-  }
+/* Compact tier: moderate overlap + slightly smaller cards */
+:root[data-layout="compact"] .cardSlot {
+  margin-left: calc(-1 * var(--card-overlap-compact));
+}
 
-  .cardSlot:first-child {
-    margin-left: 0;
-  }
+:root[data-layout="compact"] .cardSlot:first-child {
+  margin-left: 0;
+}
+
+/* Mobile tier: tighter overlap + smaller cards */
+:root[data-layout="mobile"] .cardSlot {
+  margin-left: calc(-1 * var(--card-overlap-mobile-lg));
+}
+
+:root[data-layout="mobile"] .cardSlot:first-child {
+  margin-left: 0;
 }

@@ -18,7 +18,11 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
     if (!body.userId || !body.displayName) {
       return reply.status(400).send({ error: 'userId and displayName are required' });
     }
-    const user = await ensureGuestUser(database, body.userId, body.displayName);
+    const displayName = body.displayName.trim();
+    if (!displayName) {
+      return reply.status(400).send({ error: 'displayName must not be empty' });
+    }
+    const user = await ensureGuestUser(database, body.userId, displayName);
     return { user };
   });
 
@@ -30,11 +34,13 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
     if (!body.username || !body.email || !body.password) {
       return reply.status(400).send({ error: 'username, email, and password are required' });
     }
+    const username = body.username.trim();
+    const email = body.email.trim();
     try {
       const result = await registerAccount(database, jwtSecret, {
         userId: body.userId || `user_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-        username: body.username,
-        email: body.email,
+        username,
+        email,
         password: body.password,
       });
       return { token: result.token, userId: result.userId };
@@ -51,8 +57,9 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
     if (!body.identifier || !body.password) {
       return reply.status(400).send({ error: 'identifier (username or email) and password are required' });
     }
+    const identifier = body.identifier.trim();
     try {
-      const result = await loginAccount(database, jwtSecret, body.identifier, body.password);
+      const result = await loginAccount(database, jwtSecret, identifier, body.password);
       return { token: result.token, userId: result.userId, username: result.username };
     } catch (err: unknown) {
       return reply.status(401).send({ error: err instanceof Error ? err.message : 'Login failed' });

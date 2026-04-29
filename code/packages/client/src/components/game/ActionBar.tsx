@@ -7,6 +7,7 @@
 import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import type { GamePhase, TichuCall } from '@tichu/shared';
+import type { LayoutTier } from '@/hooks/useLayoutTier';
 import styles from './ActionBar.module.css';
 
 export interface ActionBarProps {
@@ -45,6 +46,10 @@ export interface ActionBarProps {
   layout?: 'default' | 'split';
   /** Player seat element to render between Pass and Play in split layout */
   playerSeat?: ReactNode;
+  /** Current layout tier — compact/mobile uses linear layout with Tichu/Bomb inline */
+  layoutTier?: LayoutTier;
+  /** Whether the player can call Tichu (passed from page.tsx for compact mode) */
+  canCallTichuProp?: boolean;
 }
 
 export const ActionBar = memo(function ActionBar({
@@ -67,13 +72,17 @@ export const ActionBar = memo(function ActionBar({
   showAutoPass = false,
   layout = 'default',
   playerSeat,
+  layoutTier = 'full',
+  canCallTichuProp = false,
 }: ActionBarProps) {
   const isPlaying = phase === 'playing';
   const showActions = isPlaying && isMyTurn;
   const [shaking, setShaking] = useState(false);
+  const isCompact = layoutTier !== 'full';
 
-  // Tichu button moved to card hand area (left of cards)
-  const canCallTichu = false;
+  // In full mode, Tichu button is a floating button in page.tsx.
+  // In compact/mobile, it's inline in the action bar.
+  const canCallTichu = isCompact ? canCallTichuProp : false;
 
   const handlePlay = useCallback(() => {
     if (!canPlay) {
@@ -206,6 +215,32 @@ export const ActionBar = memo(function ActionBar({
       Tichu!
     </button>
   );
+
+  // Compact/mobile: linear layout — [Pass/AutoPass] [Play]
+  // Tichu and Bomb are floating buttons beside the card hand (same as full mode)
+  // Use fixed-width slots so buttons don't reflow when they appear/disappear
+  if (isCompact) {
+    return (
+      <div
+        className={`${styles.actionBar} ${styles.compactLayout} ${shaking ? styles.shake : ''}`}
+        role="toolbar"
+        aria-label="Game actions"
+      >
+        {/* Slot 1: Pass or Auto-Pass toggle */}
+        <div className={styles.buttonSlot} style={(autoPassToggle || passButton) ? undefined : { visibility: 'hidden' }}>
+          {autoPassToggle || passButton || (
+            <button className={`${styles.button} ${styles.passButton}`} disabled aria-hidden="true">Pass</button>
+          )}
+        </div>
+        {/* Slot 2: Play */}
+        <div className={styles.buttonSlot} style={playButton ? undefined : { visibility: 'hidden' }}>
+          {playButton || (
+            <button className={`${styles.button} ${styles.playButton}`} disabled aria-hidden="true">Play</button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (layout === 'split') {
     return (
