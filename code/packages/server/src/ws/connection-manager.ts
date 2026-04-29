@@ -23,8 +23,8 @@ export class ConnectionManager {
   /** Active connections indexed by WebSocket instance */
   private readonly clients = new Map<WebSocket, ClientInfo>();
 
-  /** Reverse lookup: userId → WebSocket */
-  private readonly userSockets = new Map<string, WebSocket>();
+  /** Reverse lookup: userId → all active WebSocket connections for that user */
+  private readonly userSockets = new Map<string, Set<WebSocket>>();
 
   /** Heartbeat interval handle */
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -43,15 +43,8 @@ export class ConnectionManager {
     this.staleThresholdMs = options?.staleThresholdMs ?? 20_000;
   }
 
-  /** Register a new client connection */
+  /** Register a new client connection (mirror mode: multiple sockets per userId allowed) */
   addClient(ws: WebSocket, userId: string, playerName: string): void {
-    // If this user already has a socket, terminate the old one
-    const existing = this.userSockets.get(userId);
-    if (existing && existing !== ws) {
-      this.removeClient(existing);
-      existing.terminate();
-    }
-
     const info: ClientInfo = {
       userId,
       playerName,
@@ -61,7 +54,13 @@ export class ConnectionManager {
     };
 
     this.clients.set(ws, info);
-    this.userSockets.set(userId, ws);
+
+    let socketSet = this.userSockets.get(userId);
+    if (!socketSet) {
+      socketSet = new Set();
+      this.userSockets.set(userId, socketSet);
+    }
+    socketSet.add(ws);
   }
 
   /** Remove a client connection and clean up indices */
@@ -70,9 +69,13 @@ export class ConnectionManager {
     if (!info) return undefined;
 
     this.clients.delete(ws);
-    // Only remove from userSockets if this is still the active socket
-    if (this.userSockets.get(info.userId) === ws) {
-      this.userSockets.delete(info.userId);
+
+    const socketSet = this.userSockets.get(info.userId);
+    if (socketSet) {
+      socketSet.delete(ws);
+      if (socketSet.size === 0) {
+        this.userSockets.delete(info.userId);
+      }
     }
 
     return info;
@@ -83,9 +86,22 @@ export class ConnectionManager {
     return this.clients.get(ws);
   }
 
-  /** Get the WebSocket for a userId */
+  /** Get one WebSocket for a userId (arbitrary pick; prefer getSocketsByUserId for broadcast) */
   getSocketByUserId(userId: string): WebSocket | undefined {
-    return this.userSockets.get(userId);
+    const socketSet = this.userSockets.get(userId);
+    if (!socketSet || socketSet.size === 0) return undefined;
+    return socketSet.values().next().value;
+  }
+
+  /** Get ALL WebSocket connections for a userId (mirror mode) */
+  getSocketsByUserId(userId: string): ReadonlySet<WebSocket> {
+    return this.userSockets.get(userId) ?? new Set();
+  }
+
+  /** Returns true if the userId has at least one active socket */
+  hasActiveSocket(userId: string): boolean {
+    const socketSet = this.userSockets.get(userId);
+    return socketSet !== undefined && socketSet.size > 0;
   }
 
   /** Assign a client to a room and seat */
@@ -179,14 +195,14 @@ export class ConnectionManager {
 
   /** Check if a userId has a reconnectable session in the given room */
   canReconnect(userId: string, roomCode: string): { seat: Seat } | null {
-    // Check if user still has a mapping but socket is gone/closed
-    // The room manager would track disconnected players — here we just
-    // check if there's no active socket for this user
-    const existingSocket = this.userSockets.get(userId);
-    if (existingSocket) {
-      const info = this.clients.get(existingSocket);
-      if (info?.roomCode === roomCode && info.seat) {
-        return { seat: info.seat };
+    // Check if any active socket for this user is already in the target room
+    const socketSet = this.userSockets.get(userId);
+    if (socketSet) {
+      for (const ws of socketSet) {
+        const info = this.clients.get(ws);
+        if (info?.roomCode === roomCode && info.seat) {
+          return { seat: info.seat };
+        }
       }
     }
     return null;

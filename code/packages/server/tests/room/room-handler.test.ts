@@ -25,22 +25,41 @@ function createMockWs(): WebSocket {
 
 function createMockConnections(): ConnectionManager {
   const clients = new Map<WebSocket, ClientInfo>();
-  const userSockets = new Map<string, WebSocket>();
+  const userSockets = new Map<string, Set<WebSocket>>();
 
   return {
     addClient: vi.fn((ws: WebSocket, userId: string, playerName: string) => {
       const info: ClientInfo = { userId, playerName, roomCode: null, seat: null, lastPong: Date.now() };
       clients.set(ws, info);
-      userSockets.set(userId, ws);
+      let socketSet = userSockets.get(userId);
+      if (!socketSet) { socketSet = new Set(); userSockets.set(userId, socketSet); }
+      socketSet.add(ws);
     }),
     removeClient: vi.fn((ws: WebSocket) => {
       const info = clients.get(ws);
       clients.delete(ws);
-      if (info) userSockets.delete(info.userId);
+      if (info) {
+        const socketSet = userSockets.get(info.userId);
+        if (socketSet) {
+          socketSet.delete(ws);
+          if (socketSet.size === 0) userSockets.delete(info.userId);
+        }
+      }
       return info;
     }),
     getClientInfo: vi.fn((ws: WebSocket) => clients.get(ws)),
-    getSocketByUserId: vi.fn((userId: string) => userSockets.get(userId)),
+    getSocketByUserId: vi.fn((userId: string) => {
+      const socketSet = userSockets.get(userId);
+      if (!socketSet || socketSet.size === 0) return undefined;
+      return socketSet.values().next().value;
+    }),
+    getSocketsByUserId: vi.fn((userId: string): ReadonlySet<WebSocket> => {
+      return userSockets.get(userId) ?? new Set();
+    }),
+    hasActiveSocket: vi.fn((userId: string) => {
+      const socketSet = userSockets.get(userId);
+      return socketSet !== undefined && socketSet.size > 0;
+    }),
     assignToRoom: vi.fn((ws: WebSocket, roomCode: string, seat: string) => {
       const info = clients.get(ws);
       if (info) { info.roomCode = roomCode; info.seat = seat as any; }

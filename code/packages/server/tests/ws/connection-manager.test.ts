@@ -60,17 +60,39 @@ describe('ConnectionManager', () => {
       expect(manager.removeClient(ws)).toBeUndefined();
     });
 
-    it('replaces existing socket when same userId connects again', () => {
+    it('allows multiple sockets for same userId (mirror mode)', () => {
       const ws1 = createMockWs();
       const ws2 = createMockWs();
 
       manager.addClient(ws1, 'user-1', 'Alice');
       manager.addClient(ws2, 'user-1', 'Alice');
 
+      expect(manager.size).toBe(2);
+      expect(manager.getClientInfo(ws1)).toBeDefined();
+      expect(manager.getClientInfo(ws2)).toBeDefined();
+      expect(ws1.terminate).not.toHaveBeenCalled();
+
+      const sockets = manager.getSocketsByUserId('user-1');
+      expect(sockets.size).toBe(2);
+      expect(sockets.has(ws1)).toBe(true);
+      expect(sockets.has(ws2)).toBe(true);
+    });
+
+    it('hasActiveSocket tracks socket presence correctly', () => {
+      const ws1 = createMockWs();
+      const ws2 = createMockWs();
+
+      manager.addClient(ws1, 'user-1', 'Alice');
+      manager.addClient(ws2, 'user-1', 'Alice');
+      expect(manager.hasActiveSocket('user-1')).toBe(true);
+
+      manager.removeClient(ws1);
+      expect(manager.hasActiveSocket('user-1')).toBe(true);
       expect(manager.size).toBe(1);
-      expect(manager.getSocketByUserId('user-1')).toBe(ws2);
-      expect(manager.getClientInfo(ws1)).toBeUndefined();
-      expect(ws1.terminate).toHaveBeenCalled(); // Old socket is actively terminated
+
+      manager.removeClient(ws2);
+      expect(manager.hasActiveSocket('user-1')).toBe(false);
+      expect(manager.size).toBe(0);
     });
   });
 

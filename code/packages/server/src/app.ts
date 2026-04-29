@@ -186,6 +186,12 @@ export function createApp(config: Partial<AppConfig> = {}) {
     ws.on('close', () => {
       const info = connections.removeClient(ws);
       if (info?.roomCode) {
+        // Mirror mode: only mark disconnected if no other sockets remain for this user
+        if (connections.hasActiveSocket(info.userId)) {
+          // Another tab/browser still connected — just clean up this socket
+          return;
+        }
+
         // REQ-F-SP13: Check if spectator first
         if (roomHandler.roomManager.isSpectator(info.userId)) {
           roomHandler.roomManager.markSpectatorDisconnected(info.userId);

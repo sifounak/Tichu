@@ -243,8 +243,7 @@ export class RoomHandler {
       } else {
         // REQ-F-ES15: Room destroyed (all players left) — notify spectators and return to lobby
         for (const spectatorId of spectatorsBefore) {
-          const specWs = this.connections.getSocketByUserId(spectatorId);
-          if (specWs) {
+          for (const specWs of this.connections.getSocketsByUserId(spectatorId)) {
             this.broadcaster.send(specWs, {
               type: 'ROOM_CLOSED',
               message: 'All players have left. The room has been closed.',
@@ -312,12 +311,12 @@ export class RoomHandler {
         // REQ-F-VI10: Pre-game kick vote passed — remove player from room
         const targetUserId = this.roomManager.getUserIdAtSeat(roomCode, targetSeat);
         if (targetUserId) {
-          const targetWs = this.connections.getSocketByUserId(targetUserId);
-          if (targetWs) {
+          const targetSockets = this.connections.getSocketsByUserId(targetUserId);
+          for (const targetWs of targetSockets) {
             this.broadcaster.send(targetWs, { type: 'KICKED', message: 'You were kicked by vote' });
-            try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
             this.connections.removeFromRoom(targetWs);
           }
+          try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
         } else {
           // Bot kick in pre-game
           const room = this.roomManager.getRoom(roomCode);
@@ -553,10 +552,11 @@ export class RoomHandler {
       // Send updated ROOM_JOINED to each affected player with their new seat
       for (const affectedUserId of affectedUserIds) {
         const newSeat = this.roomManager.getUserSeat(affectedUserId);
-        const affectedWs = this.connections.getSocketByUserId(affectedUserId);
-        if (affectedWs && newSeat) {
-          this.connections.assignToRoom(affectedWs, info.roomCode, newSeat);
-          this.broadcaster.send(affectedWs, { type: 'ROOM_JOINED', roomCode: info.roomCode, seat: newSeat });
+        if (newSeat) {
+          for (const affectedWs of this.connections.getSocketsByUserId(affectedUserId)) {
+            this.connections.assignToRoom(affectedWs, info.roomCode, newSeat);
+            this.broadcaster.send(affectedWs, { type: 'ROOM_JOINED', roomCode: info.roomCode, seat: newSeat });
+          }
         }
       }
 
@@ -680,8 +680,7 @@ export class RoomHandler {
         if (!player.isBot) {
           const userId = this.roomManager.getUserIdAtSeat(roomCode, player.seat);
           if (userId) {
-            const playerWs = this.connections.getSocketByUserId(userId);
-            if (playerWs) {
+            for (const playerWs of this.connections.getSocketsByUserId(userId)) {
               this.connections.assignToRoom(playerWs, roomCode, player.seat);
             }
           }
@@ -721,14 +720,13 @@ export class RoomHandler {
         // REQ-F-PV16: Kick vote passed — send KICKED to target, vacate seat
         const targetUserId = this.roomManager.getUserIdAtSeat(rc, targetSeat);
         if (targetUserId) {
-          // Human player kick
-          const targetWs = this.connections.getSocketByUserId(targetUserId);
-          if (targetWs) {
+          // Human player kick — notify and remove all sockets
+          const targetSockets = this.connections.getSocketsByUserId(targetUserId);
+          for (const targetWs of targetSockets) {
             this.broadcaster.send(targetWs, { type: 'KICKED', message: 'You were kicked by vote' });
-            // Use leaveRoom to properly clean up room membership
-            try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
             this.connections.removeFromRoom(targetWs);
           }
+          try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
         } else {
           // REQ-F-VI01: Bot kick — bots have no userId in seatToUser, remove directly
           const room = this.roomManager.getRoom(rc);
@@ -918,24 +916,24 @@ export class RoomHandler {
     if (!queue) {
       queue = new SeatQueue(roomCode, {
         onSendToSpectator: (userId, message) => {
-          const ws = this.connections.getSocketByUserId(userId);
-          if (ws) this.broadcaster.send(ws, message);
+          for (const ws of this.connections.getSocketsByUserId(userId)) {
+            this.broadcaster.send(ws, message);
+          }
         },
         onSeatClaimed: (userId, seat) => {
           // REQ-F-ES07: Promote spectator to player
           this.roomManager.promoteSpectatorToPlayer(userId, seat);
-          const ws = this.connections.getSocketByUserId(userId);
-          if (ws) {
+          for (const ws of this.connections.getSocketsByUserId(userId)) {
             this.connections.assignToRoom(ws, roomCode, seat);
             this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode, seat });
+          }
 
-            // Send current game state if game is in progress
-            const game = this.gameStore.getGameByRoom(roomCode);
-            if (game) {
-              // REQ-F-SO16: Track spectator-to-player transition mid-game
-              game.markJoinedAfterSpectating(userId);
-              game.handleSeatFilled(seat);
-            }
+          // Send current game state if game is in progress (once, not per socket)
+          const game = this.gameStore.getGameByRoom(roomCode);
+          if (game) {
+            // REQ-F-SO16: Track spectator-to-player transition mid-game
+            game.markJoinedAfterSpectating(userId);
+            game.handleSeatFilled(seat);
           }
           this.broadcastRoomUpdate(roomCode);
         },
@@ -962,8 +960,8 @@ export class RoomHandler {
         // `offerClaimOriginal=false` per spec ("must wait for your previous
         // seat to become available").
         onIneligibleFreeForAllClaim: (userId) => {
-          const ws = this.connections.getSocketByUserId(userId);
-          if (!ws) return;
+          const sockets = this.connections.getSocketsByUserId(userId);
+          if (sockets.size === 0) return;
           const game = this.gameStore.getGameByRoom(roomCode);
           const originalSeat = game?.getPreviousSeatForUser(userId) ?? null;
           if (originalSeat === null) {
@@ -971,20 +969,24 @@ export class RoomHandler {
               `[SeatQueue:${roomCode}] onIneligibleFreeForAllClaim fired `
               + `without prior seat for userId=${userId}; sending generic error`,
             );
-            this.broadcaster.sendError(ws, 'CLAIM_FAILED', 'Cannot claim seat');
+            for (const ws of sockets) {
+              this.broadcaster.sendError(ws, 'CLAIM_FAILED', 'Cannot claim seat');
+            }
             return;
           }
-          this.broadcaster.sendSeatClaimRejected(ws, {
-            reason:
-              'You are ineligible to take the empty seat because you '
-              + 'previously sat in a different seat during this game. '
-              + 'You must wait for your previous seat to become available '
-              + 'before you can join the game.',
-            originalSeat,
-            requestedSeat: originalSeat,
-            currentOccupantDisplayName: null,
-            offerClaimOriginal: false,
-          });
+          for (const ws of sockets) {
+            this.broadcaster.sendSeatClaimRejected(ws, {
+              reason:
+                'You are ineligible to take the empty seat because you '
+                + 'previously sat in a different seat during this game. '
+                + 'You must wait for your previous seat to become available '
+                + 'before you can join the game.',
+              originalSeat,
+              requestedSeat: originalSeat,
+              currentOccupantDisplayName: null,
+              offerClaimOriginal: false,
+            });
+          }
         },
         // REQ-F-SJ08: Structured log entry for silent skip (R4 mitigation).
         onSilentSkip: (rc, userId, seats) => {
