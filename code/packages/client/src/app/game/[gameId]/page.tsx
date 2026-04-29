@@ -125,12 +125,15 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         const view = msg.state as ClientGameView;
 
         // REQ-F-DA01: Detect Dog play and trigger animation
-        // Skip entirely when only bots remain (no human needs to see it)
+        // Allow animation when the dog sender is a human player (even if they just
+        // finished — their play still needs to animate). Skip only when the sender is a bot
+        // and no humans remain active (pure bot-vs-bot play nobody is watching).
         const botSeats = new Set(roomPlayers.filter((p) => p.isBot).map((p) => p.seat));
+        const dogSenderIsHuman = view.lastDogPlay ? !botSeats.has(view.lastDogPlay.fromSeat) : false;
         const humanStillActive = (['north', 'east', 'south', 'west'] as const).some(
           (s) => !botSeats.has(s) && !view.finishOrder.includes(s),
         );
-        if (view.lastDogPlay && animEnabled && humanStillActive) {
+        if (view.lastDogPlay && animEnabled && (dogSenderIsHuman || humanStillActive)) {
           playSound('dog');
           // Clear any previous Dog animation timer
           if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
@@ -140,16 +143,26 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           const DOG_PAUSE = 0.00;
           const BASE_TRICK_SWEEP = 0.40;
           const DOG_RESUME_DELAY = 0.85; // Extra pause after sweep before play resumes
-          // clearDogAnimation fires after entry + pause; triggers the TrickDisplay exit animation
-          const dogAnimMs = (BASE_CARD_PLAY + DOG_PAUSE) * animMultiplier * 1000;
-          // REQ-F-DA05: Block plays until after sweep completes + resume delay
-          // Total = (0.25 + 0.00 + 0.40 + 0.85) × multiplier = 1.50s at normal speed
-          const dogBlockMs = (BASE_CARD_PLAY + DOG_PAUSE + BASE_TRICK_SWEEP + DOG_RESUME_DELAY) * animMultiplier * 1000;
-          dogAnimTimerRef.current = setTimeout(
-            () => uiStore.clearDogAnimation(),
-            dogAnimMs,
-          );
-          uiStore.startBombWindow(dogBlockMs);
+
+          const isRoundEnding = view.phase === 'roundScoring';
+          if (isRoundEnding) {
+            // Dog was the final card of the round — animate entry only, leave it
+            // visible in the play area until the scoring transition clears the table.
+            const dogEntryMs = BASE_CARD_PLAY * animMultiplier * 1000;
+            uiStore.startBombWindow(dogEntryMs);
+          } else {
+            // Normal mid-round dog: full entry → exit → resume sequence
+            // clearDogAnimation fires after entry + pause; triggers the TrickDisplay exit animation
+            const dogAnimMs = (BASE_CARD_PLAY + DOG_PAUSE) * animMultiplier * 1000;
+            // REQ-F-DA05: Block plays until after sweep completes + resume delay
+            // Total = (0.25 + 0.00 + 0.40 + 0.85) × multiplier = 1.50s at normal speed
+            const dogBlockMs = (BASE_CARD_PLAY + DOG_PAUSE + BASE_TRICK_SWEEP + DOG_RESUME_DELAY) * animMultiplier * 1000;
+            dogAnimTimerRef.current = setTimeout(
+              () => uiStore.clearDogAnimation(),
+              dogAnimMs,
+            );
+            uiStore.startBombWindow(dogBlockMs);
+          }
         }
 
         // Detect special cards played — compare previous trick state with new one

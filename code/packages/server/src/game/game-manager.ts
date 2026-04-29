@@ -84,6 +84,7 @@ export class GameManager {
   private scoringTimer: ReturnType<typeof setTimeout> | null = null;
   private endOfTrickBombTimer: ReturnType<typeof setTimeout> | null = null;
   private endOfTrickBombWindowEndTime: number | null = null;
+  private dogAnimDelayTimer: ReturnType<typeof setTimeout> | null = null;
   /** Seats that have been vacated (player left mid-game, waiting for replacement) */
   private vacatedSeats = new Set<Seat>();
   /** Seats occupied by players who are choosing which vacated seat to take */
@@ -552,6 +553,12 @@ export class GameManager {
       this.autoPassTimer = null;
     }
 
+    // Clear any pending dog animation delay
+    if (this.dogAnimDelayTimer) {
+      clearTimeout(this.dogAnimDelayTimer);
+      this.dogAnimDelayTimer = null;
+    }
+
     // Clear end-of-trick bomb window timer when leaving that state (e.g., bomb played)
     if (this.endOfTrickBombTimer && state !== 'awaitingEndOfTrickBomb') {
       clearTimeout(this.endOfTrickBombTimer);
@@ -677,6 +684,21 @@ export class GameManager {
       this.broadcastState();
     } else {
       this.timer.stop();
+    }
+
+    // When a Dog was just played, delay bot actions so the client can finish the
+    // dog animation (~1.5s) before bots proceed.  Without this delay the next bot
+    // action fires within milliseconds, clearing lastDogPlay and interrupting the
+    // client-side animation (especially when fast-mode kicks in with only bots left).
+    if (state === 'playing' && round?.lastDogPlay) {
+      // 750ms ≈ 250ms entry + 400ms exit + 100ms network buffer
+      const DOG_ANIM_DELAY_MS = 750;
+      this.dogAnimDelayTimer = setTimeout(() => {
+        if (this.destroyed) return;
+        this.dogAnimDelayTimer = null;
+        this.botRunner.onStateChange(() => this.broadcastState());
+      }, DOG_ANIM_DELAY_MS);
+      return;
     }
 
     // REQ-F-MP01: Trigger bot decisions and broadcast after each bot action
@@ -962,6 +984,7 @@ export class GameManager {
     instance.autoPassTimer = null;
     instance.scoringTimer = null;
     instance.endOfTrickBombTimer = null;
+    instance.dogAnimDelayTimer = null;
     instance.restoredFromSnapshot = true;
 
     // Subscribe to actor state changes (same as constructor)
@@ -1107,6 +1130,7 @@ export class GameManager {
     if (this.autoPassTimer) clearTimeout(this.autoPassTimer);
     if (this.scoringTimer) clearTimeout(this.scoringTimer);
     if (this.endOfTrickBombTimer) clearTimeout(this.endOfTrickBombTimer);
+    if (this.dogAnimDelayTimer) clearTimeout(this.dogAnimDelayTimer);
     this.timer.dispose();
     this.botRunner.dispose();
     this.actor.stop();
