@@ -129,13 +129,13 @@ export function sortCombinationForDisplay(combo: Combination): GameCard[] {
             // Check if Phoenix is completing this to a triple or if it's the pair
             if (rank === phoenixUsedAs && tripleCards.length === 0) {
               // Phoenix makes this group a triple
-              tripleCards = [...group, cards[phoenixIdx]];
+              tripleCards = [cards[phoenixIdx], ...group];
             } else {
               pairCards = group;
             }
           } else if (group.length === 1) {
             if (rank === phoenixUsedAs) {
-              pairCards = [...group, cards[phoenixIdx]];
+              pairCards = [cards[phoenixIdx], ...group];
             } else {
               pairCards = group;
             }
@@ -149,13 +149,13 @@ export function sortCombinationForDisplay(combo: Combination): GameCard[] {
             const smaller = groups[1];
             if (bigger.length === 2 && smaller.length === 2) {
               // 2+2+phoenix: phoenix completes one to triple
-              tripleCards = [...rankCounts.get(phoenixUsedAs)!, cards[phoenixIdx]];
+              tripleCards = [cards[phoenixIdx], ...rankCounts.get(phoenixUsedAs)!];
               pairCards = [...rankCounts.values()].find(
                 (g) => effectiveRank(g[0], phoenixUsedAs) !== phoenixUsedAs,
               )!;
             } else {
               tripleCards = bigger;
-              pairCards = [...smaller, cards[phoenixIdx]];
+              pairCards = [cards[phoenixIdx], ...smaller];
             }
           }
         }
@@ -192,7 +192,7 @@ export function sortCombinationForDisplay(combo: Combination): GameCard[] {
         const ra = effectiveRank(a, phoenixUsedAs);
         const rb = effectiveRank(b, phoenixUsedAs);
         if (ra !== rb) return rb - ra;
-        // Same rank: put standard card before phoenix
+        // Same rank: put phoenix after standard card
         if (a.card.kind === 'phoenix') return 1;
         if (b.card.kind === 'phoenix') return -1;
         return 0;
@@ -202,10 +202,10 @@ export function sortCombinationForDisplay(combo: Combination): GameCard[] {
 
     case CombinationType.Pair:
     case CombinationType.Triple: {
-      // Phoenix at the end of the group
+      // Phoenix at the start of the group for unambiguous display
       if (!hasPhoenix) return cards;
       const nonPhoenix = cards.filter((gc) => gc.card.kind !== 'phoenix');
-      return [...nonPhoenix, cards[phoenixIdx]];
+      return [cards[phoenixIdx], ...nonPhoenix];
     }
 
     case CombinationType.FourBomb:

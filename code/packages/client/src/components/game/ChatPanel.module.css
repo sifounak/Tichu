@@ -3,8 +3,8 @@
 /* Toggle button — small icon button in the lower-right area */
 .toggleButton {
   position: fixed;
-  right: var(--space-4);
-  bottom: calc(256px * var(--scale));
+  right: calc(130px * var(--scale));
+  top: calc(75vh - calc(132px * var(--scale)));
   z-index: 25;
   width: calc(56px * var(--scale));
   height: calc(56px * var(--scale));
@@ -155,11 +155,12 @@
   border: none;
   border-radius: var(--card-border-radius);
   padding: var(--space-2) calc(14px * var(--scale));
-  font-size: var(--font-lg);
+  font-size: calc(16px * var(--scale));
   font-weight: 600;
   cursor: pointer;
   min-height: calc(36px * var(--scale));
   min-width: calc(44px * var(--scale));
+  white-space: nowrap;
 }
 
 .sendButton:disabled {
@@ -187,12 +188,14 @@
   opacity: 0.85;
 }
 
-.spectatorSender {
-  font-size: var(--font-base);
-  font-weight: 700;
+.spectatorMessage .sender {
+  margin-right: 0;
+}
+
+.spectatorTag {
+  font-size: var(--font-sm);
   font-style: italic;
-  color: var(--color-text-muted);
-  margin-right: var(--space-1);
+  font-weight: 400;
 }
 
 /* System message styling */
@@ -207,25 +210,63 @@
   font-style: italic;
 }
 
-/* REQ-NF-U01: Mobile — bottom sheet */
-@media (max-width: 640px) {
-  .panel {
-    top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    max-height: 50vh;
-    border-radius: 16px 16px 0 0;
-  }
+/* Compact mode: inline toggle button for chrome row */
+.compactToggleButton {
+  position: relative;
+  width: calc(36px * var(--scale));
+  height: calc(36px * var(--scale));
+  border-radius: 50%;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-fast) var(--easing-smooth);
+  flex-shrink: 0;
+}
 
-  .toggleButton {
-    bottom: calc(80px * var(--scale));
-    right: var(--space-3);
-  }
+.compactToggleButton:hover {
+  background: var(--color-felt-green-light);
+}
 
-  .chatIcon {
-    width: calc(28px * var(--scale));
-    height: calc(28px * var(--scale));
-  }
+.compactToggleButton .chatIcon {
+  width: calc(20px * var(--scale));
+  height: calc(20px * var(--scale));
+}
+
+.compactToggleButton .unreadBadge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: calc(16px * var(--scale));
+  height: calc(16px * var(--scale));
+  border-radius: calc(8px * var(--scale));
+  font-size: calc(9px * var(--scale));
+}
+
+/* Compact mode: backdrop overlay */
+.compactBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 49;
+}
+
+/* Compact mode: centered overlay panel */
+.compactPanel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(90vw, 500px);
+  height: min(70vh, 500px);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-felt-green-dark);
+  border: 1px solid var(--color-border);
+  border-radius: var(--space-3);
+  overflow: hidden;
+  box-shadow: var(--shadow-panel);
 }

@@ -24,6 +24,8 @@ export interface ScorePanelProps {
   tichuSucceededSeats?: Set<Seat>;
   /** Seats that are currently vacated (empty) */
   vacatedSeats?: Seat[];
+  /** Compact mode: "You: # / Them: #" for compact/mobile layout tiers */
+  compact?: boolean;
 }
 
 /** Map actual seats to table positions relative to the player's seat */
@@ -48,6 +50,7 @@ export const ScorePanel = memo(function ScorePanel({
   tichuFailedSeats,
   tichuSucceededSeats,
   vacatedSeats,
+  compact,
 }: ScorePanelProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -55,35 +58,126 @@ export const ScorePanel = memo(function ScorePanel({
   const pos = getSeatPositions(mySeat);
   const myTeam = getTeam(mySeat);
   const oppTeam: Team = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
+  const myTeamSeats = [pos.bottom, pos.top];
+  const oppTeamSeats = [pos.left, pos.right];
+
+  function renderTichuBadges(rs: RoundScore, seats: Seat[]) {
+    const badges = seats
+      .map((seat) => rs.tichuResults[seat])
+      .filter((tr): tr is NonNullable<typeof tr> => tr != null)
+      .sort((a, b) => (a.won === b.won ? 0 : a.won ? -1 : 1));
+    if (badges.length === 0) return null;
+    return badges.map((tr, i) => {
+      const label = tr.call === 'grandTichu' ? 'GT' : 'T';
+      const badgeClass = tr.won ? styles.historyBadgeWon : styles.historyBadgeFailed;
+      return (
+        <span key={i} className={`${styles.historyBadge} ${badgeClass}`}>{label}</span>
+      );
+    });
+  }
+
+  function renderHistoryRow(rs: RoundScore) {
+    return (
+      <div key={rs.roundNumber} className={styles.historyRow}>
+        <span className={styles.historyTeamLeft}>
+          <span className={styles.historyBadges}>{renderTichuBadges(rs, myTeamSeats)}</span>
+          <span className={styles.historyScore}>{rs.total[myTeam]}</span>
+        </span>
+        <span className={styles.historyTeamRight}>
+          <span className={styles.historyScore}>{rs.total[oppTeam]}</span>
+          <span className={`${styles.historyBadges} ${styles.historyBadgesRight}`}>{renderTichuBadges(rs, oppTeamSeats)}</span>
+        </span>
+      </div>
+    );
+  }
 
   function renderName(seat: Seat) {
     const call = callMap.get(seat);
     const failed = call && tichuFailedSeats?.has(seat);
     const succeeded = call && tichuSucceededSeats?.has(seat);
     const isEmpty = vacatedSeats?.includes(seat);
-    const stateClass = failed ? styles.tichuBadgeFailed : succeeded ? styles.tichuBadgeSucceeded : '';
+    const bannerClass = failed ? styles.nameBannerFailed
+      : succeeded ? styles.nameBannerSucceeded
+      : call === 'grandTichu' ? styles.nameBannerGrandTichu
+      : call === 'tichu' ? styles.nameBannerTichu
+      : '';
+    const name = isEmpty ? '(Empty)' : seatNames[seat];
     return (
-      <span className={styles.playerName}>
-        {isEmpty ? '(Empty)' : seatNames[seat]}
-        {call && (
-          <span className={`${styles.tichuBadge} ${call === 'grandTichu' ? styles.grandTichu : styles.tichu} ${stateClass}`}>
-            {call === 'grandTichu' ? 'GT' : 'T'}
-          </span>
+      <div className={`${styles.playerName} ${bannerClass}`} title={name}>
+        {name}
+      </div>
+    );
+  }
+
+  // Compact rendering: "You: # / Them: #" — click to show full score modal
+  if (compact) {
+    return (
+      <>
+        <div
+          className={styles.compactPanel}
+          aria-label="Score — tap to expand"
+          role="button"
+          onClick={() => setExpanded(!expanded)}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className={styles.compactLine}>
+            <span className={styles.compactLabel}>You:</span>
+            <AnimatedScore value={scores[myTeam]} className={styles.compactScore} />
+          </div>
+          <div className={styles.compactLine}>
+            <span className={styles.compactLabel}>Them:</span>
+            <AnimatedScore value={scores[oppTeam]} className={styles.compactScore} />
+          </div>
+        </div>
+
+        {expanded && (
+          <div className={styles.compactOverlay} onClick={() => setExpanded(false)}>
+            <div className={styles.compactModal} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.teamGrid}>
+                <div className={styles.teamColumn}>
+                  {renderName(pos.bottom)}
+                  {renderName(pos.top)}
+                  <AnimatedScore value={scores[myTeam]} className={styles.score} />
+                </div>
+                <div className={styles.teamColumn}>
+                  {renderName(pos.left)}
+                  {renderName(pos.right)}
+                  <AnimatedScore value={scores[oppTeam]} className={styles.score} />
+                </div>
+              </div>
+
+              <div className={styles.target}>First to {targetScore}</div>
+
+              {roundHistory.length > 0 && (
+                <div className={styles.history}>
+                  {roundHistory.map((rs) => renderHistoryRow(rs))}
+                </div>
+              )}
+
+              <button className={styles.compactModalClose} onClick={() => setExpanded(false)}>
+                Close
+              </button>
+            </div>
+          </div>
         )}
-      </span>
+      </>
     );
   }
 
   return (
-    <div className={styles.panel} aria-label="Score panel">
+    <div className={`${styles.panel} ${expanded ? styles.panelExpanded : ''}`} aria-label="Score panel">
       {/* Team columns: my team (left) vs opponent team (right) */}
       <div className={styles.teamGrid}>
-        {renderName(pos.bottom)}
-        {renderName(pos.left)}
-        {renderName(pos.top)}
-        {renderName(pos.right)}
-        <AnimatedScore value={scores[myTeam]} className={styles.score} />
-        <AnimatedScore value={scores[oppTeam]} className={styles.score} />
+        <div className={styles.teamColumn}>
+          {renderName(pos.bottom)}
+          {renderName(pos.top)}
+          <AnimatedScore value={scores[myTeam]} className={styles.score} />
+        </div>
+        <div className={styles.teamColumn}>
+          {renderName(pos.left)}
+          {renderName(pos.right)}
+          <AnimatedScore value={scores[oppTeam]} className={styles.score} />
+        </div>
       </div>
 
       <div className={styles.target}>First to {targetScore}</div>
@@ -101,14 +195,7 @@ export const ScorePanel = memo(function ScorePanel({
 
       {expanded && roundHistory.length > 0 && (
         <div className={styles.history}>
-          {roundHistory.map((rs) => (
-            <div key={rs.roundNumber} className={styles.historyRow}>
-              <span className={styles.roundNum}>R{rs.roundNumber}</span>
-              <span className={styles.historyScore}>{rs.total[myTeam]}</span>
-              <span className={styles.historySep}>-</span>
-              <span className={styles.historyScore}>{rs.total[oppTeam]}</span>
-            </div>
-          ))}
+          {roundHistory.map((rs) => renderHistoryRow(rs))}
         </div>
       )}
     </div>
