@@ -185,22 +185,25 @@ export const PlayerSeat = memo(function PlayerSeat({
           )}
         </div>
 
-        <div className={styles.info}>
-          {!isMe && finishOrder === null && cardCount > 0 ? (
-            <div className={styles.cardStack}>
-              {Array.from({ length: Math.min(cardCount, 4) }, (_, i) => (
-                <div key={i} className={styles.stackCard}>
-                  <Card state="faceDown" style={{ width: 'calc(60px * var(--scale))', height: 'calc(86px * var(--scale))' }} />
-                </div>
-              ))}
-              <span className={styles.countBadge}>{cardCount}</span>
-            </div>
-          ) : (
-            <span className={styles.cardCount}>
-              {finishOrder !== null ? 'Out' : `${cardCount} cards`}
-            </span>
-          )}
-        </div>
+        {/* Hide info section entirely when there's nothing to show (e.g. pre-game) so avatar centers */}
+        {(finishOrder !== null || cardCount > 0 || (!isMe && cardCount === 0)) && (
+          <div className={styles.info}>
+            {finishOrder === null && cardCount > 0 ? (
+              <div className={styles.cardStack}>
+                {Array.from({ length: Math.min(cardCount, 4) }, (_, i) => (
+                  <div key={i} className={styles.stackCard}>
+                    <Card state="faceDown" style={{ width: 'calc(60px * var(--scale))', height: 'calc(86px * var(--scale))' }} />
+                  </div>
+                ))}
+                <span className={styles.countBadge}>{cardCount}</span>
+              </div>
+            ) : (
+              <span className={styles.cardCount}>
+                {finishOrder !== null ? 'Out' : cardCount > 0 ? `${cardCount} cards` : '\u00A0'}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* REQ-F-DI04: Tichu/Grand Tichu call indicator — red banner above box */}

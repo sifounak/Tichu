@@ -25,6 +25,8 @@ export interface ChatPanelProps {
   isSpectator?: boolean;
   spectatorChatEnabled?: boolean;
   onToggleSpectatorChat?: () => void;
+  /** Compact mode: inline bubble button + centered overlay modal */
+  compact?: boolean;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -46,6 +48,7 @@ export const ChatPanel = memo(function ChatPanel({
   isSpectator = false,
   spectatorChatEnabled = false,
   onToggleSpectatorChat,
+  compact = false,
 }: ChatPanelProps) {
   // Spectators can type when spectator chat is enabled; players always can
   const effectiveReadOnly = isSpectator ? !spectatorChatEnabled : readOnly;
@@ -67,12 +70,15 @@ export const ChatPanel = memo(function ChatPanel({
     [input, onSend],
   );
 
+  const toggleButtonClass = compact ? styles.compactToggleButton : styles.toggleButton;
+  const panelClass = compact ? styles.compactPanel : styles.panel;
+
   return (
     <>
       {/* Toggle button — visible when closed */}
       {!isOpen && (
         <button
-          className={styles.toggleButton}
+          className={toggleButtonClass}
           onClick={onToggle}
           aria-label={`Open chat${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
         >
@@ -85,9 +91,14 @@ export const ChatPanel = memo(function ChatPanel({
         </button>
       )}
 
+      {/* Backdrop for compact overlay */}
+      {compact && isOpen && (
+        <div className={styles.compactBackdrop} onClick={onToggle} aria-hidden="true" />
+      )}
+
       {/* Chat panel */}
       {isOpen && (
-        <div className={styles.panel} role="complementary" aria-label="Chat">
+        <div className={panelClass} role="complementary" aria-label="Chat">
           <div className={styles.header}>
             <span className={styles.headerTitle}>Chat</span>
             {isHost && onToggleSpectatorChat && (
@@ -97,7 +108,7 @@ export const ChatPanel = memo(function ChatPanel({
                   checked={spectatorChatEnabled}
                   onChange={onToggleSpectatorChat}
                 />
-                <span className={styles.spectatorToggleLabel}>Spectator Chat</span>
+                <span className={styles.spectatorToggleLabel}>Allow Spectators</span>
               </label>
             )}
             <button
@@ -118,7 +129,7 @@ export const ChatPanel = memo(function ChatPanel({
                 // Spectator message
                 return (
                   <div key={i} className={`${styles.message} ${styles.spectatorMessage}`}>
-                    <span className={styles.spectatorSender}>{msg.spectatorName} (spectator)</span>
+                    <span className={styles.sender}>{msg.spectatorName} <span className={styles.spectatorTag}>(spectator)</span>:</span>
                     <span className={styles.messageText}>{msg.text}</span>
                   </div>
                 );
@@ -134,7 +145,7 @@ export const ChatPanel = memo(function ChatPanel({
               // Player message (existing)
               return (
                 <div key={i} className={styles.message}>
-                  <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}</span>
+                  <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}:</span>
                   <span className={styles.messageText}>{msg.text}</span>
                 </div>
               );
