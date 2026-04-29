@@ -16,6 +16,7 @@ import { useBombWindow } from '@/hooks/useBombWindow';
 import { useCardSelection } from '@/hooks/useCardSelection';
 import { useLayoutTier } from '@/hooks/useLayoutTier';
 import { useNavigationBlock } from '@/hooks/useNavigationBlock';
+import { useSoundEffects } from '@/hooks/useSoundEffects';
 import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -105,6 +106,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const { enabled: animEnabled, multiplier: animMultiplier } = useAnimationSettings();
   const dogAnimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Sound effects for game events
+  const { playSound } = useSoundEffects();
+
   // Check if any human player still has cards (used for Dog animation & bomb window)
   const anyHumanActive = useMemo(() => {
     if (roomPlayers.length === 0) return true;
@@ -127,6 +131,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           (s) => !botSeats.has(s) && !view.finishOrder.includes(s),
         );
         if (view.lastDogPlay && animEnabled && humanStillActive) {
+          playSound('dog');
           // Clear any previous Dog animation timer
           if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
           uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
@@ -147,6 +152,22 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           uiStore.startBombWindow(dogBlockMs);
         }
 
+        // Detect special cards played — compare previous trick state with new one
+        {
+          const prevPlays = gameStore.currentTrick?.plays.length ?? 0;
+          const newPlays = view.currentTrick?.plays.length ?? 0;
+          if (newPlays > prevPlays && view.currentTrick) {
+            const latestPlay = view.currentTrick.plays[view.currentTrick.plays.length - 1];
+            if (latestPlay) {
+              const cards = latestPlay.combination.cards;
+              if (cards.some(gc => gc.card.kind === 'dragon')) playSound('dragon');
+              if (cards.some(gc => gc.card.kind === 'phoenix')) playSound('phoenix');
+              const combType = latestPlay.combination.type;
+              if (combType === 'fourBomb' || combType === 'straightFlushBomb') playSound('bomb');
+            }
+          }
+        }
+
         // REQ-F-DRA02/DRA03: Dragon gift animation — sweep trick toward recipient
         if (view.dragonGiftedTo && animEnabled) {
           const prevTrick = gameStore.currentTrick;
@@ -158,10 +179,26 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           }
         }
 
+        // Detect new Tichu/Grand Tichu calls by comparing old state with incoming view
+        {
+          const prevMy = gameStore.myTichuCall;
+          const newMy = view.myTichuCall;
+          if (prevMy === 'none' && newMy !== 'none') {
+            playSound(newMy === 'grandTichu' ? 'grandTichu' : 'tichu');
+          }
+          for (const op of view.otherPlayers) {
+            const prevOp = gameStore.otherPlayers.find(p => p.seat === op.seat);
+            if (prevOp && prevOp.tichuCall === 'none' && op.tichuCall !== 'none') {
+              playSound(op.tichuCall === 'grandTichu' ? 'grandTichu' : 'tichu');
+            }
+          }
+        }
+
         gameStore.applyGameState(view);
         // REQ-F-AP12: Auto-pass resets naturally via trick-won detection and phase change.
         // Do NOT reset here — GAME_STATE fires on every state transition, not just reconnect.
       } else if (msg.type === 'CHAT_RECEIVED') {
+        playSound('chat');
         // REQ-F-MP07: Chat message received — SC-04: spectator + system messages
         uiStore.addChatMessage({
           from: msg.from,
@@ -220,6 +257,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           uiStore.setVoteResult(null);
         }, 2000);
       } else if (msg.type === 'TICHU_CALLED') {
+        playSound(msg.level === 'grandTichu' ? 'grandTichu' : 'tichu');
         // REQ-NF-U02: Show Tichu banner
         uiStore.setTichuEvent({ seat: msg.seat as Seat, level: msg.level as TichuCall });
         gameStore.applyServerMessage(msg);
@@ -306,7 +344,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         gameStore.applyServerMessage(msg);
       }
     },
-    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers, confirmNavigation],
+    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers, confirmNavigation, playSound],
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
