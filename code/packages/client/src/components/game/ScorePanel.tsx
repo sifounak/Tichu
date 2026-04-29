@@ -61,31 +61,48 @@ export const ScorePanel = memo(function ScorePanel({
   const myTeamSeats = [pos.bottom, pos.top];
   const oppTeamSeats = [pos.left, pos.right];
 
-  function renderTichuBadges(rs: RoundScore, seats: Seat[]) {
-    const badges = seats
-      .map((seat) => rs.tichuResults[seat])
-      .filter((tr): tr is NonNullable<typeof tr> => tr != null)
-      .sort((a, b) => (a.won === b.won ? 0 : a.won ? -1 : 1));
-    if (badges.length === 0) return null;
-    return badges.map((tr, i) => {
+  /** Render 3 fixed badge slots: [1-2] [PTOP] [PBOT]
+   *  seats[0] = player listed first (top) in the team column
+   *  seats[1] = player listed second (bottom) in the team column */
+  function renderHistoryBadges(rs: RoundScore, team: Team, seats: Seat[]) {
+    const hasOneTwo = rs.oneTwoBonus === team;
+    const topResult = rs.tichuResults?.[seats[0]] ?? null;
+    const botResult = rs.tichuResults?.[seats[1]] ?? null;
+    const hasAny = hasOneTwo || topResult || botResult;
+    if (!hasAny) return null;
+
+    function tichuBadge(tr: { call: TichuCall; won: boolean } | null, key: string) {
+      if (!tr) return <span key={key} className={`${styles.historyBadge} ${styles.historyBadgePlaceholder}`}>GT</span>;
       const label = tr.call === 'grandTichu' ? 'GT' : 'T';
       const badgeClass = tr.won ? styles.historyBadgeWon : styles.historyBadgeFailed;
-      return (
-        <span key={i} className={`${styles.historyBadge} ${badgeClass}`}>{label}</span>
-      );
-    });
+      return <span key={key} className={`${styles.historyBadge} ${badgeClass}`}>{label}</span>;
+    }
+
+    return (
+      <>
+        {hasOneTwo
+          ? <span key="12" className={`${styles.historyBadge} ${styles.historyBadgeOneTwo}`}>1-2</span>
+          : (topResult || botResult) ? <span key="12" className={`${styles.historyBadge} ${styles.historyBadgePlaceholder}`}>1-2</span> : null}
+        {topResult || botResult ? (
+          <>
+            {tichuBadge(topResult, 'top')}
+            {tichuBadge(botResult, 'bot')}
+          </>
+        ) : null}
+      </>
+    );
   }
 
   function renderHistoryRow(rs: RoundScore) {
     return (
       <div key={rs.roundNumber} className={styles.historyRow}>
         <span className={styles.historyTeamLeft}>
-          <span className={styles.historyBadges}>{renderTichuBadges(rs, myTeamSeats)}</span>
+          <span className={styles.historyBadges}>{renderHistoryBadges(rs, myTeam, myTeamSeats)}</span>
           <span className={styles.historyScore}>{rs.total[myTeam]}</span>
         </span>
         <span className={styles.historyTeamRight}>
           <span className={styles.historyScore}>{rs.total[oppTeam]}</span>
-          <span className={`${styles.historyBadges} ${styles.historyBadgesRight}`}>{renderTichuBadges(rs, oppTeamSeats)}</span>
+          <span className={`${styles.historyBadges} ${styles.historyBadgesRight}`}>{renderHistoryBadges(rs, oppTeam, oppTeamSeats)}</span>
         </span>
       </div>
     );

@@ -119,11 +119,11 @@
   justify-content: flex-start;
 }
 
-/* Badge areas — fixed width so scores align across rows */
+/* Badge areas — 3 fixed slots: [1-2] [PTOP] [PBOT] */
 .historyBadges {
   display: flex;
   gap: 2px;
-  min-width: calc(46px * var(--scale));
+  min-width: calc(72px * var(--scale));
   justify-content: flex-end;
 }
 
@@ -162,6 +162,16 @@
   color: white;
   text-decoration: line-through;
   text-decoration-thickness: 2px;
+}
+
+.historyBadgeOneTwo {
+  background: #f59e0b;
+  color: #1a1a1a;
+}
+
+/* Invisible placeholder to reserve space for absent badges */
+.historyBadgePlaceholder {
+  visibility: hidden;
 }
 
 /* Compact score panel — "You: # / Them: #" */
