@@ -344,7 +344,14 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       } else if (msg.type === 'SERVER_SHUTTING_DOWN') {
         uiStore.setServerRestarting(true);
       } else if (msg.type === 'ERROR') {
-        if (msg.code === 'PARTNER_ALREADY_CALLED') {
+        if (msg.code === 'JOIN_ROOM_FAILED' && !useRoomStore.getState().roomCode) {
+          // Room doesn't exist — redirect to lobby with notification
+          confirmNavigation();
+          leaveRoom();
+          gameStore.reset();
+          sessionStorage.setItem('tichu_kicked_message', 'Requested game does not exist.');
+          router.push('/lobby');
+        } else if (msg.code === 'PARTNER_ALREADY_CALLED') {
           // Parse partner call level from message (format: "PARTNER_ALREADY_CALLED:grandTichu")
           const partnerCall = msg.message.split(':')[1] || 'tichu';
           // Determine which call was attempted based on game phase
