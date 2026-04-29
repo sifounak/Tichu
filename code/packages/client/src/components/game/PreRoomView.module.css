@@ -8,13 +8,17 @@
   text-align: center;
 }
 
-/* Empty seat content — inside PlayerSeat via customContent */
+/* Empty seat content — inside PlayerSeat via customContent.
+   Uses a fixed min-height so the box matches filled-seat dimensions
+   and avoids layout shifts when a player or bot joins. */
 .emptySeatContent {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(8px * var(--scale));
-  padding: var(--space-2) 0;
+  justify-content: center;
+  gap: calc(6px * var(--scale));
+  /* Match the natural height of a filled seat (name + avatar row + padding) */
+  min-height: calc(100px * var(--scale));
 }
 
 .emptyTitle {
@@ -24,9 +28,9 @@
 }
 
 .sitHereBtn {
-  padding: calc(6px * var(--scale)) calc(20px * var(--scale));
-  border-radius: var(--space-2);
-  font-size: var(--font-base);
+  padding: calc(4px * var(--scale)) calc(14px * var(--scale));
+  border-radius: var(--space-1);
+  font-size: var(--font-sm);
   font-weight: 600;
   background: var(--color-gold-accent);
   color: var(--color-felt-green-dark);
@@ -40,9 +44,9 @@
 }
 
 .addBotBtn {
-  padding: calc(6px * var(--scale)) calc(20px * var(--scale));
-  border-radius: var(--space-2);
-  font-size: var(--font-base);
+  padding: calc(4px * var(--scale)) calc(14px * var(--scale));
+  border-radius: var(--space-1);
+  font-size: var(--font-sm);
   font-weight: 600;
   background: var(--color-success, #2ecc71);
   color: #000;
@@ -55,13 +59,15 @@
   opacity: 0.85;
 }
 
-/* Bot seat content — inside PlayerSeat via customContent */
+/* Bot seat content — inside PlayerSeat via customContent.
+   Matches emptySeatContent min-height for consistent sizing. */
 .botSeatContent {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: calc(8px * var(--scale));
-  padding: var(--space-2) 0;
+  justify-content: center;
+  gap: calc(6px * var(--scale));
+  min-height: calc(100px * var(--scale));
 }
 
 .botName {
@@ -164,16 +170,23 @@
   opacity: 0.8;
 }
 
-.settingsPanel {
+/* Full-screen backdrop behind settings panel — click to dismiss */
+.settingsBackdrop {
   position: fixed;
-  top: calc(76px * var(--scale));
-  right: calc(28px * var(--scale));
-  background: var(--color-bg-panel);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settingsPanel {
+  background: rgb(0, 0, 0);
   border: 1px solid var(--color-border);
   border-radius: var(--space-3);
   padding: calc(16px * var(--scale));
-  z-index: 30;
-  width: calc(320px * var(--scale));
+  width: calc(240px * var(--scale));
 }
 
 .settingsTitle {
@@ -182,57 +195,4 @@
   color: var(--color-text-primary);
   text-align: center;
   margin-bottom: calc(12px * var(--scale));
-}
-
-.settingsGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: calc(12px * var(--scale));
-}
-
-.settingsField {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: calc(4px * var(--scale));
-}
-
-.settingsLabel {
-  font-size: var(--font-sm);
-  color: var(--color-text-muted);
-}
-
-.settingsInput,
-.settingsSelect {
-  width: 100%;
-  padding: calc(4px * var(--scale)) calc(8px * var(--scale));
-  border-radius: var(--space-1);
-  background: var(--color-felt-green-dark);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-  text-align: center;
-  font-size: var(--font-sm);
-}
-
-.settingsCheckRow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: calc(6px * var(--scale));
-  cursor: pointer;
-}
-
-.settingsCheckLabel {
-  font-size: var(--font-sm);
-  color: var(--color-text-secondary);
-}
-
-/* Read-only summary for non-host */
-.summaryGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: calc(6px * var(--scale));
-  font-size: var(--font-sm);
-  color: var(--color-text-secondary);
-  text-align: center;
 }

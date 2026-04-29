@@ -58,12 +58,28 @@
   --card-suit-size: calc(20px * var(--scale));
 
   /* Large card variants (for hand display, trick display, pre-game) */
-  --card-width-lg: calc(131px * var(--scale));
-  --card-height-lg: calc(188px * var(--scale));
-  --card-font-size-lg: calc(30px * var(--scale));
-  --card-suit-size-lg: calc(38px * var(--scale));
-  --card-border-radius-lg: calc(11px * var(--scale));
-  --card-overlap-desktop-lg: calc(81px * var(--scale));
+  --card-width-lg: calc(105px * var(--scale));
+  --card-height-lg: calc(150px * var(--scale));
+  --card-font-size-lg: calc(24px * var(--scale));
+  --card-suit-size-lg: calc(30px * var(--scale));
+  --card-border-radius-lg: calc(9px * var(--scale));
+  --card-overlap-desktop-lg: calc(60px * var(--scale));
+
+  /* Compact card variants (700–1100px: moderate shrink + tighter overlap) */
+  --card-width-compact: calc(105px * var(--scale));
+  --card-height-compact: calc(150px * var(--scale));
+  --card-font-size-compact: calc(24px * var(--scale));
+  --card-suit-size-compact: calc(30px * var(--scale));
+  --card-border-radius-compact: calc(9px * var(--scale));
+  --card-overlap-compact: calc(60px * var(--scale));
+
+  /* Mobile card variants (<700px: smaller cards + tighter overlap) */
+  --card-width-mobile: calc(85px * var(--scale));
+  --card-height-mobile: calc(122px * var(--scale));
+  --card-font-size-mobile: calc(20px * var(--scale));
+  --card-suit-size-mobile: calc(24px * var(--scale));
+  --card-border-radius-mobile: calc(7px * var(--scale));
+  --card-overlap-mobile-lg: calc(40px * var(--scale));
 
   /* Layout (scaled) */
   --seat-avatar-size: calc(40px * var(--scale));
@@ -114,6 +130,13 @@
     --duration-fast: 0ms;
     --duration-normal: 0ms;
     --duration-slow: 0ms;
+  }
+}
+
+/* Hide username in lobby UserMenu when viewport is narrow to avoid overlapping title */
+@media (max-width: 640px) {
+  .userMenuName {
+    display: none;
   }
 }
 

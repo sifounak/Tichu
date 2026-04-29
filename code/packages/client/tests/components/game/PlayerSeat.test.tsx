@@ -23,9 +23,10 @@ describe('PlayerSeat', () => {
     expect(screen.getByText('14')).toBeInTheDocument();
   });
 
-  it('renders text card count for own seat', () => {
+  it('renders card count badge for own seat', () => {
     render(<PlayerSeat {...baseProps} isMe />);
-    expect(screen.getByText('14 cards')).toBeInTheDocument();
+    // Own seat now shows same card-back stack with count badge as other seats
+    expect(screen.getByText('14')).toBeInTheDocument();
   });
 
   it('renders custom display name', () => {

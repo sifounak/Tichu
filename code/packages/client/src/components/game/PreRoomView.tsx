@@ -11,7 +11,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Seat, GameConfig, RoomPlayer } from '@tichu/shared';
 import type { ClientGameView } from '@tichu/shared';
+import type { LayoutTier } from '@/hooks/useLayoutTier';
 import { GameTable } from './GameTable';
+import { GameSettingsForm } from '@/components/ui/GameSettingsForm';
 import { PlayerSeat } from './PlayerSeat';
 import { VoteOverlay } from './VoteOverlay';
 import { LeaveConfirmDialog } from './LeaveConfirmDialog';
@@ -51,6 +53,8 @@ interface PreRoomViewProps {
   backButtonDialogOpen?: boolean;
   /** REQ-F-BB01: Called when user cancels the back-button leave dialog */
   onCancelNavigation?: () => void;
+  /** Current layout tier for responsive behavior */
+  layoutTier?: LayoutTier;
 }
 
 /** Minimal ClientGameView stub so GameTable can calculate seat positions */
@@ -107,6 +111,7 @@ export function PreRoomView({
   onClaimOriginalSeat,
   backButtonDialogOpen,
   onCancelNavigation,
+  layoutTier = 'full',
 }: PreRoomViewProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -140,6 +145,7 @@ export function PreRoomView({
   const amReady = mySeat ? readyPlayers.includes(mySeat) : false;
   // Spectators always see compass layout (N top, S bottom, W left, E right)
   const effectiveSeat = mySeat ?? 'south';
+  const isCompactLayout = layoutTier !== 'full';
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(roomCode);
@@ -467,14 +473,14 @@ export function PreRoomView({
 
   return (
     <>
-      {/* Room code + Spectators + Leave — same position as in-game */}
+      {/* Room code + Spectators + Leave — same position as in-game; hidden in compact (chrome row instead) */}
       <div style={{
         position: 'fixed',
         top: 'calc(120px * var(--scale))',
         left: 'calc(148px * var(--scale))',
         transform: 'translate(-50%, -50%)',
         zIndex: 30,
-        display: 'flex',
+        display: isCompactLayout ? 'none' : 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 'var(--space-1)',
@@ -579,7 +585,7 @@ export function PreRoomView({
 
         {/* REQ-F-VI11: Pre-game "Start a Vote" button — only Kick Player option */}
         {!isSpectator && mySeat && players.length >= 2 && !uiStore.activeVote && (
-          <div ref={voteDropdownRef} style={{ position: 'relative' }}>
+          <div ref={!isCompactLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
             <button
               onClick={() => { setShowVoteDropdown(!showVoteDropdown); setPreGameKickTargetMode(false); }}
               style={{
@@ -708,73 +714,173 @@ export function PreRoomView({
       </button>
 
       {showSettings && config && (
-        <div className={styles.settingsPanel}>
-          <div className={styles.settingsTitle}>Game Settings</div>
-          {isHost ? (
-            <div className={styles.settingsGrid}>
-              <label className={styles.settingsField}>
-                <span className={styles.settingsLabel}>Target Score</span>
-                <input
-                  type="number"
-                  value={config.targetScore}
-                  onChange={(e) => handleConfigChange({ targetScore: parseInt(e.target.value) || 1000 })}
-                  min={100} max={10000} step={100}
-                  className={styles.settingsInput}
-                />
-              </label>
-              <label className={styles.settingsField}>
-                <span className={styles.settingsLabel}>Turn Timer</span>
-                <select
-                  value={config.turnTimerSeconds ?? 'off'}
-                  onChange={(e) => handleConfigChange({
-                    turnTimerSeconds: e.target.value === 'off' ? null : parseInt(e.target.value),
-                  })}
-                  className={styles.settingsSelect}
-                >
-                  <option value="off">Off</option>
-                  <option value="30">30s</option>
-                  <option value="60">60s</option>
-                  <option value="90">90s</option>
-                </select>
-              </label>
-              <label className={styles.settingsCheckRow}>
-                <input
-                  type="checkbox"
-                  checked={config.isPrivate}
-                  onChange={(e) => handleConfigChange({ isPrivate: e.target.checked })}
-                />
-                <span className={styles.settingsCheckLabel}>Private</span>
-              </label>
-              <label className={styles.settingsCheckRow}>
-                <input
-                  type="checkbox"
-                  checked={config.spectatorsAllowed}
-                  onChange={(e) => handleConfigChange({ spectatorsAllowed: e.target.checked })}
-                />
-                <span className={styles.settingsCheckLabel}>Spectators</span>
-              </label>
-              <label className={styles.settingsCheckRow}>
-                <input
-                  type="checkbox"
-                  checked={config.spectatorChatEnabled}
-                  onChange={(e) => handleConfigChange({ spectatorChatEnabled: e.target.checked })}
-                />
-                <span className={styles.settingsCheckLabel}>Spectator Chat</span>
-              </label>
-            </div>
-          ) : (
-            <div className={styles.summaryGrid}>
-              <span>Target: {config.targetScore} pts</span>
-              <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
-              <span>{config.isPrivate ? 'Private' : 'Public'}</span>
-              <span>Spectators: {config.spectatorsAllowed ? 'Yes' : 'No'}</span>
-              <span>Spectator Chat: {config.spectatorChatEnabled ? 'Yes' : 'No'}</span>
-            </div>
-          )}
+        <div
+          className={styles.settingsBackdrop}
+          onClick={() => setShowSettings(false)}
+        >
+          <div className={styles.settingsPanel} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.settingsTitle}>Game Settings</div>
+            <GameSettingsForm
+              config={config}
+              onChange={handleConfigChange}
+              readOnly={!isHost}
+            />
+          </div>
         </div>
       )}
 
       {/* Game table with pre-room seat rendering and center content */}
+      {/* Compact/mobile top-left chrome column: [Room: #####] # watching / [Start a Vote] / [Leave Game] */}
+      {isCompactLayout && (
+        <div style={{
+          position: 'fixed',
+          top: 'var(--space-1)',
+          left: 'var(--space-2)',
+          zIndex: 30,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+          gap: 'var(--space-1)',
+        }}>
+          {/* Row 1: room code + spectator count */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            {isSpectator && (
+              <span style={{
+                background: 'var(--color-gold-accent)',
+                color: 'var(--color-felt-green-dark)',
+                padding: '2px var(--space-2)',
+                borderRadius: 'var(--card-border-radius)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 700,
+              }}>
+                Spectating
+              </span>
+            )}
+            <button
+              onClick={handleCopyCode}
+              style={{
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                color: 'var(--color-text-secondary)',
+                background: 'var(--color-bg-panel)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--card-border-radius)',
+                padding: '2px var(--space-2)',
+                cursor: 'pointer',
+              }}
+              aria-label="Copy room code"
+            >
+              {codeCopied ? 'Copied!' : <>Room: <span style={{ fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.1em', color: 'var(--color-gold-accent)' }}>{roomCode}</span></>}
+            </button>
+            <span style={{
+              fontSize: 'var(--font-sm)',
+              fontWeight: 600,
+              color: 'var(--color-text-secondary)',
+            }}>
+              {spectatorCount} watching
+            </span>
+          </div>
+
+          {/* Row 2: Start a Vote (players only) */}
+          {!isSpectator && mySeat && players.length >= 2 && !uiStore.activeVote && (
+            <div ref={isCompactLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
+              <button
+                onClick={() => { setShowVoteDropdown(!showVoteDropdown); setPreGameKickTargetMode(false); }}
+                style={{
+                  background: 'var(--color-bg-panel)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--card-border-radius)',
+                  color: 'var(--color-text-secondary)',
+                  padding: '2px var(--space-2)',
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+                aria-label="Start a vote"
+              >
+                Start a Vote
+              </button>
+              {showVoteDropdown && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    marginTop: '2px',
+                    background: 'rgb(0,0,0)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--card-border-radius)',
+                    padding: 'var(--space-1) 0',
+                    zIndex: 50,
+                    minWidth: '100%',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <button
+                    onClick={() => { setShowVoteDropdown(false); setPreGameKickTargetMode(true); }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--color-text-primary)',
+                      padding: 'var(--space-2) var(--space-3)',
+                      fontSize: 'var(--font-sm)',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    Kick Player
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Kick target mode hint */}
+          {preGameKickTargetMode && (
+            <div style={{
+              fontSize: 'var(--font-sm)',
+              color: 'var(--color-gold-accent)',
+              fontWeight: 600,
+            }}>
+              Click a player to kick (Esc to cancel)
+            </div>
+          )}
+
+          {/* Row 3: Leave Game */}
+          <LeaveConfirmDialog
+            title="Leave Room?"
+            subtitle=""
+            onConfirm={onLeave}
+            externalOpen={backButtonDialogOpen}
+            onClose={onCancelNavigation}
+          >
+            {(openDialog) => (
+              <button
+                onClick={openDialog}
+                style={{
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 600,
+                  color: 'var(--color-text-secondary)',
+                  background: 'var(--color-bg-panel)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: '2px var(--space-2)',
+                  cursor: 'pointer',
+                }}
+                aria-label="Leave room"
+              >
+                Leave Game
+              </button>
+            )}
+          </LeaveConfirmDialog>
+        </div>
+      )}
+
       <GameTable
         view={dummyView}
         hideCenter={false}
@@ -782,14 +888,16 @@ export function PreRoomView({
         renderSeatOverride={renderSeat}
         centerContent={centerContent}
         bottomContent={isSpectator ? renderSeat('south') : undefined}
+        layoutTier={layoutTier}
       />
 
-      {/* Bottom panel — player's own seat, positioned where it sits during gameplay
-           (above where the card hand would be) */}
+      {/* Bottom panel — player's own seat.
+           Full layout: above where the card hand would be.
+           Compact/mobile: centered where the card hand would be (lower). */}
       {mySeat && (
         <div style={{
           position: 'fixed',
-          bottom: 'calc(200px * var(--scale))',
+          bottom: isCompactLayout ? 'calc(34px * var(--scale))' : 'calc(200px * var(--scale))',
           left: 0,
           right: 0,
           zIndex: 20,

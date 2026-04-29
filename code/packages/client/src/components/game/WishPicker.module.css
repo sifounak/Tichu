@@ -97,15 +97,13 @@
   border-color: var(--color-text-secondary);
 }
 
-@media (max-width: 640px) {
-  .overlay {
-    align-items: flex-end;
-  }
+:root[data-layout="mobile"] .overlay {
+  align-items: flex-end;
+}
 
-  .picker {
-    width: 100%;
-    max-width: 100%;
-    border-radius: 16px 16px 0 0;
-    padding: var(--space-5) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
-  }
+:root[data-layout="mobile"] .picker {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 16px 16px 0 0;
+  padding: var(--space-5) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
 }

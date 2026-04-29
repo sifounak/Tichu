@@ -5,6 +5,7 @@
 'use client';
 
 import { useState } from 'react';
+import { GameSettingsForm } from '@/components/ui/GameSettingsForm';
 import styles from './CreateGamePopup.module.css';
 
 export interface CreateGameConfig {
@@ -42,70 +43,11 @@ export function CreateGamePopup({ onCancel, onCreate }: CreateGamePopupProps) {
         <form onSubmit={(e) => { e.preventDefault(); onCreate(config); }}>
         <h2 className={styles.title}>Game Settings</h2>
 
-        <div className={styles.grid}>
-          {/* Target Score */}
-          <label className={styles.field}>
-            <span className={styles.label}>Target Score</span>
-            <input
-              type="number"
-              value={config.targetScore}
-              onChange={(e) => setConfig({ ...config, targetScore: parseInt(e.target.value) || 1000 })}
-              min={100}
-              max={10000}
-              step={100}
-              className={styles.input}
-            />
-          </label>
-
-          {/* Turn Timer */}
-          <label className={styles.field}>
-            <span className={styles.label}>Turn Timer</span>
-            <select
-              value={config.turnTimerSeconds ?? 'off'}
-              onChange={(e) =>
-                setConfig({
-                  ...config,
-                  turnTimerSeconds: e.target.value === 'off' ? null : parseInt(e.target.value) as 30 | 60 | 90,
-                })
-              }
-              className={styles.select}
-            >
-              <option value="off">Off</option>
-              <option value="30">30s</option>
-              <option value="60">60s</option>
-              <option value="90">90s</option>
-            </select>
-          </label>
-
-          {/* Private Room */}
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={config.isPrivate}
-              onChange={(e) => setConfig({ ...config, isPrivate: e.target.checked })}
-            />
-            <span className={styles.checkboxLabel}>Private Room</span>
-          </label>
-
-          {/* Allow Spectators */}
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={config.spectatorsAllowed}
-              onChange={(e) => setConfig({ ...config, spectatorsAllowed: e.target.checked })}
-            />
-            <span className={styles.checkboxLabel}>Allow Spectators</span>
-          </label>
-
-          {/* Spectator Chat */}
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              checked={config.spectatorChatEnabled}
-              onChange={(e) => setConfig({ ...config, spectatorChatEnabled: e.target.checked })}
-            />
-            <span className={styles.checkboxLabel}>Spectator Chat</span>
-          </label>
+        <div className={styles.formWrapper}>
+          <GameSettingsForm
+            config={config}
+            onChange={(updates) => setConfig({ ...config, ...updates } as CreateGameConfig)}
+          />
         </div>
 
         <div className={styles.buttons}>

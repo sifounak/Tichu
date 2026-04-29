@@ -1,5 +1,6 @@
 /* REQ-NF-U01: Responsive game table with CSS Grid */
-/* Desktop: 3x3 grid — partner top-center, opponents left/right, player bottom-center */
+/* Full tier (>1100px): 3x3 grid — partner top-center, opponents left/right, player bottom-center */
+/* Compact/Mobile tiers: flexbox column — partner row, opponents row, trick area, bottom spacer */
 
 .table {
   display: grid;
@@ -70,6 +71,18 @@
   min-height: calc(280px * var(--scale));
 }
 
+/* Opponents row — only rendered in compact/mobile, hidden in full tier */
+/* Negative margin pulls opponents up so their centerline aligns with the partner box bottom */
+.opponentsRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 var(--space-4);
+  flex-shrink: 0;
+  margin-top: calc(-40px * var(--scale));
+  position: relative;
+  z-index: 1;
+}
+
 /* Phase indicator */
 .phaseIndicator {
   position: absolute;
@@ -102,34 +115,89 @@
   box-shadow: 0 0 calc(24px * var(--scale)) rgba(74, 158, 255, 0.5);
 }
 
-/* REQ-NF-U01: Mobile portrait layout */
-@media (max-width: 640px) {
-  .table {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr auto;
-    grid-template-areas:
-      "top"
-      "left"
-      "right"
-      "bottom";
-    padding: var(--space-2);
-    gap: var(--space-1);
-  }
+/* ===== Compact tier (700–1100px): flexbox column layout ===== */
+:root[data-layout="compact"] .table {
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  grid-template-rows: none;
+  grid-template-areas: none;
+  padding: var(--space-2);
+  gap: var(--space-1);
+}
 
-  .center {
-    top: 50%;
-    left: 0;
-    right: 0;
-  }
+:root[data-layout="compact"] .top {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-shrink: 0;
+  padding-top: calc(44px * var(--scale));
+  /* Keep partner seat clickable above center area */
+  position: relative;
+  z-index: 1;
+}
 
-  .left,
-  .right {
-    position: static;
-    transform: none;
-    justify-content: center;
-  }
+:root[data-layout="compact"] .center {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  transform: none;
+  flex: 1;
+  min-height: calc(140px * var(--scale));
+  /* Horizontal padding for whitespace; top margin clears opponent indicator labels */
+  margin: calc(36px * var(--scale)) var(--space-4) 0;
+  overflow: hidden;
+  /* Reset z-index inherited from full layout so center doesn't cover partner/opponents */
+  z-index: auto;
+}
 
-  .bottom {
-    min-height: calc(200px * var(--scale));
-  }
+:root[data-layout="compact"] .bottom {
+  min-height: calc(240px * var(--scale));
+  flex-shrink: 0;
+}
+
+/* ===== Mobile tier (<700px): same column layout, tighter spacing ===== */
+:root[data-layout="mobile"] .table {
+  display: flex;
+  flex-direction: column;
+  grid-template-columns: none;
+  grid-template-rows: none;
+  grid-template-areas: none;
+  padding: var(--space-1);
+  gap: var(--space-1);
+}
+
+:root[data-layout="mobile"] .top {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-shrink: 0;
+  padding-top: calc(36px * var(--scale));
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-layout="mobile"] .opponentsRow {
+  padding: 0 var(--space-2);
+  margin-top: calc(-30px * var(--scale));
+}
+
+:root[data-layout="mobile"] .center {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  transform: none;
+  flex: 1;
+  min-height: calc(120px * var(--scale));
+  /* Horizontal padding for whitespace; top margin clears opponent indicator labels */
+  margin: calc(32px * var(--scale)) var(--space-3) 0;
+  overflow: hidden;
+  z-index: auto;
+}
+
+:root[data-layout="mobile"] .bottom {
+  min-height: calc(200px * var(--scale));
+  flex-shrink: 0;
 }

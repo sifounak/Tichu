@@ -14,6 +14,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import { useBombWindow } from '@/hooks/useBombWindow';
 import { useCardSelection } from '@/hooks/useCardSelection';
+import { useLayoutTier } from '@/hooks/useLayoutTier';
 import { useNavigationBlock } from '@/hooks/useNavigationBlock';
 import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
@@ -67,6 +68,19 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const readyPlayers = useRoomStore((s) => s.readyPlayers);
   const mySeatFromRoom = useRoomStore((s) => s.mySeat);
   const leaveRoom = useRoomStore((s) => s.leaveRoom);
+  // Responsive layout tier
+  const layoutTier = useLayoutTier();
+  const isCompactLayout = layoutTier !== 'full';
+
+  // Auto-collapse chat when transitioning to compact/mobile
+  const prevLayoutRef = useRef(layoutTier);
+  useEffect(() => {
+    if (prevLayoutRef.current === 'full' && layoutTier !== 'full' && uiStore.chatOpen) {
+      uiStore.toggleChat();
+    }
+    prevLayoutRef.current = layoutTier;
+  }, [layoutTier, uiStore]);
+
   // Leave confirmation is now handled by LeaveConfirmDialog component
   const [showVoteDropdown, setShowVoteDropdown] = useState(false);
   const voteDropdownRef = useRef<HTMLDivElement>(null);
@@ -787,6 +801,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           onClaimOriginalSeat={(seat) => send({ type: 'CLAIM_SEAT', seat })}
           backButtonDialogOpen={backButtonDialogOpen}
           onCancelNavigation={cancelNavigation}
+          layoutTier={layoutTier}
         />
       </>
     );
@@ -938,14 +953,14 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           Server restarting — reconnecting automatically...
         </div>
       )}
-      {/* Room code + Spectators + Leave Room */}
+      {/* Room code + Spectators + Leave Room — hidden in compact mode (shown in chrome row instead) */}
       <div style={{
         position: 'fixed',
         top: 'calc(120px * var(--scale))',
         left: 'calc(148px * var(--scale))',
         transform: 'translate(-50%, -50%)',
         zIndex: 30,
-        display: 'flex',
+        display: isCompactLayout ? 'none' : 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 'var(--space-1)',
@@ -1052,9 +1067,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           )}
         </div>
 
-        {/* REQ-F-PV01: Start a Vote button + dropdown */}
+        {/* REQ-F-PV01: Start a Vote button + dropdown (full layout only — compact uses chrome column) */}
         {!isSpectator && mySeatFromRoom && (gameInProgress || gameStore.gameId) && !uiStore.activeVote && !uiStore.disconnectVoteRequired && (
-          <div ref={voteDropdownRef} style={{ position: 'relative' }}>
+          <div ref={!isCompactLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
             <button
               onClick={() => setShowVoteDropdown(!showVoteDropdown)}
               style={{
@@ -1224,8 +1239,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       />
 
 
-      {/* REQ-F-DI05: Score panel */}
-      {gameStore.scores && (
+      {/* REQ-F-DI05: Score panel — full layout: fixed top-right; compact: in chrome row */}
+      {gameStore.scores && !isCompactLayout && (
         <div style={{ position: 'fixed', top: 'calc(40px * var(--scale))', right: 'calc(28px * var(--scale))', zIndex: 30 }}>
           <ScorePanel
             scores={gameStore.scores}
@@ -1238,6 +1253,229 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             tichuSucceededSeats={tichuSucceededSeats}
             vacatedSeats={gameStore.vacatedSeats}
           />
+        </div>
+      )}
+
+      {/* Compact/mobile top chrome: left column (room info, vote, leave) + right (chat, score) */}
+      {isCompactLayout && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 30,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          padding: 'var(--space-1) var(--space-2)',
+          pointerEvents: 'none',
+        }}>
+          {/* Left column: [Room: #####] # watching / [Start a Vote] / [Leave Game] */}
+          <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
+            {/* Row 1: spectating badge + room code + spectator count */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              {isSpectator && (
+                <span style={{
+                  background: 'var(--color-gold-accent)',
+                  color: 'var(--color-felt-green-dark)',
+                  padding: '2px var(--space-2)',
+                  borderRadius: 'var(--card-border-radius)',
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 700,
+                }}>
+                  Spectating
+                </span>
+              )}
+              {roomCode && (
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(roomCode);
+                    setCodeCopied(true);
+                    setTimeout(() => setCodeCopied(false), 1000);
+                  }}
+                  style={{
+                    fontSize: 'var(--font-sm)',
+                    fontWeight: 600,
+                    color: 'var(--color-text-secondary)',
+                    background: 'var(--color-bg-panel)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--card-border-radius)',
+                    padding: '2px var(--space-2)',
+                    cursor: 'pointer',
+                  }}
+                  aria-label="Copy room code"
+                >
+                  {codeCopied ? 'Copied!' : <>Room: <span style={{ fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.1em', color: 'var(--color-gold-accent)' }}>{roomCode}</span></>}
+                </button>
+              )}
+              <span style={{
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                color: 'var(--color-text-secondary)',
+              }}>
+                {spectatorCount} watching
+              </span>
+            </div>
+
+            {/* Row 2: Start a Vote */}
+            {!isSpectator && mySeatFromRoom && (gameInProgress || gameStore.gameId) && !uiStore.activeVote && !uiStore.disconnectVoteRequired && (
+              <div ref={voteDropdownRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setShowVoteDropdown(!showVoteDropdown)}
+                  style={{
+                    background: 'var(--color-bg-panel)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--card-border-radius)',
+                    color: 'var(--color-text-secondary)',
+                    padding: '2px var(--space-2)',
+                    fontSize: 'var(--font-sm)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  aria-label="Start a vote"
+                >
+                  Start a Vote
+                </button>
+                {showVoteDropdown && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      marginTop: '2px',
+                      background: 'rgb(0,0,0)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--card-border-radius)',
+                      padding: 'var(--space-1) 0',
+                      zIndex: 50,
+                      minWidth: '100%',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <button
+                      onClick={() => { setShowVoteDropdown(false); uiStore.setKickTargetMode(true); }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--color-text-primary)',
+                        padding: 'var(--space-2) var(--space-3)',
+                        fontSize: 'var(--font-sm)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      Kick Player
+                    </button>
+                    <button
+                      onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_ROUND_VOTE' }); }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--color-text-primary)',
+                        padding: 'var(--space-2) var(--space-3)',
+                        fontSize: 'var(--font-sm)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      Restart Round
+                    </button>
+                    <button
+                      onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_GAME_VOTE' }); }}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--color-text-primary)',
+                        padding: 'var(--space-2) var(--space-3)',
+                        fontSize: 'var(--font-sm)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      Restart Game
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Row 3: Leave Game */}
+            <LeaveConfirmDialog
+              title={isSpectator ? 'Leave Room?' : 'Leave Game?'}
+              subtitle={isSpectator ? '' : 'This will count as a forfeit if you leave.'}
+              onConfirm={() => { confirmNavigation(); handleLeaveGame(); }}
+              externalOpen={backButtonDialogOpen}
+              onClose={cancelNavigation}
+            >
+              {(openDialog) => (
+                <button
+                  onClick={openDialog}
+                  style={{
+                    fontSize: 'var(--font-sm)',
+                    fontWeight: 600,
+                    color: 'var(--color-text-secondary)',
+                    background: 'var(--color-bg-panel)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--card-border-radius)',
+                    padding: '2px var(--space-2)',
+                    cursor: 'pointer',
+                  }}
+                  aria-label="Leave room"
+                >
+                  Leave Game
+                </button>
+              )}
+            </LeaveConfirmDialog>
+          </div>
+
+          {/* Right: chat bubble + compact score */}
+          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <ChatPanel
+              messages={uiStore.chatMessages}
+              onSend={handleChatSend}
+              isOpen={uiStore.chatOpen}
+              onToggle={uiStore.toggleChat}
+              unreadCount={uiStore.chatUnread}
+              seatNames={seatNames}
+              isHost={mySeatFromRoom === hostSeat}
+              isSpectator={isSpectator}
+              spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+              onToggleSpectatorChat={() => send({
+                type: 'CONFIGURE_ROOM',
+                config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
+              })}
+              compact
+            />
+            {gameStore.scores && (
+              <ScorePanel
+                scores={gameStore.scores}
+                roundHistory={gameStore.roundHistory}
+                tichuCalls={tichuCalls}
+                targetScore={gameStore.config?.targetScore ?? 1000}
+                seatNames={seatNames}
+                mySeat={mySeat!}
+                tichuFailedSeats={tichuFailedSeats}
+                tichuSucceededSeats={tichuSucceededSeats}
+                vacatedSeats={gameStore.vacatedSeats}
+                compact
+              />
+            )}
+          </div>
         </div>
       )}
 
@@ -1255,6 +1493,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         endOfTrickBombWindowEndTime={gameStore.endOfTrickBombWindowEndTime}
         serverClockOffsetMs={gameStore.serverClockOffsetMs}
         compassLayout={isSpectator}
+        layoutTier={layoutTier}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
         onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat) => send({ type: 'ADD_BOT', seat }) : undefined}
@@ -1364,6 +1603,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                 onPass={handlePass}
                 onTichu={handleTichu}
                 onBomb={handleBomb}
+                layoutTier={layoutTier}
+                canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing')}
                 layout="split"
                 playerSeat={
                   <PlayerSeat
@@ -1386,12 +1627,32 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </div>
           )}
 
+          {/* Compact mode: show player's active Tichu call banner between action bar and cards */}
+          {isCompactLayout && !isPreGame && !showReceivedCards && gameStore.myTichuCall !== 'none' && (
+            <div style={{
+              pointerEvents: 'auto',
+              background: gameStore.myTichuCall === 'grandTichu' ? 'var(--color-grand-tichu-badge)' : '#d32f2f',
+              color: gameStore.myTichuCall === 'grandTichu' ? '#1a1a1a' : 'white',
+              fontWeight: 800,
+              fontSize: 'var(--font-sm)',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              padding: 'calc(2px * var(--scale)) 0',
+              borderRadius: 'var(--space-1)',
+              textAlign: 'center',
+              whiteSpace: 'nowrap',
+              width: layoutTier === 'mobile' ? 'calc(180px * var(--scale))' : 'calc(240px * var(--scale))',
+            }}>
+              {gameStore.myTichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}
+            </div>
+          )}
+
           {/* Tichu/Grand Tichu banner — shown between pass area and cards during pre-game / received cards */}
           {(isPreGame || showReceivedCards) && gameStore.myTichuCall !== 'none' && (
             <div style={{
               pointerEvents: 'auto',
-              background: gameStore.myTichuCall === 'grandTichu' ? '#b71c1c' : '#d32f2f',
-              color: 'white',
+              background: gameStore.myTichuCall === 'grandTichu' ? 'var(--color-grand-tichu-badge)' : '#d32f2f',
+              color: gameStore.myTichuCall === 'grandTichu' ? '#1a1a1a' : 'white',
               fontWeight: 800,
               fontSize: 'var(--font-base)',
               textTransform: 'uppercase',
@@ -1405,123 +1666,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </div>
           )}
 
-          {/* Card hand — always rendered for visual continuity */}
-          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', pointerEvents: 'auto', '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)', '--card-overlap-desktop': 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
-            {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
-              <button
-                onClick={handleTichu}
-                style={{
-                  position: 'absolute',
-                  right: '100%',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  marginRight: 'calc(48px * var(--scale))',
-                  width: 'calc(84px * var(--scale))',
-                  height: 'calc(84px * var(--scale))',
-                  padding: 'var(--space-1)',
-                  border: 'none',
-                  borderRadius: 'var(--space-3)',
-                  background: 'var(--color-tichu-badge)',
-                  color: 'white',
-                  fontFamily: 'var(--font-display)',
-                  fontSize: 'calc(21px * var(--scale))',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  lineHeight: '1.2',
-                  textAlign: 'center',
-                }}
-                aria-label="Declare Tichu"
-              >
-                Call<br />Tichu!
-              </button>
-            )}
-            <CardHand
-              cards={gameStore.myHand}
-              selectedIds={canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : (gameStore.gameHalted ? new Set<CardId>() : selection.selectedIds)}
-              disabledIds={canSelectPassCards ? placedCardIds : undefined}
-              onCardClick={
-                canSelectPassCards && !passConfirmed
-                  ? handlePassCardClick
-                  : phase === GamePhase.Playing && !gameStore.gameHalted
-                    ? selection.toggleCard
-                    : undefined
-              }
-            />
-            {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
-            {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
-              <div
-                style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translateY(-50%)', marginLeft: 'calc(48px * var(--scale))', zIndex: 30 }}
-                onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
-                onMouseLeave={() => setBombPopupOpen(false)}
-              >
-                {/* REQ-F-BB05/BB06: Multi-bomb popup — attached directly above button */}
-                {bombPopupOpen && handBombs.length > 0 && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: '100%',
-                      left: 'calc(-4px * var(--scale) - 5px)',
-                      paddingBottom: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'flex-start',
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: 'rgba(0, 0, 0, 0.5)',
-                        border: 'none',
-                        borderRadius: 'var(--space-3)',
-                        padding: 'calc(4px * var(--scale))',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 'calc(4px * var(--scale))',
-                        zIndex: 50,
-                      }}
-                    >
-                      {/* Sort: straight flushes on top (weakest→strongest), four-of-a-kind on bottom (weakest→strongest) */}
-                      {[...handBombs].sort((a, b) => {
-                        const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
-                        const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
-                        if (aIsSF !== bIsSF) return aIsSF - bIsSF;
-                        if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
-                          if (a.length !== b.length) return a.length - b.length;
-                          return a.rank - b.rank;
-                        }
-                        return a.rank - b.rank;
-                      }).map((bomb, i) => (
-                        <div
-                          key={i}
-                          role="button"
-                          tabIndex={0}
-                          onClick={phase === 'playing' ? () => { handleBombPlay(bomb); setBombPopupOpen(false); } : undefined}
-                          onKeyDown={phase === 'playing' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } } : undefined}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            borderRadius: 'var(--space-2)',
-                            cursor: phase === 'playing' ? 'pointer' : 'default',
-                            padding: 'calc(6px * var(--scale))',
-                            display: 'flex',
-                            transition: 'background 0.15s',
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                          aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
-                        >
-                          {bomb.cards.map((gc, j) => (
-                            <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
-                              <Card gameCard={gc} state="normal" />
-                            </div>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* REQ-F-BB04: Single bomb plays immediately on click */}
+          {/* Card hand row: [Tichu btn] [cards] [Bomb btn] — buttons offset from hand edges */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', maxWidth: '100%', gap: 'calc(16px * var(--scale))', '--card-width': layoutTier === 'mobile' ? 'var(--card-width-mobile)' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? 'var(--card-height-mobile)' : 'var(--card-height-lg)', '--card-font-size': layoutTier === 'mobile' ? 'var(--card-font-size-mobile)' : 'var(--card-font-size-lg)', '--card-suit-size': layoutTier === 'mobile' ? 'var(--card-suit-size-mobile)' : 'var(--card-suit-size-lg)', '--card-border-radius': layoutTier === 'mobile' ? 'var(--card-border-radius-mobile)' : 'var(--card-border-radius-lg)', '--card-overlap-desktop': layoutTier === 'mobile' ? 'var(--card-overlap-mobile-lg)' : 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
+            {/* Left: Tichu button — fixed offset from hand */}
+            <div style={{ flexShrink: 0 }}>
+              {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
                 <button
-                  onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                  onClick={handleTichu}
                   style={{
                     width: 'calc(84px * var(--scale))',
                     height: 'calc(84px * var(--scale))',
@@ -1537,12 +1688,126 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     lineHeight: '1.2',
                     textAlign: 'center',
                   }}
-                  aria-label="Play bomb"
+                  aria-label="Declare Tichu"
                 >
-                  Bomb!
+                  Call<br />Tichu!
                 </button>
-              </div>
-            )}
+              )}
+            </div>
+            {/* Center: card hand (shrinks via CardHand auto-scale when needed) */}
+            <div style={{ minWidth: 0, flexShrink: 1, display: 'flex', justifyContent: 'center' }}>
+              <CardHand
+                cards={gameStore.myHand}
+                selectedIds={canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : (gameStore.gameHalted ? new Set<CardId>() : selection.selectedIds)}
+                disabledIds={canSelectPassCards ? placedCardIds : undefined}
+                onCardClick={
+                  canSelectPassCards && !passConfirmed
+                    ? handlePassCardClick
+                    : phase === GamePhase.Playing && !gameStore.gameHalted
+                      ? selection.toggleCard
+                      : undefined
+                }
+              />
+            </div>
+            {/* Right: Bomb button — fixed offset from hand */}
+            <div style={{ flexShrink: 0, position: 'relative' }}>
+              {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
+              {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
+                <div
+                  style={{ position: 'relative', zIndex: 30 }}
+                  onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
+                  onMouseLeave={() => setBombPopupOpen(false)}
+                >
+                  {/* REQ-F-BB05/BB06: Multi-bomb popup — attached directly above button */}
+                  {bombPopupOpen && handBombs.length > 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        left: 'calc(-4px * var(--scale) - 5px)',
+                        paddingBottom: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                      }}
+                    >
+                      <div
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.5)',
+                          border: 'none',
+                          borderRadius: 'var(--space-3)',
+                          padding: 'calc(4px * var(--scale))',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 'calc(4px * var(--scale))',
+                          zIndex: 50,
+                        }}
+                      >
+                        {/* Sort: straight flushes on top (weakest→strongest), four-of-a-kind on bottom (weakest→strongest) */}
+                        {[...handBombs].sort((a, b) => {
+                          const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                          const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                          if (aIsSF !== bIsSF) return aIsSF - bIsSF;
+                          if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
+                            if (a.length !== b.length) return a.length - b.length;
+                            return a.rank - b.rank;
+                          }
+                          return a.rank - b.rank;
+                        }).map((bomb, i) => (
+                          <div
+                            key={i}
+                            role="button"
+                            tabIndex={0}
+                            onClick={phase === 'playing' ? () => { handleBombPlay(bomb); setBombPopupOpen(false); } : undefined}
+                            onKeyDown={phase === 'playing' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } } : undefined}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              borderRadius: 'var(--space-2)',
+                              cursor: phase === 'playing' ? 'pointer' : 'default',
+                              padding: 'calc(6px * var(--scale))',
+                              display: 'flex',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
+                          >
+                            {bomb.cards.map((gc, j) => (
+                              <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
+                                <Card gameCard={gc} state="normal" />
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* REQ-F-BB04: Single bomb plays immediately on click */}
+                  <button
+                    onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                    style={{
+                      width: 'calc(84px * var(--scale))',
+                      height: 'calc(84px * var(--scale))',
+                      padding: 'var(--space-1)',
+                      border: 'none',
+                      borderRadius: 'var(--space-3)',
+                      background: 'var(--color-tichu-badge)',
+                      color: 'white',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 'calc(21px * var(--scale))',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      lineHeight: '1.2',
+                      textAlign: 'center',
+                    }}
+                    aria-label="Play bomb"
+                  >
+                    Bomb!
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1571,7 +1836,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {/* REQ-NF-U02: Tichu call banner */}
       {!showReceivedCards && <TichuBanner tichuEvent={uiStore.tichuEvent} />}
 
-      {/* REQ-F-MP07: In-game chat — SC-03: spectator chat when enabled */}
+      {/* REQ-F-MP07: In-game chat — full layout: side panel; compact: in chrome row */}
+      {!isCompactLayout && (
       <ChatPanel
         messages={uiStore.chatMessages}
         onSend={handleChatSend}
@@ -1587,6 +1853,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
         })}
       />
+      )}
 
       {/* Disconnect overlay removed — vacated seats shown inline on player info boxes */}
 

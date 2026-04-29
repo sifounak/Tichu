@@ -84,9 +84,8 @@
   font-style: italic;
 }
 
-@media (max-width: 640px) {
-  .panel {
-    margin: 0 var(--space-4);
-    padding: var(--space-5);
-  }
+:root[data-layout="compact"] .panel,
+:root[data-layout="mobile"] .panel {
+  margin: 0 var(--space-4);
+  padding: var(--space-5);
 }

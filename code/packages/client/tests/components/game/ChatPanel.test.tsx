@@ -31,8 +31,8 @@ describe('ChatPanel (REQ-F-MP07)', () => {
     expect(screen.getByText('Chat')).toBeInTheDocument();
     expect(screen.getByText('Hello!')).toBeInTheDocument();
     expect(screen.getByText('Good luck!')).toBeInTheDocument();
-    expect(screen.getByText('North')).toBeInTheDocument();
-    expect(screen.getByText('East')).toBeInTheDocument();
+    expect(screen.getByText('North:')).toBeInTheDocument();
+    expect(screen.getByText('East:')).toBeInTheDocument();
   });
 
   it('shows empty state when no messages', () => {
@@ -86,7 +86,7 @@ describe('ChatPanel (REQ-F-MP07)', () => {
     render(
       <ChatPanel messages={msgs} onSend={vi.fn()} isOpen={true} onToggle={vi.fn()} unreadCount={0} />,
     );
-    expect(screen.getByText('Alice (spectator)')).toBeInTheDocument();
+    expect(screen.getByText((_content, el) => el?.textContent === 'Alice (spectator):')).toBeInTheDocument();
     expect(screen.getByText('Nice play!')).toBeInTheDocument();
   });
 

@@ -41,6 +41,9 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         aria-label="User menu"
         aria-expanded={open}
       >
+        <span className="userMenuName" style={{ color: 'var(--color-text-primary)', fontWeight: 600, fontSize: '14px' }}>
+          {user.username}
+        </span>
         {/* Gold circle with first initial */}
         <div
           className="flex items-center justify-center rounded-full font-bold"
@@ -55,9 +58,6 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         >
           {initial}
         </div>
-        <span style={{ color: 'var(--color-text-primary)', fontWeight: 600, fontSize: '14px' }}>
-          {user.username}
-        </span>
       </button>
 
       {/* REQ-F-LU03: Dropdown menu */}
@@ -69,12 +69,12 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
             top: '100%',
             marginTop: '4px',
             zIndex: 50,
-            background: 'var(--color-bg-panel)',
+            background: 'rgb(30, 30, 30)',
             border: '1px solid var(--color-border)',
             borderRadius: '8px',
             minWidth: '160px',
             overflow: 'hidden',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
           }}
         >
           {/* REQ-F-LU04: Play Stats */}
