@@ -13,8 +13,8 @@
 | REQ-F-L09 | Remove compact from useScaleFactor | useScaleFactor.ts:13-15 | Passed |
 | REQ-F-L10 | Update mobile scale config | useScaleFactor.ts:14 | Passed |
 | REQ-F-L11 | Rename isCompact→isMobile vars | page.tsx, GameTable.tsx, ActionBar.tsx, PreRoomView.tsx, ChatPanel.tsx | Passed |
-| REQ-NF-L01 | No visual regression at ≥1100px | Visual test needed | Pending |
-| REQ-NF-L02 | No visual regression at <700px | Visual test needed | Pending |
-| REQ-NF-L03 | Full layout usable at 900–1100px | Visual test needed | Pending |
+| REQ-NF-L01 | No visual regression at ≥1100px | Visual test | Passed |
+| REQ-NF-L02 | No visual regression at <700px | Visual test | Passed |
+| REQ-NF-L03 | Full layout usable at 900–1100px | Visual test | Passed |
 | REQ-NF-L04 | Type-check passes | pnpm typecheck | Passed |
 | REQ-NF-L05 | All tests pass | pnpm test | Passed |
