@@ -24,15 +24,6 @@
   margin-left: 0;
 }
 
-/* Compact tier: moderate overlap + slightly smaller cards */
-:root[data-layout="compact"] .cardSlot {
-  margin-left: calc(-1 * var(--card-overlap-compact));
-}
-
-:root[data-layout="compact"] .cardSlot:first-child {
-  margin-left: 0;
-}
-
 /* Mobile tier: tighter overlap + smaller cards */
 :root[data-layout="mobile"] .cardSlot {
   margin-left: calc(-1 * var(--card-overlap-mobile-lg));

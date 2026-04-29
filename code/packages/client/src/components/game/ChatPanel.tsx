@@ -25,8 +25,8 @@ export interface ChatPanelProps {
   isSpectator?: boolean;
   spectatorChatEnabled?: boolean;
   onToggleSpectatorChat?: () => void;
-  /** Compact mode: inline bubble button + centered overlay modal */
-  compact?: boolean;
+  /** Mobile mode: inline bubble button + centered overlay modal */
+  mobile?: boolean;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -48,7 +48,7 @@ export const ChatPanel = memo(function ChatPanel({
   isSpectator = false,
   spectatorChatEnabled = false,
   onToggleSpectatorChat,
-  compact = false,
+  mobile = false,
 }: ChatPanelProps) {
   // Spectators can type when spectator chat is enabled; players always can
   const effectiveReadOnly = isSpectator ? !spectatorChatEnabled : readOnly;
@@ -70,8 +70,8 @@ export const ChatPanel = memo(function ChatPanel({
     [input, onSend],
   );
 
-  const toggleButtonClass = compact ? styles.compactToggleButton : styles.toggleButton;
-  const panelClass = compact ? styles.compactPanel : styles.panel;
+  const toggleButtonClass = mobile ? styles.mobileToggleButton : styles.toggleButton;
+  const panelClass = mobile ? styles.mobilePanel : styles.panel;
 
   return (
     <>
@@ -91,9 +91,9 @@ export const ChatPanel = memo(function ChatPanel({
         </button>
       )}
 
-      {/* Backdrop for compact overlay */}
-      {compact && isOpen && (
-        <div className={styles.compactBackdrop} onClick={onToggle} aria-hidden="true" />
+      {/* Backdrop for mobile overlay */}
+      {mobile && isOpen && (
+        <div className={styles.mobileBackdrop} onClick={onToggle} aria-hidden="true" />
       )}
 
       {/* Chat panel */}

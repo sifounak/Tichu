@@ -4,24 +4,24 @@ import { useEffect } from 'react';
 
 /** Scale parameters per layout tier.
  *
- * Compact/mobile use a "fixed then scale" approach:
+ * REQ-F-L09, REQ-F-L10: Two-tier scale config.
+ *
+ * Mobile uses a "fixed then scale" approach:
  *   - Elements stay at scale=1.0 (their natural size at the breakpoint entry)
  *   - Flexbox compresses whitespace as the window narrows
  *   - Scaling only kicks in below `scaleBelow` to prevent overlap
  *   - Formula: min(1.0, innerWidth / scaleBelow), clamped to [min, 1.0]
  */
 const TIER_CONFIG = {
-  full:    { ref: 1200, min: 0.5, max: 2.0, useMin: true,  scaleBelow: 0 },
-  compact: { ref: 1100, min: 0.55, max: 1.0, useMin: false, scaleBelow: 850 },
-  mobile:  { ref: 700,  min: 0.55, max: 1.0, useMin: false, scaleBelow: 550 },
+  full:   { ref: 1200, min: 0.5, max: 2.0, useMin: true,  scaleBelow: 0 },
+  mobile: { ref: 900,  min: 0.55, max: 1.0, useMin: false, scaleBelow: 700 },
 } as const;
 
 /**
  * Sets a --scale CSS custom property on :root based on window size and layout tier.
  *
- * Full tier:    min(innerWidth, innerHeight) / 1200, clamped [0.5, 2.0]
- * Compact tier: 1.0 when width >= 850, then innerWidth/850 down to 0.55
- * Mobile tier:  1.0 when width >= 550, then innerWidth/550 down to 0.55
+ * Full tier:   min(innerWidth, innerHeight) / 1200, clamped [0.5, 2.0]
+ * Mobile tier: 1.0 when width >= 700, then innerWidth/700 down to 0.55
  */
 export function useScaleFactor(): void {
   useEffect(() => {

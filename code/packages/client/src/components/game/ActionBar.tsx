@@ -78,11 +78,11 @@ export const ActionBar = memo(function ActionBar({
   const isPlaying = phase === 'playing';
   const showActions = isPlaying && isMyTurn;
   const [shaking, setShaking] = useState(false);
-  const isCompact = layoutTier !== 'full';
+  const isMobile = layoutTier !== 'full';
 
   // In full mode, Tichu button is a floating button in page.tsx.
-  // In compact/mobile, it's inline in the action bar.
-  const canCallTichu = isCompact ? canCallTichuProp : false;
+  // In mobile, it's inline in the action bar.
+  const canCallTichu = isMobile ? canCallTichuProp : false;
 
   const handlePlay = useCallback(() => {
     if (!canPlay) {
@@ -219,10 +219,10 @@ export const ActionBar = memo(function ActionBar({
   // Compact/mobile: linear layout — [Pass/AutoPass] [Play]
   // Tichu and Bomb are floating buttons beside the card hand (same as full mode)
   // Use fixed-width slots so buttons don't reflow when they appear/disappear
-  if (isCompact) {
+  if (isMobile) {
     return (
       <div
-        className={`${styles.actionBar} ${styles.compactLayout} ${shaking ? styles.shake : ''}`}
+        className={`${styles.actionBar} ${styles.mobileLayout} ${shaking ? styles.shake : ''}`}
         role="toolbar"
         aria-label="Game actions"
       >

@@ -171,12 +171,8 @@
   color: var(--color-felt-green-dark);
 }
 
-/* Compact/mobile: auto-pass label scales with other buttons */
-.compactLayout .autoPassLabel {
-  font-size: calc(11px * var(--scale));
-}
-
-:root[data-layout="mobile"] .compactLayout .autoPassLabel {
+/* Mobile: auto-pass label scales with other buttons */
+.mobileLayout .autoPassLabel {
   font-size: calc(10px * var(--scale));
 }
 
@@ -185,8 +181,8 @@
   display: none;
 }
 
-/* Compact layout: linear row — Pass, Tichu, Bomb, Play */
-.compactLayout {
+/* Mobile layout: linear row — Pass, Tichu, Bomb, Play */
+.mobileLayout {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -206,18 +202,11 @@
   visibility: hidden;
 }
 
-:root[data-layout="mobile"] .buttonSlot {
+.mobileLayout .buttonSlot {
   min-width: var(--card-width, calc(85px * var(--scale)));
 }
 
-.compactLayout .button {
-  padding: calc(8px * var(--scale)) var(--space-4);
-  font-size: calc(20px * var(--scale));
-  min-width: var(--card-width, calc(105px * var(--scale)));
-  min-height: calc(40px * var(--scale));
-}
-
-:root[data-layout="mobile"] .compactLayout .button {
+.mobileLayout .button {
   padding: calc(6px * var(--scale)) var(--space-3);
   font-size: calc(18px * var(--scale));
   min-width: var(--card-width, calc(85px * var(--scale)));

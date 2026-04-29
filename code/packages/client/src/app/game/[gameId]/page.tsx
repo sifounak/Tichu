@@ -71,9 +71,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const leaveRoom = useRoomStore((s) => s.leaveRoom);
   // Responsive layout tier
   const layoutTier = useLayoutTier();
-  const isCompactLayout = layoutTier !== 'full';
+  const isMobileLayout = layoutTier !== 'full';
 
-  // Auto-collapse chat when transitioning to compact/mobile
+  // REQ-F-L07: Auto-collapse chat when transitioning to mobile
   const prevLayoutRef = useRef(layoutTier);
   useEffect(() => {
     if (prevLayoutRef.current === 'full' && layoutTier !== 'full' && uiStore.chatOpen) {
@@ -1011,14 +1011,14 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           Server restarting — reconnecting automatically...
         </div>
       )}
-      {/* Room code + Spectators + Leave Room — hidden in compact mode (shown in chrome row instead) */}
+      {/* Room code + Spectators + Leave Room — hidden in mobile mode (shown in chrome row instead) */}
       <div style={{
         position: 'fixed',
         top: 'calc(120px * var(--scale))',
         left: 'calc(148px * var(--scale))',
         transform: 'translate(-50%, -50%)',
         zIndex: 30,
-        display: isCompactLayout ? 'none' : 'flex',
+        display: isMobileLayout ? 'none' : 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         gap: 'var(--space-1)',
@@ -1125,9 +1125,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           )}
         </div>
 
-        {/* REQ-F-PV01: Start a Vote button + dropdown (full layout only — compact uses chrome column) */}
+        {/* REQ-F-PV01: Start a Vote button + dropdown (full layout only — mobile uses chrome column) */}
         {!isSpectator && mySeatFromRoom && (gameInProgress || gameStore.gameId) && !uiStore.activeVote && !uiStore.disconnectVoteRequired && (
-          <div ref={!isCompactLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
+          <div ref={!isMobileLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
             <button
               onClick={() => setShowVoteDropdown(!showVoteDropdown)}
               style={{
@@ -1297,8 +1297,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       />
 
 
-      {/* REQ-F-DI05: Score panel — full layout: fixed top-right; compact: in chrome row */}
-      {gameStore.scores && !isCompactLayout && (
+      {/* REQ-F-DI05: Score panel — full layout: fixed top-right; mobile: in chrome row */}
+      {gameStore.scores && !isMobileLayout && (
         <div style={{ position: 'fixed', top: 'calc(40px * var(--scale))', right: 'calc(28px * var(--scale))', zIndex: 30 }}>
           <ScorePanel
             scores={gameStore.scores}
@@ -1314,8 +1314,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         </div>
       )}
 
-      {/* Compact/mobile top chrome: left column (room info, vote, leave) + right (chat, score) */}
-      {isCompactLayout && (
+      {/* Mobile top chrome: left column (room info, vote, leave) + right (chat, score) */}
+      {isMobileLayout && (
         <div style={{
           position: 'fixed',
           top: 0,
@@ -1501,7 +1501,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </LeaveConfirmDialog>
           </div>
 
-          {/* Right: chat bubble + compact score */}
+          {/* Right: chat bubble + mobile score */}
           <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
             <ChatPanel
               messages={uiStore.chatMessages}
@@ -1517,7 +1517,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                 type: 'CONFIGURE_ROOM',
                 config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
               })}
-              compact
+              mobile
             />
             {gameStore.scores && (
               <ScorePanel
@@ -1685,8 +1685,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </div>
           )}
 
-          {/* Compact mode: show player's active Tichu call banner between action bar and cards */}
-          {isCompactLayout && !isPreGame && !showReceivedCards && gameStore.myTichuCall !== 'none' && (
+          {/* Mobile mode: show player's active Tichu call banner between action bar and cards */}
+          {isMobileLayout && !isPreGame && !showReceivedCards && gameStore.myTichuCall !== 'none' && (
             <div style={{
               pointerEvents: 'auto',
               background: gameStore.myTichuCall === 'grandTichu' ? 'var(--color-grand-tichu-badge)' : '#d32f2f',
@@ -1894,8 +1894,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {/* REQ-NF-U02: Tichu call banner */}
       {!showReceivedCards && <TichuBanner tichuEvent={uiStore.tichuEvent} />}
 
-      {/* REQ-F-MP07: In-game chat — full layout: side panel; compact: in chrome row */}
-      {!isCompactLayout && (
+      {/* REQ-F-MP07: In-game chat — full layout: side panel; mobile: in chrome row */}
+      {!isMobileLayout && (
       <ChatPanel
         messages={uiStore.chatMessages}
         onSend={handleChatSend}
