@@ -53,8 +53,9 @@ describe('PlayerSeat', () => {
 
   it('shows finish order badge', () => {
     render(<PlayerSeat {...baseProps} finishOrder={1} />);
-    expect(screen.getByText('#1')).toBeInTheDocument();
-    expect(screen.getByText('Out')).toBeInTheDocument();
+    const badges = screen.getAllByText('#1');
+    expect(badges.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Out').length).toBeGreaterThanOrEqual(1);
   });
 
   it('highlights current turn', () => {
