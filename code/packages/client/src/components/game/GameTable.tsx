@@ -245,7 +245,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           ) : isTrickLeader ? (
             <span className={styles.mobileStatusLeader}>Leading Trick</span>
           ) : myHasPassed ? (
-            <span className={styles.mobileStatusPassed}>Passed</span>
+            <span className={styles.mobileStatusPassed}>You Passed</span>
           ) : null}
         </div>
       )}

@@ -177,17 +177,18 @@ export const PlayerSeat = memo(function PlayerSeat({
       <span className={styles.name}>{name}</span>
       <div className={styles.seatRow}>
         {/* Avatar — REQ-F-ES01: Empty circle for empty seats */}
-        <div className={`${styles.avatar} ${emptySeat ? styles.emptyAvatar : ''}`}>
-          {emptySeat ? null : finishOrder !== null ? (
-            <span className={styles.finishBadge}>#{finishOrder}</span>
-          ) : (
-            <span className={styles.initial}>{name[0].toUpperCase()}</span>
+        <div className={`${styles.avatar} ${emptySeat ? styles.emptyAvatar : ''} ${finishOrder !== null ? styles.finishedAvatar : ''}`}>
+          {emptySeat ? null : (
+            <>
+              {finishOrder !== null && <span className={styles.finishBadge}>#{finishOrder}</span>}
+              <span className={`${styles.initial} ${finishOrder !== null ? styles.initialHidden : ''}`}>{name[0].toUpperCase()}</span>
+            </>
           )}
         </div>
 
         {/* Hide info section entirely when there's nothing to show (e.g. pre-game) so avatar centers */}
         {(finishOrder !== null || cardCount > 0 || (!isMe && cardCount === 0)) && (
-          <div className={styles.info}>
+          <div className={`${styles.info} ${finishOrder !== null ? styles.finishedInfo : ''}`}>
             {finishOrder === null && cardCount > 0 ? (
               <div className={styles.cardStack}>
                 {Array.from({ length: Math.min(cardCount, 4) }, (_, i) => (
@@ -197,9 +198,17 @@ export const PlayerSeat = memo(function PlayerSeat({
                 ))}
                 <span className={styles.countBadge}>{cardCount}</span>
               </div>
+            ) : finishOrder !== null ? (
+              <>
+                <span className={styles.cardCount}>Out</span>
+                <div className={styles.finishInfo}>
+                  <span className={styles.finishInfoOrder}>#{finishOrder}</span>
+                  <span className={styles.finishInfoLabel}>Out</span>
+                </div>
+              </>
             ) : (
               <span className={styles.cardCount}>
-                {finishOrder !== null ? 'Out' : cardCount > 0 ? `${cardCount} cards` : '\u00A0'}
+                {cardCount > 0 ? `${cardCount} cards` : '\u00A0'}
               </span>
             )}
           </div>

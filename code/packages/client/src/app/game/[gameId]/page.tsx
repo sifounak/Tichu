@@ -620,6 +620,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       setPassConfirmed(false);
       setShowReceivedCards(false);
       useUiStore.getState().clearSelection();
+      // Clear stale animation state from previous round (e.g. dog played as final card)
+      useUiStore.getState().clearDogAnimation();
+      useUiStore.getState().clearDragonGiftAnimation();
     } else if (currentPhase === GamePhase.CardPassing) {
       // Entering card passing — reset pass state but not received cards
       setPassConfirmed(false);
@@ -1618,7 +1621,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%', paddingLeft: '5vw', paddingRight: '5vw', pointerEvents: 'none' }}>
               {/* Left: Call Tichu button */}
               <div style={{ flex: 1, pointerEvents: 'auto' }}>
-                {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+                {(phase === 'playing' || phase === 'cardPassing' || (phase === 'grandTichuDecision' && mySeat && gameStore.grandTichuDecided.includes(mySeat))) && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (
                   <button
                     onClick={handleTichu}
                     style={{
@@ -1758,31 +1761,40 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           )}
 
           {/* Mobile mode: show player's active Tichu call banner above action buttons */}
-          {isMobileLayout && !isPreGame && !showReceivedCards && gameStore.myTichuCall !== 'none' && (
-            <div style={{
-              pointerEvents: 'auto',
-              background: gameStore.myTichuCall === 'grandTichu' ? 'var(--color-grand-tichu-badge)' : '#d32f2f',
-              color: gameStore.myTichuCall === 'grandTichu' ? '#1a1a1a' : 'white',
-              fontWeight: 800,
-              fontSize: 'var(--font-sm)',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              padding: 'calc(2px * var(--scale)) 0',
-              borderRadius: 'var(--space-1)',
-              textAlign: 'center',
-              whiteSpace: 'nowrap',
-              width: 'calc(180px * var(--scale))',
-            }}>
-              {gameStore.myTichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}
-            </div>
-          )}
+          {isMobileLayout && !isPreGame && !showReceivedCards && gameStore.myTichuCall !== 'none' && (() => {
+            const myTichuFailed = mySeat ? tichuFailedSeats.has(mySeat) : false;
+            const myTichuSucceeded = mySeat ? tichuSucceededSeats.has(mySeat) : false;
+            const label = gameStore.myTichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu';
+            return (
+              <div style={{
+                pointerEvents: 'auto',
+                background: myTichuFailed ? '#666'
+                  : myTichuSucceeded ? '#43a047'
+                  : gameStore.myTichuCall === 'grandTichu' ? 'var(--color-grand-tichu-badge)' : '#d32f2f',
+                color: myTichuFailed ? 'white'
+                  : myTichuSucceeded ? 'white'
+                  : gameStore.myTichuCall === 'grandTichu' ? '#1a1a1a' : 'white',
+                fontWeight: 800,
+                fontSize: 'var(--font-sm)',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                padding: 'calc(2px * var(--scale)) 0',
+                borderRadius: 'var(--space-1)',
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                width: 'calc(180px * var(--scale))',
+              }}>
+                {myTichuFailed ? <>{'\u{1F629}'} <span style={{ textDecoration: 'line-through', textDecorationThickness: 'calc(3px * var(--scale))' }}>{label}</span> {'\u{1F629}'}</> : myTichuSucceeded ? `\u{1F973} ${label} \u{1F973}` : label}
+              </div>
+            );
+          })()}
 
           {/* Action bar: mobile renders Tichu/Bomb inline; full layout renders only ActionBar */}
           {!isPreGame && !showReceivedCards && (
             isMobileLayout ? (
               <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw' }}>
                 {/* Slot: Call Tichu */}
-                <div style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards) ? 'visible' : 'hidden' }}>
+                <div style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0) ? 'visible' : 'hidden' }}>
                   <button
                     onClick={handleTichu}
                     style={{
@@ -1828,7 +1840,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   onTichu={handleTichu}
                   onBomb={handleBomb}
                   layoutTier={layoutTier}
-                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing')}
+                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing' || (gameStore.phase === 'grandTichuDecision' && mySeat != null && gameStore.grandTichuDecided.includes(mySeat)))}
                   layout="split"
                   playerSeat={
                     <PlayerSeat
@@ -1897,7 +1909,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   onTichu={handleTichu}
                   onBomb={handleBomb}
                   layoutTier={layoutTier}
-                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing')}
+                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing' || (gameStore.phase === 'grandTichuDecision' && mySeat != null && gameStore.grandTichuDecided.includes(mySeat)))}
                   layout="split"
                   playerSeat={
                     <PlayerSeat
@@ -1946,7 +1958,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             {/* Left: Tichu button — full layout only (mobile renders above) */}
             {!isMobileLayout && (
               <div style={{ flexShrink: 0 }}>
-                {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+                {(phase === 'playing' || phase === 'cardPassing' || (phase === 'grandTichuDecision' && mySeat && gameStore.grandTichuDecided.includes(mySeat))) && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (
                   <button
                     onClick={handleTichu}
                     style={{

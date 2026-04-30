@@ -272,7 +272,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                         const midIdx = (cardCount - 1) / 2;
                         // Fan: spread cards out with rotation + vertical lift after impact
                         const fanRotate = (cardIdx - midIdx) * 8;
-                        const fanY = -Math.abs(cardIdx - midIdx) * 12 - 8; // lift ~25% card height, arc shape
+                        const fanY = -Math.abs(cardIdx - midIdx) * 12; // arc shape, center card stays centered
                         const fanX = (cardIdx - midIdx) * 6;
                         return (
                           <motion.div
