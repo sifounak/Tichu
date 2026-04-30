@@ -1598,45 +1598,207 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {/* REQ-F-SP05: Hide for spectators — they see card counts in PlayerSeat, not actual hands */}
       {phase !== GamePhase.WaitingForPlayers && !isSpectator && (
         <div data-debug-area="Bottom Panel" style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))', pointerEvents: 'none' }}>
-          {/* Pre-game prompts (no hand — hand is always rendered below) */}
-          {isPreGame && (
-            <div data-debug-area="Pre-Game Phase" style={{ pointerEvents: 'auto' }}>
-              <PreGamePhase
-                phase={phase}
-                mySeat={mySeat!}
-                onGrandTichuDecision={handleGrandTichuDecision}
-                passSelection={passSelection}
-                activeCardId={activePassCardId}
-                onSlotClick={handleSlotClick}
-                onSlotRemove={handleSlotRemove}
-                onConfirmPass={handleConfirmPass}
-                passConfirmed={passConfirmed}
-                onCancelPass={handleCancelPass}
-                seatNames={seatNames}
-                grandTichuDecided={view.grandTichuDecided}
-                myTichuCall={gameStore.myTichuCall}
-              />
+          {/* Pre-game prompts + mobile Tichu/Bomb buttons — bottom-aligned in mobile */}
+          {isMobileLayout && (isPreGame || showReceivedCards) ? (
+            <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%', paddingLeft: '5vw', paddingRight: '5vw', pointerEvents: 'none' }}>
+              {/* Left: Call Tichu button */}
+              <div style={{ flex: 1, pointerEvents: 'auto' }}>
+                {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+                  <button
+                    onClick={handleTichu}
+                    style={{
+                      width: 'calc(64px * var(--scale))',
+                      height: 'calc(64px * var(--scale))',
+                      padding: 'var(--space-1)',
+                      border: 'none',
+                      borderRadius: 'var(--space-3)',
+                      background: 'var(--color-tichu-badge)',
+                      color: 'white',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 'calc(16px * var(--scale))',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      lineHeight: '1.2',
+                      textAlign: 'center',
+                    }}
+                    aria-label="Declare Tichu"
+                  >
+                    Call<br />Tichu!
+                  </button>
+                )}
+              </div>
+              {/* Center: Pre-game phase content */}
+              <div style={{ pointerEvents: 'auto' }}>
+                {isPreGame ? (
+                  <PreGamePhase
+                    phase={phase}
+                    mySeat={mySeat!}
+                    onGrandTichuDecision={handleGrandTichuDecision}
+                    passSelection={passSelection}
+                    activeCardId={activePassCardId}
+                    onSlotClick={handleSlotClick}
+                    onSlotRemove={handleSlotRemove}
+                    onConfirmPass={handleConfirmPass}
+                    passConfirmed={passConfirmed}
+                    onCancelPass={handleCancelPass}
+                    seatNames={seatNames}
+                    grandTichuDecided={view.grandTichuDecided}
+                    myTichuCall={gameStore.myTichuCall}
+                  />
+                ) : showReceivedCards ? (
+                  <PreGamePhase
+                    phase={phase!}
+                    mySeat={mySeat!}
+                    onGrandTichuDecision={() => {}}
+                    passSelection={new Map()}
+                    activeCardId={null}
+                    onSlotClick={() => {}}
+                    onSlotRemove={() => {}}
+                    onConfirmPass={() => {}}
+                    passConfirmed={false}
+                    onCancelPass={() => {}}
+                    receivedCards={gameStore.receivedCards}
+                    onDismissReceived={() => setShowReceivedCards(false)}
+                    seatNames={seatNames}
+                  />
+                ) : null}
+              </div>
+              {/* Right: Bomb button */}
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
+                {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
+                  <div
+                    style={{ position: 'relative', zIndex: 30 }}
+                    onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
+                    onMouseLeave={() => setBombPopupOpen(false)}
+                  >
+                    <button
+                      onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                      style={{
+                        width: 'calc(64px * var(--scale))',
+                        height: 'calc(64px * var(--scale))',
+                        padding: 'var(--space-1)',
+                        border: 'none',
+                        borderRadius: 'var(--space-3)',
+                        background: 'var(--color-tichu-badge)',
+                        color: 'white',
+                        fontFamily: 'var(--font-display)',
+                        fontSize: 'calc(16px * var(--scale))',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        lineHeight: '1.2',
+                        textAlign: 'center',
+                      }}
+                      aria-label="Play bomb"
+                    >
+                      Bomb!
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
+          ) : (
+            <>
+              {/* Pre-game prompts (no hand — hand is always rendered below) */}
+              {isPreGame && (
+                <div data-debug-area="Pre-Game Phase" style={{ pointerEvents: 'auto' }}>
+                  <PreGamePhase
+                    phase={phase}
+                    mySeat={mySeat!}
+                    onGrandTichuDecision={handleGrandTichuDecision}
+                    passSelection={passSelection}
+                    activeCardId={activePassCardId}
+                    onSlotClick={handleSlotClick}
+                    onSlotRemove={handleSlotRemove}
+                    onConfirmPass={handleConfirmPass}
+                    passConfirmed={passConfirmed}
+                    onCancelPass={handleCancelPass}
+                    seatNames={seatNames}
+                    grandTichuDecided={view.grandTichuDecided}
+                    myTichuCall={gameStore.myTichuCall}
+                  />
+                </div>
+              )}
+
+              {/* Received cards display — after card exchange */}
+              {showReceivedCards && !isPreGame && (
+                <div style={{ pointerEvents: 'auto' }}>
+                  <PreGamePhase
+                    phase={phase!}
+                    mySeat={mySeat!}
+                    onGrandTichuDecision={() => {}}
+                    passSelection={new Map()}
+                    activeCardId={null}
+                    onSlotClick={() => {}}
+                    onSlotRemove={() => {}}
+                    onConfirmPass={() => {}}
+                    passConfirmed={false}
+                    onCancelPass={() => {}}
+                    receivedCards={gameStore.receivedCards}
+                    onDismissReceived={() => setShowReceivedCards(false)}
+                    seatNames={seatNames}
+                  />
+                </div>
+              )}
+            </>
           )}
 
-          {/* Received cards display — after card exchange */}
-          {showReceivedCards && !isPreGame && (
-            <div style={{ pointerEvents: 'auto' }}>
-              <PreGamePhase
-                phase={phase!}
-                mySeat={mySeat!}
-                onGrandTichuDecision={() => {}}
-                passSelection={new Map()}
-                activeCardId={null}
-                onSlotClick={() => {}}
-                onSlotRemove={() => {}}
-                onConfirmPass={() => {}}
-                passConfirmed={false}
-                onCancelPass={() => {}}
-                receivedCards={gameStore.receivedCards}
-                onDismissReceived={() => setShowReceivedCards(false)}
-                seatNames={seatNames}
-              />
+          {/* Mobile: Tichu + Bomb buttons above card hand (during playing phase) */}
+          {isMobileLayout && !isPreGame && !showReceivedCards && (
+            <div data-debug-area="Mobile Tichu/Bomb Row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw' }}>
+              {/* Left: Call Tichu */}
+              {phase === 'playing' && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
+                <button
+                  onClick={handleTichu}
+                  style={{
+                    width: 'calc(64px * var(--scale))',
+                    height: 'calc(64px * var(--scale))',
+                    padding: 'var(--space-1)',
+                    border: 'none',
+                    borderRadius: 'var(--space-3)',
+                    background: 'var(--color-tichu-badge)',
+                    color: 'white',
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 'calc(16px * var(--scale))',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    lineHeight: '1.2',
+                    textAlign: 'center',
+                  }}
+                  aria-label="Declare Tichu"
+                >
+                  Call<br />Tichu!
+                </button>
+              )}
+              {/* Right: Bomb */}
+              {phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0 && (
+                <div
+                  style={{ position: 'relative', zIndex: 30 }}
+                  onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
+                  onMouseLeave={() => setBombPopupOpen(false)}
+                >
+                  <button
+                    onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                    style={{
+                      width: 'calc(64px * var(--scale))',
+                      height: 'calc(64px * var(--scale))',
+                      padding: 'var(--space-1)',
+                      border: 'none',
+                      borderRadius: 'var(--space-3)',
+                      background: 'var(--color-tichu-badge)',
+                      color: 'white',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 'calc(16px * var(--scale))',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      lineHeight: '1.2',
+                      textAlign: 'center',
+                    }}
+                    aria-label="Play bomb"
+                  >
+                    Bomb!
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -1725,125 +1887,14 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           )}
 
           {/* Card hand row: [Tichu btn] [cards] [Bomb btn] — buttons offset from hand edges */}
-          <div data-debug-area="Card Hand Row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', maxWidth: '100%', gap: 'calc(16px * var(--scale))', '--card-width': layoutTier === 'mobile' ? 'var(--card-width-mobile)' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? 'var(--card-height-mobile)' : 'var(--card-height-lg)', '--card-font-size': layoutTier === 'mobile' ? 'var(--card-font-size-mobile)' : 'var(--card-font-size-lg)', '--card-suit-size': layoutTier === 'mobile' ? 'var(--card-suit-size-mobile)' : 'var(--card-suit-size-lg)', '--card-border-radius': layoutTier === 'mobile' ? 'var(--card-border-radius-mobile)' : 'var(--card-border-radius-lg)', '--card-overlap-desktop': layoutTier === 'mobile' ? 'var(--card-overlap-mobile-lg)' : 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
-            {/* Left: Tichu button — fixed offset from hand */}
-            <div style={{ flexShrink: 0 }}>
-              {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
-                <button
-                  onClick={handleTichu}
-                  style={{
-                    width: 'calc(84px * var(--scale))',
-                    height: 'calc(84px * var(--scale))',
-                    padding: 'var(--space-1)',
-                    border: 'none',
-                    borderRadius: 'var(--space-3)',
-                    background: 'var(--color-tichu-badge)',
-                    color: 'white',
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 'calc(21px * var(--scale))',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    lineHeight: '1.2',
-                    textAlign: 'center',
-                  }}
-                  aria-label="Declare Tichu"
-                >
-                  Call<br />Tichu!
-                </button>
-              )}
-            </div>
-            {/* Center: card hand (shrinks via CardHand auto-scale when needed) */}
-            <div style={{ minWidth: 0, flexShrink: 1, display: 'flex', justifyContent: 'center' }}>
-              <CardHand
-                cards={gameStore.myHand}
-                selectedIds={canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : (gameStore.gameHalted ? new Set<CardId>() : selection.selectedIds)}
-                disabledIds={canSelectPassCards ? placedCardIds : undefined}
-                onCardClick={
-                  canSelectPassCards && !passConfirmed
-                    ? handlePassCardClick
-                    : phase === GamePhase.Playing && !gameStore.gameHalted
-                      ? selection.toggleCard
-                      : undefined
-                }
-              />
-            </div>
-            {/* Right: Bomb button — fixed offset from hand */}
-            <div style={{ flexShrink: 0, position: 'relative' }}>
-              {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
-              {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
-                <div
-                  style={{ position: 'relative', zIndex: 30 }}
-                  onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
-                  onMouseLeave={() => setBombPopupOpen(false)}
-                >
-                  {/* REQ-F-BB05/BB06: Multi-bomb popup — attached directly above button */}
-                  {bombPopupOpen && handBombs.length > 0 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        left: 'calc(-4px * var(--scale) - 5px)',
-                        paddingBottom: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-start',
-                      }}
-                    >
-                      <div
-                        style={{
-                          background: 'rgba(0, 0, 0, 0.5)',
-                          border: 'none',
-                          borderRadius: 'var(--space-3)',
-                          padding: 'calc(4px * var(--scale))',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 'calc(4px * var(--scale))',
-                          zIndex: 50,
-                        }}
-                      >
-                        {/* Sort: straight flushes on top (weakest→strongest), four-of-a-kind on bottom (weakest→strongest) */}
-                        {[...handBombs].sort((a, b) => {
-                          const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
-                          const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
-                          if (aIsSF !== bIsSF) return aIsSF - bIsSF;
-                          if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
-                            if (a.length !== b.length) return a.length - b.length;
-                            return a.rank - b.rank;
-                          }
-                          return a.rank - b.rank;
-                        }).map((bomb, i) => (
-                          <div
-                            key={i}
-                            role="button"
-                            tabIndex={0}
-                            onClick={phase === 'playing' ? () => { handleBombPlay(bomb); setBombPopupOpen(false); } : undefined}
-                            onKeyDown={phase === 'playing' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } } : undefined}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              borderRadius: 'var(--space-2)',
-                              cursor: phase === 'playing' ? 'pointer' : 'default',
-                              padding: 'calc(6px * var(--scale))',
-                              display: 'flex',
-                              transition: 'background 0.15s',
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                            aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
-                          >
-                            {bomb.cards.map((gc, j) => (
-                              <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
-                                <Card gameCard={gc} state="normal" />
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {/* REQ-F-BB04: Single bomb plays immediately on click */}
+          {/* Mobile: card_height = 20vw, card_width = 14vw (0.7 ratio); overlap 50%-60%, max hand 90vw */}
+          <div data-debug-area="Card Hand Row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', maxWidth: '100%', gap: 'calc(16px * var(--scale))', '--card-width': layoutTier === 'mobile' ? '14vw' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? '20vw' : 'var(--card-height-lg)', '--card-font-size': layoutTier === 'mobile' ? 'calc(14vw * 0.235)' : 'var(--card-font-size-lg)', '--card-suit-size': layoutTier === 'mobile' ? 'calc(14vw * 0.282)' : 'var(--card-suit-size-lg)', '--card-border-radius': layoutTier === 'mobile' ? 'calc(14vw * 0.082)' : 'var(--card-border-radius-lg)', '--card-overlap-desktop': layoutTier === 'mobile' ? (gameStore.myHand.length > 1 ? `clamp(calc(14vw * 0.5), calc(14vw - (90vw - 14vw) / ${gameStore.myHand.length - 1}), calc(14vw * 0.6))` : '0px') : 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
+            {/* Left: Tichu button — full layout only (mobile renders above) */}
+            {!isMobileLayout && (
+              <div style={{ flexShrink: 0 }}>
+                {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
                   <button
-                    onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                    onClick={handleTichu}
                     style={{
                       width: 'calc(84px * var(--scale))',
                       height: 'calc(84px * var(--scale))',
@@ -1859,13 +1910,129 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                       lineHeight: '1.2',
                       textAlign: 'center',
                     }}
-                    aria-label="Play bomb"
+                    aria-label="Declare Tichu"
                   >
-                    Bomb!
+                    Call<br />Tichu!
                   </button>
-                </div>
-              )}
+                )}
+              </div>
+            )}
+            {/* Center: card hand — mobile constrained to 90vw */}
+            <div style={{ minWidth: 0, flexShrink: 1, display: 'flex', justifyContent: 'center', ...(layoutTier === 'mobile' ? { maxWidth: '90vw' } : {}) }}>
+              <CardHand
+                cards={gameStore.myHand}
+                selectedIds={canSelectPassCards && !passConfirmed ? new Set<CardId>(activePassCardId !== null ? [activePassCardId] : []) : (gameStore.gameHalted ? new Set<CardId>() : selection.selectedIds)}
+                disabledIds={canSelectPassCards ? placedCardIds : undefined}
+                onCardClick={
+                  canSelectPassCards && !passConfirmed
+                    ? handlePassCardClick
+                    : phase === GamePhase.Playing && !gameStore.gameHalted
+                      ? selection.toggleCard
+                      : undefined
+                }
+              />
             </div>
+            {/* Right: Bomb button — full layout only (mobile renders above) */}
+            {!isMobileLayout && (
+              <div style={{ flexShrink: 0, position: 'relative' }}>
+                {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
+                {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
+                  <div
+                    style={{ position: 'relative', zIndex: 30 }}
+                    onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
+                    onMouseLeave={() => setBombPopupOpen(false)}
+                  >
+                    {/* REQ-F-BB05/BB06: Multi-bomb popup — attached directly above button */}
+                    {bombPopupOpen && handBombs.length > 0 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: '100%',
+                          left: 'calc(-4px * var(--scale) - 5px)',
+                          paddingBottom: 0,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.5)',
+                            border: 'none',
+                            borderRadius: 'var(--space-3)',
+                            padding: 'calc(4px * var(--scale))',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 'calc(4px * var(--scale))',
+                            zIndex: 50,
+                          }}
+                        >
+                          {/* Sort: straight flushes on top (weakest→strongest), four-of-a-kind on bottom (weakest→strongest) */}
+                          {[...handBombs].sort((a, b) => {
+                            const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                            const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                            if (aIsSF !== bIsSF) return aIsSF - bIsSF;
+                            if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
+                              if (a.length !== b.length) return a.length - b.length;
+                              return a.rank - b.rank;
+                            }
+                            return a.rank - b.rank;
+                          }).map((bomb, i) => (
+                            <div
+                              key={i}
+                              role="button"
+                              tabIndex={0}
+                              onClick={phase === 'playing' ? () => { handleBombPlay(bomb); setBombPopupOpen(false); } : undefined}
+                              onKeyDown={phase === 'playing' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } } : undefined}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                borderRadius: 'var(--space-2)',
+                                cursor: phase === 'playing' ? 'pointer' : 'default',
+                                padding: 'calc(6px * var(--scale))',
+                                display: 'flex',
+                                transition: 'background 0.15s',
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                              aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
+                            >
+                              {bomb.cards.map((gc, j) => (
+                                <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
+                                  <Card gameCard={gc} state="normal" />
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* REQ-F-BB04: Single bomb plays immediately on click */}
+                    <button
+                      onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                      style={{
+                        width: 'calc(84px * var(--scale))',
+                        height: 'calc(84px * var(--scale))',
+                        padding: 'var(--space-1)',
+                        border: 'none',
+                        borderRadius: 'var(--space-3)',
+                        background: 'var(--color-tichu-badge)',
+                        color: 'white',
+                        fontFamily: 'var(--font-display)',
+                        fontSize: 'calc(21px * var(--scale))',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        lineHeight: '1.2',
+                        textAlign: 'center',
+                      }}
+                      aria-label="Play bomb"
+                    >
+                      Bomb!
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -88,6 +88,10 @@
   --card-border-radius: var(--card-border-radius-lg);
 }
 
+:root[data-layout="mobile"] .passMiddle {
+  margin-bottom: 0;
+}
+
 .passLeft,
 .passRight {
   display: flex;
