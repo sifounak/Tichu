@@ -82,6 +82,8 @@
   margin-top: calc(-40px * var(--scale));
   position: relative;
   z-index: 1;
+  /* Let clicks pass through the empty middle column to the partner seat behind */
+  pointer-events: none;
 }
 
 .opponentsRow > :first-child {

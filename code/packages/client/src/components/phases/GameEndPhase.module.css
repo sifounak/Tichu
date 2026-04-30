@@ -125,14 +125,12 @@
   color: var(--color-error, #f44336);
 }
 
-/* REQ-F-GS09, REQ-F-GS10: Action buttons */
 .buttons {
   display: flex;
-  gap: var(--space-3);
+  justify-content: center;
 }
 
-.leaveButton,
-.newGameButton {
+.dismissButton {
   flex: 1;
   padding: var(--space-3) var(--space-4);
   border: none;
@@ -142,20 +140,10 @@
   cursor: pointer;
   min-height: calc(44px * var(--scale));
   transition: transform var(--duration-fast) var(--easing-smooth);
-}
-
-.leaveButton {
-  background: var(--color-bg-secondary, rgba(0, 0, 0, 0.2));
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
-}
-
-.newGameButton {
   background: var(--color-gold-accent);
   color: var(--color-felt-green-dark);
 }
 
-.leaveButton:hover,
-.newGameButton:hover {
+.dismissButton:hover {
   transform: translateY(-1px);
 }

@@ -9,6 +9,7 @@
   background: var(--color-bg-panel);
   border: 2px solid var(--color-border);
   position: relative;
+  pointer-events: auto;
   transition:
     border-color var(--duration-fast) var(--easing-smooth),
     box-shadow var(--duration-fast) var(--easing-smooth);

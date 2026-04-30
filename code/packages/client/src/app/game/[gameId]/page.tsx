@@ -9,7 +9,7 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GamePhase, detectAllBombs, CombinationType } from '@tichu/shared';
-import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId, Combination, GameConfig } from '@tichu/shared';
+import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId, Combination, GameConfig, Team, RoundScore } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import { useBombWindow } from '@/hooks/useBombWindow';
@@ -81,6 +81,15 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     }
     prevLayoutRef.current = layoutTier;
   }, [layoutTier, uiStore]);
+
+  // Game-over info persisted in local state so it survives game store reset
+  // (server auto-returns to pre-game after game ends, which resets the game store)
+  const [savedGameOver, setSavedGameOver] = useState<{
+    winner: Team;
+    finalScores: Record<Team, number>;
+    roundHistory: RoundScore[];
+    mySeat: Seat;
+  } | null>(null);
 
   // Leave confirmation is now handled by LeaveConfirmDialog component
   const [showVoteDropdown, setShowVoteDropdown] = useState(false);
@@ -208,6 +217,18 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         }
 
         gameStore.applyGameState(view);
+
+        // Save game-over info to local state so it persists after game store reset
+        // (server auto-returns everyone to pre-game after game ends)
+        if (view.winner !== null && view.phase === 'gameOver') {
+          setSavedGameOver({
+            winner: view.winner as Team,
+            finalScores: view.scores,
+            roundHistory: view.roundHistory,
+            mySeat: view.mySeat,
+          });
+        }
+
         // REQ-F-AP12: Auto-pass resets naturally via trick-won detection and phase change.
         // Do NOT reset here — GAME_STATE fires on every state transition, not just reconnect.
       } else if (msg.type === 'CHAT_RECEIVED') {
@@ -877,6 +898,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           onCancelNavigation={cancelNavigation}
           layoutTier={layoutTier}
         />
+        {/* Game summary overlay — shown after server auto-returns to pre-game */}
+        {savedGameOver && (
+          <GameEndPhase
+            winner={savedGameOver.winner}
+            finalScores={savedGameOver.finalScores}
+            roundHistory={savedGameOver.roundHistory}
+            mySeat={savedGameOver.mySeat}
+            onDismiss={() => setSavedGameOver(null)}
+          />
+        )}
       </>
     );
   }
@@ -895,7 +926,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
 
 
-  // --- Game over ---
+  // --- Game over (shown as overlay from savedGameOver, persists after server auto-resets to pre-game) ---
   if (phase === GamePhase.GameOver && gameStore.gameOverInfo) {
     return (
       <>
@@ -904,10 +935,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           finalScores={gameStore.gameOverInfo.finalScores}
           roundHistory={gameStore.roundHistory}
           mySeat={gameStore.mySeat!}
-          onNewGame={() => send({ type: 'START_GAME' })}
-          onLeaveRoom={() => { confirmNavigation(); send({ type: 'LEAVE_ROOM' }); }}
-          backButtonDialogOpen={backButtonDialogOpen}
-          onCancelNavigation={cancelNavigation}
+          onDismiss={() => setSavedGameOver(null)}
         />
         <ConnectionStatus status={status} />
       </>
