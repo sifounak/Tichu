@@ -918,6 +918,7 @@ export function PreRoomView({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
+          pointerEvents: 'none',
         }}>
           <PlayerSeat
             seat={effectiveSeat}

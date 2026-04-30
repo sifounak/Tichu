@@ -1,4 +1,4 @@
-// Verifies: REQ-F-GS01, REQ-F-GS02, REQ-F-GS08, REQ-F-GS10
+// Verifies: REQ-F-GS01, REQ-F-GS02, REQ-F-GS08
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -24,8 +24,7 @@ const defaultProps = {
   finalScores,
   roundHistory,
   mySeat: 'south' as Seat,
-  onNewGame: vi.fn(),
-  onLeaveRoom: vi.fn(),
+  onDismiss: vi.fn(),
 };
 
 describe('GameEndPhase', () => {
@@ -56,11 +55,11 @@ describe('GameEndPhase', () => {
     expect(screen.getByText('Their Team')).toBeInTheDocument();
   });
 
-  it('REQ-F-GS10: calls onNewGame when Start New Game clicked', async () => {
-    const onNewGame = vi.fn();
+  it('calls onDismiss when Dismiss button clicked', async () => {
+    const onDismiss = vi.fn();
     const user = userEvent.setup();
-    render(<GameEndPhase {...defaultProps} onNewGame={onNewGame} />);
-    await user.click(screen.getByText('Start New Game'));
-    expect(onNewGame).toHaveBeenCalledTimes(1);
+    render(<GameEndPhase {...defaultProps} onDismiss={onDismiss} />);
+    await user.click(screen.getByText('Dismiss'));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,14 +3,11 @@
 // REQ-F-GS03: 2-column Your Team / Their Team layout
 // REQ-F-GS04–GS07: Per-team stats (Grand Tichu, Tichu, 1-2 victories, bombs)
 // REQ-F-GS08: Final scores displayed
-// REQ-F-GS09: Leave Room button
-// REQ-F-GS10: Start New Game button
 'use client';
 
 import { memo, useMemo } from 'react';
 import type { Seat, Team, RoundScore } from '@tichu/shared';
 import { getTeam } from '@tichu/shared';
-import { LeaveConfirmDialog } from '../game/LeaveConfirmDialog';
 import styles from './GameEndPhase.module.css';
 
 export interface GameEndPhaseProps {
@@ -18,12 +15,7 @@ export interface GameEndPhaseProps {
   finalScores: Record<Team, number>;
   roundHistory: RoundScore[];
   mySeat: Seat;
-  onNewGame: () => void;
-  onLeaveRoom: () => void;
-  /** REQ-F-BB01: When true, opens leave dialog programmatically (from back/forward button) */
-  backButtonDialogOpen?: boolean;
-  /** REQ-F-BB01: Called when user cancels the back-button leave dialog */
-  onCancelNavigation?: () => void;
+  onDismiss: () => void;
 }
 
 interface TeamStats {
@@ -93,10 +85,7 @@ export const GameEndPhase = memo(function GameEndPhase({
   finalScores,
   roundHistory,
   mySeat,
-  onNewGame,
-  onLeaveRoom,
-  backButtonDialogOpen,
-  onCancelNavigation,
+  onDismiss,
 }: GameEndPhaseProps) {
   const myTeam = getTeam(mySeat);
   const theirTeam: Team = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
@@ -158,24 +147,9 @@ export const GameEndPhase = memo(function GameEndPhase({
           <div className={styles.statValue}>{theirStats.bombs}</div>
         </div>
 
-        {/* REQ-F-GS09, REQ-F-GS10: Action buttons */}
         <div className={styles.buttons}>
-          {/* REQ-F-LRC02: Confirmation dialog before leaving room at game end */}
-          <LeaveConfirmDialog
-            title="Leave Room?"
-            subtitle=""
-            onConfirm={onLeaveRoom}
-            externalOpen={backButtonDialogOpen}
-            onClose={onCancelNavigation}
-          >
-            {(openDialog) => (
-              <button className={styles.leaveButton} onClick={openDialog}>
-                Leave Room
-              </button>
-            )}
-          </LeaveConfirmDialog>
-          <button className={styles.newGameButton} onClick={onNewGame}>
-            Start New Game
+          <button className={styles.dismissButton} onClick={onDismiss}>
+            Dismiss
           </button>
         </div>
       </div>

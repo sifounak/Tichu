@@ -754,11 +754,12 @@ export class RoomHandler {
       },
     );
 
-    // REQ-F-PW01: Wire game-end callback for persistence
-    if (this.database) {
-      const db = this.database;
-      const gameRef = game;
-      game.wireGameEndCallback((context: GameMachineContext, joinedAfterSpectating: Set<string>) => {
+    // REQ-F-PW01: Wire game-end callback for persistence + auto-return to pre-game
+    const db = this.database;
+    const gameRef = game;
+    game.wireGameEndCallback((context: GameMachineContext, joinedAfterSpectating: Set<string>) => {
+      // Persist game results if database is available
+      if (db) {
         const room = this.roomManager.getRoom(roomCode);
         const players = room?.players ?? [];
         const dbGameId = this.persistGameResult(db, roomCode, players, context, joinedAfterSpectating);
@@ -779,8 +780,16 @@ export class RoomHandler {
             console.error(`[PERSIST] Failed to update stats cache for game ${dbGameId}:`, err);
           }
         }
-      });
-    }
+      }
+
+      // Auto-return all players to pre-game "not ready" state after a short delay.
+      // Clients save game-over info locally and show the summary dialog as an overlay
+      // on top of the pre-game view. The 2s delay gives clients time to receive and
+      // process the game-over broadcast before the room state resets.
+      setTimeout(() => {
+        this.restartGame(roomCode);
+      }, 2000);
+    });
   }
 
   /** REQ-F-PV18: Restart the game — destroy current game, return to pre-game lobby */
