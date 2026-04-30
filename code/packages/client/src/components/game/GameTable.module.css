@@ -72,15 +72,26 @@
 }
 
 /* Opponents row — only rendered in compact/mobile, hidden in full tier */
+/* 3-column grid: opponents center in left/right columns, middle column matches partner width */
 /* Negative margin pulls opponents up so their centerline aligns with the partner box bottom */
 .opponentsRow {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr min(calc(280px * var(--scale)), 25vw) 1fr;
   padding: 0 var(--space-4);
   flex-shrink: 0;
   margin-top: calc(-40px * var(--scale));
   position: relative;
   z-index: 1;
+}
+
+.opponentsRow > :first-child {
+  grid-column: 1;
+  justify-self: center;
+}
+
+.opponentsRow > :last-child {
+  grid-column: 3;
+  justify-self: center;
 }
 
 /* Phase indicator */
@@ -139,6 +150,7 @@
 :root[data-layout="mobile"] .opponentsRow {
   padding: 0 var(--space-2);
   margin-top: calc(-30px * var(--scale));
+  grid-template-columns: 1fr min(calc(280px * var(--scale)), 25vw) 1fr;
 }
 
 :root[data-layout="mobile"] .center {
