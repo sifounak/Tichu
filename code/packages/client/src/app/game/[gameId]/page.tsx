@@ -994,7 +994,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     <>
       {/* Server restart banner */}
       {serverRestarting && (
-        <div style={{
+        <div data-debug-area="Server Banner" style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -1012,7 +1012,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         </div>
       )}
       {/* Room code + Spectators + Leave Room — hidden in mobile mode (shown in chrome row instead) */}
-      <div style={{
+      <div data-debug-area="Control Panel" style={{
         position: 'fixed',
         top: 'calc(120px * var(--scale))',
         left: 'calc(148px * var(--scale))',
@@ -1299,7 +1299,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
       {/* REQ-F-DI05: Score panel — full layout: fixed top-right; mobile: in chrome row */}
       {gameStore.scores && !isMobileLayout && (
-        <div style={{ position: 'fixed', top: 'calc(40px * var(--scale))', right: 'calc(28px * var(--scale))', zIndex: 30 }}>
+        <div data-debug-area="Score Panel" style={{ position: 'fixed', top: 'calc(40px * var(--scale))', right: 'calc(28px * var(--scale))', zIndex: 30 }}>
           <ScorePanel
             scores={gameStore.scores}
             roundHistory={gameStore.roundHistory}
@@ -1316,7 +1316,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
       {/* Mobile top chrome: left column (room info, vote, leave) + right (chat, score) */}
       {isMobileLayout && (
-        <div style={{
+        <div data-debug-area="Mobile Chrome" style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -1597,10 +1597,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {/* REQ-F-SP05: Hide for spectators — they see card counts in PlayerSeat, not actual hands */}
       {phase !== GamePhase.WaitingForPlayers && !isSpectator && (
-        <div style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))', pointerEvents: 'none' }}>
+        <div data-debug-area="Bottom Panel" style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))', pointerEvents: 'none' }}>
           {/* Pre-game prompts (no hand — hand is always rendered below) */}
           {isPreGame && (
-            <div style={{ pointerEvents: 'auto' }}>
+            <div data-debug-area="Pre-Game Phase" style={{ pointerEvents: 'auto' }}>
               <PreGamePhase
                 phase={phase}
                 mySeat={mySeat!}
@@ -1642,7 +1642,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
           {/* Action bar (playing phase only, hidden while viewing received cards) */}
           {!isPreGame && !showReceivedCards && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center', pointerEvents: 'auto' }}>
+            <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center', pointerEvents: 'auto' }}>
               <ActionBar
                 canPlay={!gameStore.gameHalted && selection.canPlay}
                 canPass={!gameStore.gameHalted && selection.canPass}
@@ -1725,7 +1725,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           )}
 
           {/* Card hand row: [Tichu btn] [cards] [Bomb btn] — buttons offset from hand edges */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', maxWidth: '100%', gap: 'calc(16px * var(--scale))', '--card-width': layoutTier === 'mobile' ? 'var(--card-width-mobile)' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? 'var(--card-height-mobile)' : 'var(--card-height-lg)', '--card-font-size': layoutTier === 'mobile' ? 'var(--card-font-size-mobile)' : 'var(--card-font-size-lg)', '--card-suit-size': layoutTier === 'mobile' ? 'var(--card-suit-size-mobile)' : 'var(--card-suit-size-lg)', '--card-border-radius': layoutTier === 'mobile' ? 'var(--card-border-radius-mobile)' : 'var(--card-border-radius-lg)', '--card-overlap-desktop': layoutTier === 'mobile' ? 'var(--card-overlap-mobile-lg)' : 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
+          <div data-debug-area="Card Hand Row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', maxWidth: '100%', gap: 'calc(16px * var(--scale))', '--card-width': layoutTier === 'mobile' ? 'var(--card-width-mobile)' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? 'var(--card-height-mobile)' : 'var(--card-height-lg)', '--card-font-size': layoutTier === 'mobile' ? 'var(--card-font-size-mobile)' : 'var(--card-font-size-lg)', '--card-suit-size': layoutTier === 'mobile' ? 'var(--card-suit-size-mobile)' : 'var(--card-suit-size-lg)', '--card-border-radius': layoutTier === 'mobile' ? 'var(--card-border-radius-mobile)' : 'var(--card-border-radius-lg)', '--card-overlap-desktop': layoutTier === 'mobile' ? 'var(--card-overlap-mobile-lg)' : 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
             {/* Left: Tichu button — fixed offset from hand */}
             <div style={{ flexShrink: 0 }}>
               {(phase === 'playing' || phase === 'cardPassing') && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (

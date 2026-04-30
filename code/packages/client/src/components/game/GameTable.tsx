@@ -180,24 +180,24 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const isMobile = layoutTier !== 'full';
 
   return (
-    <div className={styles.table} aria-label="Game table">
+    <div className={styles.table} aria-label="Game table" data-debug-area="Game Table">
       {/* Partner (top) */}
-      <div className={styles.top}>
+      <div className={styles.top} data-debug-area="Partner Seat">
         {seat(seatPositions.top)}
       </div>
 
       {/* Opponents — side-by-side row in mobile, separate grid areas in full */}
       {isMobile ? (
         <div className={styles.opponentsRow}>
-          <div>{seat(seatPositions.left)}</div>
-          <div>{seat(seatPositions.right)}</div>
+          <div data-debug-area="Left Opponent">{seat(seatPositions.left)}</div>
+          <div data-debug-area="Right Opponent">{seat(seatPositions.right)}</div>
         </div>
       ) : (
         <>
-          <div className={styles.left}>
+          <div className={styles.left} data-debug-area="Left Opponent">
             {seat(seatPositions.left)}
           </div>
-          <div className={styles.right}>
+          <div className={styles.right} data-debug-area="Right Opponent">
             {seat(seatPositions.right)}
           </div>
         </>
@@ -205,7 +205,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
 
       {/* Center area — custom content, TrickDisplay, or hidden */}
       {centerContent ? (
-        <div className={styles.center}>
+        <div className={styles.center} data-debug-area="Center / Trick">
           {centerContent}
         </div>
       ) : !hideCenter ? (
@@ -214,6 +214,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           onClick={canPlay ? onPlay : undefined}
           role={canPlay ? 'button' : undefined}
           aria-label={canPlay ? 'Play selected cards' : undefined}
+          data-debug-area="Center / Trick"
         >
           <TrickDisplay
             trick={currentTrick}
@@ -232,7 +233,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
       ) : null}
 
       {/* Player (bottom) — rendered in the fixed bottom panel in page.tsx, or custom content */}
-      <div className={styles.bottom}>
+      <div className={styles.bottom} data-debug-area="Bottom Seat">
         {bottomContent && (
           <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 'var(--space-4)' }}>
             {bottomContent}

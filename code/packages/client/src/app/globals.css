@@ -1,5 +1,67 @@
 @import 'tailwindcss';
 
+/* Debug outlines — toggle with Ctrl+Shift+D */
+html.debug-outlines [data-debug-area] {
+  outline: 2px solid rgba(255, 255, 255, 0.5) !important;
+  position: relative;
+}
+html.debug-outlines [data-debug-area]::after {
+  content: attr(data-debug-area);
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: monospace;
+  padding: 1px 4px;
+  line-height: 1.4;
+  z-index: 99999;
+  pointer-events: none;
+  white-space: nowrap;
+}
+/* Color assignments per area */
+html.debug-outlines [data-debug-area="Game Table"]       { outline-color: #ff6b6b !important; }
+html.debug-outlines [data-debug-area="Game Table"]::after { background: #ff6b6b; color: #000; }
+
+html.debug-outlines [data-debug-area="Partner Seat"]       { outline-color: #4ecdc4 !important; }
+html.debug-outlines [data-debug-area="Partner Seat"]::after { background: #4ecdc4; color: #000; }
+
+html.debug-outlines [data-debug-area="Left Opponent"]       { outline-color: #45b7d1 !important; }
+html.debug-outlines [data-debug-area="Left Opponent"]::after { background: #45b7d1; color: #000; }
+
+html.debug-outlines [data-debug-area="Right Opponent"]       { outline-color: #96ceb4 !important; }
+html.debug-outlines [data-debug-area="Right Opponent"]::after { background: #96ceb4; color: #000; }
+
+html.debug-outlines [data-debug-area="Center / Trick"]       { outline-color: #ffd93d !important; }
+html.debug-outlines [data-debug-area="Center / Trick"]::after { background: #ffd93d; color: #000; }
+
+html.debug-outlines [data-debug-area="Bottom Seat"]       { outline-color: #c9b1ff !important; }
+html.debug-outlines [data-debug-area="Bottom Seat"]::after { background: #c9b1ff; color: #000; }
+
+html.debug-outlines [data-debug-area="Control Panel"]       { outline-color: #ff9ff3 !important; }
+html.debug-outlines [data-debug-area="Control Panel"]::after { background: #ff9ff3; color: #000; }
+
+html.debug-outlines [data-debug-area="Score Panel"]       { outline-color: #feca57 !important; }
+html.debug-outlines [data-debug-area="Score Panel"]::after { background: #feca57; color: #000; }
+
+html.debug-outlines [data-debug-area="Mobile Chrome"]       { outline-color: #ff9ff3 !important; }
+html.debug-outlines [data-debug-area="Mobile Chrome"]::after { background: #ff9ff3; color: #000; }
+
+html.debug-outlines [data-debug-area="Bottom Panel"]       { outline-color: #ff6348 !important; }
+html.debug-outlines [data-debug-area="Bottom Panel"]::after { background: #ff6348; color: #000; }
+
+html.debug-outlines [data-debug-area="Pre-Game Phase"]       { outline-color: #7bed9f !important; }
+html.debug-outlines [data-debug-area="Pre-Game Phase"]::after { background: #7bed9f; color: #000; }
+
+html.debug-outlines [data-debug-area="Action Bar"]       { outline-color: #70a1ff !important; }
+html.debug-outlines [data-debug-area="Action Bar"]::after { background: #70a1ff; color: #000; }
+
+html.debug-outlines [data-debug-area="Card Hand Row"]       { outline-color: #ffa502 !important; }
+html.debug-outlines [data-debug-area="Card Hand Row"]::after { background: #ffa502; color: #000; }
+
+html.debug-outlines [data-debug-area="Server Banner"]       { outline-color: #ee5a24 !important; }
+html.debug-outlines [data-debug-area="Server Banner"]::after { background: #ee5a24; color: #fff; }
+
 /* REQ-NF-U01: Responsive design tokens for desktop + mobile */
 :root {
   /* Table colors */
