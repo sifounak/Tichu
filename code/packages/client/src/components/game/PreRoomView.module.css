@@ -95,6 +95,19 @@
   text-align: center;
 }
 
+.seatAvatar {
+  width: calc(32px * var(--scale));
+  height: calc(32px * var(--scale));
+  border-radius: 50%;
+  background: var(--color-felt-green-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-md);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
 .removeBtn {
   padding: calc(6px * var(--scale)) calc(16px * var(--scale));
   border-radius: var(--space-2);

@@ -917,9 +917,17 @@ export function PreRoomView({
             finishOrder={null}
             isCurrentTurn={false}
             isTrickLeader={false}
-            isMe={true}
+            isMe={isMobileLayout ? false : true}
             passConfirmed={amReady}
             passConfirmedLabel="Ready to Play"
+            customContent={isMobileLayout ? (
+              <div className={styles.botSeatContent}>
+                <span className={styles.botName}>{getPlayerName(effectiveSeat) ?? effectiveSeat}</span>
+                <div className={styles.seatAvatar}>
+                  {(getPlayerName(effectiveSeat) ?? effectiveSeat)[0].toUpperCase()}
+                </div>
+              </div>
+            ) : undefined}
           />
         </div>
       )}
