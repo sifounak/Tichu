@@ -24,9 +24,9 @@
   margin-left: 0;
 }
 
-/* Mobile tier: tighter overlap + smaller cards */
+/* Mobile tier: use the same --card-overlap-desktop variable (dynamically set per card count) */
 :root[data-layout="mobile"] .cardSlot {
-  margin-left: calc(-1 * var(--card-overlap-mobile-lg));
+  margin-left: calc(-1 * var(--card-overlap-desktop));
 }
 
 :root[data-layout="mobile"] .cardSlot:first-child {

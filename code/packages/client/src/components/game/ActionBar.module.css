@@ -181,13 +181,13 @@
   display: none;
 }
 
-/* Mobile layout: linear row — Pass, Tichu, Bomb, Play */
+/* Mobile layout: linear row — Pass/AutoPass, Play (Tichu/Bomb rendered by page.tsx) */
 .mobileLayout {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
+  justify-content: space-evenly;
+  flex: 1;
+  padding: 0;
 }
 
 /* Reserve space for buttons that may appear/disappear so layout doesn't reflow */
@@ -203,12 +203,21 @@
 }
 
 .mobileLayout .buttonSlot {
-  min-width: var(--card-width, calc(85px * var(--scale)));
+  min-width: calc(var(--card-width, 14vw) * 1.25);
 }
 
 .mobileLayout .button {
-  padding: calc(6px * var(--scale)) var(--space-3);
+  /* Size relative to card dimensions: 1.25× card width, 0.4× card height */
+  width: calc(var(--card-width, 14vw) * 1.25);
+  height: calc(var(--card-height, 20vw) * 0.4);
+  min-width: unset;
+  min-height: unset;
+  padding: 0 var(--space-2);
   font-size: calc(18px * var(--scale));
-  min-width: var(--card-width, calc(85px * var(--scale)));
-  min-height: calc(36px * var(--scale));
+  box-sizing: border-box;
+  /* Vertically center text */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.2;
 }
