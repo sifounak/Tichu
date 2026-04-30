@@ -108,6 +108,11 @@
   color: var(--color-text-primary);
 }
 
+.emptyAvatar {
+  background: transparent;
+  border: 2px dashed var(--color-text-muted);
+}
+
 .removeBtn {
   padding: calc(6px * var(--scale)) calc(16px * var(--scale));
   border-radius: var(--space-2);

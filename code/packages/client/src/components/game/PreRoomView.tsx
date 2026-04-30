@@ -232,7 +232,7 @@ export function PreRoomView({
     // Player's own seat — rendered in the bottom panel, not here
     if (seat === mySeat) return null;
 
-    // Human player — standard PlayerSeat with kick button for host
+    // Human player — host sees name + kick button; non-host sees name + avatar
     if (player && !player.isBot) {
       return (
         <PlayerSeat
@@ -257,12 +257,19 @@ export function PreRoomView({
                 Kick
               </button>
             </div>
-          ) : undefined}
+          ) : (
+            <div className={styles.botSeatContent}>
+              <span className={styles.botName}>{player.name}</span>
+              <div className={styles.seatAvatar}>
+                {player.name[0].toUpperCase()}
+              </div>
+            </div>
+          )}
         />
       );
     }
 
-    // Bot — PlayerSeat with custom content: bot name + remove button
+    // Bot — host sees name + remove button; non-host sees name + avatar
     if (player?.isBot) {
       return (
         <PlayerSeat
@@ -283,10 +290,14 @@ export function PreRoomView({
           customContent={
             <div className={styles.botSeatContent}>
               <span className={styles.botName}>{player.name}</span>
-              {isHost && (
+              {isHost ? (
                 <button onClick={() => handleRemoveBot(seat)} className={styles.removeBtn}>
                   Remove Bot
                 </button>
+              ) : (
+                <div className={styles.seatAvatar}>
+                  {player.name[0].toUpperCase()}
+                </div>
               )}
             </div>
           }
@@ -294,7 +305,8 @@ export function PreRoomView({
       );
     }
 
-    // Empty seat — PlayerSeat with custom content: Empty Seat + Claim/Sit Here + Add Bot
+    // Empty seat — host sees "Empty Seat" + Sit Here/Add Bot buttons;
+    // non-host sees "Empty Seat" + blank avatar + Sit Here button
     // REQ-F-SC01: Spectators see "Claim Seat" that sends CLAIM_SEAT; players see "Sit Here" that sends SWAP_SEATS
     return (
       <PlayerSeat
