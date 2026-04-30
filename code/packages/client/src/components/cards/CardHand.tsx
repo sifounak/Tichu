@@ -46,11 +46,16 @@ export const CardHand = memo(function CardHand({
     if (!wrapper || !inner) return;
     const available = wrapper.clientWidth;
     if (available <= 0) return;
-    // Temporarily reset scale to measure natural width
-    const prev = inner.style.transform;
+    // Temporarily disable transition and reset scale to measure natural width
+    const prevTransition = inner.style.transition;
+    const prevTransform = inner.style.transform;
+    inner.style.transition = 'none';
     inner.style.transform = 'none';
     const natural = inner.scrollWidth;
-    inner.style.transform = prev;
+    inner.style.transform = prevTransform;
+    // Force layout to apply the reset before re-enabling transition
+    inner.offsetHeight; // eslint-disable-line @typescript-eslint/no-unused-expressions
+    inner.style.transition = prevTransition;
     if (natural > available) {
       setHandScale(Math.max(0.5, available / natural));
     } else {
@@ -58,12 +63,20 @@ export const CardHand = memo(function CardHand({
     }
   }, []);
 
+  const prevCountRef = useRef(sortedCards.length);
   useEffect(() => {
+    const cardsRemoved = sortedCards.length < prevCountRef.current;
+    prevCountRef.current = sortedCards.length;
+    if (cardsRemoved) {
+      // Delay recalculation until exit animations settle
+      const timer = setTimeout(updateHandScale, durations.cardPlay * 1000 + 50);
+      return () => clearTimeout(timer);
+    }
     updateHandScale();
     const ro = new ResizeObserver(() => updateHandScale());
     if (wrapperRef.current) ro.observe(wrapperRef.current);
     return () => ro.disconnect();
-  }, [updateHandScale, sortedCards.length]);
+  }, [updateHandScale, sortedCards.length, durations.cardPlay]);
 
   // Combine refs for roving tab index and inner measurement
   const setInnerRef = useCallback((el: HTMLDivElement | null) => {

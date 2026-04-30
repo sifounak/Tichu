@@ -211,10 +211,28 @@
   color: var(--color-text-primary);
 }
 
+/* finishBadge no longer shown in avatar — "#X" moved to finishInfo */
 .finishBadge {
-  font-size: var(--font-3xl);
-  font-weight: 700;
-  color: var(--color-gold-accent);
+  display: none;
+}
+
+/* Avatar always shows initial letter (initialHidden overridden to show) */
+.initialHidden {
+  display: inline;
+}
+
+/* Two-line "#X" + "Out" replaces card stack when finished */
+.finishInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(86px * var(--scale));
+}
+
+/* Hide single "Out" text — finishInfo handles the display */
+.finishedInfo .cardCount {
+  display: none;
 }
 
 .info {
@@ -531,6 +549,41 @@
 
 :root[data-layout="mobile"] .initial {
   font-size: var(--font-md);
+}
+
+/* Mobile: enlarge avatar when player has finished (extra room from no card stack) */
+:root[data-layout="mobile"] .seat:not(.me) .finishedAvatar {
+  width: calc(48px * var(--scale));
+  height: calc(48px * var(--scale));
+}
+
+:root[data-layout="mobile"] .seat:not(.me) .finishedAvatar .initial {
+  font-size: var(--font-lg);
+}
+
+
+.finishInfoOrder {
+  font-size: var(--font-3xl);
+  font-weight: 700;
+  color: var(--color-gold-accent);
+  line-height: 1.2;
+}
+
+.finishInfoLabel {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+:root[data-layout="full"] .finishInfoOrder {
+  font-size: var(--font-4xl);
+}
+
+:root[data-layout="full"] .finishInfoLabel {
+  font-size: var(--font-base);
 }
 
 :root[data-layout="mobile"] .tichuBanner {
