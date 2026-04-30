@@ -17,8 +17,6 @@
   max-width: calc(280px * var(--scale));
   will-change: box-shadow, border-color;
   transform: translateZ(0);
-  /* Scale entire seat (box + banners + labels) when it exceeds 25vw */
-  zoom: var(--seat-zoom, 1);
 }
 
 .seatRow {
@@ -458,6 +456,36 @@
   .timerRedPulse { animation: none; }
   .timerBadgeRed { animation: none; }
   .turnLabelRed { animation: none; opacity: 1; }
+}
+
+/* Full tier: fixed-size seats — no scaling with window size.
+   Override --scale AND all inherited variables that were pre-computed at :root
+   with the dynamic --scale.  Re-declare them here at scale=1 so the seat
+   and all its children render at a constant size. */
+:root[data-layout="full"] .seat {
+  --scale: 0.8;
+
+  /* Spacing (used by padding, gap, margin, border-radius) */
+  --space-1: 3.2px;
+  --space-2: 6.4px;
+  --space-3: 9.6px;
+  --space-4: 12.8px;
+  --space-5: 16px;
+  --space-6: 19.2px;
+
+  /* Font sizes (used by name, card count, labels, banners) */
+  --font-xs: 8px;
+  --font-sm: 9.6px;
+  --font-md: 11.2px;
+  --font-base: 12.8px;
+  --font-lg: 14.4px;
+  --font-xl: 16px;
+  --font-3xl: 22.4px;
+  --font-4xl: 25.6px;
+
+  /* Layout */
+  --seat-avatar-size: 32px;
+  --card-border-radius: 4.8px;
 }
 
 /* REQ-NF-U01: Mobile tier seats (<900px) */
