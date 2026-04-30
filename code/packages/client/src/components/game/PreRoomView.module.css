@@ -19,6 +19,18 @@
   gap: calc(6px * var(--scale));
   /* Match the natural height of a filled seat (name + avatar row + padding) */
   min-height: calc(100px * var(--scale));
+  /* Fill full seat width so button row can space-evenly against seat edges */
+  align-self: stretch;
+}
+
+/* Side-by-side button row for empty seats in mobile */
+/* space-evenly with 2 items centers them at 1/3 and 2/3 of the width */
+.emptySeatButtons {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: space-evenly;
+  align-self: stretch;
 }
 
 .emptyTitle {
@@ -28,15 +40,18 @@
 }
 
 .sitHereBtn {
-  padding: calc(4px * var(--scale)) calc(14px * var(--scale));
+  padding: calc(4px * var(--scale)) 0;
   border-radius: var(--space-1);
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   font-weight: 600;
   background: var(--color-gold-accent);
   color: var(--color-felt-green-dark);
   border: none;
   cursor: pointer;
   transition: opacity 0.15s;
+  text-align: center;
+  line-height: 1.2;
+  width: calc(48px * var(--scale));
 }
 
 .sitHereBtn:hover {
@@ -44,15 +59,18 @@
 }
 
 .addBotBtn {
-  padding: calc(4px * var(--scale)) calc(14px * var(--scale));
+  padding: calc(4px * var(--scale)) 0;
   border-radius: var(--space-1);
-  font-size: var(--font-sm);
+  font-size: var(--font-md);
   font-weight: 600;
   background: var(--color-success, #2ecc71);
   color: #000;
   border: none;
   cursor: pointer;
   transition: opacity 0.15s;
+  text-align: center;
+  line-height: 1.2;
+  width: calc(48px * var(--scale));
 }
 
 .addBotBtn:hover {

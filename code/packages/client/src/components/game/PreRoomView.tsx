@@ -310,22 +310,24 @@ export function PreRoomView({
         customContent={
           <div className={styles.emptySeatContent}>
             <span className={styles.emptyTitle}>Empty Seat</span>
-            {isSpectator ? (
-              (seatOffer?.seats.includes(seat) || availableSeats?.includes(seat)) ? (
-                <button onClick={() => send({ type: 'CLAIM_SEAT' })} className={styles.sitHereBtn}>
-                  Claim Seat
+            <div className={styles.emptySeatButtons}>
+              {isSpectator ? (
+                (seatOffer?.seats.includes(seat) || availableSeats?.includes(seat)) ? (
+                  <button onClick={() => send({ type: 'CLAIM_SEAT' })} className={styles.sitHereBtn}>
+                    Claim<br />Seat
+                  </button>
+                ) : null
+              ) : (
+                <button onClick={() => handleSwapSeat(seat)} className={styles.sitHereBtn}>
+                  Sit<br />Here
                 </button>
-              ) : null
-            ) : (
-              <button onClick={() => handleSwapSeat(seat)} className={styles.sitHereBtn}>
-                Sit Here
-              </button>
-            )}
-            {isHost && (
-              <button onClick={() => handleAddBot(seat)} className={styles.addBotBtn}>
-                Add Bot
-              </button>
-            )}
+              )}
+              {isHost && (
+                <button onClick={() => handleAddBot(seat)} className={styles.addBotBtn}>
+                  Add<br />Bot
+                </button>
+              )}
+            </div>
           </div>
         }
       />

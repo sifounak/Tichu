@@ -489,10 +489,14 @@
 }
 
 /* REQ-NF-U01: Mobile tier seats (<900px) */
+/* Responsive width: natural size or 25% of viewport, whichever is smaller */
+/* Fixed width ensures empty and filled seats match; reduced top padding */
 :root[data-layout="mobile"] .seat {
-  padding: var(--space-1) var(--space-2);
+  padding: 0 var(--space-2) var(--space-1);
   gap: var(--space-1);
   min-width: 0;
+  width: min(calc(240px * var(--scale)), 25vw);
+  max-width: min(calc(280px * var(--scale)), 25vw);
   zoom: 1;
 }
 
