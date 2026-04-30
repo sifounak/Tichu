@@ -766,6 +766,19 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showVoteDropdown]);
 
+  // Click outside player seats cancels kick target selection mode
+  useEffect(() => {
+    if (!uiStore.kickTargetMode) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[role="button"][aria-label^="Kick "]')) {
+        uiStore.setKickTargetMode(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [uiStore, uiStore.kickTargetMode]);
+
   // REQ-F-AP01–AP12: Auto-pass until next trick
   const autoPassEnabled = uiStore.autoPassEnabled;
 
@@ -1542,6 +1555,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         onPlay={gameStore.gameHalted ? undefined : handlePlay}
         canPlay={!gameStore.gameHalted && !isPreGame && selection.canPlay && (isMyTurn || selection.isBombSelection)}
         isMyTurn={!gameStore.gameHalted && !isPreGame && isMyTurn}
+        isTrickLeader={!gameStore.gameHalted && !isPreGame && !isMyTurn && (view.currentTrick?.currentWinner === mySeat)}
+        myHasPassed={!isPreGame && (view.currentTrick?.passes.includes(mySeat!) ?? false)}
         hideCenter={isPreGame && !isSpectator}
         hideEmptyTrick={false}
         dragonGiftTargets={gameStore.gameHalted ? undefined : dragonGiftTargets}
@@ -1597,7 +1612,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {/* REQ-F-SP05: Hide for spectators — they see card counts in PlayerSeat, not actual hands */}
       {phase !== GamePhase.WaitingForPlayers && !isSpectator && (
-        <div data-debug-area="Bottom Panel" style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))', pointerEvents: 'none' }}>
+        <div data-debug-area="Bottom Panel" style={{ position: 'fixed', bottom: 'calc(34px * var(--scale))', left: 0, right: 0, zIndex: 26, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'calc(28px * var(--scale))', pointerEvents: 'none', '--card-width': layoutTier === 'mobile' ? '14vw' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? '20vw' : 'var(--card-height-lg)' } as React.CSSProperties}>
           {/* Pre-game prompts + mobile Tichu/Bomb buttons — bottom-aligned in mobile */}
           {isMobileLayout && (isPreGame || showReceivedCards) ? (
             <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%', paddingLeft: '5vw', paddingRight: '5vw', pointerEvents: 'none' }}>
@@ -1607,9 +1622,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   <button
                     onClick={handleTichu}
                     style={{
-                      width: 'calc(64px * var(--scale))',
-                      height: 'calc(64px * var(--scale))',
-                      padding: 'var(--space-1)',
+                      width: 'calc(var(--card-width) * 1.25 * 0.5)',
+                      height: 'calc(var(--card-height) * 0.4)',
+                      padding: 0,
                       border: 'none',
                       borderRadius: 'var(--space-3)',
                       background: 'var(--color-tichu-badge)',
@@ -1674,9 +1689,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     <button
                       onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
                       style={{
-                        width: 'calc(64px * var(--scale))',
-                        height: 'calc(64px * var(--scale))',
-                        padding: 'var(--space-1)',
+                        width: 'calc(var(--card-width) * 1.25 * 0.5)',
+                        height: 'calc(var(--card-height) * 0.4)',
+                        padding: 0,
                         border: 'none',
                         borderRadius: 'var(--space-3)',
                         background: 'var(--color-tichu-badge)',
@@ -1742,112 +1757,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </>
           )}
 
-          {/* Mobile: Tichu + Bomb buttons above card hand (during playing phase) */}
-          {isMobileLayout && !isPreGame && !showReceivedCards && (
-            <div data-debug-area="Mobile Tichu/Bomb Row" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw' }}>
-              {/* Left: Call Tichu */}
-              {phase === 'playing' && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (
-                <button
-                  onClick={handleTichu}
-                  style={{
-                    width: 'calc(64px * var(--scale))',
-                    height: 'calc(64px * var(--scale))',
-                    padding: 'var(--space-1)',
-                    border: 'none',
-                    borderRadius: 'var(--space-3)',
-                    background: 'var(--color-tichu-badge)',
-                    color: 'white',
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 'calc(16px * var(--scale))',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    lineHeight: '1.2',
-                    textAlign: 'center',
-                  }}
-                  aria-label="Declare Tichu"
-                >
-                  Call<br />Tichu!
-                </button>
-              )}
-              {/* Right: Bomb */}
-              {phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0 && (
-                <div
-                  style={{ position: 'relative', zIndex: 30 }}
-                  onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
-                  onMouseLeave={() => setBombPopupOpen(false)}
-                >
-                  <button
-                    onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
-                    style={{
-                      width: 'calc(64px * var(--scale))',
-                      height: 'calc(64px * var(--scale))',
-                      padding: 'var(--space-1)',
-                      border: 'none',
-                      borderRadius: 'var(--space-3)',
-                      background: 'var(--color-tichu-badge)',
-                      color: 'white',
-                      fontFamily: 'var(--font-display)',
-                      fontSize: 'calc(16px * var(--scale))',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      lineHeight: '1.2',
-                      textAlign: 'center',
-                    }}
-                    aria-label="Play bomb"
-                  >
-                    Bomb!
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Action bar (playing phase only, hidden while viewing received cards) */}
-          {!isPreGame && !showReceivedCards && (
-            <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center', pointerEvents: 'auto' }}>
-              <ActionBar
-                canPlay={!gameStore.gameHalted && selection.canPlay}
-                canPass={!gameStore.gameHalted && selection.canPass}
-                isMyTurn={!gameStore.gameHalted && isMyTurn}
-                phase={phase!}
-                myTichuCall={gameStore.myTichuCall}
-                hasPlayedCards={gameStore.hasPlayedCards}
-                hasBombReady={!gameStore.gameHalted && !isMyTurn && selection.isBombSelection}
-                playQueued={bombWindow.queuedPlay !== null}
-                bombWindowEndTime={bombWindow.bombWindowEndTime}
-                onCancelQueue={bombWindow.cancelQueuedPlay}
-                autoPassEnabled={autoPassEnabled}
-                onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
-                showAutoPass={!gameStore.gameHalted && showAutoPass}
-                onPlay={handlePlay}
-                onPass={handlePass}
-                onTichu={handleTichu}
-                onBomb={handleBomb}
-                layoutTier={layoutTier}
-                canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing')}
-                layout="split"
-                playerSeat={
-                  <PlayerSeat
-                    seat={mySeat!}
-                    displayName={seatNames[mySeat!]}
-                    cardCount={gameStore.myHand.length}
-                    tichuCall={gameStore.myTichuCall}
-                    hasPlayed={false}
-                    hasPassed={view.currentTrick?.passes.includes(mySeat!) ?? false}
-                    finishOrder={view.finishOrder.indexOf(mySeat!) >= 0 ? view.finishOrder.indexOf(mySeat!) + 1 : null}
-                    isCurrentTurn={gameStore.currentTurn === mySeat}
-                    isTrickLeader={view.currentTrick?.currentWinner === mySeat}
-                    isMe={true}
-                    turnTimerStartedAt={view.turnTimerStartedAt}
-                    turnTimerDurationMs={view.turnTimerDurationMs}
-                    tichuFailed={gameStore.myTichuCall !== 'none' && view.finishOrder.length > 0 && view.finishOrder[0] !== mySeat}
-                  />
-                }
-              />
-            </div>
-          )}
-
-          {/* Mobile mode: show player's active Tichu call banner between action bar and cards */}
+          {/* Mobile mode: show player's active Tichu call banner above action buttons */}
           {isMobileLayout && !isPreGame && !showReceivedCards && gameStore.myTichuCall !== 'none' && (
             <div style={{
               pointerEvents: 'auto',
@@ -1861,10 +1771,154 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               borderRadius: 'var(--space-1)',
               textAlign: 'center',
               whiteSpace: 'nowrap',
-              width: layoutTier === 'mobile' ? 'calc(180px * var(--scale))' : 'calc(240px * var(--scale))',
+              width: 'calc(180px * var(--scale))',
             }}>
               {gameStore.myTichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}
             </div>
+          )}
+
+          {/* Action bar: mobile renders Tichu/Bomb inline; full layout renders only ActionBar */}
+          {!isPreGame && !showReceivedCards && (
+            isMobileLayout ? (
+              <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw' }}>
+                {/* Slot: Call Tichu */}
+                <div style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards) ? 'visible' : 'hidden' }}>
+                  <button
+                    onClick={handleTichu}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      padding: 0,
+                      border: 'none',
+                      borderRadius: 'var(--space-3)',
+                      background: 'var(--color-tichu-badge)',
+                      color: 'white',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 'calc(16px * var(--scale))',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: '1.2',
+                      textAlign: 'center',
+                    }}
+                    aria-label="Declare Tichu"
+                  >
+                    Call<br />Tichu!
+                  </button>
+                </div>
+                {/* Slot: Pass / Auto-Pass + Play */}
+                <ActionBar
+                  canPlay={!gameStore.gameHalted && selection.canPlay}
+                  canPass={!gameStore.gameHalted && selection.canPass}
+                  isMyTurn={!gameStore.gameHalted && isMyTurn}
+                  phase={phase!}
+                  myTichuCall={gameStore.myTichuCall}
+                  hasPlayedCards={gameStore.hasPlayedCards}
+                  hasBombReady={!gameStore.gameHalted && !isMyTurn && selection.isBombSelection}
+                  playQueued={bombWindow.queuedPlay !== null}
+                  bombWindowEndTime={bombWindow.bombWindowEndTime}
+                  onCancelQueue={bombWindow.cancelQueuedPlay}
+                  autoPassEnabled={autoPassEnabled}
+                  onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
+                  showAutoPass={!gameStore.gameHalted && showAutoPass}
+                  onPlay={handlePlay}
+                  onPass={handlePass}
+                  onTichu={handleTichu}
+                  onBomb={handleBomb}
+                  layoutTier={layoutTier}
+                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing')}
+                  layout="split"
+                  playerSeat={
+                    <PlayerSeat
+                      seat={mySeat!}
+                      displayName={seatNames[mySeat!]}
+                      cardCount={gameStore.myHand.length}
+                      tichuCall={gameStore.myTichuCall}
+                      hasPlayed={false}
+                      hasPassed={view.currentTrick?.passes.includes(mySeat!) ?? false}
+                      finishOrder={view.finishOrder.indexOf(mySeat!) >= 0 ? view.finishOrder.indexOf(mySeat!) + 1 : null}
+                      isCurrentTurn={gameStore.currentTurn === mySeat}
+                      isTrickLeader={view.currentTrick?.currentWinner === mySeat}
+                      isMe={true}
+                      turnTimerStartedAt={view.turnTimerStartedAt}
+                      turnTimerDurationMs={view.turnTimerDurationMs}
+                      tichuFailed={gameStore.myTichuCall !== 'none' && view.finishOrder.length > 0 && view.finishOrder[0] !== mySeat}
+                    />
+                  }
+                />
+                {/* Slot: Bomb */}
+                <div style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0) ? 'visible' : 'hidden' }}>
+                  <button
+                    onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      padding: 0,
+                      border: 'none',
+                      borderRadius: 'var(--space-3)',
+                      background: 'var(--color-tichu-badge)',
+                      color: 'white',
+                      fontFamily: 'var(--font-display)',
+                      fontSize: 'calc(16px * var(--scale))',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: '1.2',
+                      textAlign: 'center',
+                    }}
+                    aria-label="Play bomb"
+                  >
+                    Bomb!
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center', pointerEvents: 'auto' }}>
+                <ActionBar
+                  canPlay={!gameStore.gameHalted && selection.canPlay}
+                  canPass={!gameStore.gameHalted && selection.canPass}
+                  isMyTurn={!gameStore.gameHalted && isMyTurn}
+                  phase={phase!}
+                  myTichuCall={gameStore.myTichuCall}
+                  hasPlayedCards={gameStore.hasPlayedCards}
+                  hasBombReady={!gameStore.gameHalted && !isMyTurn && selection.isBombSelection}
+                  playQueued={bombWindow.queuedPlay !== null}
+                  bombWindowEndTime={bombWindow.bombWindowEndTime}
+                  onCancelQueue={bombWindow.cancelQueuedPlay}
+                  autoPassEnabled={autoPassEnabled}
+                  onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
+                  showAutoPass={!gameStore.gameHalted && showAutoPass}
+                  onPlay={handlePlay}
+                  onPass={handlePass}
+                  onTichu={handleTichu}
+                  onBomb={handleBomb}
+                  layoutTier={layoutTier}
+                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing')}
+                  layout="split"
+                  playerSeat={
+                    <PlayerSeat
+                      seat={mySeat!}
+                      displayName={seatNames[mySeat!]}
+                      cardCount={gameStore.myHand.length}
+                      tichuCall={gameStore.myTichuCall}
+                      hasPlayed={false}
+                      hasPassed={view.currentTrick?.passes.includes(mySeat!) ?? false}
+                      finishOrder={view.finishOrder.indexOf(mySeat!) >= 0 ? view.finishOrder.indexOf(mySeat!) + 1 : null}
+                      isCurrentTurn={gameStore.currentTurn === mySeat}
+                      isTrickLeader={view.currentTrick?.currentWinner === mySeat}
+                      isMe={true}
+                      turnTimerStartedAt={view.turnTimerStartedAt}
+                      turnTimerDurationMs={view.turnTimerDurationMs}
+                      tichuFailed={gameStore.myTichuCall !== 'none' && view.finishOrder.length > 0 && view.finishOrder[0] !== mySeat}
+                    />
+                  }
+                />
+              </div>
+            )
           )}
 
           {/* Tichu/Grand Tichu banner — shown between pass area and cards during pre-game / received cards */}

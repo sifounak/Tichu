@@ -217,8 +217,7 @@ export const ActionBar = memo(function ActionBar({
   );
 
   // Compact/mobile: linear layout — [Pass/AutoPass] [Play]
-  // Tichu and Bomb are floating buttons beside the card hand (same as full mode)
-  // Use fixed-width slots so buttons don't reflow when they appear/disappear
+  // Tichu and Bomb are rendered inline by page.tsx in the same row
   if (isMobile) {
     return (
       <div

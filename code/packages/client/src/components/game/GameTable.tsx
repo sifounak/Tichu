@@ -29,6 +29,10 @@ export interface GameTableProps {
   serverClockOffsetMs?: number;
   /** Whether it's the current player's turn (shows play area glow) */
   isMyTurn?: boolean;
+  /** Whether the current player is the trick leader */
+  isTrickLeader?: boolean;
+  /** Whether the current player has passed this trick */
+  myHasPassed?: boolean;
   /** Callback when player chooses a seat (mid-game join with multiple vacated seats) */
   onChooseSeat?: (seat: Seat) => void;
   /** Override seat rendering (e.g. for pre-room state) */
@@ -55,7 +59,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout, layoutTier = 'full' }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout, layoutTier = 'full' }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -178,6 +182,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const seat = renderSeatOverride ?? renderSeat;
 
   const isMobile = layoutTier !== 'full';
+  const dragonGiftPending = dragonGiftTargets && dragonGiftTargets.size > 0;
 
   return (
     <div className={styles.table} aria-label="Game table" data-debug-area="Game Table">
@@ -210,7 +215,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         </div>
       ) : !hideCenter ? (
         <div
-          className={`${styles.center} ${isMyTurn ? styles.playAreaActive : ''} ${canPlay ? styles.clickableTrick : ''}`}
+          className={`${styles.center} ${dragonGiftPending ? '' : isMyTurn ? styles.playAreaActive : isTrickLeader ? styles.playAreaLeader : ''} ${canPlay ? styles.clickableTrick : ''}`}
           onClick={canPlay ? onPlay : undefined}
           role={canPlay ? 'button' : undefined}
           aria-label={canPlay ? 'Play selected cards' : undefined}
@@ -231,6 +236,19 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           />
         </div>
       ) : null}
+
+      {/* Mobile: player status indicator below play area (hidden during dragon gift decision) */}
+      {isMobile && !hideCenter && !centerContent && !dragonGiftPending && (
+        <div className={styles.mobileStatusIndicator}>
+          {isMyTurn ? (
+            <span className={styles.mobileStatusTurn}>Your Turn</span>
+          ) : isTrickLeader ? (
+            <span className={styles.mobileStatusLeader}>Leading Trick</span>
+          ) : myHasPassed ? (
+            <span className={styles.mobileStatusPassed}>Passed</span>
+          ) : null}
+        </div>
+      )}
 
       {/* Player (bottom) — rendered in the fixed bottom panel in page.tsx, or custom content */}
       <div className={styles.bottom} data-debug-area="Bottom Seat">

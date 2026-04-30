@@ -108,12 +108,30 @@
   border-radius: var(--space-1);
 }
 
-/* Play area glow — visible during player's turn */
+/* Play area glow — visible during player's turn (blue) */
 .playAreaActive {
   border-radius: var(--space-3);
   transition: background var(--duration-fast) var(--easing-smooth),
-              box-shadow var(--duration-fast) var(--easing-smooth);
-  box-shadow: 0 0 calc(16px * var(--scale)) rgba(74, 158, 255, 0.3);
+              box-shadow var(--duration-fast) var(--easing-smooth),
+              border-color var(--duration-fast) var(--easing-smooth);
+  box-shadow: 0 0 calc(24px * var(--scale)) rgba(74, 158, 255, 0.55);
+}
+
+:root[data-layout="mobile"] .playAreaActive {
+  border: 2px solid #4a9eff;
+}
+
+/* Play area glow — trick leader (gold) */
+.playAreaLeader {
+  border-radius: var(--space-3);
+  transition: background var(--duration-fast) var(--easing-smooth),
+              box-shadow var(--duration-fast) var(--easing-smooth),
+              border-color var(--duration-fast) var(--easing-smooth);
+  box-shadow: 0 0 calc(24px * var(--scale)) rgba(232, 168, 48, 0.55);
+}
+
+:root[data-layout="mobile"] .playAreaLeader {
+  border: 2px solid #e8a830;
 }
 
 /* Clickable trick area — active only when valid hand selected */
@@ -123,7 +141,33 @@
 
 .clickableTrick:hover {
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 calc(24px * var(--scale)) rgba(74, 158, 255, 0.5);
+  box-shadow: 0 0 calc(32px * var(--scale)) rgba(74, 158, 255, 0.7);
+}
+
+/* Mobile: player status indicator below play area */
+.mobileStatusIndicator {
+  text-align: center;
+  font-weight: 700;
+  font-size: calc(30px * var(--scale));
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  pointer-events: none;
+  flex-shrink: 0;
+  margin-top: calc(12px * var(--scale));
+  order: 5;
+}
+
+.mobileStatusTurn {
+  color: #4a9eff;
+}
+
+.mobileStatusLeader {
+  color: #e8a830;
+}
+
+.mobileStatusPassed {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
 }
 
 /* ===== Mobile tier (<900px): flexbox column layout ===== */
@@ -134,10 +178,11 @@
   grid-template-rows: none;
   grid-template-areas: none;
   padding: var(--space-1);
-  gap: var(--space-1);
+  gap: 0;
 }
 
 :root[data-layout="mobile"] .top {
+  order: 1;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -148,26 +193,50 @@
 }
 
 :root[data-layout="mobile"] .opponentsRow {
+  order: 2;
   padding: 0 var(--space-2);
   margin-top: calc(-30px * var(--scale));
   grid-template-columns: 1fr min(calc(280px * var(--scale)), 25vw) 1fr;
 }
 
+/* Play area: 90vw × 50% of available gap, centered both ways.
+   Pseudo-element spacers (flex:1 each) + center (flex:2) = 25%/50%/25% split. */
+:root[data-layout="mobile"] .table::before {
+  content: '';
+  order: 3;
+  flex: 1 1 0;
+}
+
 :root[data-layout="mobile"] .center {
+  order: 4;
   position: relative;
   top: auto;
   left: auto;
   right: auto;
   transform: none;
-  flex: 1;
-  min-height: calc(120px * var(--scale));
-  /* Horizontal padding for whitespace; top margin clears opponent indicator labels */
-  margin: calc(32px * var(--scale)) var(--space-3) 0;
   overflow: hidden;
   z-index: auto;
+  /* 90vw wide, horizontally centered */
+  width: 90vw;
+  align-self: center;
+  /* 50% of available gap (flex:2 out of total flex:4 = 50%) */
+  flex: 2 1 0;
+  margin: 0;
+  /* Min height: top banner (24px*s) + 15% gap + cards (150px*s) + 15% gap + bottom banner (24px*s) */
+  min-height: calc((24px + 150px + 24px + 150px * 0.3) * var(--scale));
 }
 
+:root[data-layout="mobile"] .table::after {
+  content: '';
+  order: 6;
+  flex: 1 1 0;
+}
+
+/* Bottom spacer: reserves space for the fixed bottom panel.
+   Panel stacks (bottom→up): 34px offset + card hand (20vw) + gap (28px) +
+   action bar (8vw) + gap (28px) + tichu banner (~24px) ≈ 114px*scale + 28vw */
 :root[data-layout="mobile"] .bottom {
-  min-height: calc(200px * var(--scale));
+  order: 7;
+  min-height: calc(114px * var(--scale) + 28vw);
   flex-shrink: 0;
 }

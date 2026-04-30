@@ -227,3 +227,8 @@
   text-transform: uppercase;
   letter-spacing: 2px;
 }
+
+/* Mobile: fill the flex-allocated space instead of fixed --trick-area-size */
+:root[data-layout="mobile"] .trickDisplay {
+  height: 100%;
+}

@@ -61,6 +61,13 @@
   border-color: #9b59b6;
   box-shadow: 0 0 28px rgba(155, 89, 182, 0.65), 0 0 12px rgba(155, 89, 182, 0.4);
   animation: dragonPulse 1.5s ease-in-out infinite;
+  cursor: pointer;
+}
+
+.dragonTarget:hover {
+  border-color: #b07cc9;
+  box-shadow: 0 0 40px rgba(155, 89, 182, 0.9), 0 0 20px rgba(155, 89, 182, 0.6);
+  background: rgba(155, 89, 182, 0.1);
 }
 
 @keyframes dragonPulse {
@@ -89,6 +96,12 @@
   border-color: #e74c3c;
   box-shadow: 0 0 28px rgba(231, 76, 60, 0.65), 0 0 12px rgba(231, 76, 60, 0.4);
   cursor: pointer;
+}
+
+.kickVoteTarget:hover {
+  border-color: #f06050;
+  box-shadow: 0 0 40px rgba(231, 76, 60, 0.9), 0 0 20px rgba(231, 76, 60, 0.6);
+  background: rgba(231, 76, 60, 0.1);
 }
 
 /* REQ-F-PV10/PV11: Vote approve — green glow */
