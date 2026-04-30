@@ -1,9 +1,12 @@
 @import 'tailwindcss';
 
-/* Debug outlines — toggle with Ctrl+Shift+D */
+/* Debug outlines — toggle with Ctrl+Shift+D.
+   Uses outline (no layout impact) and avoids forcing position changes
+   so that absolutely/fixed-positioned elements aren't disrupted.
+   Labels use position:absolute but only inherit the element's existing
+   positioning context — no position:relative is injected. */
 html.debug-outlines [data-debug-area] {
   outline: 2px solid rgba(255, 255, 255, 0.5) !important;
-  position: relative;
 }
 html.debug-outlines [data-debug-area]::after {
   content: attr(data-debug-area);
@@ -15,9 +18,18 @@ html.debug-outlines [data-debug-area]::after {
   font-family: monospace;
   padding: 1px 4px;
   line-height: 1.4;
-  z-index: 99999;
+  z-index: 99998;
   pointer-events: none;
   white-space: nowrap;
+  opacity: 0.7;
+}
+/* Raised when cursor is near the element's outline edge (set by JS) */
+html.debug-outlines [data-debug-area].debug-edge-hover {
+  outline-width: 3px !important;
+}
+html.debug-outlines [data-debug-area].debug-edge-hover::after {
+  z-index: 99999;
+  opacity: 1;
 }
 /* Color assignments per area */
 html.debug-outlines [data-debug-area="Game Table"]       { outline-color: #ff6b6b !important; }
