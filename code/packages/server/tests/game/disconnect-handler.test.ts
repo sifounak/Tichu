@@ -265,4 +265,98 @@ describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => 
       expect(calls[0][1]).toEqual({ type: 'PLAYER_RECONNECTED', seat: 'north' });
     });
   });
+
+  describe('variable grace timeout', () => {
+    it('per-disconnect timeout overrides constructor default', () => {
+      const onResult = vi.fn();
+      handler.onVoteResult = onResult;
+
+      // Constructor default is 60_000, pass 5_000 per-call
+      handler.handleDisconnect('ROOM1', 'north', { graceTimeoutMs: 5_000 });
+
+      // Should NOT fire after 4s
+      vi.advanceTimersByTime(4_000);
+      expect(onResult).not.toHaveBeenCalled();
+
+      // Should fire after 5s
+      vi.advanceTimersByTime(1_000);
+      expect(onResult).toHaveBeenCalledWith('ROOM1', 'kick', ['north']);
+    });
+
+    it('constructor default used when no per-call timeout provided', () => {
+      const onResult = vi.fn();
+      handler.onVoteResult = onResult;
+
+      // No options passed, should use constructor default of 60_000
+      handler.handleDisconnect('ROOM1', 'north');
+
+      vi.advanceTimersByTime(59_999);
+      expect(onResult).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1);
+      expect(onResult).toHaveBeenCalledWith('ROOM1', 'kick', ['north']);
+    });
+
+    it('second disconnect in same room does not reset the timer', () => {
+      const onResult = vi.fn();
+      handler.onVoteResult = onResult;
+
+      // First disconnect with 10s timeout
+      handler.handleDisconnect('ROOM1', 'north', { graceTimeoutMs: 10_000 });
+
+      // Advance 5s
+      vi.advanceTimersByTime(5_000);
+
+      // Second disconnect with 20s timeout (should be ignored, merged into existing)
+      handler.handleDisconnect('ROOM1', 'east', { graceTimeoutMs: 20_000 });
+
+      // Original 10s timer should fire at 10s total (5s more)
+      vi.advanceTimersByTime(5_000);
+      expect(onResult).toHaveBeenCalledWith(
+        'ROOM1',
+        'kick',
+        expect.arrayContaining(['north', 'east'])
+      );
+    });
+  });
+
+  describe('freeze status (solo-human pause)', () => {
+    it('isFrozen returns true when frozen flag was passed', () => {
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true });
+      expect(handler.isFrozen('ROOM1')).toBe(true);
+    });
+
+    it('isFrozen returns false for a normal (non-frozen) disconnect', () => {
+      handler.handleDisconnect('ROOM1', 'north', { frozen: false });
+      expect(handler.isFrozen('ROOM1')).toBe(false);
+    });
+
+    it('isFrozen returns false when no session exists', () => {
+      expect(handler.isFrozen('ROOM1')).toBe(false);
+    });
+
+    it('isFrozen returns false after reconnect clears the session', () => {
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true });
+      expect(handler.isFrozen('ROOM1')).toBe(true);
+
+      handler.handleReconnect('ROOM1', 'north');
+      expect(handler.isFrozen('ROOM1')).toBe(false);
+    });
+
+    it('isFrozen returns false after grace expiry', () => {
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 5_000 });
+      expect(handler.isFrozen('ROOM1')).toBe(true);
+
+      vi.advanceTimersByTime(5_000);
+      expect(handler.isFrozen('ROOM1')).toBe(false);
+    });
+
+    it('isFrozen returns false after cleanupRoom', () => {
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true });
+      expect(handler.isFrozen('ROOM1')).toBe(true);
+
+      handler.cleanupRoom('ROOM1');
+      expect(handler.isFrozen('ROOM1')).toBe(false);
+    });
+  });
 });

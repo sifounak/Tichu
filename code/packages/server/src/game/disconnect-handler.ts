@@ -16,6 +16,14 @@ export type DisconnectVote = 'wait' | 'kick';
  *  retained for back-compat with the callback signature. */
 export type VoteOutcome = 'waiting' | 'kick' | 'pending';
 
+/** Optional parameters for disconnect handling. */
+export interface DisconnectOptions {
+  /** Grace timeout in milliseconds (overrides constructor default). */
+  graceTimeoutMs?: number;
+  /** True if this is a frozen (solo-human pause) disconnect. */
+  frozen?: boolean;
+}
+
 /** State for a single room's grace-period session. */
 interface GraceSession {
   /** REQ-F-SJ12: All disconnected seats currently under grace in this room. */
@@ -24,6 +32,10 @@ interface GraceSession {
   timeoutHandle: ReturnType<typeof setTimeout>;
   /** Wall-clock start time — used to compute remaining time for projection. */
   startedAt: number;
+  /** Grace timeout in milliseconds for this session. */
+  timeoutMs: number;
+  /** True if this is a frozen (solo-human pause) session. */
+  frozen: boolean;
 }
 
 /**
@@ -65,7 +77,7 @@ export class DisconnectHandler {
   }
 
   /** REQ-F-SJ12: Record an involuntary disconnect and (re)arm the grace timer. */
-  handleDisconnect(roomCode: string, seat: Seat): void {
+  handleDisconnect(roomCode: string, seat: Seat, options?: DisconnectOptions): void {
     if (!this.disconnected.has(roomCode)) {
       this.disconnected.set(roomCode, new Set());
     }
@@ -82,7 +94,9 @@ export class DisconnectHandler {
       // original timer in place. Per spec the hold is per-event, not per-seat.
       existing.disconnectedSeats.add(seat);
     } else {
-      this.startGrace(roomCode, seat);
+      const timeoutMs = options?.graceTimeoutMs ?? this.graceTimeoutMs;
+      const frozen = options?.frozen ?? false;
+      this.startGrace(roomCode, seat, timeoutMs, frozen);
     }
   }
 
@@ -145,7 +159,7 @@ export class DisconnectHandler {
       west: null,
     };
     const elapsed = Date.now() - session.startedAt;
-    const remaining = Math.max(0, this.graceTimeoutMs - elapsed);
+    const remaining = Math.max(0, session.timeoutMs - elapsed);
 
     return {
       votes,
@@ -161,6 +175,12 @@ export class DisconnectHandler {
    */
   hasActiveVote(_roomCode: string): boolean {
     return false;
+  }
+
+  /** True if the room is in a frozen (solo-human pause) state. */
+  isFrozen(roomCode: string): boolean {
+    const session = this.sessions.get(roomCode);
+    return session?.frozen ?? false;
   }
 
   /** Clean up all state for a room. */
@@ -183,15 +203,17 @@ export class DisconnectHandler {
   }
 
   /** REQ-F-SJ12: Start the grace session for a newly disconnected seat. */
-  private startGrace(roomCode: string, seat: Seat): void {
+  private startGrace(roomCode: string, seat: Seat, timeoutMs: number, frozen: boolean): void {
     const timeoutHandle = setTimeout(() => {
       this.expireGrace(roomCode);
-    }, this.graceTimeoutMs);
+    }, timeoutMs);
 
     this.sessions.set(roomCode, {
       disconnectedSeats: new Set([seat]),
       timeoutHandle,
       startedAt: Date.now(),
+      timeoutMs,
+      frozen,
     });
   }
 
