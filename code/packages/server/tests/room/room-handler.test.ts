@@ -115,6 +115,7 @@ function createMockGameStore(): GameStore {
       wireVoteCallback: vi.fn(),
       wireGameEndCallback: vi.fn(),
       wireSeatUserIdResolver: vi.fn(),
+      addHumanParticipant: vi.fn(),
       getEventAccumulator: vi.fn(),
       destroy: vi.fn(),
     }),
@@ -381,6 +382,7 @@ describe('RoomHandler', () => {
         handleSeatVacated: vi.fn(),
         sendSpectatorState: vi.fn(),
         markJoinedAfterSpectating: vi.fn(),
+        addHumanParticipant: vi.fn(),
       };
       (gameStore.getGameByRoom as any).mockReturnValue(stubGame);
     });
