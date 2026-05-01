@@ -131,6 +131,7 @@
   gap: var(--space-1);
   padding: var(--space-2);
   border-top: 1px solid var(--color-border);
+  container-type: inline-size;
 }
 
 .input {
@@ -155,12 +156,14 @@
   border: none;
   border-radius: var(--card-border-radius);
   padding: var(--space-2) calc(14px * var(--scale));
-  font-size: calc(16px * var(--scale));
+  font-size: clamp(10px, 8cqi, calc(16px * var(--scale)));
   font-weight: 600;
   cursor: pointer;
   min-height: calc(36px * var(--scale));
   min-width: calc(44px * var(--scale));
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sendButton:disabled {

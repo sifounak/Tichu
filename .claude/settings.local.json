@@ -37,7 +37,11 @@
       "Bash(git -C \"c:/MATLAB/Claude/SafeCoder_Test2\" log --oneline)",
       "Bash(echo:*)",
       "Bash(git push:*)",
-      "Bash(PYTHONIOENCODING=utf-8 python:*)"
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(pnpm --filter @tichu/client typecheck)",
+      "Bash(bash scripts/dev-start.sh)",
+      "Bash(pnpm *)",
+      "Bash(grep *)"
     ]
   }
 }
