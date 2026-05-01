@@ -97,6 +97,7 @@ export interface GameSnapshot {
   vacatedSeats: Seat[];
   choosingSeats: Seat[];
   joinedAfterSpectating: string[];
+  humanParticipants: string[];
   endOfTrickBombWindowEndTime: number | null;
   timerState: TimerSnapshot | null;
   botSeats: Seat[];

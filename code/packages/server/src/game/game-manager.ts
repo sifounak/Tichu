@@ -922,6 +922,7 @@ export class GameManager {
       vacatedSeats: serializeSet(this.vacatedSeats),
       choosingSeats: serializeSet(this.choosingSeats),
       joinedAfterSpectating: serializeSet(this.joinedAfterSpectating),
+      humanParticipants: serializeSet(this.humanParticipants),
       endOfTrickBombWindowEndTime: this.endOfTrickBombWindowEndTime,
       timerState: this.timer.serialize(),
       botSeats: this.botRunner.getBotSeats(),
@@ -1001,6 +1002,8 @@ export class GameManager {
     instance.vacatedSeats = deserializeSet(snapshot.vacatedSeats);
     instance.choosingSeats = deserializeSet(snapshot.choosingSeats);
     (instance as unknown as { joinedAfterSpectating: Set<string> }).joinedAfterSpectating = deserializeSet(snapshot.joinedAfterSpectating);
+    (instance as unknown as { humanParticipants: Set<string> }).humanParticipants =
+      new Set(snapshot.humanParticipants ?? []);
 
     // REQ-F-CP01: Initialize fresh event capture for restored game
     (instance as unknown as { eventCapture: GameEventCapture }).eventCapture = new GameEventCapture(parseInt(snapshot.gameId) || 0);
