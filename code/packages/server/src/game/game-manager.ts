@@ -51,6 +51,11 @@ import { detectCombination } from '@tichu/shared';
 import type { ActionSource, GameEventAccumulator } from './event-types.js';
 import { writeRecoveryFile as serializeRecoveryFile } from '../db/event-persistence.js';
 
+/** Grace period for involuntary disconnect in a multi-human game (3 minutes). */
+const MULTI_HUMAN_GRACE_MS = 180_000;
+/** Grace period for involuntary disconnect in a solo-human game (3 days). */
+const SOLO_HUMAN_GRACE_MS = 259_200_000;
+
 /** Minimal shape of the XState persisted snapshot for serialize/restore operations. */
 interface PersistedSnapshotLike {
   context?: {
@@ -259,7 +264,11 @@ export class GameManager {
         this.voteHandler.cancelVote(this.roomCode);
       }
     }
-    this.disconnectHandler.handleDisconnect(this.roomCode, seat);
+    const multiHuman = this.isMultiHuman();
+    this.disconnectHandler.handleDisconnect(this.roomCode, seat, {
+      graceTimeoutMs: multiHuman ? MULTI_HUMAN_GRACE_MS : SOLO_HUMAN_GRACE_MS,
+      frozen: !multiHuman,
+    });
     this.broadcastState();
   }
 
