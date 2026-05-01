@@ -147,6 +147,7 @@ cp -r "$CLIENT_DIR/.next/standalone/." "$BUILD_DIR/client/"
 # Standalone does NOT include static assets — copy them into the right location
 mkdir -p "$BUILD_DIR/client/packages/client/.next"
 cp -r "$CLIENT_DIR/.next/static" "$BUILD_DIR/client/packages/client/.next/static"
+cp -r "$CLIENT_DIR/public" "$BUILD_DIR/client/packages/client/public"
 
 # ─── 6. Validate build outputs ──────────────────────────────────────────
 echo "=== Validating build outputs ==="
