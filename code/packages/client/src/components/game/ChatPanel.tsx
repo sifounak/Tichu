@@ -129,7 +129,7 @@ export const ChatPanel = memo(function ChatPanel({
                 // Spectator message
                 return (
                   <div key={i} className={`${styles.message} ${styles.spectatorMessage}`}>
-                    <span className={styles.sender}>{msg.spectatorName} <span className={styles.spectatorTag}>(spectator)</span>:</span>
+                    <span className={styles.sender}>{msg.spectatorName} <span className={styles.spectatorTag}>(spectator)</span>: </span>
                     <span className={styles.messageText}>{msg.text}</span>
                   </div>
                 );
