@@ -594,6 +594,13 @@ export class GameManager {
       return;
     }
 
+    // Game freezes when in solo-human pause — stop timer and don't trigger bot actions
+    if (this.disconnectHandler.isFrozen(this.roomCode)) {
+      this.timer.stop();
+      this.broadcastState();
+      return;
+    }
+
     // Round scoring: save round event summaries, then broadcast
     if (state === 'roundScoring') {
       this.timer.stop();
