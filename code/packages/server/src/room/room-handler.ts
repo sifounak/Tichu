@@ -712,6 +712,37 @@ export class RoomHandler {
   wireGameCallbacks(game: GameManager, roomCode: string): void {
     // REQ-F-ES04: Wire kick callback — when disconnect vote resolves to kick, vacate seats and start queue
     game.wireKickCallback((rc, seats) => {
+      // Check if any humans are still seated or in grace (excluding the seats being released)
+      const room = this.roomManager.getRoom(rc);
+      const disconnectedSeats = game.getDisconnectHandler().getDisconnectedSeats(rc);
+      const hasHumanSeated = room?.players.some(
+        p => !p.isBot && !seats.includes(p.seat),
+      ) ?? false;
+      const hasHumanInGrace = disconnectedSeats.some(s => !seats.includes(s));
+
+      if (!hasHumanSeated && !hasHumanInGrace) {
+        // No humans left — destroy room and game
+        const spectators = this.roomManager.getSpectatorUserIds(rc);
+        for (const spectatorId of spectators) {
+          for (const specWs of this.connections.getSocketsByUserId(spectatorId)) {
+            this.broadcaster.send(specWs, {
+              type: 'ROOM_CLOSED',
+              message: 'All players have disconnected. The room has been closed.',
+            });
+            this.connections.removeFromRoom(specWs);
+          }
+        }
+        const queue = this.seatQueues.get(rc);
+        if (queue) {
+          queue.cleanup();
+          this.seatQueues.delete(rc);
+        }
+        this.gameStore.destroyGameByRoom(rc);
+        this.roomManager.forceDestroyRoom(rc);
+        return;
+      }
+
+      // Humans remain — vacate seats and start queue as before
       this.tryStartSeatQueue(rc, seats);
       this.broadcastRoomUpdate(rc);
     });
