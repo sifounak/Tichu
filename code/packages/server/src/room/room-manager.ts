@@ -639,6 +639,12 @@ export class RoomManager {
 
   // ─── Private helpers ──────────────────────────────────────────────────
 
+  /** Force-destroy a room — used when disconnect grace expires and no humans remain. */
+  forceDestroyRoom(roomCode: string): void {
+    if (!this.rooms.has(roomCode)) return;
+    this.destroyRoom(roomCode);
+  }
+
   private assignUser(userId: string, roomCode: string, seat: Seat): void {
     this.userToRoom.set(userId, roomCode);
     this.userToSeat.set(userId, seat);
