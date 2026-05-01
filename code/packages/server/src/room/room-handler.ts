@@ -172,6 +172,7 @@ export class RoomHandler {
       if (joinedRoom.gameInProgress) {
         const game = this.gameStore.getGameByRoom(joinedRoom.roomCode);
         if (game) {
+          game.addHumanParticipant(info.userId);
           game.handleSeatFilled(seat);
         }
       }
@@ -680,6 +681,7 @@ export class RoomHandler {
         if (!player.isBot) {
           const userId = this.roomManager.getUserIdAtSeat(roomCode, player.seat);
           if (userId) {
+            game.addHumanParticipant(userId);
             for (const playerWs of this.connections.getSocketsByUserId(userId)) {
               this.connections.assignToRoom(playerWs, roomCode, player.seat);
             }
@@ -942,6 +944,7 @@ export class RoomHandler {
           if (game) {
             // REQ-F-SO16: Track spectator-to-player transition mid-game
             game.markJoinedAfterSpectating(userId);
+            game.addHumanParticipant(userId);
             game.handleSeatFilled(seat);
           }
           this.broadcastRoomUpdate(roomCode);
