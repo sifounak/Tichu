@@ -193,6 +193,12 @@
   justify-content: space-between;
 }
 
+.compactColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .compactLabel {
   font-size: var(--font-sm);
   font-weight: 600;
@@ -249,31 +255,31 @@
   opacity: 0.8;
 }
 
-/* Mobile compact: single-line "You: # | Them: #" */
+/* Mobile compact: "You" / "Them" columns side by side with scores below */
 :root[data-layout="mobile"] .compactPanel {
-  flex-direction: row;
-  gap: 0;
-  align-items: center;
-  padding: var(--space-1) var(--space-2);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: var(--space-1) var(--space-3);
+  gap: 0 var(--space-3);
 }
 
-:root[data-layout="mobile"] .compactLine {
-  justify-content: flex-start;
-  gap: 0;
+:root[data-layout="mobile"] .compactHeader {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  background: rgba(255, 255, 255, 0.12);
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-3)) 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: calc(8px * var(--scale)) calc(8px * var(--scale)) 0 0;
 }
 
 :root[data-layout="mobile"] .compactLabel {
-  margin-right: var(--space-1);
+  text-align: center;
+  font-size: var(--font-lg);
 }
 
 :root[data-layout="mobile"] .compactScore {
-  min-width: 0;
-  text-align: left;
-}
-
-:root[data-layout="mobile"] .compactLine + .compactLine::before {
-  content: "|";
-  color: var(--color-text-muted);
-  font-size: var(--font-sm);
-  margin: 0 var(--space-1);
+  text-align: center;
+  font-size: var(--font-2xl);
 }

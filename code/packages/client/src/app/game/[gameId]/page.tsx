@@ -553,6 +553,43 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   const [bombPopupOpen, setBombPopupOpen] = useState(false);
 
+  // Chat bubble positioning: vertically centered between trick area bottom and action bar top
+  const [chatBubblePos, setChatBubblePos] = useState<{ top: number; right: number } | null>(null);
+  // Score panel positioning: right-aligned with right opponent, top-aligned with partner seat
+  const [scorePanelPos, setScorePanelPos] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!isMobileLayout) return;
+    function updatePos() {
+      // Chat bubble
+      const trickEl = document.querySelector('[data-debug-area="Center / Trick"]');
+      const actionBarEl = document.querySelector('[data-debug-area="Action Bar"]');
+      if (trickEl && actionBarEl) {
+        const trickRect = trickEl.getBoundingClientRect();
+        const actionBarRect = actionBarEl.getBoundingClientRect();
+        const midY = (trickRect.bottom + actionBarRect.top) / 2;
+        const centerX = actionBarRect.right - actionBarRect.width * 0.1;
+        setChatBubblePos({ top: midY, right: window.innerWidth - centerX });
+      }
+      // Score panel: top-aligned with partner's tichu banner, right-aligned with right opponent
+      const partnerSeatEl = document.querySelector('[data-debug-area="Partner Seat"]');
+      const rightOppEl = document.querySelector('[data-debug-area="Right Opponent"]');
+      if (partnerSeatEl && rightOppEl) {
+        // Look for the tichu banner inside the partner seat; if none, use the seat box top
+        const partnerBanner = partnerSeatEl.querySelector('[class*="tichuBanner"]');
+        const partnerSeatBox = partnerSeatEl.querySelector('[data-seat]');
+        const topRef = partnerBanner ?? partnerSeatBox ?? partnerSeatEl;
+        const topY = topRef.getBoundingClientRect().top;
+        const rightOppRect = rightOppEl.getBoundingClientRect();
+        setScorePanelPos({ top: topY, right: window.innerWidth - rightOppRect.right });
+      }
+    }
+    updatePos();
+    window.addEventListener('resize', updatePos);
+    const interval = setInterval(updatePos, 500);
+    return () => { window.removeEventListener('resize', updatePos); clearInterval(interval); };
+  }, [isMobileLayout]);
+
   const handlePhoenixChoice = useCallback(
     (value: Rank) => {
       const cardIds = [...selection.selectedIds];
@@ -1594,39 +1631,60 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </LeaveConfirmDialog>
           </div>
 
-          {/* Right: chat bubble + mobile score */}
-          <div style={{ pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <ChatPanel
-              messages={uiStore.chatMessages}
-              onSend={handleChatSend}
-              isOpen={uiStore.chatOpen}
-              onToggle={handleChatToggle}
-              unreadCount={uiStore.chatUnread}
-              seatNames={seatNames}
-              isHost={mySeatFromRoom === hostSeat}
-              isSpectator={isSpectator}
-              spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
-              onToggleSpectatorChat={() => send({
-                type: 'CONFIGURE_ROOM',
-                config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
-              })}
-              mobile
-            />
-            {gameStore.scores && (
-              <ScorePanel
-                scores={gameStore.scores}
-                roundHistory={gameStore.roundHistory}
-                tichuCalls={tichuCalls}
-                targetScore={gameStore.config?.targetScore ?? 1000}
-                seatNames={seatNames}
-                mySeat={mySeat!}
-                tichuFailedSeats={tichuFailedSeats}
-                tichuSucceededSeats={tichuSucceededSeats}
-                vacatedSeats={gameStore.vacatedSeats}
-                compact
-              />
-            )}
-          </div>
+        </div>
+      )}
+
+      {/* Mobile score panel — right-aligned with right opponent, top-aligned with partner tichu banner */}
+      {isMobileLayout && gameStore.scores && (
+        <div style={{
+          position: 'fixed',
+          ...(scorePanelPos
+            ? { top: scorePanelPos.top + 10, right: scorePanelPos.right }
+            : { top: 'calc(36px * var(--scale))', right: 'var(--space-2)' }),
+          zIndex: 30,
+          pointerEvents: 'auto',
+        }}>
+          <ScorePanel
+            scores={gameStore.scores}
+            roundHistory={gameStore.roundHistory}
+            tichuCalls={tichuCalls}
+            targetScore={gameStore.config?.targetScore ?? 1000}
+            seatNames={seatNames}
+            mySeat={mySeat!}
+            tichuFailedSeats={tichuFailedSeats}
+            tichuSucceededSeats={tichuSucceededSeats}
+            vacatedSeats={gameStore.vacatedSeats}
+            compact
+          />
+        </div>
+      )}
+
+      {/* Mobile chat bubble — vertically centered between trick area bottom and Bomb button top, horizontally centered with Bomb */}
+      {isMobileLayout && (
+        <div style={{
+          position: 'fixed',
+          ...(chatBubblePos
+            ? { top: chatBubblePos.top, right: chatBubblePos.right, transform: 'translate(50%, -50%)' }
+            : { bottom: 'calc(140px * var(--scale) + 28vw)', right: 'calc(5vw + 8.75vw * 0.5)', transform: 'translateX(50%)' }),
+          zIndex: 31,
+          pointerEvents: 'auto',
+        }}>
+          <ChatPanel
+            messages={uiStore.chatMessages}
+            onSend={handleChatSend}
+            isOpen={uiStore.chatOpen}
+            onToggle={handleChatToggle}
+            unreadCount={uiStore.chatUnread}
+            seatNames={seatNames}
+            isHost={mySeatFromRoom === hostSeat}
+            isSpectator={isSpectator}
+            spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+            onToggleSpectatorChat={() => send({
+              type: 'CONFIGURE_ROOM',
+              config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
+            })}
+            mobile
+          />
         </div>
       )}
 
@@ -1869,7 +1927,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           {/* Action bar: mobile renders Tichu/Bomb inline; full layout renders only ActionBar */}
           {!isPreGame && !showReceivedCards && (
             isMobileLayout ? (
-              <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw' }}>
+              <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw' }}>
                 {/* Slot: Call Tichu */}
                 <div style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0) ? 'visible' : 'hidden' }}>
                   <button
