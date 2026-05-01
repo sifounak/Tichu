@@ -173,7 +173,10 @@ describe('GameManager', () => {
     it('should delegate to disconnect handler', () => {
       const spy = vi.spyOn(disconnectHandler, 'handleDisconnect');
       manager.handleDisconnect('north');
-      expect(spy).toHaveBeenCalledWith('ROOM1', 'north');
+      expect(spy).toHaveBeenCalledWith('ROOM1', 'north', expect.objectContaining({
+        graceTimeoutMs: expect.any(Number),
+        frozen: expect.any(Boolean),
+      }));
     });
   });
 
