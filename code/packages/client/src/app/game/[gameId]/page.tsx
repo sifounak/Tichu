@@ -575,10 +575,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       const partnerSeatEl = document.querySelector('[data-debug-area="Partner Seat"]');
       const rightOppEl = document.querySelector('[data-debug-area="Right Opponent"]');
       if (partnerSeatEl && rightOppEl) {
-        // Look for the tichu banner inside the partner seat; if none, use the seat box top
-        const partnerBanner = partnerSeatEl.querySelector('[class*="tichuBanner"]');
-        const partnerSeatBox = partnerSeatEl.querySelector('[data-seat]');
-        const topRef = partnerBanner ?? partnerSeatBox ?? partnerSeatEl;
         const rightOppRect = rightOppEl.getBoundingClientRect();
         // Vertically center between top of window and top of right opponent info box
         const centerY = rightOppRect.top / 2;
