@@ -13,14 +13,16 @@ export type SoundEvent =
   | 'grandTichu'
   | 'chat';
 
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
 const SOUND_FILES: Record<SoundEvent, string> = {
-  dragon: '/sounds/dragon.mp3',
-  phoenix: '/sounds/phoenix.mp3',
-  dog: '/sounds/dog.mp3',
-  bomb: '/sounds/bomb.mp3',
-  tichu: '/sounds/tichu.mp3',
-  grandTichu: '/sounds/grand-tichu.mp3',
-  chat: '/sounds/chat.mp3',
+  dragon: `${BASE_PATH}/sounds/dragon.mp3`,
+  phoenix: `${BASE_PATH}/sounds/phoenix.mp3`,
+  dog: `${BASE_PATH}/sounds/dog.mp3`,
+  bomb: `${BASE_PATH}/sounds/bomb.mp3`,
+  tichu: `${BASE_PATH}/sounds/tichu.mp3`,
+  grandTichu: `${BASE_PATH}/sounds/grand-tichu.mp3`,
+  chat: `${BASE_PATH}/sounds/chat.mp3`,
 };
 
 const STORAGE_KEY_MUTED = 'tichu_sound_muted';
