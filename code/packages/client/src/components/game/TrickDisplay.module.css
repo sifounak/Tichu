@@ -116,7 +116,7 @@
 }
 
 .cards > * + * {
-  margin-left: calc(-81px * var(--scale));
+  margin-left: calc(-68px * var(--scale));
 }
 
 .trickCard {
