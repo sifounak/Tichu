@@ -97,13 +97,44 @@
   border-color: var(--color-text-secondary);
 }
 
-:root[data-layout="mobile"] .overlay {
-  align-items: flex-end;
+:root[data-layout="mobile"] .picker {
+  max-width: 60vw;
+  padding: var(--space-5) var(--space-3);
 }
 
-:root[data-layout="mobile"] .picker {
+:root[data-layout="mobile"] .title {
+  font-size: var(--font-2xl);
+}
+
+:root[data-layout="mobile"] .subtitle {
+  font-size: var(--font-base);
+}
+
+:root[data-layout="mobile"] .options {
+  display: grid;
+  grid-template-columns: repeat(3, calc(56px * var(--scale)));
+  justify-content: center;
+}
+
+:root[data-layout="mobile"] .option {
   width: 100%;
-  max-width: 100%;
-  border-radius: 16px 16px 0 0;
-  padding: var(--space-5) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
+  height: calc(56px * var(--scale));
+  font-size: var(--font-lg);
+}
+
+:root[data-layout="mobile"] .option:last-child {
+  grid-column: 2;
+}
+
+:root[data-layout="mobile"] .noWishButton {
+  font-size: var(--font-lg);
+  padding: calc(14px * var(--scale)) 0;
+  /* Match width of 3-column grid: 3 buttons + 2 gaps */
+  width: calc(3 * 56px * var(--scale) + 2 * var(--space-2));
+  margin-left: auto;
+  margin-right: auto;
+}
+
+:root[data-layout="mobile"] .cancelButton {
+  font-size: var(--font-base);
 }
