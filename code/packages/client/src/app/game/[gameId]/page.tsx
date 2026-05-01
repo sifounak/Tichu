@@ -73,11 +73,28 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const layoutTier = useLayoutTier();
   const isMobileLayout = layoutTier !== 'full';
 
-  // REQ-F-L07: Auto-collapse chat when transitioning to mobile
+  // Default chat to collapsed if starting in mobile layout
+  const chatInitialized = useRef(false);
+  useEffect(() => {
+    if (!chatInitialized.current) {
+      chatInitialized.current = true;
+      if (layoutTier !== 'full' && uiStore.chatOpen) {
+        uiStore.setChatOpen(false);
+      }
+    }
+  }, [layoutTier, uiStore]);
+
+  // REQ-F-L07: Auto-collapse chat when transitioning to mobile, restore on return to full
   const prevLayoutRef = useRef(layoutTier);
   useEffect(() => {
-    if (prevLayoutRef.current === 'full' && layoutTier !== 'full' && uiStore.chatOpen) {
-      uiStore.toggleChat();
+    const prev = prevLayoutRef.current;
+    if (prev === 'full' && layoutTier !== 'full') {
+      // Transitioning full → mobile: save current state and collapse
+      uiStore.setChatOpenDesktop(uiStore.chatOpen);
+      if (uiStore.chatOpen) uiStore.setChatOpen(false);
+    } else if (prev !== 'full' && layoutTier === 'full') {
+      // Transitioning mobile → full: restore remembered desktop state
+      uiStore.setChatOpen(uiStore.chatOpenDesktop);
     }
     prevLayoutRef.current = layoutTier;
   }, [layoutTier, uiStore]);
@@ -730,6 +747,15 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     [send],
   );
 
+  // Chat toggle: in full layout, also persist the desktop preference
+  const handleChatToggle = useCallback(() => {
+    const next = !uiStore.chatOpen;
+    uiStore.toggleChat();
+    if (!isMobileLayout) {
+      uiStore.setChatOpenDesktop(next);
+    }
+  }, [uiStore, isMobileLayout]);
+
   // Handle seat choice when joining with multiple vacated seats
   const handleChooseSeat = useCallback(
     (seat: Seat) => send({ type: 'CHOOSE_SEAT', seat }),
@@ -866,6 +892,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // --- Pre-room state: room exists but game hasn't started ---
   if (roomCode && !gameInProgress && !gameStore.gameId) {
     const isPreRoomSpectator = mySeatFromRoom === null;
+    const preRoomSeatNames = {
+      north: roomPlayers.find((p) => p.seat === 'north')?.name ?? 'North',
+      east: roomPlayers.find((p) => p.seat === 'east')?.name ?? 'East',
+      south: roomPlayers.find((p) => p.seat === 'south')?.name ?? 'South',
+      west: roomPlayers.find((p) => p.seat === 'west')?.name ?? 'West',
+    } as Record<Seat, string>;
     return (
       <>
         <PreRoomView
@@ -897,6 +929,23 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           backButtonDialogOpen={backButtonDialogOpen}
           onCancelNavigation={cancelNavigation}
           layoutTier={layoutTier}
+        />
+        {/* Chat available in pre-room — full layout: side panel; mobile: overlay */}
+        <ChatPanel
+          messages={uiStore.chatMessages}
+          onSend={handleChatSend}
+          isOpen={uiStore.chatOpen}
+          onToggle={handleChatToggle}
+          unreadCount={uiStore.chatUnread}
+          seatNames={preRoomSeatNames}
+          isHost={mySeatFromRoom === hostSeat}
+          isSpectator={isPreRoomSpectator}
+          spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+          onToggleSpectatorChat={() => send({
+            type: 'CONFIGURE_ROOM',
+            config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
+          })}
+          {...(isMobileLayout ? { mobile: true } : {})}
         />
         {/* Game summary overlay — shown after server auto-returns to pre-game */}
         {savedGameOver && (
@@ -1551,7 +1600,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               messages={uiStore.chatMessages}
               onSend={handleChatSend}
               isOpen={uiStore.chatOpen}
-              onToggle={uiStore.toggleChat}
+              onToggle={handleChatToggle}
               unreadCount={uiStore.chatUnread}
               seatNames={seatNames}
               isHost={mySeatFromRoom === hostSeat}
@@ -2161,7 +2210,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         messages={uiStore.chatMessages}
         onSend={handleChatSend}
         isOpen={uiStore.chatOpen}
-        onToggle={uiStore.toggleChat}
+        onToggle={handleChatToggle}
         unreadCount={uiStore.chatUnread}
         seatNames={seatNames}
         isHost={mySeatFromRoom === hostSeat}

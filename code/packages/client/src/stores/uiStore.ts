@@ -35,9 +35,13 @@ export interface UiStore {
 
   /* --- Chat (REQ-F-MP07) --- */
   chatOpen: boolean;
+  /** Remembered expand/collapse state from the last time the user was in full layout */
+  chatOpenDesktop: boolean;
   chatMessages: ChatMessage[];
   chatUnread: number;
   toggleChat: () => void;
+  setChatOpen: (open: boolean) => void;
+  setChatOpenDesktop: (open: boolean) => void;
   addChatMessage: (msg: ChatMessage) => void;
 
   /* --- Disconnect (REQ-F-ES04) --- */
@@ -181,10 +185,14 @@ export const useUiStore = create<UiStore>()((set) => ({
 
   /* --- Chat --- */
   chatOpen: true,
+  chatOpenDesktop: true,
   chatMessages: [],
   chatUnread: 0,
   toggleChat: () =>
     set((s) => ({ chatOpen: !s.chatOpen, chatUnread: s.chatOpen ? s.chatUnread : 0 })),
+  setChatOpen: (open) =>
+    set((s) => ({ chatOpen: open, chatUnread: open ? 0 : s.chatUnread })),
+  setChatOpenDesktop: (open) => set({ chatOpenDesktop: open }),
   addChatMessage: (msg) =>
     set((s) => ({
       chatMessages: [...s.chatMessages, msg],
