@@ -163,6 +163,22 @@ describe('GameManager serialize/restore', () => {
     manager.destroy();
   });
 
+  it('preserves humanParticipants through serialize/restore', () => {
+    const manager = new GameManager('game-1', 'ROOM1', broadcaster, disconnectHandler, voteHandler);
+    manager.addHumanParticipant('user-123');
+    manager.addHumanParticipant('user-456');
+
+    const snapshot = manager.serialize();
+    expect(snapshot.humanParticipants).toContain('user-123');
+    expect(snapshot.humanParticipants).toContain('user-456');
+
+    const restored = GameManager.restore(snapshot, broadcaster, disconnectHandler, voteHandler);
+    expect(restored.isMultiHuman()).toBe(true);
+
+    manager.destroy();
+    restored.destroy();
+  });
+
   it('snapshot is JSON-serializable', () => {
     const ws = createMockWs();
     const manager = new GameManager('game-1', 'ROOM1', broadcaster, disconnectHandler, voteHandler);
