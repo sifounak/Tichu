@@ -257,6 +257,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           timestamp: Date.now(),
           spectatorName: msg.spectatorName,
         });
+      } else if (msg.type === 'CHAT_HISTORY') {
+        uiStore.loadChatHistory(msg.messages);
       } else if (msg.type === 'PLAYER_DISCONNECTED') {
         // REQ-F-ES04: Player disconnected
         uiStore.addDisconnectedSeat(msg.seat as Seat);
@@ -878,6 +880,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       uiStore.setAutoPassEnabled(false);
     }
   }, [gameStore.currentTrick, autoPassEnabled, uiStore]);
+
+  // Play "your turn" sound when the action bar becomes available to the player
+  const wasMyTurnRef = useRef(false);
+  useEffect(() => {
+    const actionBarVisible = phase === 'playing' && isMyTurnForSelection && !gameStore.gameHalted;
+    if (actionBarVisible && !wasMyTurnRef.current) {
+      playSound('yourTurn');
+    }
+    wasMyTurnRef.current = actionBarVisible;
+  }, [phase, isMyTurnForSelection, gameStore.gameHalted, playSound]);
 
   // REQ-F-AP05: Auto-send PASS_TURN when auto-pass is enabled and it's the player's turn
   useEffect(() => {

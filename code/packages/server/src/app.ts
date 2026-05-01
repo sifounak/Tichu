@@ -145,6 +145,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
       connections.assignToRoom(ws, existingRoom, existingSeat);
       roomHandler.roomManager.markReconnected(userId);
       broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: existingRoom, seat: existingSeat });
+      broadcaster.send(ws, { type: 'CHAT_HISTORY', messages: roomHandler.roomManager.getChatHistory(existingRoom) });
       roomHandler.broadcastRoomUpdate(existingRoom);
 
       // REQ-F-SG02: If a game is in progress, send GAME_STATE to reconnected player
@@ -161,6 +162,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
         connections.assignAsSpectator(ws, spectatorRoom);
         roomHandler.roomManager.markSpectatorReconnected(userId);
         broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: spectatorRoom, seat: null });
+        broadcaster.send(ws, { type: 'CHAT_HISTORY', messages: roomHandler.roomManager.getChatHistory(spectatorRoom) });
         roomHandler.broadcastRoomUpdate(spectatorRoom);
 
         // Send game state if game in progress
