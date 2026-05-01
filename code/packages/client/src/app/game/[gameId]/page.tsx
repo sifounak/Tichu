@@ -556,7 +556,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // Chat bubble positioning: vertically centered between trick area bottom and action bar top
   const [chatBubblePos, setChatBubblePos] = useState<{ top: number; right: number } | null>(null);
   // Score panel positioning: right-aligned with right opponent, top-aligned with partner seat
-  const [scorePanelPos, setScorePanelPos] = useState<{ top: number; right: number } | null>(null);
+  const [scorePanelPos, setScorePanelPos] = useState<{ centerY: number; centerX: number } | null>(null);
 
   useEffect(() => {
     if (!isMobileLayout) return;
@@ -579,9 +579,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         const partnerBanner = partnerSeatEl.querySelector('[class*="tichuBanner"]');
         const partnerSeatBox = partnerSeatEl.querySelector('[data-seat]');
         const topRef = partnerBanner ?? partnerSeatBox ?? partnerSeatEl;
-        const topY = topRef.getBoundingClientRect().top;
         const rightOppRect = rightOppEl.getBoundingClientRect();
-        setScorePanelPos({ top: topY, right: window.innerWidth - rightOppRect.right });
+        // Vertically center between top of window and top of right opponent info box
+        const centerY = rightOppRect.top / 2;
+        // Horizontally center with the right opponent info box
+        const centerX = rightOppRect.left + rightOppRect.width / 2;
+        setScorePanelPos({ centerY, centerX });
       }
     }
     updatePos();
@@ -1639,7 +1642,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         <div style={{
           position: 'fixed',
           ...(scorePanelPos
-            ? { top: scorePanelPos.top + 10, right: scorePanelPos.right }
+            ? { top: scorePanelPos.centerY, left: scorePanelPos.centerX, transform: 'translate(-50%, -50%)' }
             : { top: 'calc(36px * var(--scale))', right: 'var(--space-2)' }),
           zIndex: 30,
           pointerEvents: 'auto',
