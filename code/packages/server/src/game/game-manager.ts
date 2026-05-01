@@ -93,6 +93,8 @@ export class GameManager {
   private onGameEnd?: (context: GameMachineContext, joinedAfterSpectating: Set<string>) => void;
   /** REQ-F-SO15: Track players who joined as spectators then were promoted mid-game */
   private readonly joinedAfterSpectating = new Set<string>();
+  /** Track all human users who have occupied seats during this game */
+  private readonly humanParticipants = new Set<string>();
   /** REQ-F-CP01/ST01: New event capture system — accumulates structured event data in memory */
   private readonly eventCapture: GameEventCapture;
   /** REQ-F-CP02: Track when each player's turn started (for durationMs) */
@@ -339,6 +341,16 @@ export class GameManager {
   /** REQ-F-SO15: Mark a userId as having joined the game after spectating */
   markJoinedAfterSpectating(userId: string): void {
     this.joinedAfterSpectating.add(userId);
+  }
+
+  /** Record a human user as having participated in this game. */
+  addHumanParticipant(userId: string): void {
+    this.humanParticipants.add(userId);
+  }
+
+  /** True when 2+ distinct humans have occupied seats during this game. */
+  isMultiHuman(): boolean {
+    return this.humanParticipants.size >= 2;
   }
 
   /** REQ-F-CS24: Check if game is past card passing phase (pass data captured) */
