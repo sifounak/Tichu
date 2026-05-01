@@ -3,6 +3,7 @@
 'use client';
 
 import { memo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Team, RoundScore, TichuCall, Seat } from '@tichu/shared';
 import { getTeam } from '@tichu/shared';
 import { AnimatedScore } from './AnimatedScore';
@@ -145,7 +146,7 @@ export const ScorePanel = memo(function ScorePanel({
           <AnimatedScore value={scores[oppTeam]} className={styles.compactScore} />
         </div>
 
-        {expanded && (
+        {expanded && createPortal(
           <div className={styles.compactOverlay} onClick={() => setExpanded(false)}>
             <div className={styles.compactModal} onClick={(e) => e.stopPropagation()}>
               <div className={styles.teamGrid}>
@@ -173,7 +174,8 @@ export const ScorePanel = memo(function ScorePanel({
                 Close
               </button>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </>
     );
