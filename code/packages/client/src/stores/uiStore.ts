@@ -43,6 +43,7 @@ export interface UiStore {
   setChatOpen: (open: boolean) => void;
   setChatOpenDesktop: (open: boolean) => void;
   addChatMessage: (msg: ChatMessage) => void;
+  clearChat: () => void;
 
   /* --- Disconnect (REQ-F-ES04) --- */
   disconnectedSeats: Seat[];
@@ -198,6 +199,7 @@ export const useUiStore = create<UiStore>()((set) => ({
       chatMessages: [...s.chatMessages, msg],
       chatUnread: s.chatOpen ? s.chatUnread : s.chatUnread + 1,
     })),
+  clearChat: () => set({ chatMessages: [], chatUnread: 0 }),
 
   /* --- Disconnect (REQ-F-ES04) --- */
   disconnectedSeats: [],
