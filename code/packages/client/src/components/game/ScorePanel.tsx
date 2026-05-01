@@ -137,14 +137,12 @@ export const ScorePanel = memo(function ScorePanel({
           onClick={() => setExpanded(!expanded)}
           style={{ cursor: 'pointer' }}
         >
-          <div className={styles.compactLine}>
-            <span className={styles.compactLabel}>You:</span>
-            <AnimatedScore value={scores[myTeam]} className={styles.compactScore} />
+          <div className={styles.compactHeader}>
+            <span className={styles.compactLabel}>You</span>
+            <span className={styles.compactLabel}>Them</span>
           </div>
-          <div className={styles.compactLine}>
-            <span className={styles.compactLabel}>Them:</span>
-            <AnimatedScore value={scores[oppTeam]} className={styles.compactScore} />
-          </div>
+          <AnimatedScore value={scores[myTeam]} className={styles.compactScore} />
+          <AnimatedScore value={scores[oppTeam]} className={styles.compactScore} />
         </div>
 
         {expanded && (
