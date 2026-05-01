@@ -86,6 +86,7 @@ export class GameHandler {
 
     if (info.seat) {
       // Player chat — existing behavior
+      this.roomManager.addChatMessage(info.roomCode, { from: info.seat, text: msg.text });
       this.broadcaster.broadcastToRoom(info.roomCode, {
         type: 'CHAT_RECEIVED',
         from: info.seat,
@@ -96,6 +97,7 @@ export class GameHandler {
       const room = this.roomManager.getRoom(info.roomCode);
       if (!room?.config.spectatorChatEnabled) return;
 
+      this.roomManager.addChatMessage(info.roomCode, { from: null, spectatorName: info.playerName, text: msg.text });
       this.broadcaster.broadcastToRoom(info.roomCode, {
         type: 'CHAT_RECEIVED',
         from: null,

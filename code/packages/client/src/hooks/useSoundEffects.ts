@@ -11,7 +11,8 @@ export type SoundEvent =
   | 'bomb'
   | 'tichu'
   | 'grandTichu'
-  | 'chat';
+  | 'chat'
+  | 'yourTurn';
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
@@ -23,6 +24,7 @@ const SOUND_FILES: Record<SoundEvent, string> = {
   tichu: `${BASE_PATH}/sounds/tichu.mp3`,
   grandTichu: `${BASE_PATH}/sounds/grand-tichu.mp3`,
   chat: `${BASE_PATH}/sounds/chat.mp3`,
+  yourTurn: `${BASE_PATH}/sounds/your-turn.mp3`,
 };
 
 const STORAGE_KEY_MUTED = 'tichu_sound_muted';

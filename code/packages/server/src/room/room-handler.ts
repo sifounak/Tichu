@@ -124,6 +124,7 @@ export class RoomHandler {
         this.connections.assignAsSpectator(ws, msg.roomCode);
 
         this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: msg.roomCode, seat: null });
+        this.broadcaster.send(ws, { type: 'CHAT_HISTORY', messages: this.roomManager.getChatHistory(msg.roomCode) });
         this.broadcastRoomUpdate(msg.roomCode);
 
         // If game is in progress, send current game state to spectator
@@ -166,6 +167,7 @@ export class RoomHandler {
       this.connections.assignToRoom(ws, joinedRoom.roomCode, seat);
 
       this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: joinedRoom.roomCode, seat });
+      this.broadcaster.send(ws, { type: 'CHAT_HISTORY', messages: this.roomManager.getChatHistory(joinedRoom.roomCode) });
       this.broadcastRoomUpdate(joinedRoom.roomCode);
 
       // If a game is in progress, seat the new player into the active game

@@ -29,6 +29,9 @@ export class RoomManager {
   private readonly seatToUser = new Map<string, string>(); // key: `${roomCode}:${seat}`
   // REQ-F-SP02: Spectator userId → roomCode mapping
   private readonly spectatorToRoom = new Map<string, string>();
+  // In-memory chat history per room (capped at 100 messages)
+  private readonly chatHistory = new Map<string, { from: Seat | null; text: string; timestamp: number; spectatorName?: string }[]>();
+  private static readonly MAX_CHAT_HISTORY = 100;
 
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
   private readonly staleTimeoutMs: number;
@@ -661,6 +664,22 @@ export class RoomManager {
     }
   }
 
+  addChatMessage(roomCode: string, msg: { from: Seat | null; text: string; spectatorName?: string }): void {
+    let history = this.chatHistory.get(roomCode);
+    if (!history) {
+      history = [];
+      this.chatHistory.set(roomCode, history);
+    }
+    history.push({ ...msg, timestamp: Date.now() });
+    if (history.length > RoomManager.MAX_CHAT_HISTORY) {
+      history.splice(0, history.length - RoomManager.MAX_CHAT_HISTORY);
+    }
+  }
+
+  getChatHistory(roomCode: string): { from: Seat | null; text: string; timestamp: number; spectatorName?: string }[] {
+    return this.chatHistory.get(roomCode) ?? [];
+  }
+
   private destroyRoom(roomCode: string): void {
     const room = this.rooms.get(roomCode);
     // REQ-F-SP15: Clean up spectator mappings
@@ -670,6 +689,7 @@ export class RoomManager {
       }
     }
     this.readySeats.delete(roomCode);
+    this.chatHistory.delete(roomCode);
     this.rooms.delete(roomCode);
     // Clean up all user→room mappings for this room
     for (const [userId, rc] of this.userToRoom) {
