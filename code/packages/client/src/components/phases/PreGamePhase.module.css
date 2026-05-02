@@ -88,6 +88,10 @@
   --card-border-radius: var(--card-border-radius-lg);
 }
 
+:root[data-layout="mobile"] .prompt {
+  max-width: calc(2 * var(--card-width-lg));
+}
+
 :root[data-layout="mobile"] .passMiddle {
   margin-bottom: 0;
 }

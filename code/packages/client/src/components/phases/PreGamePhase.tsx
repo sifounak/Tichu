@@ -71,7 +71,7 @@ export const PreGamePhase = memo(function PreGamePhase({
         <div className={styles.phaseContainer}>
           <div className={styles.prompt}>
             <h2 className={styles.title}>Grand Tichu?</h2>
-            <p className={styles.subtitle}>You have seen 8 cards. Declare Grand Tichu (+/- 200)?</p>
+            <p className={styles.subtitle}>Wager 200 points that you're going to go out first?</p>
             <div className={styles.buttonRow}>
               <button
                 className={`${styles.button} ${styles.skipButton}`}
