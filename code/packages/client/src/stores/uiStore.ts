@@ -118,11 +118,17 @@ export interface UiStore {
     message: string;
   } | null;
   kickTargetMode: boolean;
+  // REQ-F-GA25: Transfer host target selection mode
+  transferHostTargetMode: boolean;
   voteCountdown: number;
+  // REQ-F-GA59: Vote cooldowns — key is "kick:south" or "restartRound", value is expiry timestamp
+  voteCooldowns: Map<string, number>;
   setActiveVote: (vote: UiStore['activeVote']) => void;
   setVoteResult: (result: UiStore['voteResult']) => void;
   setKickTargetMode: (active: boolean) => void;
+  setTransferHostTargetMode: (active: boolean) => void;
   setVoteCountdown: (seconds: number) => void;
+  addVoteCooldown: (key: string) => void;
   clearPlayerVoteState: () => void;
 
   /* --- Server Restart --- */
@@ -271,13 +277,22 @@ export const useUiStore = create<UiStore>()((set) => ({
   activeVote: null,
   voteResult: null,
   kickTargetMode: false,
+  transferHostTargetMode: false,
   voteCountdown: 0,
+  voteCooldowns: new Map(),
   setActiveVote: (vote) => set({ activeVote: vote }),
   setVoteResult: (result) => set({ voteResult: result }),
-  setKickTargetMode: (active) => set({ kickTargetMode: active }),
+  setKickTargetMode: (active) => set((s) => ({ kickTargetMode: active, transferHostTargetMode: active ? false : s.transferHostTargetMode })),
+  setTransferHostTargetMode: (active) => set((s) => ({ transferHostTargetMode: active, kickTargetMode: active ? false : s.kickTargetMode })),
   setVoteCountdown: (seconds) => set({ voteCountdown: seconds }),
+  // REQ-F-GA59: 120s cooldown for non-host after failed vote
+  addVoteCooldown: (key) => set((s) => {
+    const next = new Map(s.voteCooldowns);
+    next.set(key, Date.now() + 120_000);
+    return { voteCooldowns: next };
+  }),
   clearPlayerVoteState: () =>
-    set({ activeVote: null, voteResult: null, kickTargetMode: false, voteCountdown: 0 }),
+    set({ activeVote: null, voteResult: null, kickTargetMode: false, transferHostTargetMode: false, voteCountdown: 0 }),
 
   /* --- Server Restart --- */
   serverRestarting: false,
@@ -288,3 +303,16 @@ export const useUiStore = create<UiStore>()((set) => ({
   showErrorToast: (message) => set({ errorToast: message }),
   clearErrorToast: () => set({ errorToast: null }),
 }));
+
+/** REQ-F-GA59: Check if a vote cooldown key is still active */
+export function isOnCooldown(key: string): boolean {
+  const expiry = useUiStore.getState().voteCooldowns.get(key);
+  return expiry != null && Date.now() < expiry;
+}
+
+/** REQ-F-GA59: Get remaining seconds for a vote cooldown */
+export function getCooldownRemaining(key: string): number {
+  const expiry = useUiStore.getState().voteCooldowns.get(key);
+  if (!expiry) return 0;
+  return Math.max(0, Math.ceil((expiry - Date.now()) / 1000));
+}

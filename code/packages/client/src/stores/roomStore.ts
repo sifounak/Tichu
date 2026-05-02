@@ -18,6 +18,8 @@ export interface RoomStore {
   spectatorCount: number;
   spectatorNames: string[];
   readyPlayers: Seat[];
+  // REQ-F-GA52: Whether non-host players can initiate votes
+  votingEnabled: boolean;
 
   /* --- Lobby state --- */
   lobbyRooms: LobbyEntry[];
@@ -25,7 +27,7 @@ export interface RoomStore {
   /* --- Actions --- */
   // REQ-F-SP04: seat is nullable for spectators
   setRoom: (roomCode: string, seat: Seat | null) => void;
-  updateRoom: (roomName: string, players: RoomPlayer[], hostSeat: Seat, config: GameConfig, gameInProgress: boolean, spectatorCount?: number, spectatorNames?: string[], readyPlayers?: Seat[]) => void;
+  updateRoom: (roomName: string, players: RoomPlayer[], hostSeat: Seat, config: GameConfig, gameInProgress: boolean, spectatorCount?: number, spectatorNames?: string[], readyPlayers?: Seat[], votingEnabled?: boolean) => void;
   setLobbyRooms: (rooms: LobbyEntry[]) => void;
   leaveRoom: () => void;
   reset: () => void;
@@ -42,6 +44,7 @@ const INITIAL_STATE = {
   spectatorCount: 0,
   spectatorNames: [] as string[],
   readyPlayers: [] as Seat[],
+  votingEnabled: true,
   lobbyRooms: [],
 };
 
@@ -50,8 +53,8 @@ export const useRoomStore = create<RoomStore>()((set) => ({
 
   setRoom: (roomCode, seat) => set({ roomCode, mySeat: seat }),
 
-  updateRoom: (roomName, players, hostSeat, config, gameInProgress, spectatorCount = 0, spectatorNames = [], readyPlayers = []) =>
-    set({ roomName, players, hostSeat, config, gameInProgress, spectatorCount, spectatorNames, readyPlayers }),
+  updateRoom: (roomName, players, hostSeat, config, gameInProgress, spectatorCount = 0, spectatorNames = [], readyPlayers = [], votingEnabled = true) =>
+    set({ roomName, players, hostSeat, config, gameInProgress, spectatorCount, spectatorNames, readyPlayers, votingEnabled }),
 
   setLobbyRooms: (rooms) => set({ lobbyRooms: rooms }),
 
@@ -66,6 +69,7 @@ export const useRoomStore = create<RoomStore>()((set) => ({
     spectatorCount: 0,
     spectatorNames: [],
     readyPlayers: [],
+    votingEnabled: true,
   }),
 
   reset: () => set(INITIAL_STATE),

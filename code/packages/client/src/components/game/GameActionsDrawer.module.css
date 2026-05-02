@@ -1,0 +1,111 @@
+/* REQ-F-GA09: Mobile slide-in drawer from left edge */
+/* REQ-NF-GA02: 200ms slide transition */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  z-index: 39;
+  transition: background 200ms ease;
+}
+
+.backdropVisible {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(280px, 80vw);
+  z-index: 40;
+  background: rgb(0, 0, 0);
+  border-right: 1px solid var(--color-border);
+  transform: translateX(-100%);
+  transition: transform 200ms ease;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.drawerOpen {
+  transform: translateX(0);
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.drawerTitle {
+  font-size: var(--font-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.closeButton {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--space-1);
+}
+
+.closeButton:hover {
+  color: var(--color-text-primary);
+}
+
+.drawerItems {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2) 0;
+}
+
+.drawerItem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: var(--space-4) var(--space-4);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-lg);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.drawerItem:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.drawerItem:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.drawerItemDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.drawerItemLabel {
+  line-height: 1.4;
+}
+
+.drawerItemHint {
+  font-size: var(--font-sm);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
