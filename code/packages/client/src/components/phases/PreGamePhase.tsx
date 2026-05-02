@@ -69,18 +69,18 @@ export const PreGamePhase = memo(function PreGamePhase({
       // REQ-F-GT03: undecided — show buttons
       return (
         <div className={styles.phaseContainer}>
-          <div className={styles.prompt}>
-            <h2 className={styles.title}>Grand Tichu?</h2>
-            <p className={styles.subtitle}>Wager 200 points that you're going to go out first?</p>
+          <div className={`${styles.prompt} ${styles.gtPrompt}`}>
+            <h2 className={`${styles.title} ${styles.gtTitle}`}>Grand Tichu?</h2>
+            <p className={`${styles.subtitle} ${styles.gtSubtitle}`}>Wager 200 points that you're going to go out first?</p>
             <div className={styles.buttonRow}>
               <button
-                className={`${styles.button} ${styles.skipButton}`}
+                className={`${styles.button} ${styles.skipButton} ${styles.gtButton}`}
                 onClick={() => onGrandTichuDecision(false)}
               >
                 Pass
               </button>
               <button
-                className={`${styles.button} ${styles.callButton}`}
+                className={`${styles.button} ${styles.callButton} ${styles.gtButton}`}
                 onClick={() => onGrandTichuDecision(true)}
               >
                 Grand Tichu!
