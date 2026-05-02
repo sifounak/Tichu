@@ -2,6 +2,7 @@
 'use client';
 
 import { memo, useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { Seat } from '@tichu/shared';
 import styles from './ChatPanel.module.css';
 
@@ -91,92 +92,91 @@ export const ChatPanel = memo(function ChatPanel({
         </button>
       )}
 
-      {/* Backdrop for mobile overlay */}
-      {mobile && isOpen && (
-        <div className={styles.mobileBackdrop} onClick={onToggle} aria-hidden="true" />
-      )}
-
-      {/* Chat panel */}
-      {isOpen && (
-        <div className={panelClass} role="complementary" aria-label="Chat">
-          <div className={styles.header}>
-            <span className={styles.headerTitle}>Chat</span>
-            {isHost && onToggleSpectatorChat && (
-              <label className={styles.spectatorToggle} aria-label="Toggle spectator chat">
-                <input
-                  type="checkbox"
-                  checked={spectatorChatEnabled}
-                  onChange={onToggleSpectatorChat}
-                />
-                <span className={styles.spectatorToggleLabel}>Allow Spectators</span>
-              </label>
+      {/* Chat panel — mobile uses portal to escape parent stacking context */}
+      {isOpen && (() => {
+        const panel = (
+          <>
+            {mobile && (
+              <div className={styles.mobileBackdrop} onClick={onToggle} aria-hidden="true" />
             )}
-            <button
-              className={styles.closeButton}
-              onClick={onToggle}
-              aria-label="Close chat"
-            >
-              &times;
-            </button>
-          </div>
+            <div className={panelClass} role="complementary" aria-label="Chat">
+              <div className={styles.header}>
+                <span className={styles.headerTitle}>Chat</span>
+                {isHost && onToggleSpectatorChat && (
+                  <label className={styles.spectatorToggle} aria-label="Toggle spectator chat">
+                    <input
+                      type="checkbox"
+                      checked={spectatorChatEnabled}
+                      onChange={onToggleSpectatorChat}
+                    />
+                    <span className={styles.spectatorToggleLabel}>Allow Spectators</span>
+                  </label>
+                )}
+                <button
+                  className={styles.closeButton}
+                  onClick={onToggle}
+                  aria-label="Close chat"
+                >
+                  &times;
+                </button>
+              </div>
 
-          <div className={styles.messages} role="log" aria-live="polite">
-            {messages.length === 0 && (
-              <p className={styles.emptyText}>No messages yet</p>
-            )}
-            {messages.map((msg, i) => {
-              if (msg.from === null && msg.spectatorName) {
-                // Spectator message
-                return (
-                  <div key={i} className={`${styles.message} ${styles.spectatorMessage}`}>
-                    <span className={styles.sender}>{msg.spectatorName} <span className={styles.spectatorTag}>(spectator)</span>: </span>
-                    <span className={styles.messageText}>{msg.text}</span>
-                  </div>
-                );
-              }
-              if (msg.from === null) {
-                // System message
-                return (
-                  <div key={i} className={styles.systemMessage}>
-                    <span className={styles.systemText}>{msg.text}</span>
-                  </div>
-                );
-              }
-              // Player message (existing)
-              return (
-                <div key={i} className={styles.message}>
-                  <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}:</span>
-                  <span className={styles.messageText}>{msg.text}</span>
-                </div>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </div>
+              <div className={styles.messages} role="log" aria-live="polite">
+                {messages.length === 0 && (
+                  <p className={styles.emptyText}>No messages yet</p>
+                )}
+                {messages.map((msg, i) => {
+                  if (msg.from === null && msg.spectatorName) {
+                    return (
+                      <div key={i} className={`${styles.message} ${styles.spectatorMessage}`}>
+                        <span className={styles.sender}>{msg.spectatorName} <span className={styles.spectatorTag}>(spectator)</span>: </span>
+                        <span className={styles.messageText}>{msg.text}</span>
+                      </div>
+                    );
+                  }
+                  if (msg.from === null) {
+                    return (
+                      <div key={i} className={styles.systemMessage}>
+                        <span className={styles.systemText}>{msg.text}</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={i} className={styles.message}>
+                      <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}:</span>
+                      <span className={styles.messageText}>{msg.text}</span>
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </div>
 
-          {/* REQ-F-SP14: Hide input for spectators (readOnly mode) */}
-          {!effectiveReadOnly && (
-            <form className={styles.inputRow} onSubmit={handleSubmit}>
-              <input
-                className={styles.input}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type a message..."
-                maxLength={500}
-                aria-label="Chat message"
-              />
-              <button
-                className={styles.sendButton}
-                type="submit"
-                disabled={!input.trim()}
-                aria-label="Send message"
-              >
-                Send
-              </button>
-            </form>
-          )}
-        </div>
-      )}
+              {!effectiveReadOnly && (
+                <form className={styles.inputRow} onSubmit={handleSubmit}>
+                  <input
+                    className={styles.input}
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="Type a message..."
+                    maxLength={500}
+                    aria-label="Chat message"
+                  />
+                  <button
+                    className={styles.sendButton}
+                    type="submit"
+                    disabled={!input.trim()}
+                    aria-label="Send message"
+                  >
+                    Send
+                  </button>
+                </form>
+              )}
+            </div>
+          </>
+        );
+        return mobile ? createPortal(panel, document.body) : panel;
+      })()}
     </>
   );
 });
