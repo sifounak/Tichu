@@ -88,24 +88,34 @@
   --card-border-radius: var(--card-border-radius-lg);
 }
 
-:root[data-layout="mobile"] .prompt {
+/* Grand Tichu dialog — no-op at base size, scoped mobile overrides below */
+.gtPrompt {}
+.gtTitle {}
+.gtSubtitle {}
+.gtButton {}
+
+:root[data-layout="mobile"] .gtPrompt {
   padding: var(--space-2) var(--space-4);
   border-radius: calc(8px * var(--scale));
 }
 
-:root[data-layout="mobile"] .title {
+:root[data-layout="mobile"] .gtTitle {
   font-size: var(--font-base);
 }
 
-:root[data-layout="mobile"] .subtitle {
+:root[data-layout="mobile"] .gtSubtitle {
   font-size: calc(11px * var(--scale));
   margin-bottom: var(--space-1);
 }
 
-:root[data-layout="mobile"] .button {
+:root[data-layout="mobile"] .gtButton {
   padding: var(--space-2) calc(20px * var(--scale));
   font-size: var(--font-sm);
   min-height: calc(36px * var(--scale));
+}
+
+:root[data-layout="mobile"] .prompt {
+  max-width: calc(2 * var(--card-width-lg));
 }
 
 :root[data-layout="mobile"] .passMiddle {
