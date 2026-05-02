@@ -580,7 +580,7 @@ export function PreRoomView({
         gap: 'var(--space-3)',
       } as React.CSSProperties}>
         {/* Row 1: [Room Name] [eye icon + count] */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
           {/* REQ-F-GA01: Room name — click to copy URL */}
           <button
             onClick={handleCopyUrl}
@@ -657,7 +657,7 @@ export function PreRoomView({
         </div>
 
         {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
           {uiStore.activeVote && (isHost || (mySeat && uiStore.activeVote.initiatorSeat === mySeat)) ? (
             <button
               onClick={() => send({ type: 'CANCEL_VOTE' })}
@@ -691,63 +691,109 @@ export function PreRoomView({
           {/* Spectating indicator */}
           {isSpectator && (
             <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 'calc(32px * var(--scale))',
-                height: 'calc(32px * var(--scale))',
-                background: 'var(--color-gold-accent)',
-                color: 'var(--color-felt-green-dark)',
-                border: 'none',
-                borderRadius: 'calc(8px * var(--scale))',
-              }}
-              title="You are a spectator"
-              aria-label="You are a spectator"
+              style={{ position: 'relative' }}
+              onMouseEnter={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'block'; }}
+              onMouseLeave={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </div>
-          )}
-
-          <LeaveConfirmDialog
-            title="Leave Room?"
-            subtitle=""
-            onConfirm={onLeave}
-            externalOpen={backButtonDialogOpen}
-            onClose={onCancelNavigation}
-          >
-            {(openDialog) => (
-              <button
-                onClick={openDialog}
+              <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   width: 'calc(32px * var(--scale))',
                   height: 'calc(32px * var(--scale))',
-                  color: 'white',
-                  background: '#991b1b',
+                  background: 'var(--color-gold-accent)',
+                  color: 'var(--color-felt-green-dark)',
                   border: 'none',
                   borderRadius: 'calc(8px * var(--scale))',
-                  cursor: 'pointer',
-                  transition: 'background var(--duration-fast) var(--easing-smooth)',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#dc2626'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#991b1b'; }}
-                aria-label="Leave room"
-                title="Leave Room"
+                aria-label="You are a spectator"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
                 </svg>
-              </button>
-            )}
-          </LeaveConfirmDialog>
+              </div>
+              <div data-tooltip style={{
+                display: 'none',
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgb(0,0,0)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--card-border-radius)',
+                padding: 'var(--space-2) var(--space-3)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                whiteSpace: 'nowrap',
+                zIndex: 40,
+              }}>
+                Spectating
+              </div>
+            </div>
+          )}
+
+          <div
+            style={{ position: 'relative' }}
+            onMouseEnter={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'block'; }}
+            onMouseLeave={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
+          >
+            <LeaveConfirmDialog
+              title="Leave Room?"
+              subtitle=""
+              onConfirm={onLeave}
+              externalOpen={backButtonDialogOpen}
+              onClose={onCancelNavigation}
+            >
+              {(openDialog) => (
+                <button
+                  onClick={openDialog}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 'calc(32px * var(--scale))',
+                    height: 'calc(32px * var(--scale))',
+                    color: 'white',
+                    background: '#991b1b',
+                    border: 'none',
+                    borderRadius: 'calc(8px * var(--scale))',
+                    cursor: 'pointer',
+                    transition: 'background var(--duration-fast) var(--easing-smooth)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#dc2626'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+                  aria-label="Leave room"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                </button>
+              )}
+            </LeaveConfirmDialog>
+            <div data-tooltip style={{
+              display: 'none',
+              position: 'absolute',
+              top: 'calc(100% + 6px)',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgb(0,0,0)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--card-border-radius)',
+              padding: 'var(--space-2) var(--space-3)',
+              fontSize: 'var(--font-sm)',
+              fontWeight: 600,
+              color: 'var(--color-text-primary)',
+              whiteSpace: 'nowrap',
+              zIndex: 40,
+            }}>
+              Leave Room
+            </div>
+          </div>
         </div>
 
         {/* Target mode cancel hints */}
@@ -801,7 +847,7 @@ export function PreRoomView({
           gap: 'var(--space-3)',
         }}>
           {/* Row 1: [Room Name] [eye icon + count] */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
             {/* REQ-F-GA01: Room name — click to copy URL */}
             <button
               onClick={handleCopyUrl}
@@ -877,7 +923,7 @@ export function PreRoomView({
           </div>
 
           {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
             {uiStore.activeVote && (isHost || (mySeat && uiStore.activeVote.initiatorSeat === mySeat)) ? (
               <button
                 onClick={() => send({ type: 'CANCEL_VOTE' })}
@@ -895,99 +941,167 @@ export function PreRoomView({
                 Cancel Vote
               </button>
             ) : (
-              <button
-                onClick={() => {
-                  // REQ-F-GA42: Opening menu cancels target selection
-                  setPreGameKickTargetMode(false);
-                  setTransferHostTargetMode(false);
-                  setDrawerOpen(true);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 'calc(32px * var(--scale))',
-                  height: 'calc(32px * var(--scale))',
-                  color: 'var(--color-text-primary)',
-                  background: 'var(--color-bg-panel)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'calc(8px * var(--scale))',
-                  cursor: 'pointer',
-                  transition: 'background var(--duration-fast) var(--easing-smooth), border-color var(--duration-fast) var(--easing-smooth)',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-bg-panel)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                title="Game Menu"
-                aria-label="Game Menu"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
-                  <line x1="3" y1="6" x2="21" y2="6" />
-                  <line x1="3" y1="12" x2="21" y2="12" />
-                  <line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              </button>
-            )}
-
-            {/* Spectating indicator */}
-            {isSpectator && (
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 'calc(32px * var(--scale))',
-                  height: 'calc(32px * var(--scale))',
-                  background: 'var(--color-gold-accent)',
-                  color: 'var(--color-felt-green-dark)',
-                  border: 'none',
-                  borderRadius: 'calc(8px * var(--scale))',
-                }}
-                title="You are a spectator"
-                aria-label="You are a spectator"
+                style={{ position: 'relative' }}
+                onMouseEnter={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'block'; }}
+                onMouseLeave={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              </div>
-            )}
-
-            <LeaveConfirmDialog
-              title="Leave Room?"
-              subtitle=""
-              onConfirm={onLeave}
-              externalOpen={backButtonDialogOpen}
-              onClose={onCancelNavigation}
-            >
-              {(openDialog) => (
                 <button
-                  onClick={openDialog}
+                  onClick={() => {
+                    // REQ-F-GA42: Opening menu cancels target selection
+                    setPreGameKickTargetMode(false);
+                    setTransferHostTargetMode(false);
+                    setDrawerOpen(true);
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     width: 'calc(32px * var(--scale))',
                     height: 'calc(32px * var(--scale))',
-                    color: 'white',
-                    background: '#991b1b',
-                    border: 'none',
+                    color: 'var(--color-text-primary)',
+                    background: 'var(--color-bg-panel)',
+                    border: '1px solid var(--color-border)',
                     borderRadius: 'calc(8px * var(--scale))',
                     cursor: 'pointer',
-                    transition: 'background var(--duration-fast) var(--easing-smooth)',
+                    transition: 'background var(--duration-fast) var(--easing-smooth), border-color var(--duration-fast) var(--easing-smooth)',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#dc2626'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = '#991b1b'; }}
-                  aria-label="Leave room"
-                  title="Leave Room"
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-bg-panel)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                  aria-label="Game Menu"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
                   </svg>
                 </button>
-              )}
-            </LeaveConfirmDialog>
+                <div data-tooltip style={{
+                  display: 'none',
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  left: 0,
+                  background: 'rgb(0,0,0)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: 'var(--space-2) var(--space-3)',
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 600,
+                  color: 'var(--color-text-primary)',
+                  whiteSpace: 'nowrap',
+                  zIndex: 40,
+                }}>
+                  Game Menu
+                </div>
+              </div>
+            )}
+
+            {/* Spectating indicator */}
+            {isSpectator && (
+              <div
+                style={{ position: 'relative' }}
+                onMouseEnter={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'block'; }}
+                onMouseLeave={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 'calc(32px * var(--scale))',
+                    height: 'calc(32px * var(--scale))',
+                    background: 'var(--color-gold-accent)',
+                    color: 'var(--color-felt-green-dark)',
+                    border: 'none',
+                    borderRadius: 'calc(8px * var(--scale))',
+                  }}
+                  aria-label="You are a spectator"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                </div>
+                <div data-tooltip style={{
+                  display: 'none',
+                  position: 'absolute',
+                  top: 'calc(100% + 6px)',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'rgb(0,0,0)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: 'var(--space-2) var(--space-3)',
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 600,
+                  color: 'var(--color-text-primary)',
+                  whiteSpace: 'nowrap',
+                  zIndex: 40,
+                }}>
+                  Spectating
+                </div>
+              </div>
+            )}
+
+            <div
+              style={{ position: 'relative' }}
+              onMouseEnter={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'block'; }}
+              onMouseLeave={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
+            >
+              <LeaveConfirmDialog
+                title="Leave Room?"
+                subtitle=""
+                onConfirm={onLeave}
+                externalOpen={backButtonDialogOpen}
+                onClose={onCancelNavigation}
+              >
+                {(openDialog) => (
+                  <button
+                    onClick={openDialog}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 'calc(32px * var(--scale))',
+                      height: 'calc(32px * var(--scale))',
+                      color: 'white',
+                      background: '#991b1b',
+                      border: 'none',
+                      borderRadius: 'calc(8px * var(--scale))',
+                      cursor: 'pointer',
+                      transition: 'background var(--duration-fast) var(--easing-smooth)',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#dc2626'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+                    aria-label="Leave room"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                  </button>
+                )}
+              </LeaveConfirmDialog>
+              <div data-tooltip style={{
+                display: 'none',
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgb(0,0,0)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--card-border-radius)',
+                padding: 'var(--space-2) var(--space-3)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                whiteSpace: 'nowrap',
+                zIndex: 40,
+              }}>
+                Leave Room
+              </div>
+            </div>
           </div>
 
           {/* Target mode hints */}

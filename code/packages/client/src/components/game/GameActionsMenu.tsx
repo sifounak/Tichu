@@ -176,7 +176,6 @@ export const GameActionsMenu = memo(function GameActionsMenu({
       <button
         className={styles.cancelVoteButton}
         onClick={() => onAction({ type: 'cancelVote' })}
-        title="Cancel Vote"
       >
         Cancel Vote
       </button>
@@ -193,9 +192,11 @@ export const GameActionsMenu = memo(function GameActionsMenu({
           setOpen(!open);
           // REQ-F-GA42: Opening kebab cancels target selection (handled by parent via onAction)
         }}
-        title="Game Menu"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="Game Menu"
+        onMouseEnter={(e) => { const tip = e.currentTarget.parentElement?.querySelector('[data-tooltip]') as HTMLElement; if (tip && !open) tip.style.display = 'block'; }}
+        onMouseLeave={(e) => { const tip = e.currentTarget.parentElement?.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
           <line x1="3" y1="6" x2="21" y2="6" />
@@ -203,6 +204,25 @@ export const GameActionsMenu = memo(function GameActionsMenu({
           <line x1="3" y1="18" x2="21" y2="18" />
         </svg>
       </button>
+      {!open && (
+        <div data-tooltip style={{
+          display: 'none',
+          position: 'absolute',
+          top: 'calc(100% + 6px)',
+          left: 0,
+          background: 'rgb(0,0,0)',
+          border: '1px solid var(--color-border)',
+          borderRadius: 'var(--card-border-radius)',
+          padding: 'var(--space-2) var(--space-3)',
+          fontSize: 'var(--font-sm)',
+          fontWeight: 600,
+          color: 'var(--color-text-primary)',
+          whiteSpace: 'nowrap',
+          zIndex: 40,
+        }}>
+          Game Menu
+        </div>
+      )}
 
       {/* REQ-F-GA08: Desktop popover */}
       {open && (
