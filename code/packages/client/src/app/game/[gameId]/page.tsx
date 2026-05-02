@@ -303,6 +303,14 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         uiStore.setVoteCountdown(Math.ceil(msg.timeoutMs / 1000));
       } else if (msg.type === 'VOTE_RESULT') {
         // REQ-F-PV16-PV19: Vote resolved
+        // REQ-F-GA59-61: Record cooldown for failed votes (non-host initiator only)
+        const prevVote = uiStore.activeVote;
+        if (!msg.passed && prevVote && prevVote.initiatorSeat === mySeatFromRoom && mySeatFromRoom !== hostSeat) {
+          const cooldownKey = msg.voteType === 'kick' && msg.targetSeat
+            ? `kick:${msg.targetSeat}`
+            : msg.voteType;
+          uiStore.addVoteCooldown(cooldownKey);
+        }
         uiStore.setActiveVote(null);
         // REQ-F-PV16: Build kick success message with player name from seatNames
         let resultMessage = msg.message;
@@ -1702,6 +1710,11 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => {
           uiStore.setKickTargetMode(false);
+          // REQ-F-GA59: Per-target kick cooldown check
+          if (isOnCooldown(`kick:${seat}`)) {
+            uiStore.showErrorToast(`Kick cooldown: ${getCooldownRemaining(`kick:${seat}`)}s remaining`);
+            return;
+          }
           const targetName = seatNames[seat] ?? seat;
           setConfirmTargetSeat(seat);
           setConfirmAction({ type: 'kick', targetName });

@@ -37,6 +37,7 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
   isPreGame,
   votingEnabled,
   onAction,
+  activeVote,
   isOnCooldown,
   getCooldownRemaining,
 }: GameActionsDrawerProps) {
@@ -76,11 +77,9 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
   const items: DrawerItem[] = [];
 
   if (!isSpectator) {
-    const kickOnCooldown = isOnCooldown?.('kick') ?? false;
-    const kickDisabled = (!isHost && !votingEnabled) || kickOnCooldown;
-    let kickHint: string | undefined;
-    if (!isHost && !votingEnabled) kickHint = 'Voting disabled by host';
-    else if (kickOnCooldown) kickHint = `Cooldown (${getCooldownRemaining?.('kick') ?? 0}s)`;
+    // REQ-F-GA59: Kick cooldown is per-target, checked at target selection (not menu item level)
+    const kickDisabled = !isHost && !votingEnabled;
+    const kickHint = kickDisabled ? 'Voting disabled by host' : undefined;
     items.push({ action: { type: 'kickPlayer' }, label: 'Kick Player', disabled: kickDisabled, hint: kickHint });
 
     if (!isPreGame) {
@@ -99,8 +98,10 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
       items.push({ action: { type: 'restartGame' }, label: 'Restart Game', disabled: rgDisabled, hint: rgHint });
     }
 
+    // REQ-F-GA44: Transfer Host disabled during active vote
     if (isHost) {
-      items.push({ action: { type: 'transferHost' }, label: 'Transfer Host' });
+      const transferDisabled = !!activeVote;
+      items.push({ action: { type: 'transferHost' }, label: 'Transfer Host', disabled: transferDisabled, hint: transferDisabled ? 'Vote in progress' : undefined });
       items.push({
         action: { type: 'toggleVoting' },
         label: votingEnabled ? 'Disable Voting' : 'Enable Voting',
