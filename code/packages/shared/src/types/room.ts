@@ -34,6 +34,8 @@ export interface Room {
   spectators: RoomSpectator[];
   config: RoomConfig;
   gameInProgress: boolean;
+  // REQ-F-GA52: Host can disable non-host vote initiation (persists for room lifetime)
+  votingEnabled: boolean;
   createdAt: number;
 }
 

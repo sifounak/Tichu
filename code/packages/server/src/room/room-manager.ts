@@ -83,6 +83,7 @@ export class RoomManager {
         spectatorChatEnabled: false,
       },
       gameInProgress: false,
+      votingEnabled: true,
       createdAt: Date.now(),
     };
 
@@ -277,6 +278,33 @@ export class RoomManager {
     if (!room) return false;
     const seat = this.userToSeat.get(userId);
     return seat === room.hostSeat;
+  }
+
+  /** REQ-F-GA38: Transfer host role to another human player. */
+  transferHost(userId: string, targetSeat: Seat): { roomCode: string } {
+    if (!this.isHost(userId)) throw new Error('Only the host can transfer the host role.');
+
+    const roomCode = this.userToRoom.get(userId)!;
+    const room = this.rooms.get(roomCode)!;
+
+    const targetPlayer = room.players.find(p => p.seat === targetSeat);
+    if (!targetPlayer) throw new Error('No player at that seat.');
+    if (targetPlayer.isBot) throw new Error('Cannot transfer host to a bot.');
+    if (targetSeat === room.hostSeat) throw new Error('That player is already the host.');
+
+    room.hostSeat = targetSeat;
+    return { roomCode };
+  }
+
+  /** REQ-F-GA52: Toggle whether non-host players can initiate votes. */
+  toggleVoting(userId: string): { roomCode: string; votingEnabled: boolean } {
+    if (!this.isHost(userId)) throw new Error('Only the host can toggle voting.');
+
+    const roomCode = this.userToRoom.get(userId)!;
+    const room = this.rooms.get(roomCode)!;
+
+    room.votingEnabled = !room.votingEnabled;
+    return { roomCode, votingEnabled: room.votingEnabled };
   }
 
   /** Reassign a user from one seat to another (used for mid-game seat choice) */
@@ -618,6 +646,7 @@ export class RoomManager {
         spectators: [],
         config: snapshot.config,
         gameInProgress: true,
+        votingEnabled: true,
         createdAt: Date.now(),
       };
 

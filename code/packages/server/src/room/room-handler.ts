@@ -76,6 +76,14 @@ export class RoomHandler {
     // REQ-F-VI09: Pre-game kick vote messages
     router.on('PRE_GAME_KICK_VOTE', (ws, msg) => this.handlePreGameKickVote(ws, msg as ClientMessage & { type: 'PRE_GAME_KICK_VOTE' }));
     router.on('PRE_GAME_VOTE', (ws, msg) => this.handlePreGameVote(ws, msg as ClientMessage & { type: 'PRE_GAME_VOTE' }));
+
+    // REQ-F-GA35-38, GA51-52: Host force actions, transfer host, cancel vote, toggle voting
+    router.on('FORCE_KICK', (ws, msg) => this.handleForceKick(ws, msg as ClientMessage & { type: 'FORCE_KICK' }));
+    router.on('FORCE_RESTART_ROUND', (ws) => this.handleForceRestartRound(ws));
+    router.on('FORCE_RESTART_GAME', (ws) => this.handleForceRestartGame(ws));
+    router.on('TRANSFER_HOST', (ws, msg) => this.handleTransferHost(ws, msg as ClientMessage & { type: 'TRANSFER_HOST' }));
+    router.on('CANCEL_VOTE', (ws) => this.handleCancelVote(ws));
+    router.on('TOGGLE_VOTING', (ws) => this.handleToggleVoting(ws));
   }
 
   private handleCreateRoom(ws: WebSocket, msg: ClientMessage & { type: 'CREATE_ROOM' }): void {
@@ -365,6 +373,12 @@ export class RoomHandler {
       return;
     }
 
+    // REQ-F-GA53: Non-host players cannot start votes when voting is disabled
+    if (!room.votingEnabled && initiatorSeat !== room.hostSeat) {
+      this.broadcaster.sendError(ws, 'VOTING_DISABLED', 'Voting has been disabled by the host');
+      return;
+    }
+
     // REQ-F-VI14: Cannot kick self
     if (initiatorSeat === msg.targetSeat) {
       this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Cannot kick yourself');
@@ -398,6 +412,211 @@ export class RoomHandler {
     if (!info?.roomCode || !info.seat) return;
 
     this.preGameVoteHandler.handleVote(info.roomCode, info.seat, msg.voteId, msg.vote);
+  }
+
+  // ─── REQ-F-GA35-38, GA51-52: Host force actions, transfer host, vote management ───
+
+  /** REQ-F-GA35: Host force-kicks a player (pre-game or in-game). */
+  private handleForceKick(ws: WebSocket, msg: ClientMessage & { type: 'FORCE_KICK' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    if (!this.roomManager.isHost(info.userId)) {
+      this.broadcaster.sendError(ws, 'NOT_HOST', 'Only the host can force-kick');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (!room) return;
+
+    if (room.gameInProgress) {
+      // In-game force kick — reuse the vote-resolved kick path
+      const game = this.gameStore.getGameByRoom(info.roomCode);
+      if (!game) return;
+
+      const targetUserId = this.roomManager.getUserIdAtSeat(info.roomCode, msg.targetSeat);
+      if (targetUserId) {
+        const targetSockets = this.connections.getSocketsByUserId(targetUserId);
+        for (const targetWs of targetSockets) {
+          this.broadcaster.send(targetWs, { type: 'KICKED', message: 'You were kicked by the host' });
+          this.connections.removeFromRoom(targetWs);
+        }
+        try { this.roomManager.leaveRoom(targetUserId); } catch { /* already removed */ }
+      } else {
+        // Bot kick
+        const player = room.players.find(p => p.seat === msg.targetSeat);
+        if (player?.isBot) {
+          try { this.roomManager.removeBot(info.roomCode, msg.targetSeat); } catch { /* already removed */ }
+        }
+      }
+      game.handleSeatVacated(msg.targetSeat);
+      this.tryStartSeatQueue(info.roomCode, [msg.targetSeat]);
+      this.broadcastRoomUpdate(info.roomCode);
+    } else {
+      // Pre-game force kick — reuse existing kickPlayer logic
+      try {
+        const kickedClient = this.connections.getClientsInRoom(info.roomCode)
+          .find(c => c.info.seat === msg.targetSeat);
+
+        this.roomManager.kickPlayer(info.userId, msg.targetSeat);
+
+        if (kickedClient) {
+          this.connections.removeFromRoom(kickedClient.ws);
+          this.broadcaster.send(kickedClient.ws, {
+            type: 'KICKED',
+            message: 'The host has removed you from the room.',
+          });
+        }
+
+        this.broadcastRoomUpdate(info.roomCode);
+        this.tryStartSeatQueue(info.roomCode, [msg.targetSeat]);
+      } catch (err) {
+        this.broadcaster.sendError(ws, 'KICK_FAILED', (err as Error).message);
+      }
+    }
+  }
+
+  /** REQ-F-GA36: Host force-restarts the current round. */
+  private handleForceRestartRound(ws: WebSocket): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    if (!this.roomManager.isHost(info.userId)) {
+      this.broadcaster.sendError(ws, 'NOT_HOST', 'Only the host can force-restart');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (!room?.gameInProgress) {
+      this.broadcaster.sendError(ws, 'NO_GAME', 'No active game to restart');
+      return;
+    }
+
+    this.restartRound(info.roomCode);
+  }
+
+  /** REQ-F-GA37: Host force-restarts the game. */
+  private handleForceRestartGame(ws: WebSocket): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    if (!this.roomManager.isHost(info.userId)) {
+      this.broadcaster.sendError(ws, 'NOT_HOST', 'Only the host can force-restart');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (!room?.gameInProgress) {
+      this.broadcaster.sendError(ws, 'NO_GAME', 'No active game to restart');
+      return;
+    }
+
+    this.restartGame(info.roomCode);
+  }
+
+  /** REQ-F-GA38: Host transfers host role to another human player. */
+  private handleTransferHost(ws: WebSocket, msg: ClientMessage & { type: 'TRANSFER_HOST' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    // REQ-F-GA44: Transfer Host blocked during active vote
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (room) {
+      const hasPreGameVote = this.preGameVoteHandler.hasActiveVote(info.roomCode);
+      const game = this.gameStore.getGameByRoom(info.roomCode);
+      const hasInGameVote = game?.getVoteHandler().hasActiveVote(info.roomCode) ?? false;
+      if (hasPreGameVote || hasInGameVote) {
+        this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'Cannot transfer host while a vote is in progress');
+        return;
+      }
+    }
+
+    try {
+      this.roomManager.transferHost(info.userId, msg.targetSeat);
+      // REQ-F-GA29: Broadcast updated host seat to all clients
+      this.broadcastRoomUpdate(info.roomCode);
+      // Update game manager's cached host seat if game is in progress
+      const game = this.gameStore.getGameByRoom(info.roomCode);
+      if (game && room) {
+        game.setRoomState(room.hostSeat, room.votingEnabled);
+      }
+    } catch (err) {
+      this.broadcaster.sendError(ws, 'TRANSFER_FAILED', (err as Error).message);
+    }
+  }
+
+  /** REQ-F-GA51: Host or vote initiator cancels an active vote. */
+  private handleCancelVote(ws: WebSocket): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (!room) return;
+
+    const isHost = this.roomManager.isHost(info.userId);
+    const playerName = room.players.find(p => p.seat === info.seat)?.name ?? 'Unknown';
+
+    // Try pre-game vote first
+    if (this.preGameVoteHandler.hasActiveVote(info.roomCode)) {
+      const initiator = this.preGameVoteHandler.getInitiatorSeat(info.roomCode);
+      if (!isHost && initiator !== info.seat) {
+        this.broadcaster.sendError(ws, 'NOT_AUTHORIZED', 'Only the host or vote initiator can cancel a vote');
+        return;
+      }
+      this.preGameVoteHandler.cancelVote(info.roomCode, playerName);
+      return;
+    }
+
+    // Try in-game vote
+    const game = this.gameStore.getGameByRoom(info.roomCode);
+    if (game?.getVoteHandler().hasActiveVote(info.roomCode)) {
+      const initiator = game.getVoteHandler().getInitiatorSeat(info.roomCode);
+      if (!isHost && initiator !== info.seat) {
+        this.broadcaster.sendError(ws, 'NOT_AUTHORIZED', 'Only the host or vote initiator can cancel a vote');
+        return;
+      }
+      game.getVoteHandler().cancelVote(info.roomCode, playerName);
+      return;
+    }
+
+    this.broadcaster.sendError(ws, 'NO_VOTE', 'No active vote to cancel');
+  }
+
+  /** REQ-F-GA52: Host toggles whether non-host players can start votes. */
+  private handleToggleVoting(ws: WebSocket): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    try {
+      const { roomCode, votingEnabled } = this.roomManager.toggleVoting(info.userId);
+      this.broadcastRoomUpdate(roomCode);
+      // Update game manager's cached state if game is in progress
+      const game = this.gameStore.getGameByRoom(roomCode);
+      const room = this.roomManager.getRoom(roomCode);
+      if (game && room) {
+        game.setRoomState(room.hostSeat, votingEnabled);
+      }
+    } catch (err) {
+      this.broadcaster.sendError(ws, 'TOGGLE_FAILED', (err as Error).message);
+    }
   }
 
   private handleConfigureRoom(ws: WebSocket, msg: ClientMessage & { type: 'CONFIGURE_ROOM' }): void {
@@ -671,6 +890,9 @@ export class RoomHandler {
       const game = this.gameStore.createGame(roomCode, room.config);
 
       this.wireGameCallbacks(game, roomCode);
+
+      // REQ-F-GA53: Sync room state (host seat, voting toggle) to game manager
+      game.setRoomState(room.hostSeat, room.votingEnabled);
 
       // [Stats]: Wire seat→userId resolver so GameEventCapture can populate
       // player_rounds.user_id. Without this, per-user stats compute to zero.
@@ -1192,6 +1414,8 @@ export class RoomHandler {
       spectatorCount: room.spectators.length,
       spectatorNames: room.spectators.filter(s => s.isConnected).map(s => s.name),
       readyPlayers: this.roomManager.getReadySeats(roomCode),
+      // REQ-F-GA52: Include voting toggle state
+      votingEnabled: room.votingEnabled,
     };
 
     this.broadcaster.broadcastToRoom(roomCode, update);

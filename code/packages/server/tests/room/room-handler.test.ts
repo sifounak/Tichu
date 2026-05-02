@@ -115,6 +115,7 @@ function createMockGameStore(): GameStore {
       wireVoteCallback: vi.fn(),
       wireGameEndCallback: vi.fn(),
       wireSeatUserIdResolver: vi.fn(),
+      setRoomState: vi.fn(),
       addHumanParticipant: vi.fn(),
       getEventAccumulator: vi.fn(),
       destroy: vi.fn(),

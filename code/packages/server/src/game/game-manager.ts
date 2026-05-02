@@ -106,6 +106,10 @@ export class GameManager {
   private readonly turnStartTimes = new Map<Seat, string>();
   /** Set to true when this instance was created by restore(), cleared by resumeAfterRestore() */
   private restoredFromSnapshot = false;
+  /** REQ-F-GA53: Host seat — set by room-handler for voting-disabled checks */
+  private _hostSeat: Seat = 'south';
+  /** REQ-F-GA52: Whether non-host players can start votes */
+  private _votingEnabled = true;
 
   constructor(
     gameId: string,
@@ -465,8 +469,19 @@ export class GameManager {
     return this.voteHandler;
   }
 
+  /** REQ-F-GA53: Update host seat and voting-enabled state from room */
+  setRoomState(hostSeat: Seat, votingEnabled: boolean): void {
+    this._hostSeat = hostSeat;
+    this._votingEnabled = votingEnabled;
+  }
+
   /** REQ-F-PV03, REQ-F-PV25, REQ-F-PV28: Start a kick vote with validation */
   private handleStartKickVote(ws: WebSocket, initiatorSeat: Seat, targetSeat: Seat): void {
+    // REQ-F-GA53: Non-host players cannot start votes when voting is disabled
+    if (!this._votingEnabled && initiatorSeat !== this._hostSeat) {
+      this.broadcaster.sendError(ws, 'VOTING_DISABLED', 'Voting has been disabled by the host');
+      return;
+    }
     // REQ-F-PV28: Cannot kick self
     if (initiatorSeat === targetSeat) {
       this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Cannot kick yourself');
@@ -493,6 +508,11 @@ export class GameManager {
 
   /** REQ-F-PV04, REQ-F-PV25: Start a restart-game vote with validation */
   private handleStartRestartGameVote(ws: WebSocket, initiatorSeat: Seat): void {
+    // REQ-F-GA53: Non-host players cannot start votes when voting is disabled
+    if (!this._votingEnabled && initiatorSeat !== this._hostSeat) {
+      this.broadcaster.sendError(ws, 'VOTING_DISABLED', 'Voting has been disabled by the host');
+      return;
+    }
     // REQ-F-PV25: No concurrent votes
     if (this.voteHandler.hasActiveVote(this.roomCode)) {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
@@ -514,6 +534,11 @@ export class GameManager {
 
   /** Start a restart-round vote with validation */
   private handleStartRestartRoundVote(ws: WebSocket, initiatorSeat: Seat): void {
+    // REQ-F-GA53: Non-host players cannot start votes when voting is disabled
+    if (!this._votingEnabled && initiatorSeat !== this._hostSeat) {
+      this.broadcaster.sendError(ws, 'VOTING_DISABLED', 'Voting has been disabled by the host');
+      return;
+    }
     if (this.voteHandler.hasActiveVote(this.roomCode)) {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
       return;

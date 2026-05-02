@@ -29,17 +29,17 @@
 | REQ-F-GA25 | Transfer Host target selection (human seats) | M3/M4 | | | Not Started |
 | REQ-F-GA26 | Transfer Host confirmation dialog | M2 | | | Not Started |
 | REQ-F-GA27 | TRANSFER_HOST message sent | M3/M4 | | | Not Started |
-| REQ-F-GA28 | Server transfers host role | M1 | | | Not Started |
-| REQ-F-GA29 | ROOM_UPDATE broadcast with new host | M1 | | | Not Started |
+| REQ-F-GA28 | Server transfers host role | M1 | room-manager.ts:283, room-handler.ts:526 | room-handler.test.ts | Passed |
+| REQ-F-GA29 | ROOM_UPDATE broadcast with new host | M1 | room-handler.ts:548, room-handler.ts:1417 | room-handler.test.ts | Passed |
 | REQ-F-GA30 | Game Settings last item in menu | M2 | | | Not Started |
 | REQ-F-GA31 | Settings: editable host pre-game, read-only otherwise | M3/M4 | | | Not Started |
 | REQ-F-GA32 | Standalone Settings button removed | M3 | | | Not Started |
 | REQ-F-GA33 | Leave Game standalone button | M3/M4 | | | Not Started |
 | REQ-F-GA34 | Leave Game behavior unchanged | M3/M4 | | | Not Started |
-| REQ-F-GA35 | Server FORCE_KICK (host only) | M1 | | | Not Started |
-| REQ-F-GA36 | Server FORCE_RESTART_ROUND (host only) | M1 | | | Not Started |
-| REQ-F-GA37 | Server FORCE_RESTART_GAME (host only) | M1 | | | Not Started |
-| REQ-F-GA38 | Server TRANSFER_HOST (host, human, no vote) | M1 | | | Not Started |
+| REQ-F-GA35 | Server FORCE_KICK (host only) | M1 | protocol.ts:88, room-handler.ts:419 | room-handler.test.ts | Passed |
+| REQ-F-GA36 | Server FORCE_RESTART_ROUND (host only) | M1 | protocol.ts:88, room-handler.ts:482 | room-handler.test.ts | Passed |
+| REQ-F-GA37 | Server FORCE_RESTART_GAME (host only) | M1 | protocol.ts:88, room-handler.ts:504 | room-handler.test.ts | Passed |
+| REQ-F-GA38 | Server TRANSFER_HOST (host, human, no vote) | M1 | protocol.ts:93, room-handler.ts:526, room-manager.ts:283 | room-handler.test.ts | Passed |
 | REQ-F-GA39 | Spectator menu: Game Settings only | M2 | | | Not Started |
 | REQ-F-GA40 | In-game settings read-only for all | M4 | | | Not Started |
 | REQ-F-GA41 | One target selection mode at a time | M3 | | | Not Started |
@@ -52,11 +52,11 @@
 | REQ-F-GA48 | Transfer Host: human seats only | M3/M4 | | | Not Started |
 | REQ-F-GA49 | Self-kick allowed (ALLOW_SELF_KICK) | M3 | | | Not Started |
 | REQ-F-GA50 | Mobile drawer closes before target/settings | M3/M4 | | | Not Started |
-| REQ-F-GA51 | Server CANCEL_VOTE (host/initiator) | M1 | | | Not Started |
-| REQ-F-GA52 | Server TOGGLE_VOTING (host) | M1 | | | Not Started |
-| REQ-F-GA53 | Server rejects non-host votes when disabled | M1 | | | Not Started |
-| REQ-F-GA54 | "Vote cancelled by [Name]" message | M1/M5 | | | Not Started |
-| REQ-F-GA55 | Voting-disabled persists in room | M1 | | | Not Started |
+| REQ-F-GA51 | Server CANCEL_VOTE (host/initiator) | M1 | protocol.ts:96, room-handler.ts:560, vote-handler.ts:229 | room-handler.test.ts | Passed |
+| REQ-F-GA52 | Server TOGGLE_VOTING (host) | M1 | protocol.ts:99, room-handler.ts:600, room-manager.ts:299 | room-handler.test.ts | Passed |
+| REQ-F-GA53 | Server rejects non-host votes when disabled | M1 | room-handler.ts:376, game-manager.ts:480 | room-handler.test.ts | Passed |
+| REQ-F-GA54 | "Vote cancelled by [Name]" message | M1/M5 | vote-handler.ts:236 | | In Progress |
+| REQ-F-GA55 | Voting-disabled persists in room | M1 | room.ts:37, room-manager.ts:299 | room-handler.test.ts | Passed |
 | REQ-F-GA56 | Disabled items visible but greyed | M5 | | | Not Started |
 | REQ-F-GA57 | Kebab tooltip "Game Actions" | M2 | | | Not Started |
 | REQ-F-GA58 | Arrow key menu navigation | M2 | | | Not Started |
