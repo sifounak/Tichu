@@ -42,6 +42,8 @@ export interface ActionBarProps {
   onAutoPassToggle?: (enabled: boolean) => void;
   /** REQ-F-AP01/AP02: Whether to show the auto-pass toggle */
   showAutoPass?: boolean;
+  /** Whether the current trick has at least one play (trick type established) */
+  trickEstablished?: boolean;
   /** Layout mode: 'default' stacks vertically, 'split' puts Pass | playerSeat | Play in a row */
   layout?: 'default' | 'split';
   /** Player seat element to render between Pass and Play in split layout */
@@ -70,6 +72,7 @@ export const ActionBar = memo(function ActionBar({
   autoPassEnabled = false,
   onAutoPassToggle,
   showAutoPass = false,
+  trickEstablished = false,
   layout = 'default',
   playerSeat,
   layoutTier = 'full',
@@ -187,7 +190,19 @@ export const ActionBar = memo(function ActionBar({
   // REQ-F-AP01: Auto-pass toggle replaces Pass button.
   // Show when: not my turn (default position), OR my turn with auto-pass enabled (stays visible).
   // Hidden when: my turn with auto-pass off (standard Pass button shown instead).
-  const showAutoPassToggle = showAutoPass && onAutoPassToggle && (!showActions || autoPassEnabled);
+  // Also hidden when trick type not yet established (before first card(s) played) — show disabled Pass instead.
+  const showAutoPassToggle = showAutoPass && onAutoPassToggle && trickEstablished && (!showActions || autoPassEnabled);
+  // Show a disabled Pass button when auto-pass would normally show but trick type isn't established yet
+  const disabledPassFallback = showAutoPass && !showAutoPassToggle && !showActions && (
+    <button
+      className={`${styles.button} ${styles.passButton}`}
+      disabled
+      aria-label="Pass turn"
+    >
+      Pass
+    </button>
+  );
+
   const autoPassToggle = showAutoPassToggle && (
     <label
       className={`${styles.button} ${styles.passButton} ${styles.autoPassLabel} ${autoPassEnabled ? styles.autoPassActive : ''}`}
@@ -226,8 +241,8 @@ export const ActionBar = memo(function ActionBar({
         aria-label="Game actions"
       >
         {/* Slot 1: Pass or Auto-Pass toggle */}
-        <div className={styles.buttonSlot} style={(autoPassToggle || passButton) ? undefined : { visibility: 'hidden' }}>
-          {autoPassToggle || passButton || (
+        <div className={styles.buttonSlot} style={(autoPassToggle || passButton || disabledPassFallback) ? undefined : { visibility: 'hidden' }}>
+          {autoPassToggle || passButton || disabledPassFallback || (
             <button className={`${styles.button} ${styles.passButton}`} disabled aria-hidden="true">Pass</button>
           )}
         </div>
@@ -251,6 +266,7 @@ export const ActionBar = memo(function ActionBar({
         <div className={styles.splitLeft}>
           {autoPassToggle}
           {passButton}
+          {disabledPassFallback}
           {tichuBtn}
         </div>
         {playerSeat}
@@ -270,6 +286,7 @@ export const ActionBar = memo(function ActionBar({
     >
       {autoPassToggle}
       {passButton}
+      {disabledPassFallback}
       {playButton}
       {bombButton}
       {tichuBtn}
