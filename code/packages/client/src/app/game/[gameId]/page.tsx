@@ -1982,6 +1982,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   autoPassEnabled={autoPassEnabled}
                   onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
                   showAutoPass={!gameStore.gameHalted && showAutoPass}
+                  trickEstablished={!!gameStore.currentTrick && gameStore.currentTrick.plays.length > 0}
                   onPlay={handlePlay}
                   onPass={handlePass}
                   onTichu={handleTichu}
@@ -2051,6 +2052,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   autoPassEnabled={autoPassEnabled}
                   onAutoPassToggle={(enabled) => uiStore.setAutoPassEnabled(enabled)}
                   showAutoPass={!gameStore.gameHalted && showAutoPass}
+                  trickEstablished={!!gameStore.currentTrick && gameStore.currentTrick.plays.length > 0}
                   onPlay={handlePlay}
                   onPass={handlePass}
                   onTichu={handleTichu}

@@ -91,12 +91,30 @@ describe('ActionBar', () => {
           {...defaultProps}
           isMyTurn={false}
           showAutoPass={true}
+          trickEstablished={true}
           onAutoPassToggle={vi.fn()}
         />,
       );
       expect(screen.getByRole('checkbox', { name: /auto-pass/i })).toBeInTheDocument();
       // Pass button should NOT be shown (not my turn)
       expect(screen.queryByRole('button', { name: /pass turn/i })).not.toBeInTheDocument();
+    });
+
+    // Shows disabled Pass button when trick type not yet established (before first card played)
+    it('shows disabled Pass instead of auto-pass toggle when trick not established', () => {
+      render(
+        <ActionBar
+          {...defaultProps}
+          isMyTurn={false}
+          showAutoPass={true}
+          trickEstablished={false}
+          onAutoPassToggle={vi.fn()}
+        />,
+      );
+      expect(screen.queryByRole('checkbox', { name: /auto-pass/i })).not.toBeInTheDocument();
+      const passBtn = screen.getByRole('button', { name: /pass turn/i });
+      expect(passBtn).toBeInTheDocument();
+      expect(passBtn).toBeDisabled();
     });
 
     // Verifies: REQ-F-AP01 — On my turn with auto-pass off, show Pass instead of toggle
@@ -121,6 +139,7 @@ describe('ActionBar', () => {
           {...defaultProps}
           isMyTurn={true}
           showAutoPass={true}
+          trickEstablished={true}
           autoPassEnabled={true}
           onAutoPassToggle={vi.fn()}
         />,
@@ -136,6 +155,7 @@ describe('ActionBar', () => {
           {...defaultProps}
           isMyTurn={false}
           showAutoPass={true}
+          trickEstablished={true}
           autoPassEnabled={false}
           onAutoPassToggle={vi.fn()}
         />,
@@ -152,6 +172,7 @@ describe('ActionBar', () => {
           {...defaultProps}
           isMyTurn={false}
           showAutoPass={true}
+          trickEstablished={true}
           autoPassEnabled={false}
           onAutoPassToggle={onAutoPassToggle}
         />,
@@ -168,6 +189,7 @@ describe('ActionBar', () => {
           isMyTurn={false}
           hasBombReady={true}
           showAutoPass={true}
+          trickEstablished={true}
           autoPassEnabled={true}
           onAutoPassToggle={vi.fn()}
         />,
