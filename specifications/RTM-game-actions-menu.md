@@ -12,7 +12,7 @@
 | REQ-F-GA08 | Desktop popover dropdown | M2 | GameActionsMenu.tsx:175, GameActionsMenu.module.css:33 | | Passed |
 | REQ-F-GA09 | Mobile slide-in drawer | M2 | GameActionsDrawer.tsx, GameActionsDrawer.module.css:19 | | Passed |
 | REQ-F-GA10 | Menu dismiss (Escape/click-outside/select) | M2 | GameActionsMenu.tsx:72-90 | | Passed |
-| REQ-F-GA11 | Menu disabled during active vote | M5 | | | Not Started |
+| REQ-F-GA11 | Menu disabled during active vote | M5 | GameActionsMenu.tsx:155-162 (Cancel Vote replaces kebab) | | Passed |
 | REQ-F-GA12 | Pre-game menu items | M2 | GameActionsMenu.tsx:107-130 | | Passed |
 | REQ-F-GA13 | Kick Player target selection (pre-game) | M3 | PreRoomView.tsx:178-185 | | Passed |
 | REQ-F-GA14 | In-game menu items | M2 | GameActionsMenu.tsx:113-123 | | Passed |
@@ -44,7 +44,7 @@
 | REQ-F-GA40 | In-game settings read-only for all | M4 | page.tsx:2352,2385 | | Passed |
 | REQ-F-GA41 | One target selection mode at a time | M3 | PreRoomView.tsx:178,188, uiStore.ts:285-286 | | Passed |
 | REQ-F-GA42 | Opening kebab cancels target selection | M3 | PreRoomView.tsx:209-210 | | Passed |
-| REQ-F-GA43 | Vote actions disabled during active vote | M5 | | | Not Started |
+| REQ-F-GA43 | Vote actions disabled during active vote | M5 | GameActionsMenu.tsx:155-162 (Cancel Vote replaces kebab) | | Passed |
 | REQ-F-GA44 | Transfer Host disabled during active vote | M4 | GameActionsMenu.tsx:136-137 | | Passed |
 | REQ-F-GA45 | Cancel Vote button replaces kebab | M2 | GameActionsMenu.tsx:155-162 | | Passed |
 | REQ-F-GA46 | Host toggle voting | M2 | GameActionsMenu.tsx:131-134 | | Passed |
@@ -55,14 +55,14 @@
 | REQ-F-GA51 | Server CANCEL_VOTE (host/initiator) | M1 | protocol.ts:96, room-handler.ts:560, vote-handler.ts:229 | room-handler.test.ts | Passed |
 | REQ-F-GA52 | Server TOGGLE_VOTING (host) | M1 | protocol.ts:99, room-handler.ts:600, room-manager.ts:299 | room-handler.test.ts | Passed |
 | REQ-F-GA53 | Server rejects non-host votes when disabled | M1 | room-handler.ts:376, game-manager.ts:480 | room-handler.test.ts | Passed |
-| REQ-F-GA54 | "Vote cancelled by [Name]" message | M1/M5 | vote-handler.ts:236 | | In Progress |
+| REQ-F-GA54 | "Vote cancelled by [Name]" message | M1/M5 | vote-handler.ts:236, page.tsx:313-316 | | Passed |
 | REQ-F-GA55 | Voting-disabled persists in room | M1 | room.ts:37, room-manager.ts:299 | room-handler.test.ts | Passed |
 | REQ-F-GA56 | Disabled items visible but greyed | M2 | GameActionsMenu.module.css:71-73 | | Passed |
 | REQ-F-GA57 | Kebab tooltip "Game Actions" | M2 | GameActionsMenu.tsx:170 | | Passed |
 | REQ-F-GA58 | Arrow key menu navigation | M2 | GameActionsMenu.tsx:139-150 | | Passed |
-| REQ-F-GA59 | Vote cooldown 120s (same type+target) | M5 | | | Not Started |
-| REQ-F-GA60 | No cooldown for host | M5 | | | Not Started |
-| REQ-F-GA61 | Cooldown client-side only | M5 | | | Not Started |
+| REQ-F-GA59 | Vote cooldown 120s (same type+target) | M5 | page.tsx:307-311, uiStore.ts:289-292, PreRoomView.tsx:194-196 | | Passed |
+| REQ-F-GA60 | No cooldown for host | M5 | page.tsx:309 (mySeatFromRoom !== hostSeat check) | | Passed |
+| REQ-F-GA61 | Cooldown client-side only | M5 | uiStore.ts:125,282 (Map in Zustand store, resets on refresh) | | Passed |
 | REQ-NF-GA01 | Menu opens instantly (desktop) | M2 | GameActionsMenu.tsx (no delay) | | Passed |
 | REQ-NF-GA02 | Drawer 200ms slide transition | M2 | GameActionsDrawer.module.css:28 | | Passed |
 | REQ-NF-GA03 | Works at both layout tiers | M3/M4 | PreRoomView.tsx, page.tsx:1420/2335 | | Passed |

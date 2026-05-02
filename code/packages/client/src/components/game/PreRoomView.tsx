@@ -190,6 +190,11 @@ export function PreRoomView({
   // REQ-F-GA13: Pre-game kick target selection — show confirmation dialog
   const handlePreGameKickTarget = (seat: Seat) => {
     if (!ALLOW_SELF_KICK && seat === mySeat) return;
+    // REQ-F-GA59: Per-target kick cooldown check
+    if (isOnCooldown(`kick:${seat}`)) {
+      setPreGameKickTargetMode(false);
+      return;
+    }
     setPreGameKickTargetMode(false);
     const targetName = getPlayerName(seat) ?? seat;
     setConfirmTargetSeat(seat);

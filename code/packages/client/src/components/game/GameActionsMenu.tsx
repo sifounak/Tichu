@@ -104,12 +104,9 @@ export const GameActionsMenu = memo(function GameActionsMenu({
 
   if (!isSpectator) {
     // Kick Player — always first for players
-    const kickCooldownKey = 'kick'; // Generic key; specific target checked at dialog level
-    const kickOnCooldown = isOnCooldown?.('kick') ?? false;
-    const kickDisabled = (!isHost && !votingEnabled) || kickOnCooldown;
-    let kickHint: string | undefined;
-    if (!isHost && !votingEnabled) kickHint = 'Voting disabled by host';
-    else if (kickOnCooldown) kickHint = `Cooldown (${getCooldownRemaining?.(kickCooldownKey) ?? 0}s)`;
+    // REQ-F-GA59: Kick cooldown is per-target, checked at target selection (not menu item level)
+    const kickDisabled = !isHost && !votingEnabled;
+    const kickHint = kickDisabled ? 'Voting disabled by host' : undefined;
     items.push({ action: { type: 'kickPlayer' }, label: 'Kick Player', disabled: kickDisabled, hint: kickHint });
 
     if (!isPreGame) {
