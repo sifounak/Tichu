@@ -125,10 +125,10 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
         ref={drawerRef}
         className={`${styles.drawer} ${animating ? styles.drawerOpen : ''}`}
         role="menu"
-        aria-label="Game Actions"
+        aria-label="Game Menu"
       >
         <div className={styles.drawerHeader}>
-          <span className={styles.drawerTitle}>Game Actions</span>
+          <span className={styles.drawerTitle}>Game Menu</span>
           <button className={styles.closeButton} onClick={onClose} aria-label="Close menu">
             &times;
           </button>

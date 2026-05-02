@@ -2,10 +2,12 @@
 
 /* Room name — displayed in the top-left panel above the room code */
 .roomName {
-  font-size: calc(24px * var(--scale));
+  font-size: calc(42px * var(--scale));
   font-weight: 700;
   color: var(--color-gold-accent);
-  text-align: center;
+  text-align: left;
+  line-height: 1;
+  padding: 0;
 }
 
 /* Empty seat content — inside PlayerSeat via customContent.
@@ -155,7 +157,7 @@
 .startBtn {
   padding: calc(12px * var(--scale)) calc(32px * var(--scale));
   border-radius: var(--space-3);
-  font-size: calc(18px * var(--scale));
+  font-size: var(--font-md);
   font-weight: 700;
   background: var(--color-gold-accent);
   color: var(--color-felt-green-dark);
@@ -166,6 +168,12 @@
 
 .startBtn:hover {
   opacity: 0.85;
+}
+
+:global([data-layout="full"]) .startBtn {
+  padding: calc(24px * var(--scale)) calc(64px * var(--scale));
+  font-size: calc(28px * var(--scale));
+  border-radius: var(--space-4);
 }
 
 .readyWaiting {

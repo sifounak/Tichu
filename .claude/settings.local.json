@@ -41,7 +41,8 @@
       "Bash(pnpm --filter @tichu/client typecheck)",
       "Bash(bash scripts/dev-start.sh)",
       "Bash(pnpm *)",
-      "Bash(grep *)"
+      "Bash(grep *)",
+      "Bash(wc *)"
     ]
   }
 }

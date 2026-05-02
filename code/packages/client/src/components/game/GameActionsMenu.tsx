@@ -193,11 +193,15 @@ export const GameActionsMenu = memo(function GameActionsMenu({
           setOpen(!open);
           // REQ-F-GA42: Opening kebab cancels target selection (handled by parent via onAction)
         }}
-        title="Game Actions"
+        title="Game Menu"
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        &#x22EE;
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
       </button>
 
       {/* REQ-F-GA08: Desktop popover */}
