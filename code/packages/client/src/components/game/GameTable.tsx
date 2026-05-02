@@ -43,6 +43,8 @@ export interface GameTableProps {
   bottomContent?: React.ReactNode;
   /** REQ-F-PV03: Callback when a kick target seat is clicked */
   onKickTarget?: (seat: Seat) => void;
+  /** REQ-F-GA25: Callback when a transfer host target seat is clicked */
+  onTransferHostTarget?: (seat: Seat) => void;
   /** REQ-F-VI05: Callback for host to add bot to vacated seat */
   onAddBot?: (seat: Seat) => void;
   /** Fixed compass orientation (N top, S bottom, W left, E right) for spectators */
@@ -59,13 +61,15 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onAddBot, compassLayout, layoutTier = 'full' }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onTransferHostTarget, onAddBot, compassLayout, layoutTier = 'full' }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
   // REQ-F-PV09: Vote state for glow/label overrides
   const activeVote = useUiStore((s) => s.activeVote);
   const kickTargetMode = useUiStore((s) => s.kickTargetMode);
+  const transferHostTargetMode = useUiStore((s) => s.transferHostTargetMode);
+  const isTargetMode = kickTargetMode || transferHostTargetMode;
   const trickLeader = currentTrick?.currentWinner ?? null;
   const vacatedSeats = view.vacatedSeats ?? [];
   // First player to go out — used to determine Tichu call success/failure
@@ -117,7 +121,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           onChooseSeat={onChooseSeat && !view.gameHalted ? () => onChooseSeat(seat) : undefined}
           playerVoteStatus={myVoteStatus ?? undefined}
           playerVoteLabel={myPvLabel}
-          hideNormalLabels={!!activeVote || kickTargetMode}
+          hideNormalLabels={!!activeVote || isTargetMode}
           turnTimerStartedAt={view.turnTimerStartedAt}
           turnTimerDurationMs={view.turnTimerDurationMs}
           serverClockOffsetMs={serverClockOffsetMs}
@@ -158,7 +162,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         isMe={false}
         dragonTarget={isDragonTarget}
         dragonHoverTarget={isDragonHoverTarget}
-        onSeatClick={kickTargetMode ? () => onKickTarget?.(seat) : (isDragonTarget || isDragonHoverTarget) ? () => onDragonGift?.(seat) : undefined}
+        onSeatClick={kickTargetMode ? () => onKickTarget?.(seat) : transferHostTargetMode ? () => onTransferHostTarget?.(seat) : (isDragonTarget || isDragonHoverTarget) ? () => onDragonGift?.(seat) : undefined}
         hideTrickLabels={isDragonTarget}
         passConfirmed={isPassConfirmed}
         emptySeat={vacatedSeats.includes(seat)}
@@ -166,10 +170,10 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         vacated={vacatedSeats.includes(seat)}
         seatChooserLabel={onChooseSeat && !view.gameHalted && vacatedSeats.includes(seat) ? 'Sit Here' : undefined}
         onChooseSeat={onChooseSeat && !view.gameHalted && vacatedSeats.includes(seat) ? () => onChooseSeat(seat) : undefined}
-        kickVoteTarget={kickTargetMode && seat !== mySeat}
+        kickVoteTarget={isTargetMode && seat !== mySeat}
         playerVoteStatus={pvStatus ?? undefined}
         playerVoteLabel={pvLabel}
-        hideNormalLabels={!!activeVote || kickTargetMode}
+        hideNormalLabels={!!activeVote || isTargetMode}
         onAddBot={onAddBot && vacatedSeats.includes(seat) ? () => onAddBot(seat) : undefined}
         turnTimerStartedAt={view.turnTimerStartedAt}
         turnTimerDurationMs={view.turnTimerDurationMs}
