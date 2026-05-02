@@ -226,12 +226,17 @@ export class VoteHandler {
     };
   }
 
-  /** REQ-F-PV26: Cancel an active vote (e.g., initiator disconnected) */
-  cancelVote(roomCode: string): void {
+  /** REQ-F-PV26, REQ-F-GA51: Cancel an active vote (by host, initiator, or on disconnect) */
+  cancelVote(roomCode: string, cancellerName?: string): void {
     const session = this.sessions.get(roomCode);
     if (!session) return;
 
     clearTimeout(session.timeoutHandle);
+
+    // REQ-F-GA54: Show who cancelled the vote
+    const message = cancellerName
+      ? `Vote cancelled by ${cancellerName}`
+      : 'Vote cancelled!';
 
     // Broadcast failed result
     this.broadcaster.broadcastToRoom(roomCode, {
@@ -240,11 +245,16 @@ export class VoteHandler {
       voteType: session.voteType,
       passed: false,
       targetSeat: session.targetSeat,
-      message: 'Vote cancelled!',
+      message,
     });
 
     this.sessions.delete(roomCode);
     this.onVoteResult?.(roomCode, session.voteType, false, session.targetSeat);
+  }
+
+  /** REQ-F-GA51: Get the initiator seat of the active vote (for cancel authorization) */
+  getInitiatorSeat(roomCode: string): Seat | null {
+    return this.sessions.get(roomCode)?.initiatorSeat ?? null;
   }
 
   /** Clean up all state for a room */

@@ -85,6 +85,20 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('PRE_GAME_KICK_VOTE'), targetSeat: seatSchema }),
   z.object({ type: z.literal('PRE_GAME_VOTE'), voteId: z.string(), vote: z.boolean() }),
 
+  // REQ-F-GA35-37: Host force actions (bypass voting)
+  z.object({ type: z.literal('FORCE_KICK'), targetSeat: seatSchema }),
+  z.object({ type: z.literal('FORCE_RESTART_ROUND') }),
+  z.object({ type: z.literal('FORCE_RESTART_GAME') }),
+
+  // REQ-F-GA38: Host transfers host role to another human player
+  z.object({ type: z.literal('TRANSFER_HOST'), targetSeat: seatSchema }),
+
+  // REQ-F-GA51: Host or vote initiator cancels an active vote
+  z.object({ type: z.literal('CANCEL_VOTE') }),
+
+  // REQ-F-GA52: Host toggles whether non-host players can start votes
+  z.object({ type: z.literal('TOGGLE_VOTING') }),
+
   // Chat
   z.object({ type: z.literal('CHAT_MESSAGE'), text: z.string().min(1).max(500) }),
 
@@ -102,7 +116,8 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   // REQ-F-SP04: seat is nullable — null indicates spectator
   z.object({ type: z.literal('ROOM_JOINED'), roomCode: z.string(), seat: seatSchema.nullable() }),
   // REQ-F-SP16: ROOM_UPDATE includes spectatorCount and readyPlayers
-  z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), spectatorNames: z.array(z.string()).optional(), readyPlayers: z.array(seatSchema) }),
+  // REQ-F-GA52: ROOM_UPDATE includes votingEnabled for non-host vote toggle
+  z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), spectatorNames: z.array(z.string()).optional(), readyPlayers: z.array(seatSchema), votingEnabled: z.boolean().optional() }),
   z.object({ type: z.literal('ROOM_LEFT') }),
   z.object({ type: z.literal('KICKED'), message: z.string() }),
   // REQ-F-ES05: LOBBY_LIST includes hasEmptySeats for "Join (In Progress)" button
