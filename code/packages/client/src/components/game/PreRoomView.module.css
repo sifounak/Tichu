@@ -194,27 +194,6 @@
   opacity: 0.85;
 }
 
-/* Settings panel */
-.settingsToggle {
-  position: fixed;
-  top: calc(40px * var(--scale));
-  right: calc(28px * var(--scale));
-  padding: calc(6px * var(--scale)) calc(12px * var(--scale));
-  border-radius: var(--card-border-radius);
-  font-size: var(--font-md);
-  font-weight: 600;
-  background: var(--color-bg-panel);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  cursor: pointer;
-  z-index: 30;
-  transition: opacity 0.15s;
-}
-
-.settingsToggle:hover {
-  opacity: 0.8;
-}
-
 /* Full-screen backdrop behind settings panel — click to dismiss */
 .settingsBackdrop {
   position: fixed;

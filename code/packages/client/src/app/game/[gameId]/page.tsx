@@ -365,6 +365,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           msg.spectatorCount ?? 0,
           msg.spectatorNames ?? [],
           msg.readyPlayers ?? [],
+          msg.votingEnabled ?? true,
         );
         // REQ-F-PV18: Game ended (restart vote) — reset game store so PreRoomView shows
         if (!msg.gameInProgress && gameStore.gameId) {
