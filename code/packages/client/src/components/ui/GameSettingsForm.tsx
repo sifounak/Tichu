@@ -27,7 +27,7 @@ export function GameSettingsForm({ config, onChange, readOnly }: GameSettingsFor
         <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
         <span>Spectators: {config.spectatorsAllowed ? 'Yes' : 'No'}</span>
         <span>Spectator Chat: {config.spectatorChatEnabled ? 'Yes' : 'No'}</span>
-        <span>{config.isPrivate ? 'Private' : 'Public'}</span>
+        <span>{config.isPrivate ? 'Private Room' : 'Public Room'}</span>
       </div>
     );
   }

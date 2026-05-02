@@ -567,131 +567,188 @@ export function PreRoomView({
 
   return (
     <>
-      {/* Desktop top-left chrome: Room Name, Spectating badge, Spectators, Kebab menu, Leave Room */}
+      {/* Desktop top-left chrome — same compact layout as mobile */}
       <div style={{
+        '--scale': '1',
         position: 'fixed',
-        top: 'calc(120px * var(--scale))',
-        left: 'calc(148px * var(--scale))',
-        transform: 'translate(-50%, -50%)',
+        top: 'calc(30px * var(--scale))',
+        left: 'calc(30px * var(--scale))',
         zIndex: 30,
         display: isMobileLayout ? 'none' : 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        gap: 'var(--space-1)',
-      }}>
-        {/* REQ-F-GA01: Room name — click to copy URL */}
-        <button
-          onClick={handleCopyUrl}
-          className={styles.roomName}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            cursor: 'pointer',
-            textDecoration: 'none',
-            transition: 'text-decoration 0.15s',
-            position: 'relative',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
-          aria-label="Copy game link"
-          title="Click to copy game link"
-        >
-          {roomName ?? 'Room'}
-        </button>
-
-        {/* REQ-F-GA02: "Link copied!" toast */}
-        {urlCopied && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: '100%',
-            marginLeft: 'var(--space-2)',
-            background: 'var(--color-bg-panel)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--card-border-radius)',
-            padding: 'var(--space-1) var(--space-3)',
-            fontSize: 'var(--font-md)',
-            color: 'var(--color-text-primary)',
-            whiteSpace: 'nowrap',
-          }}>
-            Link copied!
-          </div>
-        )}
-
-        {/* Spectating badge */}
-        {isSpectator && (
-          <div style={{
-            background: 'var(--color-gold-accent)',
-            color: 'var(--color-felt-green-dark)',
-            padding: 'var(--space-1) var(--space-3)',
-            borderRadius: 'var(--card-border-radius)',
-            fontSize: 'calc(26px * var(--scale))',
-            fontWeight: 700,
-            textAlign: 'center' as const,
-            width: '100%',
-          }}>
-            Spectating
-          </div>
-        )}
-
-        {/* REQ-F-GA05, GA06: Spectator count with tooltip */}
-        <div
-          style={{ position: 'relative' }}
-          onMouseEnter={(e) => {
-            const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
-            if (tip) tip.style.display = 'block';
-          }}
-          onMouseLeave={(e) => {
-            const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
-            if (tip) tip.style.display = 'none';
-          }}
-        >
-          <span style={{
-            fontSize: 'var(--font-xl)',
-            fontWeight: 600,
-            color: 'var(--color-text-secondary)',
-            padding: 'var(--space-1) var(--space-3)',
-          }}>
-            Spectators: <span style={{ color: 'var(--color-gold-accent)', fontWeight: 900 }}>{spectatorCount}</span>
-          </span>
-          {spectatorNames.length > 0 && (
+        alignItems: 'flex-start',
+        gap: 'var(--space-3)',
+      } as React.CSSProperties}>
+        {/* Row 1: [Room Name] [eye icon + count] */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          {/* REQ-F-GA01: Room name — click to copy URL */}
+          <button
+            onClick={handleCopyUrl}
+            style={{
+              fontSize: 'calc(24px * var(--scale))',
+              fontWeight: 700,
+              color: urlCopied ? 'var(--color-text-primary)' : 'var(--color-gold-accent)',
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              lineHeight: 1,
+              textDecoration: 'none',
+            }}
+            aria-label="Copy game link"
+            title="Click to copy game link"
+          >
+            {urlCopied ? 'Link copied!' : (roomName ?? 'Room')}
+          </button>
+          {/* REQ-F-GA05, GA06: Spectator count box with eye icon + tooltip */}
+          <div
+            style={{ position: 'relative' }}
+            onMouseEnter={(e) => {
+              const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
+              if (tip) tip.style.display = 'block';
+            }}
+            onMouseLeave={(e) => {
+              const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
+              if (tip) tip.style.display = 'none';
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 'calc(6px * var(--scale))',
+              background: 'var(--color-bg-panel)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--space-2)',
+              padding: 'calc(2px * var(--scale)) calc(6px * var(--scale))',
+              fontSize: 'var(--font-sm)',
+              fontWeight: 600,
+              color: 'var(--color-text-secondary)',
+              cursor: 'default',
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, display: 'block' }}>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              {spectatorCount}
+            </div>
             <div data-tooltip style={{
               display: 'none',
               position: 'absolute',
               top: 0,
-              left: '100%',
-              marginLeft: 'var(--space-1)',
-              minWidth: '100%',
+              left: 'calc(100% + 6px)',
               background: 'rgb(0,0,0)',
               border: '1px solid var(--color-border)',
               borderRadius: 'var(--card-border-radius)',
               padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--font-xl)',
-              fontWeight: 700,
+              fontSize: 'var(--font-sm)',
               color: 'var(--color-text-primary)',
               whiteSpace: 'nowrap',
               zIndex: 40,
               boxSizing: 'border-box',
             }}>
+              <div style={{ fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: spectatorNames.length > 0 ? 'var(--space-1)' : undefined, fontSize: 'var(--font-sm)' }}>
+                {spectatorNames.length > 0 ? 'Spectators' : 'No Spectators'}
+              </div>
               {spectatorNames.map((name, i) => (
-                <div key={i}>{name}</div>
+                <div key={i} style={{ fontWeight: 600 }}>{name}</div>
               ))}
             </div>
-          )}
+          </div>
         </div>
 
-        {/* REQ-F-GA07: Kebab menu (desktop popover) */}
-        <GameActionsMenu
-          isHost={isHost}
-          isSpectator={isSpectator}
-          isPreGame={true}
-          votingEnabled={votingEnabled}
-          activeVote={uiStore.activeVote}
-          mySeat={mySeat}
-          onAction={handleMenuAction}
-          isOnCooldown={isOnCooldown}
-          getCooldownRemaining={getCooldownRemaining}
-        />
+        {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+          {uiStore.activeVote && (isHost || (mySeat && uiStore.activeVote.initiatorSeat === mySeat)) ? (
+            <button
+              onClick={() => send({ type: 'CANCEL_VOTE' })}
+              style={{
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                color: '#dc2626',
+                background: 'var(--color-bg-panel)',
+                border: '1px solid #dc2626',
+                borderRadius: 'var(--card-border-radius)',
+                padding: '2px var(--space-2)',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel Vote
+            </button>
+          ) : (
+            <GameActionsMenu
+              isHost={isHost}
+              isSpectator={isSpectator}
+              isPreGame={true}
+              votingEnabled={votingEnabled}
+              activeVote={uiStore.activeVote}
+              mySeat={mySeat}
+              onAction={handleMenuAction}
+              isOnCooldown={isOnCooldown}
+              getCooldownRemaining={getCooldownRemaining}
+            />
+          )}
+
+          {/* Spectating indicator */}
+          {isSpectator && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 'calc(32px * var(--scale))',
+                height: 'calc(32px * var(--scale))',
+                background: 'var(--color-gold-accent)',
+                color: 'var(--color-felt-green-dark)',
+                border: 'none',
+                borderRadius: 'calc(8px * var(--scale))',
+              }}
+              title="You are a spectator"
+              aria-label="You are a spectator"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </div>
+          )}
+
+          <LeaveConfirmDialog
+            title="Leave Room?"
+            subtitle=""
+            onConfirm={onLeave}
+            externalOpen={backButtonDialogOpen}
+            onClose={onCancelNavigation}
+          >
+            {(openDialog) => (
+              <button
+                onClick={openDialog}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 'calc(32px * var(--scale))',
+                  height: 'calc(32px * var(--scale))',
+                  color: 'white',
+                  background: '#991b1b',
+                  border: 'none',
+                  borderRadius: 'calc(8px * var(--scale))',
+                  cursor: 'pointer',
+                  transition: 'background var(--duration-fast) var(--easing-smooth)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = '#dc2626'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+                aria-label="Leave room"
+                title="Leave Room"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </button>
+            )}
+          </LeaveConfirmDialog>
+        </div>
 
         {/* Target mode cancel hints */}
         {preGameKickTargetMode && (
@@ -699,7 +756,6 @@ export function PreRoomView({
             fontSize: 'var(--font-sm)',
             color: 'var(--color-gold-accent)',
             fontWeight: 600,
-            textAlign: 'center',
           }}>
             Click a player to kick (Esc to cancel)
           </div>
@@ -709,42 +765,10 @@ export function PreRoomView({
             fontSize: 'var(--font-sm)',
             color: 'var(--color-gold-accent)',
             fontWeight: 600,
-            textAlign: 'center',
           }}>
             Click a player to transfer host (Esc to cancel)
           </div>
         )}
-
-        {/* REQ-F-GA33: Leave Game standalone button */}
-        <LeaveConfirmDialog
-          title="Leave Room?"
-          subtitle=""
-          onConfirm={onLeave}
-          externalOpen={backButtonDialogOpen}
-          onClose={onCancelNavigation}
-        >
-          {(openDialog) => (
-            <button
-              onClick={openDialog}
-              style={{
-                background: 'transparent',
-                border: '1px solid transparent',
-                borderRadius: 'var(--card-border-radius)',
-                color: 'var(--color-text-secondary)',
-                padding: 'var(--space-1) var(--space-3)',
-                fontSize: 'var(--font-xl)',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
-              aria-label="Leave room"
-            >
-              Leave Room
-            </button>
-          )}
-        </LeaveConfirmDialog>
       </div>
 
       {/* REQ-F-CG15: Settings panel (opened via menu) */}
@@ -768,95 +792,203 @@ export function PreRoomView({
       {isMobileLayout && (
         <div style={{
           position: 'fixed',
-          top: 'var(--space-1)',
-          left: 'var(--space-2)',
+          top: 'var(--space-3)',
+          left: 'var(--space-4)',
           zIndex: 30,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start',
-          gap: 'var(--space-1)',
+          gap: 'var(--space-3)',
         }}>
-          {/* Row 1: [Spectating] [Room Name] [# watching] */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            {isSpectator && (
-              <span style={{
-                background: 'var(--color-gold-accent)',
-                color: 'var(--color-felt-green-dark)',
-                padding: '2px var(--space-2)',
-                borderRadius: 'var(--card-border-radius)',
-                fontSize: 'var(--font-sm)',
-                fontWeight: 700,
-              }}>
-                Spectating
-              </span>
-            )}
+          {/* Row 1: [Room Name] [eye icon + count] */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             {/* REQ-F-GA01: Room name — click to copy URL */}
             <button
               onClick={handleCopyUrl}
               style={{
-                fontSize: 'var(--font-sm)',
+                fontSize: 'calc(24px * var(--scale))',
                 fontWeight: 700,
                 color: urlCopied ? 'var(--color-text-primary)' : 'var(--color-gold-accent)',
-                background: 'var(--color-bg-panel)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--card-border-radius)',
-                padding: '2px var(--space-2)',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
                 cursor: 'pointer',
+                lineHeight: 1,
+                textDecoration: 'none',
               }}
               aria-label="Copy game link"
             >
               {urlCopied ? 'Link copied!' : (roomName ?? 'Room')}
             </button>
-            <span style={{
-              fontSize: 'var(--font-sm)',
-              fontWeight: 600,
-              color: 'var(--color-text-secondary)',
-            }}>
-              {spectatorCount} watching
-            </span>
-          </div>
-
-          {/* Row 2: Kebab menu button (opens drawer) or Cancel Vote */}
-          {uiStore.activeVote && (isHost || (mySeat && uiStore.activeVote.initiatorSeat === mySeat)) ? (
-            <button
-              onClick={() => send({ type: 'CANCEL_VOTE' })}
-              style={{
-                fontSize: 'var(--font-sm)',
-                fontWeight: 600,
-                color: '#dc2626',
-                background: 'var(--color-bg-panel)',
-                border: '1px solid #dc2626',
-                borderRadius: 'var(--card-border-radius)',
-                padding: '2px var(--space-2)',
-                cursor: 'pointer',
+            {/* Spectator eye icon + count */}
+            <div
+              style={{ position: 'relative' }}
+              onMouseEnter={(e) => {
+                const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
+                if (tip) tip.style.display = 'block';
+              }}
+              onMouseLeave={(e) => {
+                const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
+                if (tip) tip.style.display = 'none';
               }}
             >
-              Cancel Vote
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                // REQ-F-GA42: Opening menu cancels target selection
-                setPreGameKickTargetMode(false);
-                setTransferHostTargetMode(false);
-                setDrawerOpen(true);
-              }}
-              style={{
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'calc(6px * var(--scale))',
+                background: 'var(--color-bg-panel)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--space-2)',
+                padding: 'calc(2px * var(--scale)) calc(6px * var(--scale))',
                 fontSize: 'var(--font-sm)',
                 fontWeight: 600,
                 color: 'var(--color-text-secondary)',
-                background: 'var(--color-bg-panel)',
+                cursor: 'default',
+              }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, display: 'block' }}>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                {spectatorCount}
+              </div>
+              <div data-tooltip style={{
+                display: 'none',
+                position: 'absolute',
+                top: 0,
+                left: 'calc(100% + 6px)',
+                background: 'rgb(0,0,0)',
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--card-border-radius)',
-                padding: '2px var(--space-2)',
-                cursor: 'pointer',
-                lineHeight: 1,
-              }}
-              title="Game Actions"
+                padding: 'var(--space-2) var(--space-3)',
+                fontSize: 'var(--font-sm)',
+                color: 'var(--color-text-primary)',
+                whiteSpace: 'nowrap',
+                zIndex: 40,
+                boxSizing: 'border-box',
+              }}>
+                <div style={{ fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: spectatorNames.length > 0 ? 'var(--space-1)' : undefined, fontSize: 'var(--font-sm)' }}>
+                  {spectatorNames.length > 0 ? 'Spectators' : 'No Spectators'}
+                </div>
+                {spectatorNames.map((name, i) => (
+                  <div key={i} style={{ fontWeight: 600 }}>{name}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+            {uiStore.activeVote && (isHost || (mySeat && uiStore.activeVote.initiatorSeat === mySeat)) ? (
+              <button
+                onClick={() => send({ type: 'CANCEL_VOTE' })}
+                style={{
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 600,
+                  color: '#dc2626',
+                  background: 'var(--color-bg-panel)',
+                  border: '1px solid #dc2626',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: '2px var(--space-2)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel Vote
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  // REQ-F-GA42: Opening menu cancels target selection
+                  setPreGameKickTargetMode(false);
+                  setTransferHostTargetMode(false);
+                  setDrawerOpen(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 'calc(32px * var(--scale))',
+                  height: 'calc(32px * var(--scale))',
+                  color: 'var(--color-text-primary)',
+                  background: 'var(--color-bg-panel)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'calc(8px * var(--scale))',
+                  cursor: 'pointer',
+                  transition: 'background var(--duration-fast) var(--easing-smooth), border-color var(--duration-fast) var(--easing-smooth)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-bg-panel)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                title="Game Menu"
+                aria-label="Game Menu"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+            )}
+
+            {/* Spectating indicator */}
+            {isSpectator && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 'calc(32px * var(--scale))',
+                  height: 'calc(32px * var(--scale))',
+                  background: 'var(--color-gold-accent)',
+                  color: 'var(--color-felt-green-dark)',
+                  border: 'none',
+                  borderRadius: 'calc(8px * var(--scale))',
+                }}
+                title="You are a spectator"
+                aria-label="You are a spectator"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </div>
+            )}
+
+            <LeaveConfirmDialog
+              title="Leave Room?"
+              subtitle=""
+              onConfirm={onLeave}
+              externalOpen={backButtonDialogOpen}
+              onClose={onCancelNavigation}
             >
-              &#x22EE;
-            </button>
-          )}
+              {(openDialog) => (
+                <button
+                  onClick={openDialog}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 'calc(32px * var(--scale))',
+                    height: 'calc(32px * var(--scale))',
+                    color: 'white',
+                    background: '#991b1b',
+                    border: 'none',
+                    borderRadius: 'calc(8px * var(--scale))',
+                    cursor: 'pointer',
+                    transition: 'background var(--duration-fast) var(--easing-smooth)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#dc2626'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = '#991b1b'; }}
+                  aria-label="Leave room"
+                  title="Leave Room"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                </button>
+              )}
+            </LeaveConfirmDialog>
+          </div>
 
           {/* Target mode hints */}
           {preGameKickTargetMode && (
@@ -877,34 +1009,6 @@ export function PreRoomView({
               Click a player to transfer host (Esc to cancel)
             </div>
           )}
-
-          {/* Row 3: Leave Game */}
-          <LeaveConfirmDialog
-            title="Leave Room?"
-            subtitle=""
-            onConfirm={onLeave}
-            externalOpen={backButtonDialogOpen}
-            onClose={onCancelNavigation}
-          >
-            {(openDialog) => (
-              <button
-                onClick={openDialog}
-                style={{
-                  fontSize: 'var(--font-sm)',
-                  fontWeight: 600,
-                  color: 'var(--color-text-secondary)',
-                  background: 'var(--color-bg-panel)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--card-border-radius)',
-                  padding: '2px var(--space-2)',
-                  cursor: 'pointer',
-                }}
-                aria-label="Leave room"
-              >
-                Leave Game
-              </button>
-            )}
-          </LeaveConfirmDialog>
         </div>
       )}
 
