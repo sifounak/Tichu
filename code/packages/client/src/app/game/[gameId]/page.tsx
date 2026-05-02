@@ -1092,6 +1092,79 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     && !!mySeat
     && !gameStore.finishOrder.includes(mySeat);
 
+  // Mobile card-passing scale: measure opponent row bottom edge and scale the
+  // PreGamePhase container so it doesn't overlap the opponent info boxes.
+  const passPhaseRef = useRef<HTMLDivElement>(null);
+  const [passPhaseScale, setPassPhaseScale] = useState(1);
+  const passPhaseScaleRef = useRef(1);
+
+  useEffect(() => {
+    if (!isMobileLayout || (!isPreGame && !showReceivedCards)) {
+      if (passPhaseScale !== 1) setPassPhaseScale(1);
+      passPhaseScaleRef.current = 1;
+      return;
+    }
+
+    function measure() {
+      const el = passPhaseRef.current;
+      if (!el) return;
+
+      // Find the opponents row and left/right opponent seat elements
+      const opponentsRow = document.querySelector('[data-debug-area="Left Opponent"]')?.parentElement;
+      const leftOpp = document.querySelector('[data-debug-area="Left Opponent"]');
+      const rightOpp = document.querySelector('[data-debug-area="Right Opponent"]');
+      if (!opponentsRow || !leftOpp || !rightOpp) return;
+
+      const oppRowRect = opponentsRow.getBoundingClientRect();
+      const leftRect = leftOpp.getBoundingClientRect();
+      const rightRect = rightOpp.getBoundingClientRect();
+
+      // Bottom boundary: bottom of opponents row (includes indicator labels)
+      const topLimit = oppRowRect.bottom;
+
+      // Available vertical space: from opponent row bottom to where the
+      // pass container's bottom currently sits (transform-origin: bottom center)
+      const elRect = el.getBoundingClientRect();
+      // Undo current scale to get natural dimensions
+      const cur = passPhaseScaleRef.current || 1;
+      const naturalHeight = elRect.height / cur;
+      const naturalWidth = elRect.width / cur;
+
+      const availableHeight = elRect.bottom - topLimit;
+      const verticalScale = availableHeight > 0 && naturalHeight > 0
+        ? Math.min(1, availableHeight / naturalHeight)
+        : 1;
+
+      // Width constraint: min width = 80% of gap between opponent info boxes
+      const oppGap = rightRect.left - leftRect.right;
+      const minWidth = oppGap * 0.8;
+      let finalScale = verticalScale;
+      if (naturalWidth > 0 && minWidth > 0) {
+        // If vertical scaling would shrink width below minimum, use a scale
+        // that satisfies the minimum width instead
+        const scaledWidth = naturalWidth * verticalScale;
+        if (scaledWidth < minWidth) {
+          finalScale = Math.max(verticalScale, minWidth / naturalWidth);
+        }
+      }
+
+      const clamped = Math.max(0.4, Math.min(1, finalScale));
+      passPhaseScaleRef.current = clamped;
+      setPassPhaseScale(clamped);
+    }
+
+    // Measure after a frame so the DOM has settled
+    const rafId = requestAnimationFrame(measure);
+    const observer = new ResizeObserver(() => requestAnimationFrame(measure));
+    observer.observe(document.documentElement);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      observer.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobileLayout, isPreGame, showReceivedCards]);
+
   // Player can select cards to pass once they have 14 cards (decided GT or in card passing phase)
   const canSelectPassCards =
     phase === GamePhase.CardPassing ||
@@ -1792,8 +1865,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   </button>
                 )}
               </div>
-              {/* Center: Pre-game phase content */}
-              <div style={{ pointerEvents: 'auto' }}>
+              {/* Center: Pre-game phase content — scaled to fit below opponent info boxes */}
+              <div ref={passPhaseRef} style={{ pointerEvents: 'auto', transformOrigin: 'bottom center', transform: passPhaseScale < 1 ? `scale(${passPhaseScale})` : undefined }}>
                 {isPreGame ? (
                   <PreGamePhase
                     phase={phase}
