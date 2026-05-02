@@ -131,8 +131,10 @@ export const GameActionsMenu = memo(function GameActionsMenu({
     }
 
     // REQ-F-GA24: Transfer Host — host only
+    // REQ-F-GA44: Disabled during active vote
     if (isHost) {
-      items.push({ action: { type: 'transferHost' }, label: 'Transfer Host' });
+      const transferDisabled = !!activeVote;
+      items.push({ action: { type: 'transferHost' }, label: 'Transfer Host', disabled: transferDisabled, hint: transferDisabled ? 'Vote in progress' : undefined });
     }
 
     // REQ-F-GA46: Toggle Voting — host only

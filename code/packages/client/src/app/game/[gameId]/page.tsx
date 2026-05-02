@@ -40,6 +40,11 @@ import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import { ErrorToast } from '@/components/ui/ErrorToast';
 import { VoteOverlay } from '@/components/game/VoteOverlay';
 import { LeaveConfirmDialog } from '@/components/game/LeaveConfirmDialog';
+import { GameActionsMenu, type MenuAction } from '@/components/game/GameActionsMenu';
+import { GameActionsDrawer } from '@/components/game/GameActionsDrawer';
+import { ActionConfirmDialog, type ConfirmDialogAction } from '@/components/game/ActionConfirmDialog';
+import { GameSettingsForm } from '@/components/ui/GameSettingsForm';
+import { isOnCooldown, getCooldownRemaining } from '@/stores/uiStore';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 
@@ -108,10 +113,15 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     mySeat: Seat;
   } | null>(null);
 
-  // Leave confirmation is now handled by LeaveConfirmDialog component
-  const [showVoteDropdown, setShowVoteDropdown] = useState(false);
-  const voteDropdownRef = useRef<HTMLDivElement>(null);
-  const [codeCopied, setCodeCopied] = useState(false);
+  // REQ-F-GA01: URL copy toast state
+  const [urlCopied, setUrlCopied] = useState(false);
+  // REQ-F-GA09: Mobile drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  // REQ-F-GA16, GA17, GA26: Confirmation dialog state
+  const [confirmAction, setConfirmAction] = useState<ConfirmDialogAction | null>(null);
+  const [confirmTargetSeat, setConfirmTargetSeat] = useState<Seat | null>(null);
+  // REQ-F-GA40: In-game settings panel (read-only)
+  const [showSettings, setShowSettings] = useState(false);
 
   // REQ-F-ID01: Use auth identity when logged in, fall back to guest
   const { user: authUser, authReady, loadFromStorage: loadAuth } = useAuthStore();
@@ -832,29 +842,17 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     return () => clearInterval(interval);
   }, [uiStore, uiStore.activeVote]);
 
-  // REQ-F-PV03: Escape key cancels kick target mode and vote dropdown
+  // REQ-F-PV03: Escape key cancels kick target mode and transfer host target mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (uiStore.kickTargetMode) uiStore.setKickTargetMode(false);
-        if (showVoteDropdown) setShowVoteDropdown(false);
+        if (uiStore.transferHostTargetMode) uiStore.setTransferHostTargetMode(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [uiStore, showVoteDropdown]);
-
-  // Click outside vote dropdown to dismiss
-  useEffect(() => {
-    if (!showVoteDropdown) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (voteDropdownRef.current && !voteDropdownRef.current.contains(e.target as Node)) {
-        setShowVoteDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showVoteDropdown]);
+  }, [uiStore]);
 
   // Click outside player seats cancels kick target selection mode
   useEffect(() => {
@@ -868,6 +866,81 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [uiStore, uiStore.kickTargetMode]);
+
+  // REQ-F-GA01: Copy game URL to clipboard
+  const handleCopyUrl = useCallback(() => {
+    navigator.clipboard.writeText(window.location.href);
+    setUrlCopied(true);
+    setTimeout(() => setUrlCopied(false), 2000);
+  }, []);
+
+  // Voting state from room store
+  const votingEnabled = useRoomStore((s) => s.votingEnabled);
+
+  // REQ-F-GA07-10: In-game menu action handler
+  const handleMenuAction = useCallback((action: MenuAction) => {
+    // REQ-F-GA42: Opening menu cancels target selection
+    uiStore.setKickTargetMode(false);
+    uiStore.setTransferHostTargetMode(false);
+
+    switch (action.type) {
+      case 'kickPlayer':
+        uiStore.setKickTargetMode(true);
+        break;
+      case 'restartRound':
+        setConfirmAction({ type: 'restartRound' });
+        break;
+      case 'restartGame':
+        setConfirmAction({ type: 'restartGame' });
+        break;
+      case 'transferHost':
+        uiStore.setTransferHostTargetMode(true);
+        break;
+      case 'gameSettings':
+        setShowSettings(true);
+        break;
+      case 'toggleVoting':
+        send({ type: 'TOGGLE_VOTING' });
+        break;
+      case 'cancelVote':
+        send({ type: 'CANCEL_VOTE' });
+        break;
+    }
+  }, [send, uiStore]);
+
+  // REQ-F-GA16, GA17: Confirmation dialog callbacks
+  const handleConfirmStartVote = useCallback(() => {
+    if (!confirmAction) return;
+    if (confirmAction.type === 'kick' && confirmTargetSeat) {
+      send({ type: 'START_KICK_VOTE', targetSeat: confirmTargetSeat });
+    } else if (confirmAction.type === 'restartRound') {
+      send({ type: 'START_RESTART_ROUND_VOTE' });
+    } else if (confirmAction.type === 'restartGame') {
+      send({ type: 'START_RESTART_GAME_VOTE' });
+    }
+    setConfirmAction(null);
+    setConfirmTargetSeat(null);
+  }, [confirmAction, confirmTargetSeat, send]);
+
+  const handleConfirmForceAction = useCallback(() => {
+    if (!confirmAction) return;
+    if (confirmAction.type === 'kick' && confirmTargetSeat) {
+      send({ type: 'FORCE_KICK', targetSeat: confirmTargetSeat });
+    } else if (confirmAction.type === 'restartRound') {
+      send({ type: 'FORCE_RESTART_ROUND' });
+    } else if (confirmAction.type === 'restartGame') {
+      send({ type: 'FORCE_RESTART_GAME' });
+    } else if (confirmAction.type === 'transferHost' && confirmTargetSeat) {
+      send({ type: 'TRANSFER_HOST', targetSeat: confirmTargetSeat });
+    }
+    setConfirmAction(null);
+    setConfirmTargetSeat(null);
+  }, [confirmAction, confirmTargetSeat, send]);
+
+  const handleConfirmCancel = useCallback(() => {
+    setConfirmAction(null);
+    setConfirmTargetSeat(null);
+  }, []);
 
   // REQ-F-AP01–AP12: Auto-pass until next trick
   const autoPassEnabled = uiStore.autoPassEnabled;
@@ -1255,66 +1328,68 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           </div>
         )}
 
-        {/* Room code — button border appears on hover */}
-        {roomCode && (
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(roomCode);
-              setCodeCopied(true);
-              setTimeout(() => setCodeCopied(false), 1000);
-            }}
-            style={{
-              fontSize: 'var(--font-xl)',
-              fontWeight: 600,
-              color: 'var(--color-text-secondary)',
-              textAlign: 'center' as const,
-              background: 'transparent',
-              border: '1px solid transparent',
-              borderRadius: 'var(--card-border-radius)',
-              padding: 'var(--space-1) var(--space-3)',
-              cursor: 'pointer',
-              transition: 'border-color 0.2s',
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
-            aria-label="Copy room code"
-          >
-            Room Code: <span style={{ fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.15em', color: 'var(--color-gold-accent)' }}>{roomCode}</span>
-          </button>
+        {/* REQ-F-GA01: Room name — click to copy URL */}
+        <button
+          onClick={handleCopyUrl}
+          style={{
+            fontSize: 'var(--font-xl)',
+            fontWeight: 700,
+            color: 'var(--color-gold-accent)',
+            textAlign: 'center' as const,
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            textDecoration: 'none',
+            transition: 'text-decoration 0.15s',
+            padding: 'var(--space-1) var(--space-3)',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+          aria-label="Copy game link"
+          title="Click to copy game link"
+        >
+          {roomName ?? 'Room'}
+        </button>
+
+        {/* REQ-F-GA02: "Link copied!" toast */}
+        {urlCopied && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: '100%',
+            marginLeft: 'var(--space-2)',
+            background: 'var(--color-bg-panel)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--card-border-radius)',
+            padding: 'var(--space-1) var(--space-3)',
+            fontSize: 'var(--font-md)',
+            color: 'var(--color-text-primary)',
+            whiteSpace: 'nowrap',
+          }}>
+            Link copied!
+          </div>
         )}
 
-        {/* Spectator count button with tooltip */}
+        {/* REQ-F-GA05: Spectator count with tooltip */}
         <div
           style={{ position: 'relative' }}
           onMouseEnter={(e) => {
-            const btn = e.currentTarget.querySelector('button') as HTMLElement;
             const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
-            if (btn) { btn.style.borderColor = 'var(--color-border)'; btn.style.background = 'rgba(255,255,255,0.1)'; }
             if (tip) tip.style.display = 'block';
           }}
           onMouseLeave={(e) => {
-            const btn = e.currentTarget.querySelector('button') as HTMLElement;
             const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
-            if (btn) { btn.style.borderColor = 'transparent'; btn.style.background = 'transparent'; }
             if (tip) tip.style.display = 'none';
           }}
         >
-          <button
-            style={{
-              fontSize: 'var(--font-xl)',
-              fontWeight: 600,
-              color: 'var(--color-text-secondary)',
-              textAlign: 'center' as const,
-              background: 'transparent',
-              border: '1px solid transparent',
-              borderRadius: 'var(--card-border-radius)',
-              padding: 'var(--space-1) var(--space-3)',
-              cursor: 'default',
-              transition: 'border-color 0.2s',
-            }}
-          >
+          <span style={{
+            fontSize: 'var(--font-xl)',
+            fontWeight: 600,
+            color: 'var(--color-text-secondary)',
+            padding: 'var(--space-1) var(--space-3)',
+          }}>
             Spectators: <span style={{ color: 'var(--color-gold-accent)', fontWeight: 900 }}>{spectatorCount}</span>
-          </button>
+          </span>
           {spectatorNames.length > 0 && (
             <div data-tooltip style={{
               display: 'none',
@@ -1341,105 +1416,18 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           )}
         </div>
 
-        {/* REQ-F-PV01: Start a Vote button + dropdown (full layout only — mobile uses chrome column) */}
-        {!isSpectator && mySeatFromRoom && (gameInProgress || gameStore.gameId) && !uiStore.activeVote && !uiStore.disconnectVoteRequired && (
-          <div ref={!isMobileLayout ? voteDropdownRef : undefined} style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowVoteDropdown(!showVoteDropdown)}
-              style={{
-                background: 'transparent',
-                border: '1px solid transparent',
-                borderRadius: 'var(--card-border-radius)',
-                color: 'var(--color-text-secondary)',
-                padding: 'var(--space-1) var(--space-3)',
-                fontSize: 'var(--font-xl)',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'border-color 0.2s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'transparent'; }}
-              aria-label="Start a vote"
-            >
-              Start a Vote
-            </button>
-            {showVoteDropdown && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: '100%',
-                  marginLeft: 'var(--space-1)',
-                  background: 'rgb(0,0,0)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--card-border-radius)',
-                  padding: 'var(--space-1) 0',
-                  zIndex: 50,
-                  minWidth: '100%',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                <button
-                  onClick={() => { setShowVoteDropdown(false); uiStore.setKickTargetMode(true); }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--color-text-primary)',
-                    padding: 'var(--space-2) var(--space-3)',
-                    fontSize: 'var(--font-base)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                >
-                  Kick Player
-                </button>
-                <button
-                  onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_ROUND_VOTE' }); }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--color-text-primary)',
-                    padding: 'var(--space-2) var(--space-3)',
-                    fontSize: 'var(--font-base)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                >
-                  Restart Round
-                </button>
-                <button
-                  onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_GAME_VOTE' }); }}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--color-text-primary)',
-                    padding: 'var(--space-2) var(--space-3)',
-                    fontSize: 'var(--font-base)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                >
-                  Restart Game
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        {/* REQ-F-GA07: Kebab menu (desktop popover) */}
+        <GameActionsMenu
+          isHost={mySeatFromRoom === hostSeat}
+          isSpectator={isSpectator}
+          isPreGame={false}
+          votingEnabled={votingEnabled}
+          activeVote={uiStore.activeVote}
+          mySeat={mySeatFromRoom}
+          onAction={handleMenuAction}
+          isOnCooldown={isOnCooldown}
+          getCooldownRemaining={getCooldownRemaining}
+        />
 
         {/* Leave Room button with confirmation dialog */}
         <LeaveConfirmDialog
@@ -1471,25 +1459,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </button>
           )}
         </LeaveConfirmDialog>
-
-        {/* Copy toast — positioned to the right so it doesn't shift buttons */}
-        {codeCopied && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: '100%',
-            marginLeft: 'var(--space-2)',
-            background: 'var(--color-bg-panel)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--card-border-radius)',
-            padding: 'var(--space-1) var(--space-3)',
-            fontSize: 'var(--font-md)',
-            color: 'var(--color-text-primary)',
-            whiteSpace: 'nowrap',
-          }}>
-            Room code copied to clipboard
-          </div>
-        )}
       </div>
 
       {/* REQ-F-SP08: Spectator overlay (seat offers, queue status, seats available) */}
@@ -1544,9 +1513,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           padding: 'var(--space-1) var(--space-2)',
           pointerEvents: 'none',
         }}>
-          {/* Left column: [Room: #####] # watching / [Start a Vote] / [Leave Game] */}
+          {/* Left column: [Spectating] [Room Name] [# watching] / [⋮ kebab] / [Leave Game] */}
           <div style={{ pointerEvents: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--space-1)' }}>
-            {/* Row 1: spectating badge + room code + spectator count */}
+            {/* Row 1: spectating badge + room name + spectator count */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               {isSpectator && (
                 <span style={{
@@ -1560,28 +1529,23 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   Spectating
                 </span>
               )}
-              {roomCode && (
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(roomCode);
-                    setCodeCopied(true);
-                    setTimeout(() => setCodeCopied(false), 1000);
-                  }}
-                  style={{
-                    fontSize: 'var(--font-sm)',
-                    fontWeight: 600,
-                    color: 'var(--color-text-secondary)',
-                    background: 'var(--color-bg-panel)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--card-border-radius)',
-                    padding: '2px var(--space-2)',
-                    cursor: 'pointer',
-                  }}
-                  aria-label="Copy room code"
-                >
-                  {codeCopied ? 'Copied!' : <>Room: <span style={{ fontFamily: 'monospace', fontWeight: 900, letterSpacing: '0.1em', color: 'var(--color-gold-accent)' }}>{roomCode}</span></>}
-                </button>
-              )}
+              {/* REQ-F-GA01: Room name — click to copy URL */}
+              <button
+                onClick={handleCopyUrl}
+                style={{
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 700,
+                  color: urlCopied ? 'var(--color-text-primary)' : 'var(--color-gold-accent)',
+                  background: 'var(--color-bg-panel)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: '2px var(--space-2)',
+                  cursor: 'pointer',
+                }}
+                aria-label="Copy game link"
+              >
+                {urlCopied ? 'Link copied!' : (roomName ?? 'Room')}
+              </button>
               <span style={{
                 fontSize: 'var(--font-sm)',
                 fontWeight: 600,
@@ -1591,101 +1555,45 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               </span>
             </div>
 
-            {/* Row 2: Start a Vote */}
-            {!isSpectator && mySeatFromRoom && (gameInProgress || gameStore.gameId) && !uiStore.activeVote && !uiStore.disconnectVoteRequired && (
-              <div ref={voteDropdownRef} style={{ position: 'relative' }}>
-                <button
-                  onClick={() => setShowVoteDropdown(!showVoteDropdown)}
-                  style={{
-                    background: 'var(--color-bg-panel)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--card-border-radius)',
-                    color: 'var(--color-text-secondary)',
-                    padding: '2px var(--space-2)',
-                    fontSize: 'var(--font-sm)',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                  aria-label="Start a vote"
-                >
-                  Start a Vote
-                </button>
-                {showVoteDropdown && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      marginTop: '2px',
-                      background: 'rgb(0,0,0)',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--card-border-radius)',
-                      padding: 'var(--space-1) 0',
-                      zIndex: 50,
-                      minWidth: '100%',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <button
-                      onClick={() => { setShowVoteDropdown(false); uiStore.setKickTargetMode(true); }}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--color-text-primary)',
-                        padding: 'var(--space-2) var(--space-3)',
-                        fontSize: 'var(--font-sm)',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      Kick Player
-                    </button>
-                    <button
-                      onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_ROUND_VOTE' }); }}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--color-text-primary)',
-                        padding: 'var(--space-2) var(--space-3)',
-                        fontSize: 'var(--font-sm)',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      Restart Round
-                    </button>
-                    <button
-                      onClick={() => { setShowVoteDropdown(false); send({ type: 'START_RESTART_GAME_VOTE' }); }}
-                      style={{
-                        display: 'block',
-                        width: '100%',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--color-text-primary)',
-                        padding: 'var(--space-2) var(--space-3)',
-                        fontSize: 'var(--font-sm)',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      Restart Game
-                    </button>
-                  </div>
-                )}
-              </div>
+            {/* Row 2: Kebab menu button (opens drawer) or Cancel Vote */}
+            {uiStore.activeVote && (mySeatFromRoom === hostSeat || (mySeatFromRoom && uiStore.activeVote.initiatorSeat === mySeatFromRoom)) ? (
+              <button
+                onClick={() => send({ type: 'CANCEL_VOTE' })}
+                style={{
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 600,
+                  color: '#dc2626',
+                  background: 'var(--color-bg-panel)',
+                  border: '1px solid #dc2626',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: '2px var(--space-2)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel Vote
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  uiStore.setKickTargetMode(false);
+                  uiStore.setTransferHostTargetMode(false);
+                  setDrawerOpen(true);
+                }}
+                style={{
+                  fontSize: 'var(--font-sm)',
+                  fontWeight: 600,
+                  color: 'var(--color-text-secondary)',
+                  background: 'var(--color-bg-panel)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--card-border-radius)',
+                  padding: '2px var(--space-2)',
+                  cursor: 'pointer',
+                  lineHeight: 1,
+                }}
+                title="Game Actions"
+              >
+                &#x22EE;
+              </button>
             )}
 
             {/* Row 3: Leave Game */}
@@ -1792,7 +1700,18 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         compassLayout={isSpectator}
         layoutTier={layoutTier}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
-        onKickTarget={(seat: Seat) => { uiStore.setKickTargetMode(false); send({ type: 'START_KICK_VOTE', targetSeat: seat }); }}
+        onKickTarget={(seat: Seat) => {
+          uiStore.setKickTargetMode(false);
+          const targetName = seatNames[seat] ?? seat;
+          setConfirmTargetSeat(seat);
+          setConfirmAction({ type: 'kick', targetName });
+        }}
+        onTransferHostTarget={(seat: Seat) => {
+          uiStore.setTransferHostTargetMode(false);
+          const targetName = seatNames[seat] ?? seat;
+          setConfirmTargetSeat(seat);
+          setConfirmAction({ type: 'transferHost', targetName });
+        }}
         onAddBot={mySeatFromRoom === hostSeat && !isSpectator ? (seat: Seat) => send({ type: 'ADD_BOT', seat }) : undefined}
         centerContent={gameStore.gameHalted && !isPreGame ? (
           <div style={{ textAlign: 'center', color: 'white', fontSize: 'calc(36px * var(--scale))', fontWeight: 700, padding: 'var(--space-8)', background: 'var(--color-bg-panel)', borderRadius: 'var(--space-3)', border: '2px solid var(--color-border)' }}>
@@ -2411,6 +2330,73 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
       <ConnectionStatus status={status} />
       <ErrorToast message={uiStore.errorToast} onDismiss={uiStore.clearErrorToast} />
+
+      {/* REQ-F-GA09: Mobile drawer */}
+      <GameActionsDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        isHost={mySeatFromRoom === hostSeat}
+        isSpectator={isSpectator}
+        isPreGame={false}
+        votingEnabled={votingEnabled}
+        onAction={(action) => {
+          setDrawerOpen(false);
+          handleMenuAction(action);
+        }}
+        activeVote={uiStore.activeVote}
+        mySeat={mySeatFromRoom}
+        isOnCooldown={isOnCooldown}
+        getCooldownRemaining={getCooldownRemaining}
+      />
+
+      {/* REQ-F-GA40: In-game settings panel (read-only for all) */}
+      {showSettings && roomConfig && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            zIndex: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            style={{
+              background: 'rgb(0, 0, 0)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--space-3)',
+              padding: 'calc(16px * var(--scale))',
+              width: 'calc(240px * var(--scale))',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              fontSize: 'var(--font-base)',
+              fontWeight: 600,
+              color: 'var(--color-text-primary)',
+              textAlign: 'center',
+              marginBottom: 'calc(12px * var(--scale))',
+            }}>
+              Game Settings
+            </div>
+            <GameSettingsForm config={roomConfig} onChange={() => {}} readOnly={true} />
+          </div>
+        </div>
+      )}
+
+      {/* REQ-F-GA16, GA17, GA20, GA26: Confirmation dialogs */}
+      {confirmAction && (
+        <ActionConfirmDialog
+          action={confirmAction}
+          isHost={mySeatFromRoom === hostSeat}
+          onCancel={handleConfirmCancel}
+          onStartVote={confirmAction.type !== 'transferHost' ? handleConfirmStartVote : undefined}
+          onForceAction={handleConfirmForceAction}
+        />
+      )}
 
       {/* Partner call safeguard confirmation dialog */}
       {partnerCallConfirm && (
