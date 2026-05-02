@@ -1041,18 +1041,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       const el = passPhaseRef.current;
       if (!el) return;
 
-      // Find the opponents row and left/right opponent seat elements
-      const opponentsRow = document.querySelector('[data-debug-area="Left Opponent"]')?.parentElement;
+      // Find the left/right opponent seat elements
       const leftOpp = document.querySelector('[data-debug-area="Left Opponent"]');
       const rightOpp = document.querySelector('[data-debug-area="Right Opponent"]');
-      if (!opponentsRow || !leftOpp || !rightOpp) return;
+      if (!leftOpp || !rightOpp) return;
 
-      const oppRowRect = opponentsRow.getBoundingClientRect();
       const leftRect = leftOpp.getBoundingClientRect();
       const rightRect = rightOpp.getBoundingClientRect();
 
-      // Bottom boundary: bottom of opponents row (includes indicator labels)
-      const topLimit = oppRowRect.bottom;
+      // Top limit: vertical midpoint of opponent info boxes
+      const topLimit = (leftRect.top + leftRect.bottom) / 2;
 
       // Available vertical space: from opponent row bottom to where the
       // pass container's bottom currently sits (transform-origin: bottom center)
@@ -1089,10 +1087,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     const rafId = requestAnimationFrame(measure);
     const observer = new ResizeObserver(() => requestAnimationFrame(measure));
     observer.observe(document.documentElement);
+    const onResize = () => requestAnimationFrame(measure);
+    window.addEventListener('resize', onResize);
 
     return () => {
       cancelAnimationFrame(rafId);
       observer.disconnect();
+      window.removeEventListener('resize', onResize);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobileLayout, isPreGame, showReceivedCards]);
@@ -1880,7 +1881,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   </button>
                 )}
               </div>
-              {/* Center: Pre-game phase content — scaled to fit below opponent info boxes */}
+              {/* Center: Pre-game phase content — scaled to fit below opponent midpoint */}
               <div ref={passPhaseRef} style={{ pointerEvents: 'auto', transformOrigin: 'bottom center', transform: passPhaseScale < 1 && phase !== 'grandTichuDecision' ? `scale(${passPhaseScale})` : undefined }}>
                 {isPreGame ? (
                   <PreGamePhase
