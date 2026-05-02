@@ -89,7 +89,23 @@
 }
 
 :root[data-layout="mobile"] .prompt {
-  max-width: calc(2 * var(--card-width-lg));
+  padding: var(--space-2) var(--space-4);
+  border-radius: calc(8px * var(--scale));
+}
+
+:root[data-layout="mobile"] .title {
+  font-size: var(--font-base);
+}
+
+:root[data-layout="mobile"] .subtitle {
+  font-size: calc(11px * var(--scale));
+  margin-bottom: var(--space-1);
+}
+
+:root[data-layout="mobile"] .button {
+  padding: var(--space-2) calc(20px * var(--scale));
+  font-size: var(--font-sm);
+  min-height: calc(36px * var(--scale));
 }
 
 :root[data-layout="mobile"] .passMiddle {
