@@ -86,7 +86,7 @@ describe('ChatPanel (REQ-F-MP07)', () => {
     render(
       <ChatPanel messages={msgs} onSend={vi.fn()} isOpen={true} onToggle={vi.fn()} unreadCount={0} />,
     );
-    expect(screen.getByText((_content, el) => el?.textContent === 'Alice (spectator):')).toBeInTheDocument();
+    expect(screen.getByText((_content, el) => el?.className?.includes('sender') && !!el?.textContent?.match(/Alice\s*\(spectator\)\s*:/))).toBeInTheDocument();
     expect(screen.getByText('Nice play!')).toBeInTheDocument();
   });
 

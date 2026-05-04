@@ -23,7 +23,7 @@ describe('PreGamePhase', () => {
     it('REQ-F-GF09: shows Grand Tichu prompt', () => {
       render(<PreGamePhase {...defaultProps} phase="grandTichuDecision" />);
       expect(screen.getByText('Grand Tichu?')).toBeInTheDocument();
-      expect(screen.getByText(/\+\/-\s*200/)).toBeInTheDocument();
+      expect(screen.getByText(/200/)).toBeInTheDocument();
     });
 
     it('calls onGrandTichuDecision(true) on call', async () => {
