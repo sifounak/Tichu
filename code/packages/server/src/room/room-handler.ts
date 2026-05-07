@@ -231,6 +231,11 @@ export class RoomHandler {
       const roomCode = this.roomManager.getUserRoom(info.userId);
       const spectatorsBefore = roomCode ? this.roomManager.getSpectatorUserIds(roomCode) : [];
 
+      // Capture old host info before leave (which may reassign host)
+      const roomBeforeLeave = roomCode ? this.roomManager.getRoom(roomCode) : undefined;
+      const oldHostSeat = roomBeforeLeave?.hostSeat;
+      const oldHostName = roomBeforeLeave?.players.find(p => p.seat === oldHostSeat)?.name;
+
       const { room, roomCode: rc, seat, gameWasInProgress } = this.roomManager.leaveRoom(info.userId);
       this.connections.removeFromRoom(ws);
 
@@ -248,6 +253,14 @@ export class RoomHandler {
         // REQ-F-SP30: Re-ready remaining bots after ready reset
         this.reReadyBots(rc);
         this.broadcastRoomUpdate(rc);
+
+        // Notify if host changed due to leave
+        if (oldHostSeat && room.hostSeat !== oldHostSeat) {
+          const newHostName = room.players.find(p => p.seat === room.hostSeat)?.name;
+          if (oldHostName && newHostName) {
+            this.broadcastHostChanged(rc, oldHostName, newHostName);
+          }
+        }
 
         // REQ-F-SP07: Start seat queue when player leaves and spectators exist
         this.tryStartSeatQueue(rc, [seat]);
@@ -319,6 +332,11 @@ export class RoomHandler {
   private wirePreGameVoteCallback(): void {
     this.preGameVoteHandler.onVoteResult = (roomCode, voteType, passed, targetSeat) => {
       if (voteType === 'kick' && passed && targetSeat) {
+        // Capture old host info before kick (which may reassign host)
+        const room = this.roomManager.getRoom(roomCode);
+        const oldHostSeat = room?.hostSeat;
+        const oldHostName = room?.players.find(p => p.seat === oldHostSeat)?.name;
+
         // REQ-F-VI10: Pre-game kick vote passed — remove player from room
         const targetUserId = this.roomManager.getUserIdAtSeat(roomCode, targetSeat);
         if (targetUserId) {
@@ -342,6 +360,16 @@ export class RoomHandler {
         this.roomManager.resetReady(roomCode);
         this.reReadyBots(roomCode);
         this.broadcastRoomUpdate(roomCode);
+
+        // Notify if host changed due to kick
+        const roomAfterKick = this.roomManager.getRoom(roomCode);
+        if (roomAfterKick && oldHostSeat && roomAfterKick.hostSeat !== oldHostSeat) {
+          const newHostName = roomAfterKick.players.find(p => p.seat === roomAfterKick.hostSeat)?.name;
+          if (oldHostName && newHostName) {
+            this.broadcastHostChanged(roomCode, oldHostName, newHostName);
+          }
+        }
+
         // Notify spectators about the newly vacant seat
         if (targetSeat) {
           this.tryStartSeatQueue(roomCode, [targetSeat]);
@@ -437,6 +465,10 @@ export class RoomHandler {
       const game = this.gameStore.getGameByRoom(info.roomCode);
       if (!game) return;
 
+      // Capture old host info before kick (which may reassign host)
+      const oldHostSeat = room.hostSeat;
+      const oldHostName = room.players.find(p => p.seat === oldHostSeat)?.name;
+
       const targetUserId = this.roomManager.getUserIdAtSeat(info.roomCode, msg.targetSeat);
       if (targetUserId) {
         const targetSockets = this.connections.getSocketsByUserId(targetUserId);
@@ -455,6 +487,14 @@ export class RoomHandler {
       game.handleSeatVacated(msg.targetSeat);
       this.tryStartSeatQueue(info.roomCode, [msg.targetSeat]);
       this.broadcastRoomUpdate(info.roomCode);
+
+      // Notify if host changed due to kick
+      if (room.hostSeat !== oldHostSeat) {
+        const newHostName = room.players.find(p => p.seat === room.hostSeat)?.name;
+        if (oldHostName && newHostName) {
+          this.broadcastHostChanged(info.roomCode, oldHostName, newHostName);
+        }
+      }
     } else {
       // Pre-game force kick — reuse existing kickPlayer logic
       try {
@@ -544,6 +584,10 @@ export class RoomHandler {
     }
 
     try {
+      // Capture old host name before transfer mutates hostSeat
+      const oldHostName = room!.players.find(p => p.seat === room!.hostSeat)!.name;
+      const newHostName = room!.players.find(p => p.seat === msg.targetSeat)!.name;
+
       this.roomManager.transferHost(info.userId, msg.targetSeat);
       // REQ-F-GA29: Broadcast updated host seat to all clients
       this.broadcastRoomUpdate(info.roomCode);
@@ -552,6 +596,9 @@ export class RoomHandler {
       if (game && room) {
         game.setRoomState(room.hostSeat, room.votingEnabled);
       }
+
+      // Broadcast host change notification
+      this.broadcastHostChanged(info.roomCode, oldHostName, newHostName);
     } catch (err) {
       this.broadcaster.sendError(ws, 'TRANSFER_FAILED', (err as Error).message);
     }
@@ -974,6 +1021,11 @@ export class RoomHandler {
     // REQ-F-PV22: Wire player vote callback — handle kick, restart-game, and restart-round outcomes
     game.wireVoteCallback(
       (rc, targetSeat) => {
+        // Capture old host info before kick (which may reassign host)
+        const room = this.roomManager.getRoom(rc);
+        const oldHostSeat = room?.hostSeat;
+        const oldHostName = room?.players.find(p => p.seat === oldHostSeat)?.name;
+
         // REQ-F-PV16: Kick vote passed — send KICKED to target, vacate seat
         const targetUserId = this.roomManager.getUserIdAtSeat(rc, targetSeat);
         if (targetUserId) {
@@ -996,6 +1048,15 @@ export class RoomHandler {
         }
         this.tryStartSeatQueue(rc, [targetSeat]);
         this.broadcastRoomUpdate(rc);
+
+        // Notify if host changed due to kick
+        const roomAfterKick = this.roomManager.getRoom(rc);
+        if (roomAfterKick && oldHostSeat && roomAfterKick.hostSeat !== oldHostSeat) {
+          const newHostName = roomAfterKick.players.find(p => p.seat === roomAfterKick.hostSeat)?.name;
+          if (oldHostName && newHostName) {
+            this.broadcastHostChanged(rc, oldHostName, newHostName);
+          }
+        }
       },
       (rc) => {
         // REQ-F-PV18: Restart game vote passed — destroy and recreate game after 2s delay
@@ -1390,6 +1451,23 @@ export class RoomHandler {
     }
 
     queue.handleDecline(info.userId);
+  }
+
+  /**
+   * Broadcast HOST_TRANSFERRED event and system chat message when host changes.
+   * Call AFTER the host has already been reassigned in the room.
+   */
+  private broadcastHostChanged(roomCode: string, oldHostName: string, newHostName: string): void {
+    this.broadcaster.broadcastToRoom(roomCode, {
+      type: 'HOST_TRANSFERRED',
+      oldHostName,
+      newHostName,
+    } as import('@tichu/shared').ServerMessage);
+    this.broadcaster.broadcastToRoom(roomCode, {
+      type: 'CHAT_RECEIVED',
+      from: null,
+      text: `${newHostName} is now the host`,
+    } as import('@tichu/shared').ServerMessage);
   }
 
   // REQ-F-005: Public access for reconnection flow
