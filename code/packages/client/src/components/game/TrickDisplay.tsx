@@ -296,6 +296,11 @@ export const TrickDisplay = memo(function TrickDisplay({
                         );
                       })}
                     </div>
+                    {(latestPlay.combination.type === 'straight' || latestPlay.combination.type === 'straightFlushBomb') && (
+                      <div className={styles.straightLabel}>
+                        {latestPlay.combination.cards.length}-card straight
+                      </div>
+                    )}
                   </motion.div>
                 );
               })()}

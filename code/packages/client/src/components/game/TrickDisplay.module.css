@@ -116,7 +116,7 @@
 }
 
 .cards > * + * {
-  margin-left: calc(-68px * var(--scale));
+  margin-left: calc(-62.75px * var(--scale));
 }
 
 .trickCard {
@@ -198,6 +198,17 @@
   pointer-events: none;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   font-family: var(--font-card);
+}
+
+/* Straight length label — displayed below the fanned cards */
+.straightLabel {
+  text-align: center;
+  font-size: calc(22px * var(--scale));
+  font-weight: 600;
+  color: #e0c0f0;
+  margin-top: var(--space-2);
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* REQ-F-DA01: Dog play animation card */
