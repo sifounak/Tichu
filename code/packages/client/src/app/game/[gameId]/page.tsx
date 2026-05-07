@@ -30,6 +30,7 @@ import { TichuBanner } from '@/components/game/TichuBanner';
 import { ChatPanel } from '@/components/game/ChatPanel';
 import { SpectatorOverlay } from '@/components/game/SpectatorOverlay';
 import { SeatClaimRejectedDialog } from '@/components/game/SeatClaimRejectedDialog';
+import { HostTransferDialog } from '@/components/game/HostTransferDialog';
 import { Card } from '@/components/cards/Card';
 import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
@@ -122,6 +123,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const [confirmTargetSeat, setConfirmTargetSeat] = useState<Seat | null>(null);
   // REQ-F-GA40: In-game settings panel (read-only)
   const [showSettings, setShowSettings] = useState(false);
+  // Host transfer notification state
+  const [hostTransferInfo, setHostTransferInfo] = useState<{ oldHostName: string; newHostName: string } | null>(null);
 
   // REQ-F-ID01: Use auth identity when logged in, fall back to guest
   const { user: authUser, authReady, loadFromStorage: loadAuth } = useAuthStore();
@@ -390,6 +393,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           gameStore.reset();
           uiStore.clearPlayerVoteState();
         }
+      } else if (msg.type === 'HOST_TRANSFERRED') {
+        setHostTransferInfo({ oldHostName: msg.oldHostName, newHostName: msg.newHostName });
       } else if (msg.type === 'KICKED') {
         confirmNavigation(); // Disarm navigation guard before routing
         leaveRoom();
@@ -2694,6 +2699,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Host transfer notification dialog */}
+      {hostTransferInfo && (
+        <HostTransferDialog
+          oldHostName={hostTransferInfo.oldHostName}
+          newHostName={hostTransferInfo.newHostName}
+          myName={playerName}
+          onDismiss={() => setHostTransferInfo(null)}
+        />
       )}
     </>
   );
