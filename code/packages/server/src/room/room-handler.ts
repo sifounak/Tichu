@@ -1463,10 +1463,12 @@ export class RoomHandler {
       oldHostName,
       newHostName,
     } as import('@tichu/shared').ServerMessage);
+    const text = `${newHostName} is now the host`;
+    this.roomManager.addChatMessage(roomCode, { from: null, text });
     this.broadcaster.broadcastToRoom(roomCode, {
       type: 'CHAT_RECEIVED',
       from: null,
-      text: `${newHostName} is now the host`,
+      text,
     } as import('@tichu/shared').ServerMessage);
   }
 

@@ -1171,6 +1171,15 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             onDismiss={() => setSavedGameOver(null)}
           />
         )}
+        {/* Host transfer notification dialog */}
+        {hostTransferInfo && (
+          <HostTransferDialog
+            oldHostName={hostTransferInfo.oldHostName}
+            newHostName={hostTransferInfo.newHostName}
+            myName={playerName}
+            onDismiss={() => setHostTransferInfo(null)}
+          />
+        )}
       </>
     );
   }
