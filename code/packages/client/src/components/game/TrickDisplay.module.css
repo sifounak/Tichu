@@ -190,9 +190,11 @@
   right: 0;
   transform: translateY(-50%);
   text-align: center;
-  font-size: calc(21px * var(--scale));
+  font-size: min(calc(21px * var(--scale)), calc(var(--card-width) * 0.16));
   font-weight: 700;
   color: var(--color-special-phoenix);
+  white-space: nowrap;
+  overflow: hidden;
   pointer-events: none;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   font-family: var(--font-card);
