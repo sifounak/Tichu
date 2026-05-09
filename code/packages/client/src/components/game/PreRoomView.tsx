@@ -658,35 +658,17 @@ export function PreRoomView({
 
         {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-          {uiStore.activeVote && (isHost || (mySeat && uiStore.activeVote.initiatorSeat === mySeat)) ? (
-            <button
-              onClick={() => send({ type: 'CANCEL_VOTE' })}
-              style={{
-                fontSize: 'var(--font-sm)',
-                fontWeight: 600,
-                color: '#dc2626',
-                background: 'var(--color-bg-panel)',
-                border: '1px solid #dc2626',
-                borderRadius: 'var(--card-border-radius)',
-                padding: '2px var(--space-2)',
-                cursor: 'pointer',
-              }}
-            >
-              Cancel Vote
-            </button>
-          ) : (
-            <GameActionsMenu
-              isHost={isHost}
-              isSpectator={isSpectator}
-              isPreGame={true}
-              votingEnabled={votingEnabled}
-              activeVote={uiStore.activeVote}
-              mySeat={mySeat}
-              onAction={handleMenuAction}
-              isOnCooldown={isOnCooldown}
-              getCooldownRemaining={getCooldownRemaining}
-            />
-          )}
+          <GameActionsMenu
+            isHost={isHost}
+            isSpectator={isSpectator}
+            isPreGame={true}
+            votingEnabled={votingEnabled}
+            activeVote={uiStore.activeVote}
+            mySeat={mySeat}
+            onAction={handleMenuAction}
+            isOnCooldown={isOnCooldown}
+            getCooldownRemaining={getCooldownRemaining}
+          />
 
           {/* Spectating indicator */}
           {isSpectator && (
@@ -924,77 +906,59 @@ export function PreRoomView({
 
           {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-            {uiStore.activeVote && (isHost || (mySeat && uiStore.activeVote.initiatorSeat === mySeat)) ? (
+            <div
+              style={{ position: 'relative' }}
+              onMouseEnter={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'block'; }}
+              onMouseLeave={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
+            >
               <button
-                onClick={() => send({ type: 'CANCEL_VOTE' })}
-                style={{
-                  fontSize: 'var(--font-sm)',
-                  fontWeight: 600,
-                  color: '#dc2626',
-                  background: 'var(--color-bg-panel)',
-                  border: '1px solid #dc2626',
-                  borderRadius: 'var(--card-border-radius)',
-                  padding: '2px var(--space-2)',
-                  cursor: 'pointer',
+                onClick={() => {
+                  // REQ-F-GA42: Opening menu cancels target selection
+                  setPreGameKickTargetMode(false);
+                  setTransferHostTargetMode(false);
+                  setDrawerOpen(true);
                 }}
-              >
-                Cancel Vote
-              </button>
-            ) : (
-              <div
-                style={{ position: 'relative' }}
-                onMouseEnter={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'block'; }}
-                onMouseLeave={(e) => { const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
-              >
-                <button
-                  onClick={() => {
-                    // REQ-F-GA42: Opening menu cancels target selection
-                    setPreGameKickTargetMode(false);
-                    setTransferHostTargetMode(false);
-                    setDrawerOpen(true);
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 'calc(32px * var(--scale))',
-                    height: 'calc(32px * var(--scale))',
-                    color: 'var(--color-text-primary)',
-                    background: 'var(--color-bg-panel)',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'calc(8px * var(--scale))',
-                    cursor: 'pointer',
-                    transition: 'background var(--duration-fast) var(--easing-smooth), border-color var(--duration-fast) var(--easing-smooth)',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-bg-panel)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
-                  aria-label="Game Menu"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
-                    <line x1="3" y1="6" x2="21" y2="6" />
-                    <line x1="3" y1="12" x2="21" y2="12" />
-                    <line x1="3" y1="18" x2="21" y2="18" />
-                  </svg>
-                </button>
-                <div data-tooltip style={{
-                  display: 'none',
-                  position: 'absolute',
-                  top: 'calc(100% + 6px)',
-                  left: 0,
-                  background: 'rgb(0,0,0)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--card-border-radius)',
-                  padding: 'var(--space-2) var(--space-3)',
-                  fontSize: 'var(--font-sm)',
-                  fontWeight: 600,
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 'calc(32px * var(--scale))',
+                  height: 'calc(32px * var(--scale))',
                   color: 'var(--color-text-primary)',
-                  whiteSpace: 'nowrap',
-                  zIndex: 40,
-                }}>
-                  Game Menu
-                </div>
+                  background: 'var(--color-bg-panel)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'calc(8px * var(--scale))',
+                  cursor: 'pointer',
+                  transition: 'background var(--duration-fast) var(--easing-smooth), border-color var(--duration-fast) var(--easing-smooth)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'; e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-bg-panel)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                aria-label="Game Menu"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </button>
+              <div data-tooltip style={{
+                display: 'none',
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                left: 0,
+                background: 'rgb(0,0,0)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--card-border-radius)',
+                padding: 'var(--space-2) var(--space-3)',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 600,
+                color: 'var(--color-text-primary)',
+                whiteSpace: 'nowrap',
+                zIndex: 40,
+              }}>
+                Game Menu
               </div>
-            )}
+            </div>
 
             {/* Spectating indicator */}
             {isSpectator && (
@@ -1202,6 +1166,8 @@ export function PreRoomView({
           seatNames={seatNames}
           onVote={(voteId, vote) => send({ type: 'PRE_GAME_VOTE', voteId, vote })}
           readOnly={isSpectator}
+          canCancel={!isSpectator && (isHost || (mySeat != null && uiStore.activeVote?.initiatorSeat === mySeat))}
+          onCancelVote={() => send({ type: 'CANCEL_VOTE' })}
         />
       )}
 

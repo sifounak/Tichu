@@ -84,6 +84,13 @@
   font-style: italic;
 }
 
+.cancelButton {
+  margin-top: var(--space-3);
+  background: transparent;
+  border: 1px solid #dc2626;
+  color: #dc2626;
+}
+
 :root[data-layout="mobile"] .panel {
   margin: 0 var(--space-4);
   padding: var(--space-5);

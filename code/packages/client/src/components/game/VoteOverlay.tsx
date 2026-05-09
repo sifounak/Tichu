@@ -28,6 +28,10 @@ export interface VoteOverlayProps {
   onVote: (voteId: string, vote: boolean) => void;
   /** REQ-F-VI06: Read-only mode for spectators — shows vote info but no voting buttons */
   readOnly?: boolean;
+  /** Whether the current user can cancel this vote (host or initiator) */
+  canCancel?: boolean;
+  /** Callback to cancel the active vote */
+  onCancelVote?: () => void;
 }
 
 export const VoteOverlay = memo(function VoteOverlay({
@@ -37,6 +41,8 @@ export const VoteOverlay = memo(function VoteOverlay({
   seatNames,
   onVote,
   readOnly,
+  canCancel,
+  onCancelVote,
 }: VoteOverlayProps) {
   const { durations, enabled } = useAnimationSettings();
   const [hasVoted, setHasVoted] = useState(false);
@@ -124,6 +130,16 @@ export const VoteOverlay = memo(function VoteOverlay({
 
           {!readOnly && !isKickTarget && hasVoted && (
             <p className={styles.waiting}>Waiting for other players...</p>
+          )}
+
+          {canCancel && onCancelVote && (
+            <button
+              className={`${styles.voteButton} ${styles.cancelButton}`}
+              onClick={onCancelVote}
+              aria-label="Cancel vote"
+            >
+              Cancel Vote
+            </button>
           )}
         </div>
       </motion.div>

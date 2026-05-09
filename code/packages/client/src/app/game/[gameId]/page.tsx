@@ -1416,35 +1416,18 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
         {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-          {uiStore.activeVote && (mySeatFromRoom === hostSeat || (mySeatFromRoom && uiStore.activeVote.initiatorSeat === mySeatFromRoom)) ? (
-            <button
-              onClick={() => send({ type: 'CANCEL_VOTE' })}
-              style={{
-                fontSize: 'var(--font-sm)',
-                fontWeight: 600,
-                color: '#dc2626',
-                background: 'var(--color-bg-panel)',
-                border: '1px solid #dc2626',
-                borderRadius: 'var(--card-border-radius)',
-                padding: '2px var(--space-2)',
-                cursor: 'pointer',
-              }}
-            >
-              Cancel Vote
-            </button>
-          ) : (
-            <GameActionsMenu
-              isHost={mySeatFromRoom === hostSeat}
-              isSpectator={isSpectator}
-              isPreGame={false}
-              votingEnabled={votingEnabled}
-              activeVote={uiStore.activeVote}
-              mySeat={mySeatFromRoom}
-              onAction={handleMenuAction}
-              isOnCooldown={isOnCooldown}
-              getCooldownRemaining={getCooldownRemaining}
-            />
-          )}
+          {/* Cancel vote moved into VoteOverlay dialog */}
+          <GameActionsMenu
+            isHost={mySeatFromRoom === hostSeat}
+            isSpectator={isSpectator}
+            isPreGame={false}
+            votingEnabled={votingEnabled}
+            activeVote={uiStore.activeVote}
+            mySeat={mySeatFromRoom}
+            onAction={handleMenuAction}
+            isOnCooldown={isOnCooldown}
+            getCooldownRemaining={getCooldownRemaining}
+          />
 
           {/* Spectating indicator */}
           {isSpectator && (
@@ -2606,6 +2589,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           seatNames={seatNames}
           onVote={(voteId, vote) => send({ type: 'PLAYER_VOTE', voteId, vote })}
           readOnly={isSpectator}
+          canCancel={!isSpectator && (mySeatFromRoom === hostSeat || (mySeatFromRoom != null && uiStore.activeVote?.initiatorSeat === mySeatFromRoom))}
+          onCancelVote={() => send({ type: 'CANCEL_VOTE' })}
         />
       )}
 

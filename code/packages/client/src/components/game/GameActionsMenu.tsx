@@ -170,17 +170,8 @@ export const GameActionsMenu = memo(function GameActionsMenu({
     }
   }, [open]);
 
-  // REQ-F-GA45: Show Cancel Vote button when vote is active
-  if (canCancelVote) {
-    return (
-      <button
-        className={styles.cancelVoteButton}
-        onClick={() => onAction({ type: 'cancelVote' })}
-      >
-        Cancel Vote
-      </button>
-    );
-  }
+  // REQ-F-GA45: Cancel vote now handled inside VoteOverlay dialog
+  void canCancelVote;
 
   return (
     <div ref={menuRef} className={styles.container}>
