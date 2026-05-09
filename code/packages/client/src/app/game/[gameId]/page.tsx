@@ -583,12 +583,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   const [bombPopupOpen, setBombPopupOpen] = useState(false);
   const bombPopupRef = useRef<HTMLDivElement>(null);
+  const bombActionBarRef = useRef<HTMLDivElement>(null);
 
   // Dismiss bomb popup on click outside (mobile layout)
   useEffect(() => {
     if (!bombPopupOpen || !isMobileLayout) return;
     const handler = (e: MouseEvent) => {
-      if (bombPopupRef.current && !bombPopupRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inPopup = bombPopupRef.current?.contains(target);
+      const inActionBar = bombActionBarRef.current?.contains(target);
+      if (!inPopup && !inActionBar) {
         setBombPopupOpen(false);
       }
     };
@@ -2305,10 +2309,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     />
                   }
                 />
-                {/* Slot: Bomb */}
-                <div style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0) ? 'visible' : 'hidden' }}>
+                {/* Slot: Bomb — mobile always shows popup, never plays directly */}
+                <div ref={bombActionBarRef} style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0) ? 'visible' : 'hidden' }}>
                   <button
-                    onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                    onClick={() => setBombPopupOpen((prev) => !prev)}
                     style={{
                       width: '100%',
                       height: '100%',
