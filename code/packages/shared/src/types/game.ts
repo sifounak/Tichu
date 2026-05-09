@@ -218,4 +218,6 @@ export interface ClientGameView {
   waitingForReconnect?: Seat | null;
   /** REQ-F-DC01: Seats currently disconnected */
   disconnectedSeats?: Seat[];
+  /** REQ-F-KM01: Active kick dialog (target seat that players are being asked about), null when no dialog */
+  kickDialog?: { targetSeat: Seat } | null;
 }

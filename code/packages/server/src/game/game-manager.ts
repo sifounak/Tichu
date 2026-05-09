@@ -36,6 +36,7 @@ import { TurnTimer } from './turn-timer.js';
 import { MoveHandler } from './move-handler.js';
 import { DisconnectHandler } from './disconnect-handler.js';
 import { VoteHandler } from './vote-handler.js';
+import { KickDialogHandler } from './kick-dialog-handler.js';
 import { projectGameState, projectSpectatorView } from '../ws/state-projection.js';
 import { BotRunner } from '../bot/bot-runner.js';
 import { Bot } from '../bot/bot.js';
@@ -81,6 +82,7 @@ export class GameManager {
   private broadcaster!: Broadcaster;
   private disconnectHandler!: DisconnectHandler;
   private voteHandler!: VoteHandler;
+  private kickDialogHandler!: KickDialogHandler;
   private botRunner!: BotRunner;
   private destroyed = false;
   private autoPassTimer: ReturnType<typeof setTimeout> | null = null;
@@ -108,6 +110,8 @@ export class GameManager {
   private _hostSeat: Seat = 'south';
   /** REQ-F-GA52: Whether non-host players can start votes */
   private _votingEnabled = true;
+  /** REQ-F-KM04: Callback for kick-dialog-triggered seat vacation */
+  private onKickDialogKick?: (roomCode: string, seat: Seat) => void;
 
   constructor(
     gameId: string,
@@ -122,6 +126,20 @@ export class GameManager {
     this.broadcaster = broadcaster;
     this.disconnectHandler = disconnectHandler;
     this.voteHandler = voteHandler;
+    this.kickDialogHandler = new KickDialogHandler(broadcaster);
+
+    // REQ-F-KM01: Wire disconnect threshold to kick dialog handler
+    this.disconnectHandler.onThresholdCrossed = (rc, seat) => {
+      if (rc !== this.roomCode) return;
+      this.kickDialogHandler.onThresholdCrossed(rc, seat, this.getConnectedHumanSeats());
+    };
+
+    // REQ-F-KM04: Wire kick dialog to vacate the seat
+    this.kickDialogHandler.onKick = (rc, seat) => {
+      this.vacatedSeats.add(seat);
+      this.broadcastState();
+      this.onKickDialogKick?.(rc, seat);
+    };
 
     // Create the XState game actor
     this.actor = createGameActor(gameId, config);
@@ -215,9 +233,14 @@ export class GameManager {
         break;
 
       case 'DISCONNECT_VOTE':
-        // REQ-F-ES04: Vote type narrowed to 'wait' | 'kick' — disconnect-handler rewrite in M2
+        // Legacy no-op — kept for back-compat until M5 removes from protocol
         this.disconnectHandler.handleVote(this.roomCode, seat, message.vote);
-        return; // Vote handler manages its own broadcasts
+        return;
+
+      case 'KICK_DIALOG_RESPONSE':
+        // REQ-F-KM02/KM03: Handle kick dialog response
+        this.kickDialogHandler.handleResponse(this.roomCode, seat, message.response, this.getConnectedHumanSeats());
+        return;
 
       // REQ-F-PV20: Player-initiated vote messages
       case 'START_KICK_VOTE':
@@ -276,6 +299,8 @@ export class GameManager {
   handleReconnect(_ws: WebSocket, seat: Seat): void {
     const wasFrozen = this.disconnectHandler.isFrozen(this.roomCode);
     this.disconnectHandler.handleReconnect(this.roomCode, seat);
+    // REQ-F-KM05/KM09: Notify kick dialog handler of reconnect
+    this.kickDialogHandler.handleReconnect(this.roomCode, seat, this.getConnectedHumanSeats());
     // Send the current full state to the reconnected player
     this.sendStateTo(seat);
     this.broadcastState();
@@ -302,6 +327,12 @@ export class GameManager {
         this.broadcastState();
       }
     };
+  }
+
+  /** REQ-F-KM04: Wire the kick-dialog callback — when any player kicks via dialog.
+   *  Called by game-store or room-handler to register the callback. */
+  wireKickDialogCallback(onSeatKicked: (roomCode: string, seat: Seat) => void): void {
+    this.onKickDialogKick = onSeatKicked;
   }
 
   /** REQ-F-PV22: Wire the player vote result callback.
@@ -418,6 +449,7 @@ export class GameManager {
       undefined,
       waitingForReconnect,
       disconnectedSeats,
+      null, // REQ-F-UI03: Spectators do not see kick dialog
     );
     this.broadcaster.send(ws, { type: 'GAME_STATE', state: view });
   }
@@ -564,6 +596,16 @@ export class GameManager {
     return allSeats.filter(s => !this.botRunner.isBot(s) && !this.vacatedSeats.has(s));
   }
 
+  /** REQ-F-KM14: Get connected human seats (excludes bots, vacated, and disconnected). */
+  private getConnectedHumanSeats(): Seat[] {
+    const allSeats: Seat[] = ['north', 'east', 'south', 'west'];
+    return allSeats.filter(s =>
+      !this.botRunner.isBot(s) &&
+      !this.vacatedSeats.has(s) &&
+      !this.disconnectHandler.isDisconnected(this.roomCode, s)
+    );
+  }
+
   /**
    * REQ-F-GF04, UI01: Determine if game is waiting for a disconnected player
    * during an untimed phase. Returns the seat being waited on, or null.
@@ -612,7 +654,9 @@ export class GameManager {
     // REQ-F-GF04, UI01: Compute which seat the game is waiting for (untimed phase + disconnected)
     const waitingForReconnect = this.computeWaitingForReconnect();
     const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats);
+    // REQ-F-KM01: Include kick dialog in state broadcast
+    const kickDialog = this.kickDialogHandler.getActiveDialog(this.roomCode);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
@@ -623,7 +667,8 @@ export class GameManager {
     const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
     const waitingForReconnect = this.computeWaitingForReconnect();
     const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats);
+    const kickDialog = this.kickDialogHandler.getActiveDialog(this.roomCode);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,
@@ -1025,6 +1070,18 @@ export class GameManager {
     instance.broadcaster = broadcaster;
     instance.disconnectHandler = disconnectHandler;
     instance.voteHandler = voteHandler;
+    instance.kickDialogHandler = new KickDialogHandler(broadcaster);
+
+    // REQ-F-KM01: Wire disconnect threshold to kick dialog handler (same as constructor)
+    disconnectHandler.onThresholdCrossed = (rc, seat) => {
+      if (rc !== instance.roomCode) return;
+      instance.kickDialogHandler.onThresholdCrossed(rc, seat, instance.getConnectedHumanSeats());
+    };
+    instance.kickDialogHandler.onKick = (rc, seat) => {
+      instance.vacatedSeats.add(seat);
+      instance.broadcastState();
+      instance.onKickDialogKick?.(rc, seat);
+    };
 
     // Rehydrate Sets in the machine snapshot context before restoring the actor.
     // After serialize(), Sets are stored as arrays. If data was saved before

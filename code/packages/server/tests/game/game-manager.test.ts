@@ -212,6 +212,7 @@ describe('GameManager', () => {
         null,    // endOfTrickBombWindowEndTime
         null,    // waitingForReconnect
         [],      // disconnectedSeats
+        null,    // kickDialog
       );
     });
   });
