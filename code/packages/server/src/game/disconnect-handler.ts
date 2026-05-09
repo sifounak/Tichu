@@ -1,231 +1,254 @@
-// REQ-F-SJ12, SJ13: Passive grace-period handling on involuntary disconnect.
-// REQ-F-ES04/ES14/ES17 (superseded): previously a vote-based keep/kick scheme —
-// replaced by a passive 60s hold. Reconnect within the window restores the
-// seat without validation; expiry releases the seat and re-enters seat-claim
-// logic for returning users (REQ-F-SJ04-SJ06).
+// REQ-F-DC01–DC04: Per-seat disconnect tracking with independent timers.
+// Replaces the old per-room grace-period model. Game no longer pauses on
+// disconnect — only solo-human games freeze.
 
 import type { Seat } from '@tichu/shared';
 import type { Broadcaster } from '../ws/broadcaster.js';
 
-/** Back-compat export: the vote scheme is gone but the type is still imported
- *  elsewhere (and the `DISCONNECT_VOTE` client message is dead-but-accepted). */
+/** Back-compat export: retained until M5 removes DISCONNECT_VOTE protocol message. */
 export type DisconnectVote = 'wait' | 'kick';
 
-/** Outcome reported to `onVoteResult`. With the vote scheme removed, only
- *  `'kick'` (grace expired) is ever produced — `'waiting'` / `'pending'` are
- *  retained for back-compat with the callback signature. */
+/** Outcome reported to `onVoteResult` for solo-human grace expiry. */
 export type VoteOutcome = 'waiting' | 'kick' | 'pending';
 
-/** Optional parameters for disconnect handling. */
-export interface DisconnectOptions {
-  /** Grace timeout in milliseconds (overrides constructor default). */
-  graceTimeoutMs?: number;
-  /** True if this is a frozen (solo-human pause) disconnect. */
-  frozen?: boolean;
+/** Per-seat disconnect tracking state. */
+interface SeatDisconnectState {
+  /** Epoch ms when this seat disconnected. */
+  disconnectedAt: number;
+  /** Timer handle for 2-min + 5s threshold callback. */
+  thresholdTimer: ReturnType<typeof setTimeout>;
+  /** Whether this seat has already crossed the 2-min threshold. */
+  crossedThreshold: boolean;
 }
 
-/** State for a single room's grace-period session. */
-interface GraceSession {
-  /** REQ-F-SJ12: All disconnected seats currently under grace in this room. */
-  disconnectedSeats: Set<Seat>;
-  /** Timeout handle for the grace expiry. */
+/** State for solo-human freeze (game pauses when the only human disconnects). */
+interface FrozenSession {
+  seat: Seat;
   timeoutHandle: ReturnType<typeof setTimeout>;
-  /** Wall-clock start time — used to compute remaining time for projection. */
   startedAt: number;
-  /** Grace timeout in milliseconds for this session. */
   timeoutMs: number;
-  /** True if this is a frozen (solo-human pause) session. */
-  frozen: boolean;
 }
+
+/** Threshold delay: 2 minutes + 5 seconds = 125,000ms (REQ-F-KM01). */
+const THRESHOLD_DELAY_MS = 125_000;
 
 /**
- * REQ-F-SJ12, SJ13: Tracks involuntary disconnects and enforces a passive
- * grace period per room.
+ * REQ-F-DC01–DC04, GF01: Per-seat disconnect tracking.
  *
  * Flow:
- * 1. `handleDisconnect` — seat goes into a 60s hold; remaining players are
- *    notified via `PLAYER_DISCONNECTED`. The seat is NOT vacated yet.
- * 2. `handleReconnect` within the window — seat restored in place, no
- *    seat-claim validation required (REQ-F-SJ12).
- * 3. On grace expiry — `onVoteResult(roomCode, 'kick', seats)` fires so the
- *    caller vacates the seat(s). Returning users now go through standard
- *    seat-claim flow (REQ-F-SJ04-SJ06, SJ13).
- *
- * Voluntary `LEAVE_ROOM` and host/vote kicks never pass through this handler
- * — they release the seat immediately (REQ-F-SJ13).
+ * 1. `handleDisconnect` — marks seat as disconnected, starts per-seat timer.
+ *    Game does NOT pause (multi-human) or freezes (solo-human).
+ * 2. `handleReconnect` — fully resets timer, clears all state for that seat.
+ * 3. At 2:05 (threshold) — fires `onThresholdCrossed` callback for kick dialog.
+ * 4. Solo-human: fires `onVoteResult('kick')` after grace expiry (existing vacancy flow).
  */
 export class DisconnectHandler {
-  /** Active grace sessions by room code. */
-  private readonly sessions = new Map<string, GraceSession>();
+  /** Per-seat disconnect state, keyed by room then seat. */
+  private readonly seatStates = new Map<string, Map<Seat, SeatDisconnectState>>();
 
-  /** Disconnected seats by room (independent of session for quick lookup). */
-  private readonly disconnected = new Map<string, Set<Seat>>();
+  /** Solo-human frozen session (game pauses). Only one per room. */
+  private readonly frozenSessions = new Map<string, FrozenSession>();
 
-  /** REQ-F-SJ12: Grace period in ms (default 60 seconds). */
-  private readonly graceTimeoutMs: number;
+  /** Called when a seat crosses the 2-min + 5s threshold. */
+  onThresholdCrossed: ((roomCode: string, seat: Seat) => void) | null = null;
 
-  /** Called when the grace period expires — outcome is always `'kick'`. */
+  /** Called when solo-human grace expires — outcome is always 'kick'. */
   onVoteResult: ((roomCode: string, outcome: VoteOutcome, seats: Seat[]) => void) | null = null;
 
   constructor(
     private readonly broadcaster: Broadcaster,
-    options?: { graceTimeoutMs?: number; voteTimeoutMs?: number },
-  ) {
-    // Accept `voteTimeoutMs` as a deprecated alias so existing callers don't
-    // break during the M2 transition; new code should pass `graceTimeoutMs`.
-    this.graceTimeoutMs = options?.graceTimeoutMs ?? options?.voteTimeoutMs ?? 60_000;
-  }
+    private readonly options?: { thresholdMs?: number },
+  ) {}
 
-  /** REQ-F-SJ12: Record an involuntary disconnect and (re)arm the grace timer. */
-  handleDisconnect(roomCode: string, seat: Seat, options?: DisconnectOptions): void {
-    if (!this.disconnected.has(roomCode)) {
-      this.disconnected.set(roomCode, new Set());
+  /** REQ-F-DC01: Record an involuntary disconnect. Starts per-seat timer. */
+  handleDisconnect(roomCode: string, seat: Seat, options?: { frozen?: boolean; graceTimeoutMs?: number }): void {
+    if (!this.seatStates.has(roomCode)) {
+      this.seatStates.set(roomCode, new Map());
     }
-    this.disconnected.get(roomCode)!.add(seat);
+
+    const roomSeats = this.seatStates.get(roomCode)!;
+
+    // Clean up any existing state for this seat (shouldn't happen but be safe)
+    const existing = roomSeats.get(seat);
+    if (existing) {
+      clearTimeout(existing.thresholdTimer);
+    }
+
+    const thresholdMs = this.options?.thresholdMs ?? THRESHOLD_DELAY_MS;
+
+    const frozen = options?.frozen ?? false;
+
+    // REQ-F-DC02: Timer starts from zero each time
+    const thresholdTimer = frozen
+      ? setTimeout(() => {}, 0) // No threshold timer for frozen sessions — placeholder
+      : setTimeout(() => {
+          this.handleThresholdCrossed(roomCode, seat);
+        }, thresholdMs);
+
+    // For frozen sessions, clear the placeholder timer immediately and don't track it
+    if (frozen) {
+      clearTimeout(thresholdTimer);
+      this.startFrozenSession(roomCode, seat, options?.graceTimeoutMs ?? 259_200_000);
+    }
+
+    roomSeats.set(seat, {
+      disconnectedAt: Date.now(),
+      thresholdTimer: frozen ? (null as unknown as ReturnType<typeof setTimeout>) : thresholdTimer,
+      crossedThreshold: false,
+    });
 
     this.broadcaster.broadcastToRoom(roomCode, {
       type: 'PLAYER_DISCONNECTED',
       seat,
     });
-
-    const existing = this.sessions.get(roomCode);
-    if (existing) {
-      // Additional seat dropped inside the existing window — merge, leave the
-      // original timer in place. Per spec the hold is per-event, not per-seat.
-      existing.disconnectedSeats.add(seat);
-    } else {
-      const timeoutMs = options?.graceTimeoutMs ?? this.graceTimeoutMs;
-      const frozen = options?.frozen ?? false;
-      this.startGrace(roomCode, seat, timeoutMs, frozen);
-    }
   }
 
-  /** REQ-F-SJ12: Reconnect within grace restores the seat without validation. */
+  /** REQ-F-DC03: Reconnect fully resets timer and clears all state for this seat. */
   handleReconnect(roomCode: string, seat: Seat): void {
-    const disconnectedSeats = this.disconnected.get(roomCode);
-    if (disconnectedSeats) {
-      disconnectedSeats.delete(seat);
-      if (disconnectedSeats.size === 0) this.disconnected.delete(roomCode);
+    const roomSeats = this.seatStates.get(roomCode);
+    if (roomSeats) {
+      const state = roomSeats.get(seat);
+      if (state) {
+        clearTimeout(state.thresholdTimer);
+        roomSeats.delete(seat);
+      }
+      if (roomSeats.size === 0) this.seatStates.delete(roomCode);
+    }
+
+    // Clear frozen session if this seat was the frozen one
+    const frozen = this.frozenSessions.get(roomCode);
+    if (frozen && frozen.seat === seat) {
+      clearTimeout(frozen.timeoutHandle);
+      this.frozenSessions.delete(roomCode);
     }
 
     this.broadcaster.broadcastToRoom(roomCode, {
       type: 'PLAYER_RECONNECTED',
       seat,
     });
-
-    const session = this.sessions.get(roomCode);
-    if (session) {
-      session.disconnectedSeats.delete(seat);
-      if (session.disconnectedSeats.size === 0) {
-        clearTimeout(session.timeoutHandle);
-        this.sessions.delete(roomCode);
-      }
-    }
   }
 
-  /** Back-compat no-op: the vote scheme has been removed but the client
-   *  protocol still carries `DISCONNECT_VOTE` messages until M5 drops them. */
+  /** Back-compat no-op: vote scheme removed. Kept until M5 drops DISCONNECT_VOTE. */
   handleVote(_roomCode: string, _voterSeat: Seat, _vote: DisconnectVote): VoteOutcome {
     return 'pending';
   }
 
-  /** True while `seat` is inside its grace window. */
+  /** True while seat is tracked as disconnected. */
   isDisconnected(roomCode: string, seat: Seat): boolean {
-    return this.disconnected.get(roomCode)?.has(seat) ?? false;
+    return this.seatStates.get(roomCode)?.has(seat) ?? false;
   }
 
-  /** All seats currently under grace in `roomCode`. */
+  /** All seats currently disconnected in this room. */
   getDisconnectedSeats(roomCode: string): Seat[] {
-    return Array.from(this.disconnected.get(roomCode) ?? []);
+    const roomSeats = this.seatStates.get(roomCode);
+    return roomSeats ? Array.from(roomSeats.keys()) : [];
   }
 
-  /**
-   * Status object consumed by state projection. With the vote scheme gone,
-   * `votes` is always empty; `timeoutMs` is the remaining grace period in ms.
-   * Returns null when no seat is under grace.
-   */
-  getVoteStatus(roomCode: string): {
-    votes: Record<string, 'wait' | 'kick' | null>;
-    disconnectedSeats: Seat[];
-    timeoutMs: number;
-  } | null {
-    const session = this.sessions.get(roomCode);
-    if (!session) return null;
-
-    const votes: Record<string, 'wait' | 'kick' | null> = {
-      north: null,
-      east: null,
-      south: null,
-      west: null,
-    };
-    const elapsed = Date.now() - session.startedAt;
-    const remaining = Math.max(0, session.timeoutMs - elapsed);
-
-    return {
-      votes,
-      disconnectedSeats: Array.from(session.disconnectedSeats),
-      timeoutMs: remaining,
-    };
+  /** REQ-F-DC04: Get elapsed disconnect time for a specific seat (ms). Returns 0 if not disconnected. */
+  getDisconnectDurationMs(roomCode: string, seat: Seat): number {
+    const state = this.seatStates.get(roomCode)?.get(seat);
+    if (!state) return 0;
+    return Date.now() - state.disconnectedAt;
   }
 
-  /**
-   * Always false — the vote scheme is gone. Kept so existing gating in
-   * game-manager (`if (disconnectHandler.hasActiveVote) block kick vote`)
-   * no longer blocks other votes during a grace hold.
-   */
-  hasActiveVote(_roomCode: string): boolean {
-    return false;
+  /** REQ-F-VI01: Get all seats that have crossed the 2-min threshold. */
+  getSeatsOverThreshold(roomCode: string): Seat[] {
+    const roomSeats = this.seatStates.get(roomCode);
+    if (!roomSeats) return [];
+    const result: Seat[] = [];
+    for (const [seat, state] of roomSeats) {
+      if (state.crossedThreshold) {
+        result.push(seat);
+      }
+    }
+    return result;
   }
 
   /** True if the room is in a frozen (solo-human pause) state. */
   isFrozen(roomCode: string): boolean {
-    const session = this.sessions.get(roomCode);
-    return session?.frozen ?? false;
+    return this.frozenSessions.has(roomCode);
+  }
+
+  /**
+   * Status object for back-compat state projection during transition.
+   * Returns null when no seat is disconnected.
+   * TODO: Remove in M5 when legacy disconnect vote UI is fully removed.
+   */
+  getVoteStatus(_roomCode: string): {
+    votes: Record<string, 'wait' | 'kick' | null>;
+    disconnectedSeats: Seat[];
+    timeoutMs: number;
+  } | null {
+    // Return null — disconnects no longer produce vote status.
+    // The old gameHalted logic depended on this returning non-null.
+    return null;
+  }
+
+  /** Always false — vote scheme is gone. */
+  hasActiveVote(_roomCode: string): boolean {
+    return false;
   }
 
   /** Clean up all state for a room. */
   cleanupRoom(roomCode: string): void {
-    const session = this.sessions.get(roomCode);
-    if (session) {
-      clearTimeout(session.timeoutHandle);
-      this.sessions.delete(roomCode);
+    const roomSeats = this.seatStates.get(roomCode);
+    if (roomSeats) {
+      for (const state of roomSeats.values()) {
+        clearTimeout(state.thresholdTimer);
+      }
+      this.seatStates.delete(roomCode);
     }
-    this.disconnected.delete(roomCode);
+    const frozen = this.frozenSessions.get(roomCode);
+    if (frozen) {
+      clearTimeout(frozen.timeoutHandle);
+      this.frozenSessions.delete(roomCode);
+    }
   }
 
   /** Clean up everything. */
   dispose(): void {
-    for (const [, session] of this.sessions) {
-      clearTimeout(session.timeoutHandle);
+    for (const roomSeats of this.seatStates.values()) {
+      for (const state of roomSeats.values()) {
+        clearTimeout(state.thresholdTimer);
+      }
     }
-    this.sessions.clear();
-    this.disconnected.clear();
+    this.seatStates.clear();
+    for (const frozen of this.frozenSessions.values()) {
+      clearTimeout(frozen.timeoutHandle);
+    }
+    this.frozenSessions.clear();
   }
 
-  /** REQ-F-SJ12: Start the grace session for a newly disconnected seat. */
-  private startGrace(roomCode: string, seat: Seat, timeoutMs: number, frozen: boolean): void {
+  /** Handle a seat crossing the 2-min + 5s threshold. */
+  private handleThresholdCrossed(roomCode: string, seat: Seat): void {
+    const roomSeats = this.seatStates.get(roomCode);
+    const state = roomSeats?.get(seat);
+    if (!state) return;
+
+    state.crossedThreshold = true;
+    this.onThresholdCrossed?.(roomCode, seat);
+  }
+
+  /** Start a frozen (solo-human) grace session. */
+  private startFrozenSession(roomCode: string, seat: Seat, timeoutMs: number): void {
     const timeoutHandle = setTimeout(() => {
-      this.expireGrace(roomCode);
+      this.frozenSessions.delete(roomCode);
+      // Also clean up the seat state
+      const roomSeats = this.seatStates.get(roomCode);
+      if (roomSeats) {
+        const state = roomSeats.get(seat);
+        if (state) clearTimeout(state.thresholdTimer);
+        roomSeats.delete(seat);
+        if (roomSeats.size === 0) this.seatStates.delete(roomCode);
+      }
+      this.onVoteResult?.(roomCode, 'kick', [seat]);
     }, timeoutMs);
 
-    this.sessions.set(roomCode, {
-      disconnectedSeats: new Set([seat]),
+    this.frozenSessions.set(roomCode, {
+      seat,
       timeoutHandle,
       startedAt: Date.now(),
       timeoutMs,
-      frozen,
     });
-  }
-
-  /** REQ-F-SJ12, SJ13: Grace expired — release all held seats. */
-  private expireGrace(roomCode: string): void {
-    const session = this.sessions.get(roomCode);
-    if (!session) return;
-
-    clearTimeout(session.timeoutHandle);
-    const seats = Array.from(session.disconnectedSeats);
-    this.sessions.delete(roomCode);
-
-    this.onVoteResult?.(roomCode, 'kick', seats);
   }
 }

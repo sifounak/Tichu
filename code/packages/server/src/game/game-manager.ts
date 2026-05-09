@@ -51,8 +51,6 @@ import { detectCombination } from '@tichu/shared';
 import type { ActionSource, GameEventAccumulator } from './event-types.js';
 import { writeRecoveryFile as serializeRecoveryFile } from '../db/event-persistence.js';
 
-/** Grace period for involuntary disconnect in a multi-human game (3 minutes). */
-const MULTI_HUMAN_GRACE_MS = 180_000;
 /** Grace period for involuntary disconnect in a solo-human game (3 days). */
 const SOLO_HUMAN_GRACE_MS = 259_200_000;
 
@@ -257,34 +255,32 @@ export class GameManager {
     this.broadcastState();
   }
 
-  /** REQ-F-ES04: Handle a player disconnecting from this game.
-   *  Stops timer and starts vote process. Does NOT vacate seat yet — waits for vote result. */
+  /** REQ-F-DC01, GF01: Handle a player disconnecting from this game.
+   *  Multi-human: game continues flowing (no pause). Solo-human: freeze. */
   handleDisconnect(seat: Seat): void {
-    this.timer.stop();
-    // REQ-F-PV26/PV27: Cancel active player vote if initiator or target disconnects
-    const activeVote = this.voteHandler.getActiveVote(this.roomCode);
-    if (activeVote) {
-      if (activeVote.initiatorSeat === seat || activeVote.targetSeat === seat) {
-        this.voteHandler.cancelVote(this.roomCode);
-      }
-    }
     const multiHuman = this.isMultiHuman();
     this.disconnectHandler.handleDisconnect(this.roomCode, seat, {
-      graceTimeoutMs: multiHuman ? MULTI_HUMAN_GRACE_MS : SOLO_HUMAN_GRACE_MS,
       frozen: !multiHuman,
+      graceTimeoutMs: !multiHuman ? SOLO_HUMAN_GRACE_MS : undefined,
     });
+    // REQ-F-GF01: Do NOT stop timer for multi-human games — game keeps flowing.
+    // Solo-human freeze is handled by onStateChange() via isFrozen() check.
+    if (!multiHuman) {
+      this.timer.stop();
+    }
     this.broadcastState();
   }
 
-  /** REQ-F-ES14: Handle a player reconnecting to this game.
-   *  If vote was "wait" and player reconnects, auto-restore to original seat. */
+  /** REQ-F-DC03: Handle a player reconnecting to this game.
+   *  Resets per-seat disconnect timer. For solo-human frozen games, resumes game. */
   handleReconnect(_ws: WebSocket, seat: Seat): void {
+    const wasFrozen = this.disconnectHandler.isFrozen(this.roomCode);
     this.disconnectHandler.handleReconnect(this.roomCode, seat);
     // Send the current full state to the reconnected player
     this.sendStateTo(seat);
     this.broadcastState();
-    // Restart timer + bot logic if all players are back
-    if (this.disconnectHandler.getDisconnectedSeats(this.roomCode).length === 0) {
+    // Only restart game flow if we were in a frozen (solo-human) state
+    if (wasFrozen && !this.disconnectHandler.isFrozen(this.roomCode)) {
       this.onStateChange(null);
     }
   }
@@ -410,12 +406,18 @@ export class GameManager {
   sendSpectatorState(ws: WebSocket): void {
     const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
+    const waitingForReconnect = this.computeWaitingForReconnect();
+    const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
     const view = projectSpectatorView(
       this.context,
       this.stateValue,
       [...this.vacatedSeats],
       voteStatus,
       activeVote,
+      undefined,
+      undefined,
+      waitingForReconnect,
+      disconnectedSeats,
     );
     this.broadcaster.send(ws, { type: 'GAME_STATE', state: view });
   }
@@ -562,6 +564,44 @@ export class GameManager {
     return allSeats.filter(s => !this.botRunner.isBot(s) && !this.vacatedSeats.has(s));
   }
 
+  /**
+   * REQ-F-GF04, UI01: Determine if game is waiting for a disconnected player
+   * during an untimed phase. Returns the seat being waited on, or null.
+   */
+  private computeWaitingForReconnect(): Seat | null {
+    const state = this.stateValue;
+    const round = this.context.currentRound;
+    if (!round) return null;
+
+    // Untimed phases where we wait for a specific player's action:
+    // - grandTichuDecision: waiting for players who haven't decided yet
+    // - cardPassing: waiting for players who haven't passed cards yet
+    // - awaitingDragonGift: waiting for dragon gift decision
+    if (state === 'grandTichuDecision') {
+      // Check each undecided seat to see if any are disconnected
+      for (const seat of SEATS_IN_ORDER) {
+        if (!this.context.grandTichuDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+          return seat;
+        }
+      }
+    } else if (state === 'cardPassing') {
+      for (const seat of SEATS_IN_ORDER) {
+        if (!this.context.cardPassDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+          return seat;
+        }
+      }
+    } else if (state === 'awaitingDragonGift' && round.dragonGiftPending) {
+      const seat = round.dragonGiftPending.from;
+      if (this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+        return seat;
+      }
+    }
+
+    // Note: 'playing' state with turn timer is NOT an untimed phase —
+    // turn timer handles it (REQ-F-GF02). No overlay needed.
+    return null;
+  }
+
   /** Broadcast current game state to all players in the room */
   broadcastState(): void {
     if (this.destroyed) return;
@@ -569,7 +609,10 @@ export class GameManager {
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
     // REQ-F-TT05: Include turn timer data in broadcast
     const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime);
+    // REQ-F-GF04, UI01: Compute which seat the game is waiting for (untimed phase + disconnected)
+    const waitingForReconnect = this.computeWaitingForReconnect();
+    const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
@@ -578,7 +621,9 @@ export class GameManager {
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
     // REQ-F-TT05: Include turn timer data in per-seat state
     const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime);
+    const waitingForReconnect = this.computeWaitingForReconnect();
+    const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,
@@ -619,7 +664,7 @@ export class GameManager {
       return;
     }
 
-    // Game freezes when in solo-human pause — stop timer and don't trigger bot actions
+    // REQ-F-GF01: Only solo-human games freeze on disconnect (no one to kick the player)
     if (this.disconnectHandler.isFrozen(this.roomCode)) {
       this.timer.stop();
       this.broadcastState();

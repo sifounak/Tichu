@@ -30,10 +30,10 @@ export class GameStore {
 
   constructor(
     private readonly broadcaster: Broadcaster,
-    options?: { voteTimeoutMs?: number },
+    options?: { voteTimeoutMs?: number; thresholdMs?: number },
   ) {
-    this.disconnectHandler = new DisconnectHandler(broadcaster, options);
-    this.voteHandler = new VoteHandler(broadcaster, options);
+    this.disconnectHandler = new DisconnectHandler(broadcaster, options ? { thresholdMs: options.thresholdMs } : undefined);
+    this.voteHandler = new VoteHandler(broadcaster, options ? { voteTimeoutMs: options.voteTimeoutMs } : undefined);
   }
 
   /** Create a new game for a room */

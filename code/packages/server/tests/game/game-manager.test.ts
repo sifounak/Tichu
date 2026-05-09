@@ -210,6 +210,8 @@ describe('GameManager', () => {
         null,    // activeVote
         expect.objectContaining({ startTime: null }),  // timerInfo
         null,    // endOfTrickBombWindowEndTime
+        null,    // waitingForReconnect
+        [],      // disconnectedSeats
       );
     });
   });

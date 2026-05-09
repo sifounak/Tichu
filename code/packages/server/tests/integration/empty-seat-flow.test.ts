@@ -72,7 +72,7 @@ describe('Empty Seat Flow — Integration', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     broadcaster = createMockBroadcaster();
-    disconnectHandler = new DisconnectHandler(broadcaster, { graceTimeoutMs: 5000 });
+    disconnectHandler = new DisconnectHandler(broadcaster, { thresholdMs: 5000 });
   });
 
   afterEach(() => {
@@ -107,9 +107,24 @@ describe('Empty Seat Flow — Integration', () => {
     });
   });
 
-  // Verifies: REQ-F-SJ12, SJ13 — grace expires → seat released → queue starts.
-  describe('disconnect → grace expires → queue → claim → resume', () => {
-    it('should run full flow: disconnect, grace times out, kicked seat enters queue', () => {
+  // Verifies: REQ-F-DC04, KM01 — threshold crossed → kick dialog will appear.
+  describe('disconnect → threshold crossed → kick dialog flow', () => {
+    it('should fire onThresholdCrossed after configured threshold', () => {
+      const crossedSeats: Seat[] = [];
+
+      disconnectHandler.onThresholdCrossed = (_roomCode, seat) => {
+        crossedSeats.push(seat);
+      };
+
+      // Player disconnects → threshold timer starts.
+      disconnectHandler.handleDisconnect('ROOM1', 'north');
+      // Threshold fires after the configured window (5s in this test).
+      vi.advanceTimersByTime(5000);
+
+      expect(crossedSeats).toEqual(['north']);
+    });
+
+    it('frozen session fires onVoteResult (grace expiry) for queue flow', () => {
       const kickedSeats: Seat[] = [];
 
       disconnectHandler.onVoteResult = (_roomCode, outcome, seats) => {
@@ -118,9 +133,8 @@ describe('Empty Seat Flow — Integration', () => {
         }
       };
 
-      // Player disconnects → passive grace starts.
-      disconnectHandler.handleDisconnect('ROOM1', 'north');
-      // Grace expires after the configured window (5s in this test).
+      // Solo-human frozen disconnect with 5s grace.
+      disconnectHandler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 5000 });
       vi.advanceTimersByTime(5000);
 
       expect(kickedSeats).toEqual(['north']);
@@ -159,23 +173,28 @@ describe('Empty Seat Flow — Integration', () => {
     });
   });
 
-  // Verifies: REQ-F-SJ12 — multiple disconnects share a single grace window.
-  describe('multi-disconnect → grace expires → multi-seat queue', () => {
-    it('should release all disconnected seats when grace expires, and queue them', () => {
-      const kickedSeats: Seat[] = [];
-      disconnectHandler.onVoteResult = (_roomCode, outcome, seats) => {
-        if (outcome === 'kick') kickedSeats.push(...seats);
+  // Verifies: REQ-F-DC04 — multiple disconnects have independent threshold timers.
+  describe('multi-disconnect → independent thresholds', () => {
+    it('should fire threshold independently per seat', () => {
+      const crossedSeats: Seat[] = [];
+      disconnectHandler.onThresholdCrossed = (_roomCode, seat) => {
+        crossedSeats.push(seat);
       };
 
       disconnectHandler.handleDisconnect('ROOM1', 'north');
+      vi.advanceTimersByTime(2000);
       disconnectHandler.handleDisconnect('ROOM1', 'east');
 
-      // Single grace timer covers both seats — expire it.
-      vi.advanceTimersByTime(5000);
+      // North fires at 5s
+      vi.advanceTimersByTime(3000);
+      expect(crossedSeats).toEqual(['north']);
 
-      expect(kickedSeats).toContain('north');
-      expect(kickedSeats).toContain('east');
+      // East fires at 7s (2s + 5s)
+      vi.advanceTimersByTime(2000);
+      expect(crossedSeats).toContain('north');
+      expect(crossedSeats).toContain('east');
 
+      // Queue flow still works with explicit seat list
       const callbacks = createQueueCallbacks(['spec1', 'spec2']);
       const queue = new SeatQueue('ROOM1', callbacks);
       queue.startQueue(['north', 'east'], ['spec1', 'spec2']);
@@ -239,39 +258,29 @@ describe('Empty Seat Flow — Integration', () => {
     });
   });
 
-  // Verifies: REQ-F-SJ12 — grace expiry releases the held seat.
-  describe('grace expiry', () => {
-    it('releases the seat after the configured grace window', () => {
-      const kickedSeats: Seat[] = [];
-
-      disconnectHandler.onVoteResult = (_roomCode, outcome, seats) => {
-        if (outcome === 'kick') kickedSeats.push(...seats);
-      };
-
+  // Verifies: REQ-F-DC04 — getSeatsOverThreshold tracks which seats crossed.
+  describe('threshold tracking', () => {
+    it('getSeatsOverThreshold returns seats that crossed the threshold', () => {
       disconnectHandler.handleDisconnect('ROOM1', 'north');
+
+      expect(disconnectHandler.getSeatsOverThreshold('ROOM1')).toEqual([]);
 
       vi.advanceTimersByTime(5000);
 
-      expect(kickedSeats).toEqual(['north']);
+      expect(disconnectHandler.getSeatsOverThreshold('ROOM1')).toEqual(['north']);
     });
   });
 
-  // Verifies: REQ-F-SJ12 — state projection sees disconnected seats and
-  // remaining grace time (votes map is empty — the vote scheme was removed).
-  describe('disconnect grace state projection', () => {
-    it('provides disconnected seats and remaining grace time; votes map is empty', () => {
+  // Verifies: REQ-F-DC01 — getVoteStatus returns null (legacy, no longer used).
+  describe('disconnect state projection (legacy)', () => {
+    it('getVoteStatus returns null (disconnects no longer produce vote status)', () => {
       disconnectHandler.handleDisconnect('ROOM1', 'north');
+      expect(disconnectHandler.getVoteStatus('ROOM1')).toBeNull();
+    });
 
-      const status = disconnectHandler.getVoteStatus('ROOM1');
-      expect(status).not.toBeNull();
-      expect(status!.disconnectedSeats).toEqual(['north']);
-      expect(status!.timeoutMs).toBeGreaterThan(0);
-      expect(status!.votes).toEqual({
-        north: null,
-        east: null,
-        south: null,
-        west: null,
-      });
+    it('getDisconnectedSeats returns the currently disconnected seats', () => {
+      disconnectHandler.handleDisconnect('ROOM1', 'north');
+      expect(disconnectHandler.getDisconnectedSeats('ROOM1')).toEqual(['north']);
     });
   });
 

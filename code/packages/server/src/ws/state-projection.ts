@@ -28,6 +28,8 @@ export function projectGameState(
   activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
   timerInfo?: { startTime: number | null; durationMs: number | null },
   endOfTrickBombWindowEndTime?: number | null,
+  waitingForReconnect?: Seat | null,
+  disconnectedSeats?: Seat[],
 ): ClientGameView {
   const round = context.currentRound;
 
@@ -68,10 +70,10 @@ export function projectGameState(
       cardPassConfirmed: [],
       vacatedSeats: [...vacatedSeats],
       choosingSeat: choosingSeats.includes(forSeat),
-      // REQ-F-ES04: Per-seat disconnect vote status
+      // REQ-F-ES04: Per-seat disconnect vote status (legacy — will be removed in M5)
       disconnectVotes: disconnectVoteStatus?.votes ?? {},
-      // REQ-F-ES02: Game halted when seats are vacant or a disconnect vote is active
-      gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
+      // REQ-F-GF01: Game halted only when seats are vacant (disconnects no longer halt)
+      gameHalted: vacatedSeats.length > 0,
       winner: context.winner,
       // REQ-F-PV23: Active player-initiated vote
       activeVote: activeVote ?? null,
@@ -80,6 +82,10 @@ export function projectGameState(
       turnTimerDurationMs: timerInfo?.durationMs ?? null,
       endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
       serverTime: Date.now(),
+      // REQ-F-GF04, UI01: Seat the game is waiting for during an untimed phase
+      waitingForReconnect: waitingForReconnect ?? null,
+      // REQ-F-DC01: Currently disconnected seats
+      disconnectedSeats: disconnectedSeats ?? [],
     };
   }
 
@@ -120,10 +126,10 @@ export function projectGameState(
     cardPassConfirmed: [...context.cardPassDecisions],
     vacatedSeats: [...vacatedSeats],
     choosingSeat: isChoosing,
-    // REQ-F-ES04: Per-seat disconnect vote status
+    // REQ-F-ES04: Per-seat disconnect vote status (legacy — will be removed in M5)
     disconnectVotes: disconnectVoteStatus?.votes ?? {},
-    // REQ-F-ES02: Game halted when seats are vacant or a disconnect vote is active
-    gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
+    // REQ-F-GF01: Game halted only when seats are vacant (disconnects no longer halt)
+    gameHalted: vacatedSeats.length > 0,
     winner: context.winner,
     // REQ-F-PV23: Active player-initiated vote
     activeVote: activeVote ?? null,
@@ -140,6 +146,10 @@ export function projectGameState(
       : { north: null, east: null, south: null, west: null } as Record<Seat, GameCard | null>,
     endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
     serverTime: Date.now(),
+    // REQ-F-GF04, UI01: Seat the game is waiting for during an untimed phase
+    waitingForReconnect: waitingForReconnect ?? null,
+    // REQ-F-DC01: Currently disconnected seats
+    disconnectedSeats: disconnectedSeats ?? [],
   };
 }
 
@@ -173,6 +183,8 @@ export function projectSpectatorView(
   activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
   timerInfo?: { startTime: number | null; durationMs: number | null },
   endOfTrickBombWindowEndTime?: number | null,
+  waitingForReconnect?: Seat | null,
+  disconnectedSeats?: Seat[],
 ): ClientGameView {
   const round = context.currentRound;
   const phase = mapMachineStateToPhase(machineState);
@@ -209,7 +221,7 @@ export function projectSpectatorView(
       vacatedSeats: [...vacatedSeats],
       choosingSeat: false,
       disconnectVotes: disconnectVoteStatus?.votes ?? {},
-      gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
+      gameHalted: vacatedSeats.length > 0,
       winner: context.winner,
       activeVote: activeVote ?? null,
       // REQ-F-TT05: Turn timer data
@@ -217,6 +229,8 @@ export function projectSpectatorView(
       turnTimerDurationMs: timerInfo?.durationMs ?? null,
       endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
       serverTime: Date.now(),
+      waitingForReconnect: waitingForReconnect ?? null,
+      disconnectedSeats: disconnectedSeats ?? [],
     };
   }
 
@@ -254,7 +268,7 @@ export function projectSpectatorView(
     vacatedSeats: [...vacatedSeats],
     choosingSeat: false,
     disconnectVotes: disconnectVoteStatus?.votes ?? {},
-    gameHalted: vacatedSeats.length > 0 || !!disconnectVoteStatus,
+    gameHalted: vacatedSeats.length > 0,
     winner: context.winner,
     activeVote: activeVote ?? null,
     // REQ-F-TT05: Turn timer data
@@ -262,6 +276,10 @@ export function projectSpectatorView(
     turnTimerDurationMs: timerInfo?.durationMs ?? null,
     endOfTrickBombWindowEndTime: endOfTrickBombWindowEndTime ?? null,
     serverTime: Date.now(),
+    // REQ-F-UI01: Spectators see the waiting overlay too
+    waitingForReconnect: waitingForReconnect ?? null,
+    // REQ-F-DC01: Currently disconnected seats
+    disconnectedSeats: disconnectedSeats ?? [],
   };
 }
 

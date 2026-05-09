@@ -1,4 +1,4 @@
-// Verifies: REQ-F-SJ12, REQ-F-SJ13 (supersedes REQ-F-ES04/ES14/ES17 vote scheme).
+// Verifies: REQ-F-DC01, DC02, DC03, DC04, GF01, GF03, GF04
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { DisconnectHandler, type VoteOutcome } from '../../src/game/disconnect-handler.js';
@@ -16,15 +16,15 @@ function createMockBroadcaster(): Broadcaster {
   } as unknown as Broadcaster;
 }
 
-describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => {
+describe('DisconnectHandler — per-seat tracking (REQ-F-DC01–DC04)', () => {
   let handler: DisconnectHandler;
   let broadcaster: Broadcaster;
 
   beforeEach(() => {
     vi.useFakeTimers();
     broadcaster = createMockBroadcaster();
-    // Short grace window for faster tests.
-    handler = new DisconnectHandler(broadcaster, { graceTimeoutMs: 60_000 });
+    // Short threshold for faster tests (5s instead of 125s)
+    handler = new DisconnectHandler(broadcaster, { thresholdMs: 5_000 });
   });
 
   afterEach(() => {
@@ -32,7 +32,7 @@ describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => 
     vi.useRealTimers();
   });
 
-  // Verifies: REQ-F-SJ12 — seat is held, not vacated, on disconnect.
+  // Verifies: REQ-F-DC01 — seat tracked on disconnect, seat preserved.
   describe('handleDisconnect', () => {
     it('tracks the disconnected seat', () => {
       handler.handleDisconnect('ROOM1', 'north');
@@ -48,17 +48,7 @@ describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => 
       });
     });
 
-    it('does NOT broadcast DISCONNECT_VOTE_REQUIRED or DISCONNECT_VOTE_UPDATE (vote scheme removed)', () => {
-      handler.handleDisconnect('ROOM1', 'north');
-      const calls = (broadcaster.broadcastToRoom as any).mock.calls;
-      const voteMessages = calls.filter(
-        ([, msg]: [string, { type: string }]) =>
-          msg.type === 'DISCONNECT_VOTE_REQUIRED' || msg.type === 'DISCONNECT_VOTE_UPDATE',
-      );
-      expect(voteMessages).toHaveLength(0);
-    });
-
-    it('tracks multiple disconnects in the same room', () => {
+    it('tracks multiple disconnects independently per seat', () => {
       handler.handleDisconnect('ROOM1', 'north');
       handler.handleDisconnect('ROOM1', 'east');
       const seats = handler.getDisconnectedSeats('ROOM1');
@@ -66,8 +56,6 @@ describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => 
       expect(seats).toContain('east');
     });
 
-    // Verifies: REQ-F-NF-SJ04 implied — hasActiveVote always false so kick/restart
-    // votes are not artificially blocked during grace windows.
     it('hasActiveVote always returns false (no vote scheme)', () => {
       expect(handler.hasActiveVote('ROOM1')).toBe(false);
       handler.handleDisconnect('ROOM1', 'north');
@@ -75,8 +63,8 @@ describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => 
     });
   });
 
-  // Verifies: REQ-F-SJ12 — reconnect within grace restores seat without validation.
-  describe('handleReconnect (within grace)', () => {
+  // Verifies: REQ-F-DC03 — reconnect fully resets timer.
+  describe('handleReconnect', () => {
     it('removes the seat from disconnected list', () => {
       handler.handleDisconnect('ROOM1', 'north');
       handler.handleReconnect('ROOM1', 'north');
@@ -92,147 +80,158 @@ describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => 
       });
     });
 
-    // Verifies: REQ-F-SJ12 — reconnect within grace cancels the timer; the
-    // onVoteResult callback must NOT fire.
-    it('cancels the grace timer so the seat is never released', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
+    // Verifies: REQ-F-DC03 — reconnect cancels threshold timer.
+    it('cancels the threshold timer so callback never fires', () => {
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
       handler.handleDisconnect('ROOM1', 'north');
 
       handler.handleReconnect('ROOM1', 'north');
 
-      // Advance past the grace window — should not fire.
-      vi.advanceTimersByTime(70_000);
-      expect(onResult).not.toHaveBeenCalled();
+      // Advance past threshold — should not fire.
+      vi.advanceTimersByTime(10_000);
+      expect(onThreshold).not.toHaveBeenCalled();
     });
 
-    it('keeps the grace active if other seats are still disconnected', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
+    it('does not affect other disconnected seats', () => {
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
       handler.handleDisconnect('ROOM1', 'north');
       handler.handleDisconnect('ROOM1', 'east');
 
       handler.handleReconnect('ROOM1', 'north');
-      // Advancing past grace should release east only.
-      vi.advanceTimersByTime(60_000);
-      expect(onResult).toHaveBeenCalledWith('ROOM1', 'kick', ['east']);
+
+      // East should still fire
+      vi.advanceTimersByTime(5_000);
+      expect(onThreshold).toHaveBeenCalledWith('ROOM1', 'east');
+      expect(onThreshold).not.toHaveBeenCalledWith('ROOM1', 'north');
+    });
+
+    // Verifies: REQ-F-DC02 — timer resets from zero on new disconnect.
+    it('timer resets from zero if player disconnects again after reconnect', () => {
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
+      handler.handleDisconnect('ROOM1', 'north');
+
+      // Advance 3s
+      vi.advanceTimersByTime(3_000);
+      handler.handleReconnect('ROOM1', 'north');
+
+      // Reconnect and disconnect again
+      handler.handleDisconnect('ROOM1', 'north');
+
+      // Advance 4s — should not fire yet (only 4s into new session, need 5s)
+      vi.advanceTimersByTime(4_000);
+      expect(onThreshold).not.toHaveBeenCalled();
+
+      // Advance 1 more second — now fires
+      vi.advanceTimersByTime(1_000);
+      expect(onThreshold).toHaveBeenCalledWith('ROOM1', 'north');
     });
   });
 
-  // Verifies: REQ-F-SJ12, SJ13 — grace expiry releases held seats.
-  describe('grace expiry', () => {
-    it('fires onVoteResult with "kick" after the grace window', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
+  // Verifies: REQ-F-DC04, KM01 — threshold crossing fires callback.
+  describe('threshold crossing', () => {
+    it('fires onThresholdCrossed after threshold time', () => {
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
       handler.handleDisconnect('ROOM1', 'north');
 
-      vi.advanceTimersByTime(60_000);
-      expect(onResult).toHaveBeenCalledWith('ROOM1', 'kick', ['north']);
+      vi.advanceTimersByTime(5_000);
+      expect(onThreshold).toHaveBeenCalledWith('ROOM1', 'north');
     });
 
-    it('does not fire before the grace window elapses', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
+    it('does not fire before threshold time', () => {
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
       handler.handleDisconnect('ROOM1', 'north');
 
-      vi.advanceTimersByTime(59_999);
-      expect(onResult).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(4_999);
+      expect(onThreshold).not.toHaveBeenCalled();
     });
 
-    it('releases all seats that joined the same grace window', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
+    it('fires independently per seat', () => {
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
       handler.handleDisconnect('ROOM1', 'north');
+
+      vi.advanceTimersByTime(2_000);
       handler.handleDisconnect('ROOM1', 'east');
 
-      vi.advanceTimersByTime(60_000);
-      expect(onResult).toHaveBeenCalledWith(
-        'ROOM1',
-        'kick',
-        expect.arrayContaining(['north', 'east']),
-      );
+      // North fires at 5s
+      vi.advanceTimersByTime(3_000);
+      expect(onThreshold).toHaveBeenCalledTimes(1);
+      expect(onThreshold).toHaveBeenCalledWith('ROOM1', 'north');
+
+      // East fires at 7s (2s + 5s)
+      vi.advanceTimersByTime(2_000);
+      expect(onThreshold).toHaveBeenCalledTimes(2);
+      expect(onThreshold).toHaveBeenCalledWith('ROOM1', 'east');
     });
 
-    it('clears session state once fired', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
+    it('marks seat as having crossed threshold', () => {
       handler.handleDisconnect('ROOM1', 'north');
+      expect(handler.getSeatsOverThreshold('ROOM1')).toEqual([]);
 
-      vi.advanceTimersByTime(60_000);
-      expect(handler.isDisconnected('ROOM1', 'north')).toBe(true); // tracking set is independent
-      expect(handler.hasActiveVote('ROOM1')).toBe(false);
-      expect(handler.getVoteStatus('ROOM1')).toBeNull();
+      vi.advanceTimersByTime(5_000);
+      expect(handler.getSeatsOverThreshold('ROOM1')).toEqual(['north']);
     });
   });
 
-  // Verifies: REQ-F-SJ12 — handleVote is a no-op; the client protocol still
-  // accepts DISCONNECT_VOTE messages until the client UI is removed in M5.
+  // Verifies: REQ-F-DC04 — getDisconnectDurationMs tracks elapsed time.
+  describe('getDisconnectDurationMs', () => {
+    it('returns elapsed time since disconnect', () => {
+      handler.handleDisconnect('ROOM1', 'north');
+      vi.advanceTimersByTime(3_000);
+      expect(handler.getDisconnectDurationMs('ROOM1', 'north')).toBe(3_000);
+    });
+
+    it('returns 0 for a non-disconnected seat', () => {
+      expect(handler.getDisconnectDurationMs('ROOM1', 'north')).toBe(0);
+    });
+
+    it('returns 0 after reconnect', () => {
+      handler.handleDisconnect('ROOM1', 'north');
+      vi.advanceTimersByTime(3_000);
+      handler.handleReconnect('ROOM1', 'north');
+      expect(handler.getDisconnectDurationMs('ROOM1', 'north')).toBe(0);
+    });
+  });
+
+  // Verifies: back-compat — handleVote is a no-op.
   describe('handleVote (back-compat no-op)', () => {
     it('returns "pending" regardless of input', () => {
       handler.handleDisconnect('ROOM1', 'north');
       const result: VoteOutcome = handler.handleVote('ROOM1', 'east', 'kick');
       expect(result).toBe('pending');
     });
-
-    it('does not trigger the kick callback', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
-      handler.handleDisconnect('ROOM1', 'north');
-
-      handler.handleVote('ROOM1', 'east', 'kick');
-      handler.handleVote('ROOM1', 'south', 'kick');
-      handler.handleVote('ROOM1', 'west', 'kick');
-      expect(onResult).not.toHaveBeenCalled();
-    });
   });
 
-  // Verifies: REQ-F-SJ12 — projection sees disconnected seats + remaining grace.
-  describe('getVoteStatus (for state projection)', () => {
-    it('returns null when no seat is under grace', () => {
+  // Verifies: getVoteStatus always returns null (legacy UI support).
+  describe('getVoteStatus (legacy)', () => {
+    it('returns null regardless of disconnect state', () => {
       expect(handler.getVoteStatus('ROOM1')).toBeNull();
-    });
-
-    it('returns disconnected seats and remaining grace time', () => {
       handler.handleDisconnect('ROOM1', 'north');
-      vi.advanceTimersByTime(15_000);
-
-      const status = handler.getVoteStatus('ROOM1');
-      expect(status).not.toBeNull();
-      expect(status!.disconnectedSeats).toEqual(['north']);
-      // Remaining ≈ 45s of the 60s window.
-      expect(status!.timeoutMs).toBeLessThanOrEqual(45_000);
-      expect(status!.timeoutMs).toBeGreaterThan(44_000);
-    });
-
-    it('returns an empty votes map (vote scheme removed)', () => {
-      handler.handleDisconnect('ROOM1', 'north');
-      const status = handler.getVoteStatus('ROOM1');
-      expect(status!.votes).toEqual({
-        north: null,
-        east: null,
-        south: null,
-        west: null,
-      });
+      expect(handler.getVoteStatus('ROOM1')).toBeNull();
     });
   });
 
   describe('cleanupRoom', () => {
-    it('removes all grace state for a room', () => {
+    it('removes all state for a room', () => {
       handler.handleDisconnect('ROOM1', 'north');
       handler.cleanupRoom('ROOM1');
       expect(handler.isDisconnected('ROOM1', 'north')).toBe(false);
       expect(handler.getDisconnectedSeats('ROOM1')).toEqual([]);
-      expect(handler.getVoteStatus('ROOM1')).toBeNull();
     });
 
-    it('prevents the timer from firing post-cleanup', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
+    it('prevents threshold from firing post-cleanup', () => {
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
       handler.handleDisconnect('ROOM1', 'north');
       handler.cleanupRoom('ROOM1');
 
-      vi.advanceTimersByTime(60_000);
-      expect(onResult).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(10_000);
+      expect(onThreshold).not.toHaveBeenCalled();
     });
   });
 
@@ -242,92 +241,21 @@ describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => 
       handler.handleDisconnect('ROOM2', 'east');
       handler.dispose();
 
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
-      vi.advanceTimersByTime(60_000);
-      expect(onResult).not.toHaveBeenCalled();
-    });
-  });
-
-  // Verifies: R3 regression — "reconnect within grace does not touch
-  // seat-claim eligibility." The handler knows nothing about eligibility,
-  // so this is a negative structural check: reconnect flow is internal.
-  describe('R3: reconnect bypass (regression)', () => {
-    it('never broadcasts anything that would trigger seat-claim flow on reconnect', () => {
-      handler.handleDisconnect('ROOM1', 'north');
-      (broadcaster.broadcastToRoom as any).mockClear();
-
-      handler.handleReconnect('ROOM1', 'north');
-
-      const calls = (broadcaster.broadcastToRoom as any).mock.calls;
-      // The only broadcast on reconnect is PLAYER_RECONNECTED.
-      expect(calls).toHaveLength(1);
-      expect(calls[0][1]).toEqual({ type: 'PLAYER_RECONNECTED', seat: 'north' });
-    });
-  });
-
-  describe('variable grace timeout', () => {
-    it('per-disconnect timeout overrides constructor default', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
-
-      // Constructor default is 60_000, pass 5_000 per-call
-      handler.handleDisconnect('ROOM1', 'north', { graceTimeoutMs: 5_000 });
-
-      // Should NOT fire after 4s
-      vi.advanceTimersByTime(4_000);
-      expect(onResult).not.toHaveBeenCalled();
-
-      // Should fire after 5s
-      vi.advanceTimersByTime(1_000);
-      expect(onResult).toHaveBeenCalledWith('ROOM1', 'kick', ['north']);
-    });
-
-    it('constructor default used when no per-call timeout provided', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
-
-      // No options passed, should use constructor default of 60_000
-      handler.handleDisconnect('ROOM1', 'north');
-
-      vi.advanceTimersByTime(59_999);
-      expect(onResult).not.toHaveBeenCalled();
-
-      vi.advanceTimersByTime(1);
-      expect(onResult).toHaveBeenCalledWith('ROOM1', 'kick', ['north']);
-    });
-
-    it('second disconnect in same room does not reset the timer', () => {
-      const onResult = vi.fn();
-      handler.onVoteResult = onResult;
-
-      // First disconnect with 10s timeout
-      handler.handleDisconnect('ROOM1', 'north', { graceTimeoutMs: 10_000 });
-
-      // Advance 5s
-      vi.advanceTimersByTime(5_000);
-
-      // Second disconnect with 20s timeout (should be ignored, merged into existing)
-      handler.handleDisconnect('ROOM1', 'east', { graceTimeoutMs: 20_000 });
-
-      // Original 10s timer should fire at 10s total (5s more)
-      vi.advanceTimersByTime(5_000);
-      expect(onResult).toHaveBeenCalledWith(
-        'ROOM1',
-        'kick',
-        expect.arrayContaining(['north', 'east'])
-      );
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
+      vi.advanceTimersByTime(10_000);
+      expect(onThreshold).not.toHaveBeenCalled();
     });
   });
 
   describe('freeze status (solo-human pause)', () => {
     it('isFrozen returns true when frozen flag was passed', () => {
-      handler.handleDisconnect('ROOM1', 'north', { frozen: true });
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 60_000 });
       expect(handler.isFrozen('ROOM1')).toBe(true);
     });
 
     it('isFrozen returns false for a normal (non-frozen) disconnect', () => {
-      handler.handleDisconnect('ROOM1', 'north', { frozen: false });
+      handler.handleDisconnect('ROOM1', 'north');
       expect(handler.isFrozen('ROOM1')).toBe(false);
     });
 
@@ -336,27 +264,54 @@ describe('DisconnectHandler — passive grace period (REQ-F-SJ12, SJ13)', () => 
     });
 
     it('isFrozen returns false after reconnect clears the session', () => {
-      handler.handleDisconnect('ROOM1', 'north', { frozen: true });
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 60_000 });
       expect(handler.isFrozen('ROOM1')).toBe(true);
 
       handler.handleReconnect('ROOM1', 'north');
       expect(handler.isFrozen('ROOM1')).toBe(false);
     });
 
+    it('fires onVoteResult with "kick" after frozen grace expires', () => {
+      const onResult = vi.fn();
+      handler.onVoteResult = onResult;
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 5_000 });
+
+      vi.advanceTimersByTime(5_000);
+      expect(onResult).toHaveBeenCalledWith('ROOM1', 'kick', ['north']);
+    });
+
     it('isFrozen returns false after grace expiry', () => {
       handler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 5_000 });
-      expect(handler.isFrozen('ROOM1')).toBe(true);
-
       vi.advanceTimersByTime(5_000);
       expect(handler.isFrozen('ROOM1')).toBe(false);
     });
 
     it('isFrozen returns false after cleanupRoom', () => {
-      handler.handleDisconnect('ROOM1', 'north', { frozen: true });
-      expect(handler.isFrozen('ROOM1')).toBe(true);
-
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 60_000 });
       handler.cleanupRoom('ROOM1');
       expect(handler.isFrozen('ROOM1')).toBe(false);
+    });
+
+    it('does not fire threshold callback for frozen sessions', () => {
+      const onThreshold = vi.fn();
+      handler.onThresholdCrossed = onThreshold;
+      handler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 60_000 });
+
+      vi.advanceTimersByTime(130_000);
+      expect(onThreshold).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('R3: reconnect bypass (regression)', () => {
+    it('never broadcasts anything that would trigger seat-claim flow on reconnect', () => {
+      handler.handleDisconnect('ROOM1', 'north');
+      (broadcaster.broadcastToRoom as any).mockClear();
+
+      handler.handleReconnect('ROOM1', 'north');
+
+      const calls = (broadcaster.broadcastToRoom as any).mock.calls;
+      expect(calls).toHaveLength(1);
+      expect(calls[0][1]).toEqual({ type: 'PLAYER_RECONNECTED', seat: 'north' });
     });
   });
 });

@@ -214,4 +214,8 @@ export interface ClientGameView {
   endOfTrickBombWindowEndTime?: number | null;
   /** Server's Date.now() at time of projection — clients use this to correct clock skew on timestamps */
   serverTime?: number;
+  /** REQ-F-GF04, UI01: Seat the game is waiting for during an untimed phase (disconnected player's turn), null otherwise */
+  waitingForReconnect?: Seat | null;
+  /** REQ-F-DC01: Seats currently disconnected */
+  disconnectedSeats?: Seat[];
 }
