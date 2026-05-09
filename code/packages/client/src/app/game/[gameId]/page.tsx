@@ -582,6 +582,19 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   );
 
   const [bombPopupOpen, setBombPopupOpen] = useState(false);
+  const bombPopupRef = useRef<HTMLDivElement>(null);
+
+  // Dismiss bomb popup on click outside (mobile layout)
+  useEffect(() => {
+    if (!bombPopupOpen || !isMobileLayout) return;
+    const handler = (e: MouseEvent) => {
+      if (bombPopupRef.current && !bombPopupRef.current.contains(e.target as Node)) {
+        setBombPopupOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [bombPopupOpen, isMobileLayout]);
 
   // Chat bubble positioning: vertically centered between trick area bottom and action bar top
   const [chatBubblePos, setChatBubblePos] = useState<{ top: number; right: number } | null>(null);
@@ -2055,6 +2068,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
                 {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
                   <div
+                    ref={bombPopupRef}
                     style={{ position: 'relative', zIndex: 30 }}
                   >
                     {/* Mobile bomb popup — toggled by click */}
