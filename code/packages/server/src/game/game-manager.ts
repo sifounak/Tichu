@@ -112,6 +112,8 @@ export class GameManager {
   private _votingEnabled = true;
   /** REQ-F-KM04: Callback for kick-dialog-triggered seat vacation */
   private onKickDialogKick?: (roomCode: string, seat: Seat) => void;
+  /** REQ-F-VI05: Snapshot of a vote interrupted by a threshold crossing during the vote. */
+  private interruptedVote: { voteType: import('./vote-handler.js').PlayerVoteType; initiatorSeat: Seat; targetSeat?: Seat } | null = null;
 
   constructor(
     gameId: string,
@@ -129,16 +131,39 @@ export class GameManager {
     this.kickDialogHandler = new KickDialogHandler(broadcaster);
 
     // REQ-F-KM01: Wire disconnect threshold to kick dialog handler
+    // REQ-F-VI03/VI04: If vote active and crossing player was participant → cancel vote, show kick dialog
     this.disconnectHandler.onThresholdCrossed = (rc, seat) => {
       if (rc !== this.roomCode) return;
+
+      if (this.voteHandler.hasActiveVote(rc)) {
+        // REQ-F-VI03: Cancel the active vote, save snapshot for restart
+        this.interruptedVote = this.voteHandler.getVoteSnapshot(rc);
+        this.voteHandler.cancelVote(rc, 'Player disconnected too long');
+        // REQ-F-VI09: Reset timer after vote dismiss
+        this.timer.resetToFull();
+      }
+
+      // REQ-F-VI04: Show kick dialog for the threshold-crossing player
       this.kickDialogHandler.onThresholdCrossed(rc, seat, this.getConnectedHumanSeats());
     };
 
     // REQ-F-KM04: Wire kick dialog to vacate the seat
+    // REQ-F-VI05: After kick resolved, restart interrupted vote (unless vote was to kick that player)
     this.kickDialogHandler.onKick = (rc, seat) => {
       this.vacatedSeats.add(seat);
       this.broadcastState();
       this.onKickDialogKick?.(rc, seat);
+      this.restartInterruptedVoteIfApplicable(seat);
+    };
+
+    // REQ-F-VI06: When kick dialog dismissed via reconnect, restart interrupted vote
+    this.kickDialogHandler.onDialogDismissed = (rc, reason) => {
+      if (rc !== this.roomCode) return;
+      if (reason === 'reconnected') {
+        this.restartInterruptedVoteIfApplicable(null);
+      } else if (reason === 'declined') {
+        this.restartInterruptedVoteIfApplicable(null);
+      }
     };
 
     // Create the XState game actor
@@ -343,6 +368,16 @@ export class GameManager {
     onRestartRoundVotePassed: (roomCode: string) => void,
   ): void {
     this.voteHandler.onVoteResult = (roomCode, voteType, passed, targetSeat) => {
+      // REQ-F-VI09: Reset turn timer to full after vote ends
+      this.timer.resetToFull();
+
+      // REQ-F-KM13: After vote resolves, re-show kick dialog if still applicable
+      this.kickDialogHandler.reappearAfterVote(
+        roomCode,
+        this.getConnectedHumanSeats(),
+        (seat) => this.disconnectHandler.getSeatsOverThreshold(roomCode).includes(seat),
+      );
+
       if (voteType === 'kick' && passed && targetSeat) {
         // REQ-F-PV16: Kick vote passed — vacate the target seat
         this.vacatedSeats.add(targetSeat);
@@ -536,8 +571,17 @@ export class GameManager {
       return;
     }
 
+    // REQ-F-KM12: Dismiss kick dialog when vote starts
+    this.kickDialogHandler.dismissForVote(this.roomCode);
+
     const humanSeats = this.getHumanSeats();
-    this.voteHandler.startKickVote(this.roomCode, initiatorSeat, targetSeat, humanSeats);
+    // REQ-F-VI01: Exclude 2+ min disconnected from eligible voters
+    const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
+    const started = this.voteHandler.startKickVote(this.roomCode, initiatorSeat, targetSeat, humanSeats, excludedSeats);
+    if (started) {
+      // REQ-F-VI08: Pause turn timer during vote
+      this.timer.pause();
+    }
   }
 
   /** REQ-F-PV04, REQ-F-PV25: Start a restart-game vote with validation */
@@ -562,8 +606,17 @@ export class GameManager {
       return;
     }
 
+    // REQ-F-KM12: Dismiss kick dialog when vote starts
+    this.kickDialogHandler.dismissForVote(this.roomCode);
+
     const humanSeats = this.getHumanSeats();
-    this.voteHandler.startRestartGameVote(this.roomCode, initiatorSeat, humanSeats);
+    // REQ-F-VI01: Exclude 2+ min disconnected from eligible voters
+    const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
+    const started = this.voteHandler.startRestartGameVote(this.roomCode, initiatorSeat, humanSeats, excludedSeats);
+    if (started) {
+      // REQ-F-VI08: Pause turn timer during vote
+      this.timer.pause();
+    }
   }
 
   /** Start a restart-round vote with validation */
@@ -586,8 +639,17 @@ export class GameManager {
       return;
     }
 
+    // REQ-F-KM12: Dismiss kick dialog when vote starts
+    this.kickDialogHandler.dismissForVote(this.roomCode);
+
     const humanSeats = this.getHumanSeats();
-    this.voteHandler.startRestartRoundVote(this.roomCode, initiatorSeat, humanSeats);
+    // REQ-F-VI01: Exclude 2+ min disconnected from eligible voters
+    const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
+    const started = this.voteHandler.startRestartRoundVote(this.roomCode, initiatorSeat, humanSeats, excludedSeats);
+    if (started) {
+      // REQ-F-VI08: Pause turn timer during vote
+      this.timer.pause();
+    }
   }
 
   /** Get all human (non-bot) seats */
@@ -1072,15 +1134,29 @@ export class GameManager {
     instance.voteHandler = voteHandler;
     instance.kickDialogHandler = new KickDialogHandler(broadcaster);
 
-    // REQ-F-KM01: Wire disconnect threshold to kick dialog handler (same as constructor)
+    // REQ-F-KM01, VI03/VI04: Wire disconnect threshold to kick dialog handler (same as constructor)
     disconnectHandler.onThresholdCrossed = (rc, seat) => {
       if (rc !== instance.roomCode) return;
+
+      if (instance.voteHandler.hasActiveVote(rc)) {
+        instance.interruptedVote = instance.voteHandler.getVoteSnapshot(rc);
+        instance.voteHandler.cancelVote(rc, 'Player disconnected too long');
+        instance.timer.resetToFull();
+      }
+
       instance.kickDialogHandler.onThresholdCrossed(rc, seat, instance.getConnectedHumanSeats());
     };
     instance.kickDialogHandler.onKick = (rc, seat) => {
       instance.vacatedSeats.add(seat);
       instance.broadcastState();
       instance.onKickDialogKick?.(rc, seat);
+      instance.restartInterruptedVoteIfApplicable(seat);
+    };
+    instance.kickDialogHandler.onDialogDismissed = (rc, reason) => {
+      if (rc !== instance.roomCode) return;
+      if (reason === 'reconnected' || reason === 'declined') {
+        instance.restartInterruptedVoteIfApplicable(null);
+      }
     };
 
     // Rehydrate Sets in the machine snapshot context before restoring the actor.
@@ -1144,6 +1220,7 @@ export class GameManager {
     instance.endOfTrickBombTimer = null;
     instance.dogAnimDelayTimer = null;
     instance.restoredFromSnapshot = true;
+    instance.interruptedVote = null;
 
     // Subscribe to actor state changes (same as constructor)
     instance.actor.subscribe((snap) => {
@@ -1279,6 +1356,36 @@ export class GameManager {
     });
 
     this.eventCapture.recordPrePlayContext(seat, prePlay);
+  }
+
+  /**
+   * REQ-F-VI05/VI06: Restart a previously-interrupted vote after kick dialog resolves.
+   * Skip if the interrupted vote was to kick the player who was just kicked.
+   */
+  private restartInterruptedVoteIfApplicable(kickedSeat: Seat | null): void {
+    const snapshot = this.interruptedVote;
+    if (!snapshot) return;
+    this.interruptedVote = null;
+
+    // REQ-F-VI05: Skip if vote was to kick the same player who was just kicked
+    if (kickedSeat && snapshot.voteType === 'kick' && snapshot.targetSeat === kickedSeat) {
+      return;
+    }
+
+    // Restart the vote
+    const humanSeats = this.getHumanSeats();
+    const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
+
+    if (snapshot.voteType === 'kick' && snapshot.targetSeat) {
+      this.voteHandler.startKickVote(this.roomCode, snapshot.initiatorSeat, snapshot.targetSeat, humanSeats, excludedSeats);
+    } else if (snapshot.voteType === 'restartGame') {
+      this.voteHandler.startRestartGameVote(this.roomCode, snapshot.initiatorSeat, humanSeats, excludedSeats);
+    } else if (snapshot.voteType === 'restartRound') {
+      this.voteHandler.startRestartRoundVote(this.roomCode, snapshot.initiatorSeat, humanSeats, excludedSeats);
+    }
+
+    // REQ-F-VI08: Pause timer for restarted vote
+    this.timer.pause();
   }
 
   /** Clean up resources */

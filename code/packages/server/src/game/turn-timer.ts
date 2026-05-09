@@ -20,6 +20,8 @@ export class TurnTimer {
   private readonly durationMs: number | null;
   private readonly onTimeout: TurnTimeoutCallback;
   private startTime: number | null = null;
+  /** REQ-F-VI08: Saved remaining time when paused (null = not paused). */
+  private pausedRemainingMs: number | null = null;
 
   constructor(turnTimerSeconds: number | null, onTimeout: TurnTimeoutCallback) {
     this.durationMs = turnTimerSeconds !== null ? turnTimerSeconds * 1000 : null;
@@ -53,6 +55,38 @@ export class TurnTimer {
     }
     this.currentSeat = null;
     this.startTime = null;
+    this.pausedRemainingMs = null;
+  }
+
+  /**
+   * REQ-F-VI08: Pause the timer (save remaining time, clear timeout).
+   * No-op if no timer is active or timer is disabled.
+   */
+  pause(): void {
+    if (this.durationMs === null || this.timerId === null || this.startTime === null) return;
+
+    const elapsed = Date.now() - this.startTime;
+    this.pausedRemainingMs = Math.max(0, this.durationMs - elapsed);
+
+    clearTimeout(this.timerId);
+    this.timerId = null;
+    this.startTime = null;
+    // Keep currentSeat so we know who to restart for
+  }
+
+  /**
+   * REQ-F-VI09: Reset the timer to its full duration for the current seat.
+   * Used after a vote ends to give the active player their full time.
+   */
+  resetToFull(): void {
+    if (this.durationMs === null) return;
+    const seat = this.currentSeat;
+    if (!seat) {
+      this.pausedRemainingMs = null;
+      return;
+    }
+    this.pausedRemainingMs = null;
+    this.start(seat);
   }
 
   /** Get the seat whose timer is currently running */
@@ -62,9 +96,15 @@ export class TurnTimer {
 
   /** Get remaining time in milliseconds, or null if no timer is running */
   getRemainingMs(): number | null {
+    if (this.pausedRemainingMs !== null) return this.pausedRemainingMs;
     if (this.durationMs === null || this.startTime === null) return null;
     const elapsed = Date.now() - this.startTime;
     return Math.max(0, this.durationMs - elapsed);
+  }
+
+  /** REQ-F-VI08: Check if the timer is currently paused. */
+  isPaused(): boolean {
+    return this.pausedRemainingMs !== null;
   }
 
   /** Check if the timer is currently active */

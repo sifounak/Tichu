@@ -57,12 +57,13 @@ export class VoteHandler {
 
   /**
    * REQ-F-PV03: Start a kick vote.
-   * Eligible voters: all human seats except the target.
+   * Eligible voters: all human seats except the target and excluded seats.
+   * REQ-F-VI01: excludedSeats are players disconnected 2+ min.
    */
-  startKickVote(roomCode: string, initiatorSeat: Seat, targetSeat: Seat, humanSeats: Seat[]): boolean {
+  startKickVote(roomCode: string, initiatorSeat: Seat, targetSeat: Seat, humanSeats: Seat[], excludedSeats: Seat[] = []): boolean {
     if (this.sessions.has(roomCode)) return false;
 
-    const eligibleVoters = humanSeats.filter(s => s !== targetSeat);
+    const eligibleVoters = humanSeats.filter(s => s !== targetSeat && !excludedSeats.includes(s));
     const session = this.createSession('kick', initiatorSeat, eligibleVoters, targetSeat);
     this.sessions.set(roomCode, session);
 
@@ -97,12 +98,13 @@ export class VoteHandler {
 
   /**
    * REQ-F-PV04: Start a restart-game vote.
-   * Eligible voters: all human seats.
+   * Eligible voters: all human seats minus excluded.
+   * REQ-F-VI01: excludedSeats are players disconnected 2+ min.
    */
-  startRestartGameVote(roomCode: string, initiatorSeat: Seat, humanSeats: Seat[]): boolean {
+  startRestartGameVote(roomCode: string, initiatorSeat: Seat, humanSeats: Seat[], excludedSeats: Seat[] = []): boolean {
     if (this.sessions.has(roomCode)) return false;
 
-    const eligibleVoters = [...humanSeats];
+    const eligibleVoters = humanSeats.filter(s => !excludedSeats.includes(s));
     const session = this.createSession('restartGame', initiatorSeat, eligibleVoters);
     this.sessions.set(roomCode, session);
 
@@ -136,11 +138,12 @@ export class VoteHandler {
   /**
    * Start a restart-round vote.
    * Same semantics as restart-game: unanimous approval from all human seats.
+   * REQ-F-VI01: excludedSeats are players disconnected 2+ min.
    */
-  startRestartRoundVote(roomCode: string, initiatorSeat: Seat, humanSeats: Seat[]): boolean {
+  startRestartRoundVote(roomCode: string, initiatorSeat: Seat, humanSeats: Seat[], excludedSeats: Seat[] = []): boolean {
     if (this.sessions.has(roomCode)) return false;
 
-    const eligibleVoters = [...humanSeats];
+    const eligibleVoters = humanSeats.filter(s => !excludedSeats.includes(s));
     const session = this.createSession('restartRound', initiatorSeat, eligibleVoters);
     this.sessions.set(roomCode, session);
 
@@ -223,6 +226,24 @@ export class VoteHandler {
       targetSeat: session.targetSeat,
       votes,
       timeoutMs: remaining,
+    };
+  }
+
+  /**
+   * REQ-F-VI05: Get a snapshot of the active vote for saving/restarting interrupted votes.
+   * Returns null if no vote is active.
+   */
+  getVoteSnapshot(roomCode: string): {
+    voteType: PlayerVoteType;
+    initiatorSeat: Seat;
+    targetSeat?: Seat;
+  } | null {
+    const session = this.sessions.get(roomCode);
+    if (!session) return null;
+    return {
+      voteType: session.voteType,
+      initiatorSeat: session.initiatorSeat,
+      targetSeat: session.targetSeat,
     };
   }
 

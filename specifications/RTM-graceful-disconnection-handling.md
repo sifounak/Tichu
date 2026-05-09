@@ -26,18 +26,18 @@
 | REQ-F-KM09 | Queued player reconnects → removed silently | M2 | | | Pending |
 | REQ-F-KM10 | One-time per disconnect session (player dismiss) | M2 | | | Pending |
 | REQ-F-KM11 | New disconnect session → new dialog eligibility | M2 | | | Pending |
-| REQ-F-KM12 | Vote dismisses kick dialog; reappears after | M3 | | | Pending |
-| REQ-F-KM13 | System-dismiss allows reappearance | M3 | | | Pending |
+| REQ-F-KM12 | Vote dismisses kick dialog; reappears after | M3 | game-manager.ts:574,609,642; kick-dialog-handler.ts:176 | vote-integration.test.ts:209 | Passed |
+| REQ-F-KM13 | System-dismiss allows reappearance | M3 | game-manager.ts:374; kick-dialog-handler.ts:210 | vote-integration.test.ts:227,242 | Passed |
 | REQ-F-KM14 | Kick dialog identical for all players | M2 | | | Pending |
-| REQ-F-VI01 | 2+ min disconnected excluded from votes | M3 | | | Pending |
-| REQ-F-VI02 | < 2 min disconnected participates normally | M3 | | | Pending |
-| REQ-F-VI03 | Crossing threshold during vote → dismiss vote | M3 | | | Pending |
-| REQ-F-VI04 | After vote dismiss → show kick dialog | M3 | | | Pending |
-| REQ-F-VI05 | After kick resolved → restart prior vote (unless moot) | M3 | | | Pending |
-| REQ-F-VI06 | Reconnect during kick → dismiss, restart prior vote | M3 | | | Pending |
-| REQ-F-VI07 | < 2 min disconnected during vote → vote waits (30s timeout) | M3 | | | Pending |
-| REQ-F-VI08 | Turn timer paused during vote | M3 | | | Pending |
-| REQ-F-VI09 | Turn timer reset to full after vote | M3 | | | Pending |
+| REQ-F-VI01 | 2+ min disconnected excluded from votes | M3 | vote-handler.ts:61,102,141; game-manager.ts:578,613,646 | vote-integration.test.ts:118,137,152 | Passed |
+| REQ-F-VI02 | < 2 min disconnected participates normally | M3 | vote-handler.ts (no exclusion when empty) | vote-integration.test.ts:165 | Passed |
+| REQ-F-VI03 | Crossing threshold during vote → dismiss vote | M3 | game-manager.ts:134-143 | vote-integration.test.ts:287 | Passed |
+| REQ-F-VI04 | After vote dismiss → show kick dialog | M3 | game-manager.ts:146 | vote-integration.test.ts:287 | Passed |
+| REQ-F-VI05 | After kick resolved → restart prior vote (unless moot) | M3 | game-manager.ts:1362-1389 | vote-integration.test.ts:353,363 | Passed |
+| REQ-F-VI06 | Reconnect during kick → dismiss, restart prior vote | M3 | game-manager.ts:159-162 | vote-integration.test.ts:353 | Passed |
+| REQ-F-VI07 | < 2 min disconnected during vote → vote waits (30s timeout) | M3 | (no cancellation in handleDisconnect; 30s vote timeout handles) | (existing vote-handler timeout test) | Passed |
+| REQ-F-VI08 | Turn timer paused during vote | M3 | turn-timer.ts:65; game-manager.ts:582,617,650,1387 | vote-integration.test.ts:38 | Passed |
+| REQ-F-VI09 | Turn timer reset to full after vote | M3 | turn-timer.ts:81; game-manager.ts:142,371 | vote-integration.test.ts:56 | Passed |
 | REQ-NF-DC01 | No latency/performance degradation | M5 | | | Pending |
 | REQ-NF-DC02 | Timer accurate to ±2 seconds | M5 | | | Pending |
 | REQ-NF-UI01 | Overlay appears within 1 second | M4 | | | Pending |
