@@ -126,7 +126,7 @@ html.debug-outlines [data-debug-area="Server Banner"]::after { background: #ee5a
   --card-height: calc(100px * var(--scale));
   --card-overlap-desktop: calc(45px * var(--scale));
   --card-overlap-mobile: calc(16px * var(--scale));
-  --card-lift-selected: calc(-12px * var(--scale));
+  --card-lift-selected: calc(-17px * var(--scale));
   --card-border-radius: calc(6px * var(--scale));
   --card-font-size: calc(16px * var(--scale));
   --card-suit-size: calc(20px * var(--scale));

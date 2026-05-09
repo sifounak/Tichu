@@ -179,7 +179,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
           // REQ-F-DA03: Entry (0.25s base) + pause (0.00s base) before exit begins
           const BASE_CARD_PLAY = 0.25;
-          const DOG_PAUSE = 0.00;
+          const DOG_PAUSE = 1.00; // Hold dog on screen before animating to recipient
           const BASE_TRICK_SWEEP = 0.40;
           const DOG_RESUME_DELAY = 0.85; // Extra pause after sweep before play resumes
 
@@ -228,6 +228,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             const BASE_TRICK_SWEEP = 0.40;
             const sweepMs = BASE_TRICK_SWEEP * animMultiplier * 1000;
             setTimeout(() => uiStore.clearDragonGiftAnimation(), sweepMs + 100);
+            // End-of-trick bomb delay for Dragon wins (same as normal trick transitions)
+            const BOMB_WINDOW_MS = 1500;
+            uiStore.startBombWindow(sweepMs + 100 + BOMB_WINDOW_MS);
           }
         }
 
@@ -2065,16 +2068,76 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   />
                 ) : null}
               </div>
-              {/* Right: Bomb button */}
+              {/* Right: Bomb button — mobile uses click-to-toggle popup */}
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
                 {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
                   <div
                     style={{ position: 'relative', zIndex: 30 }}
-                    onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
-                    onMouseLeave={() => setBombPopupOpen(false)}
                   >
+                    {/* Mobile bomb popup — toggled by click */}
+                    {bombPopupOpen && handBombs.length > 0 && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          bottom: '100%',
+                          right: 0,
+                          paddingBottom: 'calc(4px * var(--scale))',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-end',
+                        }}
+                      >
+                        <div
+                          style={{
+                            background: 'rgba(0, 0, 0, 0.5)',
+                            border: 'none',
+                            borderRadius: 'var(--space-3)',
+                            padding: 'calc(4px * var(--scale))',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 'calc(12px * var(--scale))',
+                            zIndex: 50,
+                          }}
+                        >
+                          {[...handBombs].sort((a, b) => {
+                            const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                            const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                            if (aIsSF !== bIsSF) return aIsSF - bIsSF;
+                            if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
+                              if (a.length !== b.length) return a.length - b.length;
+                              return a.rank - b.rank;
+                            }
+                            return a.rank - b.rank;
+                          }).map((bomb, i) => (
+                            <div
+                              key={i}
+                              role="button"
+                              tabIndex={0}
+                              onClick={phase === 'playing' ? () => { handleBombPlay(bomb); setBombPopupOpen(false); } : undefined}
+                              onKeyDown={phase === 'playing' ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } } : undefined}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                borderRadius: 'var(--space-2)',
+                                cursor: phase === 'playing' ? 'pointer' : 'default',
+                                padding: 'calc(6px * var(--scale))',
+                                display: 'flex',
+                                transition: 'background 0.15s',
+                              }}
+                              aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
+                            >
+                              {bomb.cards.map((gc, j) => (
+                                <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
+                                  <Card gameCard={gc} state="normal" />
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <button
-                      onClick={phase === 'playing' ? () => handBombs.length === 1 ? handleBombPlay(handBombs[0]) : undefined : undefined}
+                      onClick={() => setBombPopupOpen((prev) => !prev)}
                       style={{
                         width: 'calc(var(--card-width) * 1.25 * 0.5)',
                         height: 'calc(var(--card-height) * 0.4)',
