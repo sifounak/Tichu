@@ -33,8 +33,6 @@ export interface PlayerSeatProps {
   passConfirmedLabel?: string;
   /** REQ-F-ES01: Seat is empty — player left, shows "Empty Seat" with preserved game state */
   emptySeat?: boolean;
-  /** REQ-F-ES04: Vote status glow — 'wait' = green, 'kick' = red, null = normal */
-  voteStatus?: 'wait' | 'kick' | null;
   /** Seat is vacated — player left mid-game, waiting for replacement */
   vacated?: boolean;
   /** Seat chooser button label (e.g. "Sit Here" or "Choose This Seat") */
@@ -86,7 +84,6 @@ export const PlayerSeat = memo(function PlayerSeat({
   hideTrickLabels,
   passConfirmed,
   emptySeat,
-  voteStatus,
   vacated,
   seatChooserLabel,
   onChooseSeat,
@@ -128,11 +125,8 @@ export const PlayerSeat = memo(function PlayerSeat({
     kickVoteTarget && styles.kickVoteTarget,
     playerVoteStatus === true && styles.voteApprove,
     playerVoteStatus === false && styles.voteReject,
-    // REQ-F-ES04: Vote glow overrides normal turn/leader glows during active vote
-    !kickVoteTarget && playerVoteStatus == null && voteStatus === 'wait' && styles.voteWait,
-    !kickVoteTarget && playerVoteStatus == null && voteStatus === 'kick' && styles.voteKick,
-    !kickVoteTarget && playerVoteStatus == null && !voteStatus && isCurrentTurn && timerGlowClass,
-    !kickVoteTarget && playerVoteStatus == null && !voteStatus && isTrickLeader && styles.trickLeader,
+    !kickVoteTarget && playerVoteStatus == null && isCurrentTurn && timerGlowClass,
+    !kickVoteTarget && playerVoteStatus == null && isTrickLeader && styles.trickLeader,
     hasPassed && styles.passed,
     isMe && styles.me,
     isDragonActive && styles.dragonTarget,
@@ -274,14 +268,6 @@ export const PlayerSeat = memo(function PlayerSeat({
       {/* Card pass confirmed label */}
       {!hideNormalLabels && passConfirmed && (
         <span className={styles.passConfirmedLabel}>{passConfirmedLabel ?? 'Ready to Pass'}</span>
-      )}
-
-      {/* REQ-F-ES04: Vote status label — overrides other labels during active vote */}
-      {!hideNormalLabels && voteStatus === 'wait' && (
-        <span className={styles.voteLabel} style={{ color: '#2ecc71' }}>Vote: Wait</span>
-      )}
-      {!hideNormalLabels && voteStatus === 'kick' && (
-        <span className={styles.voteLabel} style={{ color: '#e74c3c' }}>Vote: Kick</span>
       )}
 
       {/* Vacated seat overlay */}

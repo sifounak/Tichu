@@ -12,9 +12,9 @@
 | REQ-F-GF02 | Timed phases: turn timer runs, auto-action on expiry | M1 | | | Pending |
 | REQ-F-GF03 | Bomb window runs naturally for disconnected | M1 | | | Pending |
 | REQ-F-GF04 | Untimed phases: wait indefinitely for disconnected player | M1 | | | Pending |
-| REQ-F-UI01 | "Waiting for reconnect" overlay on untimed turn | M4 | | | Pending |
-| REQ-F-UI02 | No visual indicator outside untimed turn | M4 | | | Pending |
-| REQ-F-UI03 | Spectators see overlay, not kick dialog | M2/M4 | | | Pending |
+| REQ-F-UI01 | "Waiting for reconnect" overlay on untimed turn | M4 | WaitingForReconnectOverlay.tsx; GameTable.tsx:189-199 | (visual) | Passed |
+| REQ-F-UI02 | No visual indicator outside untimed turn | M4 | Server only sets waitingForReconnect during untimed phases | (visual) | Passed |
+| REQ-F-UI03 | Spectators see overlay, not kick dialog | M2/M4 | page.tsx:1581 (!isSpectator guard on KickDialog); GameTable renders overlay for all | (visual) | Passed |
 | REQ-F-KM01 | Kick dialog at 2 min + 5 sec delay | M2 | | | Pending |
 | REQ-F-KM02 | Any single kick triggers immediate removal | M2 | | | Pending |
 | REQ-F-KM03 | All decline → dismissed | M2 | | | Pending |
@@ -40,5 +40,5 @@
 | REQ-F-VI09 | Turn timer reset to full after vote | M3 | turn-timer.ts:81; game-manager.ts:142,371 | vote-integration.test.ts:56 | Passed |
 | REQ-NF-DC01 | No latency/performance degradation | M5 | | | Pending |
 | REQ-NF-DC02 | Timer accurate to ±2 seconds | M5 | | | Pending |
-| REQ-NF-UI01 | Overlay appears within 1 second | M4 | | | Pending |
+| REQ-NF-UI01 | Overlay appears within 1 second | M4 | WaitingForReconnectOverlay.tsx:17 (500ms debounce) | (visual) | Passed |
 | REQ-NF-GF01 | Bomb window duration identical regardless of disconnect | M1 | | | Pending |

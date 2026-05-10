@@ -6,6 +6,7 @@ import type { ClientGameView, Seat } from '@tichu/shared';
 import type { LayoutTier } from '@/hooks/useLayoutTier';
 import { useUiStore } from '@/stores/uiStore';
 import { PlayerSeat } from './PlayerSeat';
+import { WaitingForReconnectOverlay } from './WaitingForReconnectOverlay';
 import { TrickDisplay } from './TrickDisplay';
 import styles from './GameTable.module.css';
 
@@ -62,7 +63,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
 }
 
 export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onTransferHostTarget, onAddBot, compassLayout, layoutTier = 'full' }: GameTableProps) {
-  const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled } = view;
+  const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled, waitingForReconnect } = view;
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
   // REQ-F-PV09: Vote state for glow/label overrides
@@ -166,7 +167,6 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         hideTrickLabels={isDragonTarget}
         passConfirmed={isPassConfirmed}
         emptySeat={vacatedSeats.includes(seat)}
-        voteStatus={(view.disconnectVotes?.[seat] as 'wait' | 'kick' | null) ?? null}
         vacated={vacatedSeats.includes(seat)}
         seatChooserLabel={onChooseSeat && !view.gameHalted && vacatedSeats.includes(seat) ? 'Sit Here' : undefined}
         onChooseSeat={onChooseSeat && !view.gameHalted && vacatedSeats.includes(seat) ? () => onChooseSeat(seat) : undefined}
@@ -183,7 +183,23 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
     );
   }
 
-  const seat = renderSeatOverride ?? renderSeat;
+  // REQ-F-UI01: Wrap seat render with waiting-for-reconnect overlay when applicable
+  // REQ-F-UI02: Only shown during untimed phases at disconnected player's turn
+  function renderSeatWithOverlay(seatId: Seat) {
+    const rendered = renderSeatOverride ? renderSeatOverride(seatId) : renderSeat(seatId);
+    if (waitingForReconnect === seatId) {
+      const playerName = seatNames?.[seatId] ?? seatId;
+      return (
+        <div style={{ position: 'relative' }}>
+          {rendered}
+          <WaitingForReconnectOverlay waitingForSeat={seatId} playerName={playerName} />
+        </div>
+      );
+    }
+    return rendered;
+  }
+
+  const seat = renderSeatOverride ?? renderSeatWithOverlay;
 
   const isMobile = layoutTier !== 'full';
   const dragonGiftPending = dragonGiftTargets && dragonGiftTargets.size > 0;

@@ -52,8 +52,12 @@ export interface GameStore {
   choosingSeat: boolean;
   /** REQ-F-ES04: Per-seat disconnect vote status */
   disconnectVotes: Record<string, 'wait' | 'kick' | null>;
-  /** REQ-F-ES02: True when game is halted due to empty seats or disconnect vote */
+  /** REQ-F-ES02: True when game is halted due to empty seats */
   gameHalted: boolean;
+  /** REQ-F-UI01: Seat the game is waiting for during an untimed phase (disconnected player's turn) */
+  waitingForReconnect: Seat | null;
+  /** REQ-F-KM01: Active kick dialog target seat, null when no dialog */
+  kickDialog: { targetSeat: Seat } | null;
   /** REQ-F-TT05: Epoch ms when turn timer started, null when disabled/stopped */
   turnTimerStartedAt: number | null;
   /** REQ-F-TT05: Total turn timer duration in ms, null when disabled/stopped */
@@ -68,6 +72,8 @@ export interface GameStore {
   applyGameState: (view: ClientGameView) => void;
   /** Apply an incremental server message */
   applyServerMessage: (msg: ServerMessage) => void;
+  /** REQ-F-KM01: Set/clear kick dialog */
+  setKickDialog: (dialog: { targetSeat: Seat } | null) => void;
   /** Reset store to initial state */
   reset: () => void;
 }
@@ -99,6 +105,8 @@ const initialState = {
   choosingSeat: false,
   disconnectVotes: {} as Record<string, 'wait' | 'kick' | null>,
   gameHalted: false,
+  waitingForReconnect: null as Seat | null,
+  kickDialog: null as { targetSeat: Seat } | null,
   turnTimerStartedAt: null as number | null,
   turnTimerDurationMs: null as number | null,
   endOfTrickBombWindowEndTime: null as number | null,
@@ -139,6 +147,8 @@ export const useGameStore = create<GameStore>()((set) => ({
       choosingSeat: view.choosingSeat ?? false,
       disconnectVotes: view.disconnectVotes ?? {},
       gameHalted: view.gameHalted ?? false,
+      waitingForReconnect: view.waitingForReconnect ?? null,
+      kickDialog: view.kickDialog ?? null,
       turnTimerStartedAt: view.turnTimerStartedAt ?? null,
       turnTimerDurationMs: view.turnTimerDurationMs ?? null,
       endOfTrickBombWindowEndTime: view.endOfTrickBombWindowEndTime ?? null,
@@ -237,6 +247,8 @@ export const useGameStore = create<GameStore>()((set) => ({
           return {};
       }
     }),
+
+  setKickDialog: (dialog) => set({ kickDialog: dialog }),
 
   reset: () => set(initialState),
 }));

@@ -18,8 +18,6 @@ interface SpectatorOverlayProps {
   queueStatus: { decidingSpectator: string; position: number; timeoutMs: number } | null;
   /** Available seats from SEATS_AVAILABLE (up-for-grabs) */
   availableSeats: Seat[];
-  /** REQ-F-ES04: Whether a disconnect vote is active (spectators see waiting message) */
-  disconnectVoteActive?: boolean;
   onClaimSeat: () => void;
   onDeclineSeat: () => void;
   onLeaveRoom: () => void;
@@ -29,7 +27,6 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
   seatOffer,
   queueStatus,
   availableSeats,
-  disconnectVoteActive,
   onClaimSeat,
   onDeclineSeat,
   onLeaveRoom,
@@ -52,17 +49,6 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
     }, 1000);
     return () => clearInterval(interval);
   }, [seatOffer, onDeclineSeat]);
-
-  // REQ-F-ES04: Spectators see waiting message during disconnect vote
-  if (disconnectVoteActive) {
-    return (
-      <div style={{ ...infoBarStyle, bottom: 'calc(100px * var(--scale))' }}>
-        <p style={{ fontSize: 'var(--font-md)', color: 'var(--color-text-secondary)' }}>
-          Waiting for current players to choose what to do about the disconnected player(s)
-        </p>
-      </div>
-    );
-  }
 
   // REQ-F-SP08: Seat offer overlay
   if (seatOffer) {

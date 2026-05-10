@@ -29,6 +29,7 @@ import { ScorePanel } from '@/components/game/ScorePanel';
 import { TichuBanner } from '@/components/game/TichuBanner';
 import { ChatPanel } from '@/components/game/ChatPanel';
 import { SpectatorOverlay } from '@/components/game/SpectatorOverlay';
+import { KickDialog } from '@/components/game/KickDialog';
 import { SeatClaimRejectedDialog } from '@/components/game/SeatClaimRejectedDialog';
 import { HostTransferDialog } from '@/components/game/HostTransferDialog';
 import { Card } from '@/components/cards/Card';
@@ -287,6 +288,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         // REQ-F-ES04: Per-seat vote status update
         uiStore.setDisconnectVotes(msg.votes);
         uiStore.setDisconnectCountdown(Math.ceil(msg.timeoutMs / 1000));
+      } else if (msg.type === 'KICK_DIALOG_SHOW') {
+        // REQ-F-KM01: Show kick dialog for disconnected player (2+ min threshold)
+        gameStore.setKickDialog({ targetSeat: msg.targetSeat as Seat });
+      } else if (msg.type === 'KICK_DIALOG_DISMISSED') {
+        // REQ-F-KM05: Kick dialog dismissed (kicked, declined, reconnected, or vote priority)
+        gameStore.setKickDialog(null);
       } else if (msg.type === 'VOTE_STARTED') {
         // REQ-F-PV05/PV07: Vote started — show overlay
         uiStore.setActiveVote({
@@ -1261,6 +1268,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     choosingSeat: gameStore.choosingSeat,
     disconnectVotes: gameStore.disconnectVotes,
     gameHalted: gameStore.gameHalted,
+    waitingForReconnect: gameStore.waitingForReconnect,
+    kickDialog: gameStore.kickDialog,
     winner: null,
     turnTimerStartedAt: gameStore.turnTimerStartedAt,
     turnTimerDurationMs: gameStore.turnTimerDurationMs,
@@ -1561,10 +1570,18 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           seatOffer={uiStore.seatOffer}
           queueStatus={uiStore.queueStatus}
           availableSeats={uiStore.availableSeats}
-          disconnectVoteActive={uiStore.disconnectVoteRequired}
           onClaimSeat={() => send({ type: 'CLAIM_SEAT' })}
           onDeclineSeat={() => { uiStore.setQueueStatus({ decidingSpectator: '', position: 0, timeoutMs: 0 }); send({ type: 'DECLINE_SEAT' }); }}
           onLeaveRoom={() => send({ type: 'LEAVE_ROOM' })}
+        />
+      )}
+
+      {/* REQ-F-KM01: Kick dialog for disconnected players (non-blocking, not shown to spectators per REQ-F-UI03) */}
+      {!isSpectator && gameStore.kickDialog && (
+        <KickDialog
+          playerName={seatNames[gameStore.kickDialog.targetSeat] ?? gameStore.kickDialog.targetSeat}
+          onKick={() => send({ type: 'KICK_DIALOG_RESPONSE', response: 'kick' })}
+          onKeepWaiting={() => send({ type: 'KICK_DIALOG_RESPONSE', response: 'decline' })}
         />
       )}
 
