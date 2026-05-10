@@ -2576,7 +2576,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               position: 'fixed',
               bottom: window.innerHeight - rect.top + 4,
               right: window.innerWidth - rect.right,
-              zIndex: 100,
+              zIndex: 1000,
               pointerEvents: 'auto',
               display: 'flex',
               flexDirection: 'column',
