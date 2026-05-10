@@ -818,6 +818,20 @@ export class GameManager {
       return;
     }
 
+    // When a Dog was just played, delay all actions (bots + timer) so the client
+    // can finish the dog animation before the next play proceeds.
+    if (state === 'playing' && round?.lastDogPlay) {
+      // Match client-side dog block time: (0.25 + 1.00 + 0.40 + 0.85) × 1000 = 2500ms
+      // at normal animation speed, so bots/players cannot act while Dog is displayed.
+      const DOG_ANIM_DELAY_MS = 2500;
+      this.dogAnimDelayTimer = setTimeout(() => {
+        if (this.destroyed) return;
+        this.dogAnimDelayTimer = null;
+        this.botRunner.onStateChange(() => this.broadcastState());
+      }, DOG_ANIM_DELAY_MS);
+      return;
+    }
+
     // Manage turn timer
     if (state === 'playing' && round?.currentTurn) {
       this.timer.start(round.currentTurn);
@@ -858,21 +872,6 @@ export class GameManager {
       this.broadcastState();
     } else {
       this.timer.stop();
-    }
-
-    // When a Dog was just played, delay bot actions so the client can finish the
-    // dog animation (~1.5s) before bots proceed.  Without this delay the next bot
-    // action fires within milliseconds, clearing lastDogPlay and interrupting the
-    // client-side animation (especially when fast-mode kicks in with only bots left).
-    if (state === 'playing' && round?.lastDogPlay) {
-      // 750ms ≈ 250ms entry + 400ms exit + 100ms network buffer
-      const DOG_ANIM_DELAY_MS = 750;
-      this.dogAnimDelayTimer = setTimeout(() => {
-        if (this.destroyed) return;
-        this.dogAnimDelayTimer = null;
-        this.botRunner.onStateChange(() => this.broadcastState());
-      }, DOG_ANIM_DELAY_MS);
-      return;
     }
 
     // REQ-F-MP01: Trigger bot decisions and broadcast after each bot action

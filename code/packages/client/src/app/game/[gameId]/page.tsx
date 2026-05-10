@@ -174,34 +174,37 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           (s) => !botSeats.has(s) && !view.finishOrder.includes(s),
         );
         if (view.lastDogPlay && animEnabled && (dogSenderIsHuman || humanStillActive)) {
-          playSound('dog');
-          // Clear any previous Dog animation timer
-          if (dogAnimTimerRef.current) clearTimeout(dogAnimTimerRef.current);
-          uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
-          // REQ-F-DA03: Entry (0.25s base) + pause (0.00s base) before exit begins
-          const BASE_CARD_PLAY = 0.25;
-          const DOG_PAUSE = 1.00; // Hold dog on screen before animating to recipient
-          const BASE_TRICK_SWEEP = 0.40;
-          const DOG_RESUME_DELAY = 0.85; // Extra pause after sweep before play resumes
+          // Skip if dog animation is already in progress (server may broadcast
+          // state twice with lastDogPlay set — once on play success, once on
+          // timer broadcast — avoid duplicate sound/animation).
+          if (!dogAnimTimerRef.current) {
+            playSound('dog');
+            uiStore.startDogAnimation(view.lastDogPlay.fromSeat, view.lastDogPlay.toSeat);
+            // REQ-F-DA03: Entry (0.25s base) + pause (0.00s base) before exit begins
+            const BASE_CARD_PLAY = 0.25;
+            const DOG_PAUSE = 1.00; // Hold dog on screen before animating to recipient
+            const BASE_TRICK_SWEEP = 0.40;
+            const DOG_RESUME_DELAY = 0.85; // Extra pause after sweep before play resumes
 
-          const isRoundEnding = view.phase === 'roundScoring';
-          if (isRoundEnding) {
-            // Dog was the final card of the round — animate entry only, leave it
-            // visible in the play area until the scoring transition clears the table.
-            const dogEntryMs = BASE_CARD_PLAY * animMultiplier * 1000;
-            uiStore.startBombWindow(dogEntryMs);
-          } else {
-            // Normal mid-round dog: full entry → exit → resume sequence
-            // clearDogAnimation fires after entry + pause; triggers the TrickDisplay exit animation
-            const dogAnimMs = (BASE_CARD_PLAY + DOG_PAUSE) * animMultiplier * 1000;
-            // REQ-F-DA05: Block plays until after sweep completes + resume delay
-            // Total = (0.25 + 0.00 + 0.40 + 0.85) × multiplier = 1.50s at normal speed
-            const dogBlockMs = (BASE_CARD_PLAY + DOG_PAUSE + BASE_TRICK_SWEEP + DOG_RESUME_DELAY) * animMultiplier * 1000;
-            dogAnimTimerRef.current = setTimeout(
-              () => uiStore.clearDogAnimation(),
-              dogAnimMs,
-            );
-            uiStore.startBombWindow(dogBlockMs);
+            const isRoundEnding = view.phase === 'roundScoring';
+            if (isRoundEnding) {
+              // Dog was the final card of the round — animate entry only, leave it
+              // visible in the play area until the scoring transition clears the table.
+              const dogEntryMs = BASE_CARD_PLAY * animMultiplier * 1000;
+              uiStore.startBombWindow(dogEntryMs);
+            } else {
+              // Normal mid-round dog: full entry → exit → resume sequence
+              // clearDogAnimation fires after entry + pause; triggers the TrickDisplay exit animation
+              const dogAnimMs = (BASE_CARD_PLAY + DOG_PAUSE) * animMultiplier * 1000;
+              // REQ-F-DA05: Block plays until after sweep completes + resume delay
+              // Total = (0.25 + 0.00 + 0.40 + 0.85) × multiplier = 1.50s at normal speed
+              const dogBlockMs = (BASE_CARD_PLAY + DOG_PAUSE + BASE_TRICK_SWEEP + DOG_RESUME_DELAY) * animMultiplier * 1000;
+              dogAnimTimerRef.current = setTimeout(
+                () => uiStore.clearDogAnimation(),
+                dogAnimMs,
+              );
+              uiStore.startBombWindow(dogBlockMs);
+            }
           }
         }
 
@@ -2318,8 +2321,70 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     />
                   }
                 />
-                {/* Slot: Bomb — mobile always shows popup, never plays directly */}
-                <div ref={bombActionBarRef} style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0) ? 'visible' : 'hidden' }}>
+                {/* Slot: Bomb — mobile uses click-to-toggle popup */}
+                <div ref={bombActionBarRef} style={{ position: 'relative', width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0) ? 'visible' : 'hidden' }}>
+                  {/* Bomb popup — shows available bombs */}
+                  {bombPopupOpen && handBombs.length > 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: '100%',
+                        right: 0,
+                        paddingBottom: 'calc(4px * var(--scale))',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                      }}
+                    >
+                      <div
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.5)',
+                          border: 'none',
+                          borderRadius: 'var(--space-3)',
+                          padding: 'calc(4px * var(--scale))',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 'calc(12px * var(--scale))',
+                          zIndex: 50,
+                        }}
+                      >
+                        {[...handBombs].sort((a, b) => {
+                          const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                          const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                          if (aIsSF !== bIsSF) return aIsSF - bIsSF;
+                          if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
+                            if (a.length !== b.length) return a.length - b.length;
+                            return a.rank - b.rank;
+                          }
+                          return a.rank - b.rank;
+                        }).map((bomb, i) => (
+                          <div
+                            key={i}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => { handleBombPlay(bomb); setBombPopupOpen(false); }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              borderRadius: 'var(--space-2)',
+                              cursor: 'pointer',
+                              padding: 'calc(6px * var(--scale))',
+                              display: 'flex',
+                              transition: 'background 0.15s',
+                            }}
+                            aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
+                          >
+                            {bomb.cards.map((gc, j) => (
+                              <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
+                                <Card gameCard={gc} state="normal" />
+                              </div>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <button
                     onClick={() => setBombPopupOpen((prev) => !prev)}
                     style={{
