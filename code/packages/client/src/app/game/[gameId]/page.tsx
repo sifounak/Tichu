@@ -755,11 +755,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   // When cards are received (phase changed to playing and receivedCards populated), show them.
   // Skip on reconnect: if the player has already played cards, they've moved past this phase.
+  // Also skip if the user already dismissed in this round (persisted across browser refreshes).
+  const receivedDismissKey = gameStore.gameId
+    ? `tichu_received_dismissed_${gameStore.gameId}_${gameStore.roundHistory.length}`
+    : null;
   useEffect(() => {
     if (hasReceivedCards && currentPhase === GamePhase.Playing && !gameStore.hasPlayedCards) {
+      if (receivedDismissKey && sessionStorage.getItem(receivedDismissKey)) return;
       setShowReceivedCards(true);
     }
-  }, [hasReceivedCards, currentPhase, gameStore.hasPlayedCards]);
+  }, [hasReceivedCards, currentPhase, gameStore.hasPlayedCards, receivedDismissKey]);
 
   const placedCardIds = new Set([...passSelection.values()].map((gc) => gc.id));
 
@@ -2075,7 +2080,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     passConfirmed={false}
                     onCancelPass={() => {}}
                     receivedCards={gameStore.receivedCards}
-                    onDismissReceived={() => setShowReceivedCards(false)}
+                    onDismissReceived={() => { setShowReceivedCards(false); if (receivedDismissKey) sessionStorage.setItem(receivedDismissKey, '1'); }}
                     seatNames={seatNames}
                   />
                 ) : null}
@@ -2212,7 +2217,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     passConfirmed={false}
                     onCancelPass={() => {}}
                     receivedCards={gameStore.receivedCards}
-                    onDismissReceived={() => setShowReceivedCards(false)}
+                    onDismissReceived={() => { setShowReceivedCards(false); if (receivedDismissKey) sessionStorage.setItem(receivedDismissKey, '1'); }}
                     seatNames={seatNames}
                   />
                 </div>
