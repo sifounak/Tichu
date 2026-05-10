@@ -2322,69 +2322,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   }
                 />
                 {/* Slot: Bomb — mobile uses click-to-toggle popup */}
-                <div ref={bombActionBarRef} style={{ position: 'relative', width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0) ? 'visible' : 'hidden' }}>
-                  {/* Bomb popup — shows available bombs */}
-                  {bombPopupOpen && handBombs.length > 0 && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        bottom: '100%',
-                        right: 0,
-                        paddingBottom: 'calc(4px * var(--scale))',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'flex-end',
-                      }}
-                    >
-                      <div
-                        style={{
-                          background: 'rgba(0, 0, 0, 0.5)',
-                          border: 'none',
-                          borderRadius: 'var(--space-3)',
-                          padding: 'calc(4px * var(--scale))',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 'calc(12px * var(--scale))',
-                          zIndex: 50,
-                        }}
-                      >
-                        {[...handBombs].sort((a, b) => {
-                          const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
-                          const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
-                          if (aIsSF !== bIsSF) return aIsSF - bIsSF;
-                          if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
-                            if (a.length !== b.length) return a.length - b.length;
-                            return a.rank - b.rank;
-                          }
-                          return a.rank - b.rank;
-                        }).map((bomb, i) => (
-                          <div
-                            key={i}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => { handleBombPlay(bomb); setBombPopupOpen(false); }}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } }}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              borderRadius: 'var(--space-2)',
-                              cursor: 'pointer',
-                              padding: 'calc(6px * var(--scale))',
-                              display: 'flex',
-                              transition: 'background 0.15s',
-                            }}
-                            aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
-                          >
-                            {bomb.cards.map((gc, j) => (
-                              <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
-                                <Card gameCard={gc} state="normal" />
-                              </div>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div ref={bombActionBarRef} style={{ width: 'calc(var(--card-width) * 1.25 * 0.5)', height: 'calc(var(--card-height) * 0.4)', visibility: (phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0) ? 'visible' : 'hidden' }}>
                   <button
                     onClick={() => setBombPopupOpen((prev) => !prev)}
                     style={{
@@ -2626,6 +2564,74 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           </div>
         </div>
       )}
+
+      {/* Mobile bomb popup — rendered as fixed overlay above bomb button to avoid z-index/clipping issues */}
+      {isMobileLayout && !isPreGame && !showReceivedCards && bombPopupOpen && handBombs.length > 0 && phase === 'playing' && (() => {
+        const rect = bombActionBarRef.current?.getBoundingClientRect();
+        if (!rect) return null;
+        return (
+          <div
+            ref={bombPopupRef}
+            style={{
+              position: 'fixed',
+              bottom: window.innerHeight - rect.top + 4,
+              right: window.innerWidth - rect.right,
+              zIndex: 100,
+              pointerEvents: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+            }}
+          >
+            <div
+              style={{
+                background: 'rgba(0, 0, 0, 0.5)',
+                border: 'none',
+                borderRadius: 'var(--space-3)',
+                padding: 'calc(4px * var(--scale))',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'calc(12px * var(--scale))',
+              }}
+            >
+              {[...handBombs].sort((a, b) => {
+                const aIsSF = a.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                const bIsSF = b.type === CombinationType.StraightFlushBomb ? 0 : 1;
+                if (aIsSF !== bIsSF) return aIsSF - bIsSF;
+                if (a.type === CombinationType.StraightFlushBomb && b.type === CombinationType.StraightFlushBomb) {
+                  if (a.length !== b.length) return a.length - b.length;
+                  return a.rank - b.rank;
+                }
+                return a.rank - b.rank;
+              }).map((bomb, i) => (
+                <div
+                  key={i}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => { handleBombPlay(bomb); setBombPopupOpen(false); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleBombPlay(bomb); setBombPopupOpen(false); } }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: 'var(--space-2)',
+                    cursor: 'pointer',
+                    padding: 'calc(6px * var(--scale))',
+                    display: 'flex',
+                    transition: 'background 0.15s',
+                  }}
+                  aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
+                >
+                  {bomb.cards.map((gc, j) => (
+                    <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
+                      <Card gameCard={gc} state="normal" />
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* REQ-F-PH07: Phoenix value picker (hidden for spectators) */}
       {!isSpectator && uiStore.phoenixPickerOptions && (
