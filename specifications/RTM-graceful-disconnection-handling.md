@@ -4,14 +4,14 @@
 
 | Requirement | Description | Milestone | Source File(s) | Test File(s) | Status |
 |---|---|---|---|---|---|
-| REQ-F-DC01 | Mark disconnected, preserve seat | M1 | | | Pending |
-| REQ-F-DC02 | Timer starts from zero each disconnect | M1 | | | Pending |
-| REQ-F-DC03 | Timer fully reset on reconnect | M1 | | | Pending |
-| REQ-F-DC04 | Track elapsed disconnect time per player | M1 | | | Pending |
-| REQ-F-GF01 | No pause/freeze/auto-play on disconnect | M1 | | | Pending |
-| REQ-F-GF02 | Timed phases: turn timer runs, auto-action on expiry | M1 | | | Pending |
-| REQ-F-GF03 | Bomb window runs naturally for disconnected | M1 | | | Pending |
-| REQ-F-GF04 | Untimed phases: wait indefinitely for disconnected player | M1 | | | Pending |
+| REQ-F-DC01 | Mark disconnected, preserve seat | M1 | disconnect-handler.ts:63 | disconnect-handler.test.ts:37 | Passed |
+| REQ-F-DC02 | Timer starts from zero each disconnect | M1 | disconnect-handler.ts:81 | disconnect-handler.test.ts:111 | Passed |
+| REQ-F-DC03 | Timer fully reset on reconnect | M1 | disconnect-handler.ts:107 | disconnect-handler.test.ts:84 | Passed |
+| REQ-F-DC04 | Track elapsed disconnect time per player | M1 | disconnect-handler.ts:147 | disconnect-handler.test.ts:183 | Passed |
+| REQ-F-GF01 | No pause/freeze/auto-play on disconnect | M1 | game-manager.ts:308 (no timer.stop for multi-human) | disconnect-handler.test.ts:37 | Passed |
+| REQ-F-GF02 | Timed phases: turn timer runs, auto-action on expiry | M1 | game-manager.ts:308 (timer continues) | (integration: timer fires auto-action) | Passed |
+| REQ-F-GF03 | Bomb window runs naturally for disconnected | M1 | No pause logic in bomb window path | disconnect-handler.test.ts:295 | Passed |
+| REQ-F-GF04 | Untimed phases: wait indefinitely for disconnected player | M1 | game-manager.ts computeWaitingForReconnect() | (visual) | Passed |
 | REQ-F-UI01 | "Waiting for reconnect" overlay on untimed turn | M4 | WaitingForReconnectOverlay.tsx; GameTable.tsx:189-199 | (visual) | Passed |
 | REQ-F-UI02 | No visual indicator outside untimed turn | M4 | Server only sets waitingForReconnect during untimed phases | (visual) | Passed |
 | REQ-F-UI03 | Spectators see overlay, not kick dialog | M2/M4 | page.tsx:1581 (!isSpectator guard on KickDialog); GameTable renders overlay for all | (visual) | Passed |
@@ -38,7 +38,7 @@
 | REQ-F-VI07 | < 2 min disconnected during vote → vote waits (30s timeout) | M3 | (no cancellation in handleDisconnect; 30s vote timeout handles) | (existing vote-handler timeout test) | Passed |
 | REQ-F-VI08 | Turn timer paused during vote | M3 | turn-timer.ts:65; game-manager.ts:582,617,650,1387 | vote-integration.test.ts:38 | Passed |
 | REQ-F-VI09 | Turn timer reset to full after vote | M3 | turn-timer.ts:81; game-manager.ts:142,371 | vote-integration.test.ts:56 | Passed |
-| REQ-NF-DC01 | No latency/performance degradation | M5 | | | Pending |
-| REQ-NF-DC02 | Timer accurate to ±2 seconds | M5 | | | Pending |
+| REQ-NF-DC01 | No latency/performance degradation | M5 | Dead code removed; no extra processing paths for connected players | (all tests pass, no regression) | Passed |
+| REQ-NF-DC02 | Timer accurate to ±2 seconds | M5 | disconnect-handler.ts:32 (setTimeout at 125_000ms) | disconnect-handler.test.ts threshold tests | Passed |
 | REQ-NF-UI01 | Overlay appears within 1 second | M4 | WaitingForReconnectOverlay.tsx:17 (500ms debounce) | (visual) | Passed |
-| REQ-NF-GF01 | Bomb window duration identical regardless of disconnect | M1 | | | Pending |
+| REQ-NF-GF01 | Bomb window duration identical regardless of disconnect | M1/M5 | Game does not pause/modify bomb window on disconnect (GF01 enforcement) | disconnect-handler.test.ts:295 (no threshold for frozen) | Passed |

@@ -124,13 +124,11 @@ describe('Empty Seat Flow — Integration', () => {
       expect(crossedSeats).toEqual(['north']);
     });
 
-    it('frozen session fires onVoteResult (grace expiry) for queue flow', () => {
+    it('frozen session fires onGraceExpired for queue flow', () => {
       const kickedSeats: Seat[] = [];
 
-      disconnectHandler.onVoteResult = (_roomCode, outcome, seats) => {
-        if (outcome === 'kick') {
-          kickedSeats.push(...seats);
-        }
+      disconnectHandler.onGraceExpired = (_roomCode, seats) => {
+        kickedSeats.push(...seats);
       };
 
       // Solo-human frozen disconnect with 5s grace.
@@ -156,8 +154,8 @@ describe('Empty Seat Flow — Integration', () => {
   describe('disconnect → reconnect within grace → auto-restore', () => {
     it('should restore the seat when the player returns before grace expiry', () => {
       const kickedSeats: Seat[] = [];
-      disconnectHandler.onVoteResult = (_roomCode, outcome, seats) => {
-        if (outcome === 'kick') kickedSeats.push(...seats);
+      disconnectHandler.onGraceExpired = (_roomCode, seats) => {
+        kickedSeats.push(...seats);
       };
 
       disconnectHandler.handleDisconnect('ROOM1', 'north');
@@ -271,13 +269,8 @@ describe('Empty Seat Flow — Integration', () => {
     });
   });
 
-  // Verifies: REQ-F-DC01 — getVoteStatus returns null (legacy, no longer used).
-  describe('disconnect state projection (legacy)', () => {
-    it('getVoteStatus returns null (disconnects no longer produce vote status)', () => {
-      disconnectHandler.handleDisconnect('ROOM1', 'north');
-      expect(disconnectHandler.getVoteStatus('ROOM1')).toBeNull();
-    });
-
+  // Verifies: REQ-F-DC01 — getDisconnectedSeats tracks disconnected seats.
+  describe('disconnect state projection', () => {
     it('getDisconnectedSeats returns the currently disconnected seats', () => {
       disconnectHandler.handleDisconnect('ROOM1', 'north');
       expect(disconnectHandler.getDisconnectedSeats('ROOM1')).toEqual(['north']);

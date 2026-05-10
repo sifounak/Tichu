@@ -11,9 +11,6 @@ describe('uiStore — M15 features', () => {
       chatMessages: [],
       chatUnread: 0,
       disconnectedSeats: [],
-      disconnectVoteRequired: false,
-      disconnectVotes: {},
-      disconnectCountdown: 0,
       reconnectedSeat: null,
       tichuEvent: null,
     });
@@ -67,34 +64,18 @@ describe('uiStore — M15 features', () => {
       expect(useUiStore.getState().disconnectedSeats).toEqual(['north']);
     });
 
-    it('setDisconnectVoteRequired enables voting', () => {
-      useUiStore.getState().addDisconnectedSeat('east');
-      useUiStore.getState().setDisconnectVoteRequired(true);
-      expect(useUiStore.getState().disconnectVoteRequired).toBe(true);
-    });
-
-    it('setDisconnectCountdown updates countdown', () => {
-      useUiStore.getState().setDisconnectCountdown(45);
-      expect(useUiStore.getState().disconnectCountdown).toBe(45);
-    });
-
     it('setReconnected clears disconnect state for that seat', () => {
       useUiStore.getState().addDisconnectedSeat('west');
-      useUiStore.getState().setDisconnectVoteRequired(true);
       useUiStore.getState().setReconnected('west');
       expect(useUiStore.getState().disconnectedSeats).toEqual([]);
-      expect(useUiStore.getState().disconnectVoteRequired).toBe(false);
       expect(useUiStore.getState().reconnectedSeat).toBe('west');
     });
 
     it('clearDisconnectState resets all disconnect fields', () => {
       useUiStore.getState().addDisconnectedSeat('north');
-      useUiStore.getState().setDisconnectVoteRequired(true);
-      useUiStore.getState().setDisconnectVotes({ north: null, east: 'wait', south: 'kick', west: null });
       useUiStore.getState().clearDisconnectState();
       expect(useUiStore.getState().disconnectedSeats).toEqual([]);
-      expect(useUiStore.getState().disconnectVoteRequired).toBe(false);
-      expect(useUiStore.getState().disconnectVotes).toEqual({});
+      expect(useUiStore.getState().reconnectedSeat).toBeNull();
     });
   });
 

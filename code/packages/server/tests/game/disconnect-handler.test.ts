@@ -1,7 +1,7 @@
 // Verifies: REQ-F-DC01, DC02, DC03, DC04, GF01, GF03, GF04
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { DisconnectHandler, type VoteOutcome } from '../../src/game/disconnect-handler.js';
+import { DisconnectHandler } from '../../src/game/disconnect-handler.js';
 import type { Broadcaster } from '../../src/ws/broadcaster.js';
 
 function createMockBroadcaster(): Broadcaster {
@@ -56,11 +56,6 @@ describe('DisconnectHandler — per-seat tracking (REQ-F-DC01–DC04)', () => {
       expect(seats).toContain('east');
     });
 
-    it('hasActiveVote always returns false (no vote scheme)', () => {
-      expect(handler.hasActiveVote('ROOM1')).toBe(false);
-      handler.handleDisconnect('ROOM1', 'north');
-      expect(handler.hasActiveVote('ROOM1')).toBe(false);
-    });
   });
 
   // Verifies: REQ-F-DC03 — reconnect fully resets timer.
@@ -198,24 +193,6 @@ describe('DisconnectHandler — per-seat tracking (REQ-F-DC01–DC04)', () => {
     });
   });
 
-  // Verifies: back-compat — handleVote is a no-op.
-  describe('handleVote (back-compat no-op)', () => {
-    it('returns "pending" regardless of input', () => {
-      handler.handleDisconnect('ROOM1', 'north');
-      const result: VoteOutcome = handler.handleVote('ROOM1', 'east', 'kick');
-      expect(result).toBe('pending');
-    });
-  });
-
-  // Verifies: getVoteStatus always returns null (legacy UI support).
-  describe('getVoteStatus (legacy)', () => {
-    it('returns null regardless of disconnect state', () => {
-      expect(handler.getVoteStatus('ROOM1')).toBeNull();
-      handler.handleDisconnect('ROOM1', 'north');
-      expect(handler.getVoteStatus('ROOM1')).toBeNull();
-    });
-  });
-
   describe('cleanupRoom', () => {
     it('removes all state for a room', () => {
       handler.handleDisconnect('ROOM1', 'north');
@@ -271,13 +248,13 @@ describe('DisconnectHandler — per-seat tracking (REQ-F-DC01–DC04)', () => {
       expect(handler.isFrozen('ROOM1')).toBe(false);
     });
 
-    it('fires onVoteResult with "kick" after frozen grace expires', () => {
+    it('fires onGraceExpired after frozen grace expires', () => {
       const onResult = vi.fn();
-      handler.onVoteResult = onResult;
+      handler.onGraceExpired = onResult;
       handler.handleDisconnect('ROOM1', 'north', { frozen: true, graceTimeoutMs: 5_000 });
 
       vi.advanceTimersByTime(5_000);
-      expect(onResult).toHaveBeenCalledWith('ROOM1', 'kick', ['north']);
+      expect(onResult).toHaveBeenCalledWith('ROOM1', ['north']);
     });
 
     it('isFrozen returns false after grace expiry', () => {

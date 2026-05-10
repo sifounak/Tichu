@@ -5,11 +5,6 @@
 import type { Seat } from '@tichu/shared';
 import type { Broadcaster } from '../ws/broadcaster.js';
 
-/** Back-compat export: retained until M5 removes DISCONNECT_VOTE protocol message. */
-export type DisconnectVote = 'wait' | 'kick';
-
-/** Outcome reported to `onVoteResult` for solo-human grace expiry. */
-export type VoteOutcome = 'waiting' | 'kick' | 'pending';
 
 /** Per-seat disconnect tracking state. */
 interface SeatDisconnectState {
@@ -40,7 +35,7 @@ const THRESHOLD_DELAY_MS = 125_000;
  *    Game does NOT pause (multi-human) or freezes (solo-human).
  * 2. `handleReconnect` — fully resets timer, clears all state for that seat.
  * 3. At 2:05 (threshold) — fires `onThresholdCrossed` callback for kick dialog.
- * 4. Solo-human: fires `onVoteResult('kick')` after grace expiry (existing vacancy flow).
+ * 4. Solo-human: fires `onGraceExpired` after grace expiry (existing vacancy flow).
  */
 export class DisconnectHandler {
   /** Per-seat disconnect state, keyed by room then seat. */
@@ -52,8 +47,8 @@ export class DisconnectHandler {
   /** Called when a seat crosses the 2-min + 5s threshold. */
   onThresholdCrossed: ((roomCode: string, seat: Seat) => void) | null = null;
 
-  /** Called when solo-human grace expires — outcome is always 'kick'. */
-  onVoteResult: ((roomCode: string, outcome: VoteOutcome, seats: Seat[]) => void) | null = null;
+  /** Called when solo-human grace expires — seat is vacated. */
+  onGraceExpired: ((roomCode: string, seats: Seat[]) => void) | null = null;
 
   constructor(
     private readonly broadcaster: Broadcaster,
@@ -128,11 +123,6 @@ export class DisconnectHandler {
     });
   }
 
-  /** Back-compat no-op: vote scheme removed. Kept until M5 drops DISCONNECT_VOTE. */
-  handleVote(_roomCode: string, _voterSeat: Seat, _vote: DisconnectVote): VoteOutcome {
-    return 'pending';
-  }
-
   /** True while seat is tracked as disconnected. */
   isDisconnected(roomCode: string, seat: Seat): boolean {
     return this.seatStates.get(roomCode)?.has(seat) ?? false;
@@ -167,26 +157,6 @@ export class DisconnectHandler {
   /** True if the room is in a frozen (solo-human pause) state. */
   isFrozen(roomCode: string): boolean {
     return this.frozenSessions.has(roomCode);
-  }
-
-  /**
-   * Status object for back-compat state projection during transition.
-   * Returns null when no seat is disconnected.
-   * TODO: Remove in M5 when legacy disconnect vote UI is fully removed.
-   */
-  getVoteStatus(_roomCode: string): {
-    votes: Record<string, 'wait' | 'kick' | null>;
-    disconnectedSeats: Seat[];
-    timeoutMs: number;
-  } | null {
-    // Return null — disconnects no longer produce vote status.
-    // The old gameHalted logic depended on this returning non-null.
-    return null;
-  }
-
-  /** Always false — vote scheme is gone. */
-  hasActiveVote(_roomCode: string): boolean {
-    return false;
   }
 
   /** Clean up all state for a room. */
@@ -241,7 +211,7 @@ export class DisconnectHandler {
         roomSeats.delete(seat);
         if (roomSeats.size === 0) this.seatStates.delete(roomCode);
       }
-      this.onVoteResult?.(roomCode, 'kick', [seat]);
+      this.onGraceExpired?.(roomCode, [seat]);
     }, timeoutMs);
 
     this.frozenSessions.set(roomCode, {

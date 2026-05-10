@@ -46,17 +46,11 @@ export interface UiStore {
   loadChatHistory: (messages: ChatMessage[]) => void;
   clearChat: () => void;
 
-  /* --- Disconnect (REQ-F-ES04) --- */
+  /* --- Disconnect --- */
   disconnectedSeats: Seat[];
-  disconnectVoteRequired: boolean;
-  disconnectVotes: Record<string, 'wait' | 'kick' | null>;
-  disconnectCountdown: number;
   reconnectedSeat: Seat | null;
   setDisconnectedSeats: (seats: Seat[]) => void;
   addDisconnectedSeat: (seat: Seat) => void;
-  setDisconnectVoteRequired: (required: boolean) => void;
-  setDisconnectVotes: (votes: Record<string, 'wait' | 'kick' | null>) => void;
-  setDisconnectCountdown: (seconds: number) => void;
   setReconnected: (seat: Seat | null) => void;
   clearDisconnectState: () => void;
 
@@ -209,30 +203,22 @@ export const useUiStore = create<UiStore>()((set) => ({
   loadChatHistory: (messages) => set({ chatMessages: messages, chatUnread: 0 }),
   clearChat: () => set({ chatMessages: [], chatUnread: 0 }),
 
-  /* --- Disconnect (REQ-F-ES04) --- */
+  /* --- Disconnect --- */
   disconnectedSeats: [],
-  disconnectVoteRequired: false,
-  disconnectVotes: {},
-  disconnectCountdown: 0,
   reconnectedSeat: null,
   setDisconnectedSeats: (seats) =>
-    set({ disconnectedSeats: seats, disconnectVoteRequired: false, disconnectCountdown: 0, disconnectVotes: {} }),
+    set({ disconnectedSeats: seats }),
   addDisconnectedSeat: (seat) =>
     set((s) => ({
       disconnectedSeats: s.disconnectedSeats.includes(seat) ? s.disconnectedSeats : [...s.disconnectedSeats, seat],
     })),
-  setDisconnectVoteRequired: (required) => set({ disconnectVoteRequired: required }),
-  setDisconnectVotes: (votes) => set({ disconnectVotes: votes }),
-  setDisconnectCountdown: (seconds) => set({ disconnectCountdown: seconds }),
   setReconnected: (seat) =>
     set((s) => ({
       reconnectedSeat: seat,
       disconnectedSeats: s.disconnectedSeats.filter(s2 => s2 !== seat),
-      disconnectVoteRequired: false,
-      disconnectVotes: {},
     })),
   clearDisconnectState: () =>
-    set({ disconnectedSeats: [], disconnectVoteRequired: false, disconnectVotes: {}, disconnectCountdown: 0, reconnectedSeat: null }),
+    set({ disconnectedSeats: [], reconnectedSeat: null }),
 
   /* --- Tichu Banner --- */
   tichuEvent: null,

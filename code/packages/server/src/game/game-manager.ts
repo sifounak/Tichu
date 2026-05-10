@@ -52,8 +52,6 @@ import { detectCombination } from '@tichu/shared';
 import type { ActionSource, GameEventAccumulator } from './event-types.js';
 import { writeRecoveryFile as serializeRecoveryFile } from '../db/event-persistence.js';
 
-/** Grace period for involuntary disconnect in a solo-human game (3 days). */
-const SOLO_HUMAN_GRACE_MS = 259_200_000;
 
 /** Minimal shape of the XState persisted snapshot for serialize/restore operations. */
 interface PersistedSnapshotLike {
@@ -257,11 +255,6 @@ export class GameManager {
         result = this.moveHandler.handleGiftDragon(seat, message.to);
         break;
 
-      case 'DISCONNECT_VOTE':
-        // Legacy no-op — kept for back-compat until M5 removes from protocol
-        this.disconnectHandler.handleVote(this.roomCode, seat, message.vote);
-        return;
-
       case 'KICK_DIALOG_RESPONSE':
         // REQ-F-KM02/KM03: Handle kick dialog response
         this.kickDialogHandler.handleResponse(this.roomCode, seat, message.response, this.getConnectedHumanSeats());
@@ -309,7 +302,6 @@ export class GameManager {
     const multiHuman = this.isMultiHuman();
     this.disconnectHandler.handleDisconnect(this.roomCode, seat, {
       frozen: !multiHuman,
-      graceTimeoutMs: !multiHuman ? SOLO_HUMAN_GRACE_MS : undefined,
     });
     // REQ-F-GF01: Do NOT stop timer for multi-human games — game keeps flowing.
     // Solo-human freeze is handled by onStateChange() via isFrozen() check.
@@ -335,22 +327,15 @@ export class GameManager {
     }
   }
 
-  /** REQ-F-ES04: Wire the kick-resolved callback — when kick vote passes, vacate each kicked seat.
+  /** Wire the solo-human grace-expired callback — when grace times out, vacate the seat.
    *  Called by game-store or room-handler to register the callback. */
   wireKickCallback(onSeatsVacated: (roomCode: string, seats: Seat[]) => void): void {
-    this.disconnectHandler.onVoteResult = (roomCode, outcome, seats) => {
-      if (outcome === 'kick') {
-        // Vacate each kicked seat
-        for (const s of seats) {
-          this.vacatedSeats.add(s);
-        }
-        // Clear disconnected tracking for kicked seats (they're now vacated, not disconnected)
-        this.broadcastState();
-        onSeatsVacated(roomCode, seats);
-      } else if (outcome === 'waiting') {
-        // Keep seats reserved — just broadcast updated state (vote UI clears)
-        this.broadcastState();
+    this.disconnectHandler.onGraceExpired = (roomCode, seats) => {
+      for (const s of seats) {
+        this.vacatedSeats.add(s);
       }
+      this.broadcastState();
+      onSeatsVacated(roomCode, seats);
     };
   }
 
@@ -470,7 +455,6 @@ export class GameManager {
 
   /** REQ-F-SP06: Send spectator-projected state to a specific WebSocket. */
   sendSpectatorState(ws: WebSocket): void {
-    const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
     const waitingForReconnect = this.computeWaitingForReconnect();
     const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
@@ -478,7 +462,6 @@ export class GameManager {
       this.context,
       this.stateValue,
       [...this.vacatedSeats],
-      voteStatus,
       activeVote,
       undefined,
       undefined,
@@ -561,10 +544,6 @@ export class GameManager {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
       return;
     }
-    if (this.disconnectHandler.hasActiveVote(this.roomCode)) {
-      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'Cannot start vote during disconnect handling');
-      return;
-    }
     // Only human players can initiate
     if (this.botRunner.isBot(initiatorSeat)) {
       this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
@@ -596,10 +575,6 @@ export class GameManager {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
       return;
     }
-    if (this.disconnectHandler.hasActiveVote(this.roomCode)) {
-      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'Cannot start vote during disconnect handling');
-      return;
-    }
     // Only human players can initiate
     if (this.botRunner.isBot(initiatorSeat)) {
       this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
@@ -628,10 +603,6 @@ export class GameManager {
     }
     if (this.voteHandler.hasActiveVote(this.roomCode)) {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
-      return;
-    }
-    if (this.disconnectHandler.hasActiveVote(this.roomCode)) {
-      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'Cannot start vote during disconnect handling');
       return;
     }
     if (this.botRunner.isBot(initiatorSeat)) {
@@ -709,7 +680,6 @@ export class GameManager {
   /** Broadcast current game state to all players in the room */
   broadcastState(): void {
     if (this.destroyed) return;
-    const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
     // REQ-F-TT05: Include turn timer data in broadcast
     const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
@@ -718,19 +688,18 @@ export class GameManager {
     const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
     // REQ-F-KM01: Include kick dialog in state broadcast
     const kickDialog = this.kickDialogHandler.getActiveDialog(this.roomCode);
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
   private sendStateTo(seat: Seat): void {
-    const voteStatus = this.disconnectHandler.getVoteStatus(this.roomCode);
     const activeVote = this.voteHandler.getActiveVote(this.roomCode);
     // REQ-F-TT05: Include turn timer data in per-seat state
     const timerInfo = { startTime: this.timer.getStartTime(), durationMs: this.timer.getDurationMs() };
     const waitingForReconnect = this.computeWaitingForReconnect();
     const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
     const kickDialog = this.kickDialogHandler.getActiveDialog(this.roomCode);
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], voteStatus, activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,

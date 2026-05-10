@@ -281,13 +281,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         uiStore.addDisconnectedSeat(msg.seat as Seat);
       } else if (msg.type === 'PLAYER_RECONNECTED') {
         uiStore.setReconnected(msg.seat as Seat);
-      } else if (msg.type === 'DISCONNECT_VOTE_REQUIRED') {
-        // REQ-F-ES04: Vote required (multi-disconnect support)
-        uiStore.setDisconnectVoteRequired(true);
-      } else if (msg.type === 'DISCONNECT_VOTE_UPDATE') {
-        // REQ-F-ES04: Per-seat vote status update
-        uiStore.setDisconnectVotes(msg.votes);
-        uiStore.setDisconnectCountdown(Math.ceil(msg.timeoutMs / 1000));
       } else if (msg.type === 'KICK_DIALOG_SHOW') {
         // REQ-F-KM01: Show kick dialog for disconnected player (2+ min threshold)
         gameStore.setKickDialog({ targetSeat: msg.targetSeat as Seat });
@@ -1266,7 +1259,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     cardPassConfirmed: gameStore.cardPassConfirmed,
     vacatedSeats: gameStore.vacatedSeats,
     choosingSeat: gameStore.choosingSeat,
-    disconnectVotes: gameStore.disconnectVotes,
     gameHalted: gameStore.gameHalted,
     waitingForReconnect: gameStore.waitingForReconnect,
     kickDialog: gameStore.kickDialog,

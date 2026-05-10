@@ -90,7 +90,6 @@ function makeDummyView(mySeat: Seat): ClientGameView {
     cardPassConfirmed: [],
     vacatedSeats: [],
     choosingSeat: false,
-    disconnectVotes: {},
     gameHalted: false,
     winner: null,
   };

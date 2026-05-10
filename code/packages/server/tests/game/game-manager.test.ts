@@ -174,7 +174,6 @@ describe('GameManager', () => {
       const spy = vi.spyOn(disconnectHandler, 'handleDisconnect');
       manager.handleDisconnect('north');
       expect(spy).toHaveBeenCalledWith('ROOM1', 'north', expect.objectContaining({
-        graceTimeoutMs: expect.any(Number),
         frozen: expect.any(Boolean),
       }));
     });
@@ -206,7 +205,6 @@ describe('GameManager', () => {
         'lobby',
         [],      // vacatedSeats
         [],      // choosingSeats
-        null,    // disconnectVoteStatus
         null,    // activeVote
         expect.objectContaining({ startTime: null }),  // timerInfo
         null,    // endOfTrickBombWindowEndTime
@@ -254,11 +252,12 @@ describe('GameManager', () => {
     });
   });
 
-  describe('DISCONNECT_VOTE routing', () => {
-    it('should route vote to disconnect handler', () => {
-      const spy = vi.spyOn(disconnectHandler, 'handleVote');
-      manager.handleMessage(ws, 'east', { type: 'DISCONNECT_VOTE', vote: 'bot' } as ClientMessage);
-      expect(spy).toHaveBeenCalledWith('ROOM1', 'east', 'bot');
+  describe('KICK_DIALOG_RESPONSE routing', () => {
+    it('should handle kick dialog response without error', () => {
+      // KICK_DIALOG_RESPONSE is routed to internal kickDialogHandler
+      expect(() => {
+        manager.handleMessage(ws, 'east', { type: 'KICK_DIALOG_RESPONSE', response: 'kick' } as ClientMessage);
+      }).not.toThrow();
     });
   });
 });

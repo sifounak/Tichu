@@ -72,9 +72,6 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   // Mid-game seat choice (when joining with 2+ vacated seats)
   z.object({ type: z.literal('CHOOSE_SEAT'), seat: seatSchema }),
 
-  // REQ-F-ES04: Disconnect vote (Wait to keep seat reserved, Kick to vacate) — legacy, will be removed in M5
-  z.object({ type: z.literal('DISCONNECT_VOTE'), vote: z.enum(['wait', 'kick']) }),
-
   // REQ-F-KM02/KM03: Kick dialog response (any single 'kick' triggers immediate removal)
   z.object({ type: z.literal('KICK_DIALOG_RESPONSE'), response: z.enum(['kick', 'decline']) }),
 
@@ -165,12 +162,9 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('GAME_OVER'), winner: z.string(), finalScores: z.record(z.number()) }),
 
-  // REQ-F-ES04: Disconnect handling (multi-disconnect support)
+  // Disconnect handling
   z.object({ type: z.literal('PLAYER_DISCONNECTED'), seat: seatSchema }),
   z.object({ type: z.literal('PLAYER_RECONNECTED'), seat: seatSchema }),
-  z.object({ type: z.literal('DISCONNECT_VOTE_REQUIRED'), disconnectedSeats: z.array(seatSchema) }),
-  // REQ-F-ES04: Per-seat vote status broadcast for vote UI on player info boxes
-  z.object({ type: z.literal('DISCONNECT_VOTE_UPDATE'), votes: z.record(seatSchema, z.enum(['wait', 'kick']).nullable()), disconnectedSeats: z.array(seatSchema), timeoutMs: z.number() }),
 
   // REQ-F-KM01: Kick dialog messages (disconnected 2+ min, single player can trigger kick)
   z.object({ type: z.literal('KICK_DIALOG_SHOW'), targetSeat: seatSchema }),

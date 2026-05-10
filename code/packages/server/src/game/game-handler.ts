@@ -20,7 +20,7 @@ const GAME_MESSAGE_TYPES = [
   'PASS_TURN',
   'DECLARE_WISH',
   'GIFT_DRAGON',
-  'DISCONNECT_VOTE',
+  'KICK_DIALOG_RESPONSE',
   // REQ-F-PV20: Player-initiated vote messages
   'START_KICK_VOTE',
   'START_RESTART_GAME_VOTE',

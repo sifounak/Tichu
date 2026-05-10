@@ -24,7 +24,6 @@ export function projectGameState(
   forSeat: Seat,
   vacatedSeats: readonly Seat[] = [],
   choosingSeats: readonly Seat[] = [],
-  disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
   activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
   timerInfo?: { startTime: number | null; durationMs: number | null },
   endOfTrickBombWindowEndTime?: number | null,
@@ -71,8 +70,6 @@ export function projectGameState(
       cardPassConfirmed: [],
       vacatedSeats: [...vacatedSeats],
       choosingSeat: choosingSeats.includes(forSeat),
-      // REQ-F-ES04: Per-seat disconnect vote status (legacy — will be removed in M5)
-      disconnectVotes: disconnectVoteStatus?.votes ?? {},
       // REQ-F-GF01: Game halted only when seats are vacant (disconnects no longer halt)
       gameHalted: vacatedSeats.length > 0,
       winner: context.winner,
@@ -129,8 +126,6 @@ export function projectGameState(
     cardPassConfirmed: [...context.cardPassDecisions],
     vacatedSeats: [...vacatedSeats],
     choosingSeat: isChoosing,
-    // REQ-F-ES04: Per-seat disconnect vote status (legacy — will be removed in M5)
-    disconnectVotes: disconnectVoteStatus?.votes ?? {},
     // REQ-F-GF01: Game halted only when seats are vacant (disconnects no longer halt)
     gameHalted: vacatedSeats.length > 0,
     winner: context.winner,
@@ -184,7 +179,6 @@ export function projectSpectatorView(
   context: GameMachineContext,
   machineState: string,
   vacatedSeats: readonly Seat[] = [],
-  disconnectVoteStatus?: { votes: Record<string, 'wait' | 'kick' | null>; disconnectedSeats: Seat[]; timeoutMs: number } | null,
   activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null,
   timerInfo?: { startTime: number | null; durationMs: number | null },
   endOfTrickBombWindowEndTime?: number | null,
@@ -226,7 +220,6 @@ export function projectSpectatorView(
       cardPassConfirmed: [],
       vacatedSeats: [...vacatedSeats],
       choosingSeat: false,
-      disconnectVotes: disconnectVoteStatus?.votes ?? {},
       gameHalted: vacatedSeats.length > 0,
       winner: context.winner,
       activeVote: activeVote ?? null,
@@ -275,7 +268,6 @@ export function projectSpectatorView(
     cardPassConfirmed: [...context.cardPassDecisions],
     vacatedSeats: [...vacatedSeats],
     choosingSeat: false,
-    disconnectVotes: disconnectVoteStatus?.votes ?? {},
     gameHalted: vacatedSeats.length > 0,
     winner: context.winner,
     activeVote: activeVote ?? null,
