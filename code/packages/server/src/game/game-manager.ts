@@ -827,6 +827,14 @@ export class GameManager {
       this.dogAnimDelayTimer = setTimeout(() => {
         if (this.destroyed) return;
         this.dogAnimDelayTimer = null;
+        // Resume normal play: start turn timer, broadcast state, and trigger bot actions.
+        // Without this, human players after a dog would never see the turn indicator.
+        const r = this.context.currentRound;
+        if (r?.currentTurn) {
+          this.timer.start(r.currentTurn);
+          this.turnStartTimes.set(r.currentTurn, new Date().toISOString());
+        }
+        this.broadcastState();
         this.botRunner.onStateChange(() => this.broadcastState());
       }, DOG_ANIM_DELAY_MS);
       return;
