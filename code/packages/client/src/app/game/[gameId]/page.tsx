@@ -197,10 +197,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               // clearDogAnimation fires after entry + pause; triggers the TrickDisplay exit animation
               const dogAnimMs = (BASE_CARD_PLAY + DOG_PAUSE) * animMultiplier * 1000;
               // REQ-F-DA05: Block plays until after sweep completes + resume delay
-              // Total = (0.25 + 0.00 + 0.40 + 0.85) × multiplier = 1.50s at normal speed
+              // Total = (0.25 + 1.00 + 0.40 + 0.85) × multiplier = 2.50s at normal speed
               const dogBlockMs = (BASE_CARD_PLAY + DOG_PAUSE + BASE_TRICK_SWEEP + DOG_RESUME_DELAY) * animMultiplier * 1000;
               dogAnimTimerRef.current = setTimeout(
-                () => uiStore.clearDogAnimation(),
+                () => {
+                  uiStore.clearDogAnimation();
+                  dogAnimTimerRef.current = null;
+                },
                 dogAnimMs,
               );
               uiStore.startBombWindow(dogBlockMs);
@@ -745,6 +748,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       setShowReceivedCards(false);
       useUiStore.getState().clearSelection();
       // Clear stale animation state from previous round (e.g. dog played as final card)
+      if (dogAnimTimerRef.current) {
+        clearTimeout(dogAnimTimerRef.current);
+        dogAnimTimerRef.current = null;
+      }
       useUiStore.getState().clearDogAnimation();
       useUiStore.getState().clearDragonGiftAnimation();
       // Clear all stale received-cards dismiss keys from sessionStorage
