@@ -747,6 +747,11 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       // Clear stale animation state from previous round (e.g. dog played as final card)
       useUiStore.getState().clearDogAnimation();
       useUiStore.getState().clearDragonGiftAnimation();
+      // Clear all stale received-cards dismiss keys from sessionStorage
+      for (let i = sessionStorage.length - 1; i >= 0; i--) {
+        const key = sessionStorage.key(i);
+        if (key?.startsWith('tichu_received_dismissed_')) sessionStorage.removeItem(key);
+      }
     } else if (currentPhase === GamePhase.CardPassing) {
       // Entering card passing — reset pass state but not received cards
       setPassConfirmed(false);
