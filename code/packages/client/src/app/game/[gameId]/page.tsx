@@ -1009,14 +1009,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   }, [gameStore.currentTrick, autoPassEnabled, uiStore]);
 
   // Play "your turn" sound when the action bar becomes available to the player
+  // Suppress when auto-pass is active — the turn will pass automatically before
+  // the player can react, so the sound is just noise.
   const wasMyTurnRef = useRef(false);
   useEffect(() => {
     const actionBarVisible = phase === 'playing' && isMyTurnForSelection && !gameStore.gameHalted;
-    if (actionBarVisible && !wasMyTurnRef.current) {
+    if (actionBarVisible && !wasMyTurnRef.current && !autoPassEnabled) {
       playSound('yourTurn');
     }
     wasMyTurnRef.current = actionBarVisible;
-  }, [phase, isMyTurnForSelection, gameStore.gameHalted, playSound]);
+  }, [phase, isMyTurnForSelection, gameStore.gameHalted, playSound, autoPassEnabled]);
 
   // REQ-F-AP05: Auto-send PASS_TURN when auto-pass is enabled and it's the player's turn
   useEffect(() => {
