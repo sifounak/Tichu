@@ -83,7 +83,8 @@ export class DisconnectHandler {
     // For frozen sessions, clear the placeholder timer immediately and don't track it
     if (frozen) {
       clearTimeout(thresholdTimer);
-      this.startFrozenSession(roomCode, seat, options?.graceTimeoutMs ?? 259_200_000);
+      // REQ-F-SGP02: 36-hour grace period for frozen solo-human games (was 3 days)
+      this.startFrozenSession(roomCode, seat, options?.graceTimeoutMs ?? 129_600_000);
     }
 
     roomSeats.set(seat, {
@@ -157,6 +158,12 @@ export class DisconnectHandler {
   /** True if the room is in a frozen (solo-human pause) state. */
   isFrozen(roomCode: string): boolean {
     return this.frozenSessions.has(roomCode);
+  }
+
+  /** Returns the epoch ms when the room was frozen, or null if not frozen. */
+  getFrozenSince(roomCode: string): number | null {
+    const session = this.frozenSessions.get(roomCode);
+    return session ? session.startedAt : null;
   }
 
   /** Clean up all state for a room. */

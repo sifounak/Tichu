@@ -147,5 +147,18 @@ export function useWebSocket({
     return disconnect;
   }, [enabled, connect, disconnect]);
 
+  // REQ-F-SGP03: Reconnect when page becomes visible again (mobile phone wake)
+  useEffect(() => {
+    if (!enabled) return;
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !wsRef.current) {
+        retryCountRef.current = 0;
+        connect();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [enabled, connect]);
+
   return { status, send, disconnect, reconnect: connect };
 }

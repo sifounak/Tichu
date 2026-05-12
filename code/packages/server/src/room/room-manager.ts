@@ -13,8 +13,12 @@ const SEATS: readonly Seat[] = ['north', 'east', 'south', 'west'];
 const ROOM_CODE_LENGTH = 6;
 const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I, O, 0, 1 to avoid confusion
 
+/** 36 hours in ms — maximum time a frozen solo game room stays alive without reconnection. */
+const FROZEN_ROOM_TIMEOUT_MS = 36 * 60 * 60 * 1000;
+
 export interface RoomManagerOptions {
   staleTimeoutMs?: number;
+  frozenRoomTimeoutMs?: number;
 }
 
 /**
@@ -22,6 +26,8 @@ export interface RoomManagerOptions {
  */
 export class RoomManager {
   onRoomDestroyed: ((roomCode: string) => void) | null = null;
+  /** REQ-F-SGP01: Returns the epoch ms when the room was frozen, or null if not frozen. */
+  getRoomFrozenSince: ((roomCode: string) => number | null) | null = null;
 
   private readonly rooms = new Map<string, Room>();
   private readonly userToRoom = new Map<string, string>();
@@ -35,9 +41,11 @@ export class RoomManager {
 
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
   private readonly staleTimeoutMs: number;
+  private readonly frozenRoomTimeoutMs: number;
 
   constructor(options?: RoomManagerOptions) {
     this.staleTimeoutMs = options?.staleTimeoutMs ?? 30 * 60 * 1000;
+    this.frozenRoomTimeoutMs = options?.frozenRoomTimeoutMs ?? FROZEN_ROOM_TIMEOUT_MS;
   }
 
   startCleanup(): void {
@@ -748,7 +756,18 @@ export class RoomManager {
     const now = Date.now();
     for (const [code, room] of this.rooms) {
       const hasHumans = room.players.some(p => !p.isBot && p.isConnected);
-      if (!hasHumans && now - room.createdAt > this.staleTimeoutMs) {
+      if (hasHumans) continue;
+
+      // REQ-F-SGP01: Frozen solo-human games get an extended timeout (36h default)
+      const frozenSince = this.getRoomFrozenSince?.(code) ?? null;
+      if (frozenSince !== null) {
+        if (now - frozenSince > this.frozenRoomTimeoutMs) {
+          this.destroyRoom(code);
+        }
+        continue;
+      }
+
+      if (now - room.createdAt > this.staleTimeoutMs) {
         this.destroyRoom(code);
       }
     }

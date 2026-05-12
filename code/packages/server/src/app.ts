@@ -108,6 +108,11 @@ export function createApp(config: Partial<AppConfig> = {}) {
     gameStore.destroyGameByRoom(roomCode);
   };
 
+  // REQ-F-SGP01: Let room cleanup check if a room has a frozen solo-human game
+  roomHandler.roomManager.getRoomFrozenSince = (roomCode) => {
+    return gameStore.disconnectHandler.getFrozenSince(roomCode);
+  };
+
   // Create WebSocket server (no HTTP server — uses Fastify's)
   const wss = new WebSocketServer({ noServer: true });
 
