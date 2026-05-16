@@ -305,12 +305,13 @@ export const gameMachine = setup({
       return false;
     },
 
-    /** Trick is complete and should enter end-of-trick bomb window (not dragon gift or round over) */
+    /** Trick is complete and should enter end-of-trick bomb window (including dragon gift tricks) */
     isTrickCompleteForBombWindow: ({ context }) => {
       const round = context.currentRound;
       if (!round?.currentTrick) return false;
       if (!isTrickComplete(round.currentTrick, round)) return false;
-      if (needsDragonGift(round.currentTrick)) return false;
+      // Dragon gift already pending means bomb window already happened — skip to gift prompt
+      if (round.dragonGiftPending) return false;
       if (isRoundOver(round)) return false;
       return true;
     },

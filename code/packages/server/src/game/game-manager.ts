@@ -830,6 +830,10 @@ export class GameManager {
         // Resume normal play: start turn timer, broadcast state, and trigger bot actions.
         // Without this, human players after a dog would never see the turn indicator.
         const r = this.context.currentRound;
+        // Clear lastDogPlay before broadcasting to prevent client re-triggering animation
+        if (r) {
+          r.lastDogPlay = null;
+        }
         if (r?.currentTurn) {
           this.timer.start(r.currentTurn);
           this.turnStartTimes.set(r.currentTurn, new Date().toISOString());
