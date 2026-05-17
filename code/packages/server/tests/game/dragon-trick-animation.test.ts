@@ -200,7 +200,13 @@ describe('Dragon Trick Animation — Server Changes (M1)', () => {
         }
       }
 
-      const snap = actor.getSnapshot();
+      let snap = actor.getSnapshot();
+
+      // After fix: dragon tricks now enter bomb window first (like all other tricks)
+      if (snap.value === 'awaitingEndOfTrickBomb') {
+        actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+        snap = actor.getSnapshot();
+      }
 
       // Should be in awaitingDragonGift (manual gift — both opponents active)
       if (snap.value === 'awaitingDragonGift') {
@@ -265,7 +271,13 @@ describe('Dragon Trick Animation — Server Changes (M1)', () => {
         }
       }
 
-      const snap = actor.getSnapshot();
+      let snap = actor.getSnapshot();
+
+      // After fix: dragon tricks now enter bomb window first
+      if (snap.value === 'awaitingEndOfTrickBomb') {
+        actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+        snap = actor.getSnapshot();
+      }
       if (snap.value !== 'awaitingDragonGift') return;
 
       const r = snap.context.currentRound!;
@@ -323,9 +335,9 @@ describe('Dragon Trick Animation — Server Changes (M1)', () => {
       // All others pass
       let nextSeat = getNextActiveSeat(dragonSeat, actor.getSnapshot().context.currentRound!);
       for (let p = 0; p < 3; p++) {
-        const snap = actor.getSnapshot();
-        if (snap.value !== 'playing') break;
-        if (snap.context.currentRound?.currentTurn !== nextSeat) break;
+        const snap2 = actor.getSnapshot();
+        if (snap2.value !== 'playing') break;
+        if (snap2.context.currentRound?.currentTurn !== nextSeat) break;
         actor.send({ type: 'PASS_TURN', seat: nextSeat });
         if (p < 2) {
           const ns = actor.getSnapshot();
@@ -335,7 +347,13 @@ describe('Dragon Trick Animation — Server Changes (M1)', () => {
         }
       }
 
-      const snap = actor.getSnapshot();
+      let snap = actor.getSnapshot();
+
+      // After fix: dragon tricks now enter bomb window first
+      if (snap.value === 'awaitingEndOfTrickBomb') {
+        actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+        snap = actor.getSnapshot();
+      }
       if (snap.value !== 'awaitingDragonGift') return;
 
       const r = snap.context.currentRound!;

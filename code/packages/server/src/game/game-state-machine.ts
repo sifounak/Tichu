@@ -660,12 +660,13 @@ export const gameMachine = setup({
       removeCardsAndCheckFinish(round, seat, new Set(cards.map((c) => c.id)));
 
       // Check if trick is complete (e.g., bomb after all others passed, or player finished)
-      // Dragon gift and round-over complete inline; otherwise defer to always → awaitingEndOfTrickBomb
+      // Round-over completes inline; otherwise defer to always → awaitingEndOfTrickBomb
       if (isTrickComplete(round.currentTrick, round)) {
-        if (needsDragonGift(round.currentTrick) || isRoundOver(round)) {
+        if (isRoundOver(round)) {
           return completeTrickAndAdvance(round, context);
         }
         // Leave trick intact — always transition routes to end-of-trick bomb window
+        // Dragon tricks also go through bomb window first, then to awaitingDragonGift
         // No one's turn during end-of-trick bomb window — anyone can bomb
         round.currentTurn = null;
         return { currentRound: round };
