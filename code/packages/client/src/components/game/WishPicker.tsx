@@ -1,7 +1,7 @@
 // REQ-F-WP01: Wish picker UI for Mahjong wish declaration
 'use client';
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import type { Rank } from '@tichu/shared';
 import styles from './WishPicker.module.css';
 
@@ -19,6 +19,8 @@ export const WishPicker = memo(function WishPicker({
   onSelect,
   onCancel,
 }: WishPickerProps) {
+  const [selected, setSelected] = useState<Rank | null>(null);
+
   return (
     <div className={styles.overlay} onClick={onCancel} role="dialog" aria-label="Choose wish rank">
       <div className={styles.picker} onClick={(e) => e.stopPropagation()}>
@@ -28,14 +30,21 @@ export const WishPicker = memo(function WishPicker({
           {([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] as Rank[]).map((rank) => (
             <button
               key={rank}
-              className={styles.option}
-              onClick={() => onSelect(rank)}
+              className={`${styles.option} ${selected === rank ? styles.optionSelected : ''}`}
+              onClick={() => setSelected(rank)}
               aria-label={`Wish for ${RANK_LABELS[rank]}`}
             >
               {RANK_LABELS[rank]}
             </button>
           ))}
         </div>
+        <button
+          className={styles.confirmButton}
+          onClick={() => onSelect(selected)}
+          disabled={selected === null}
+        >
+          OK
+        </button>
         <button className={styles.noWishButton} onClick={() => onSelect(null)}>
           No Wish
         </button>

@@ -475,13 +475,21 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // This ensures players always have 2s to consider bombing, even after a sequence of passes.
   const currentTurn = gameStore.currentTurn;
   const trickPlayCount = gameStore.currentTrick?.plays.length ?? 0;
+  const dragonGiftPending = gameStore.dragonGiftPending;
   const prevTurnRef = useRef<string | null>(null);
   useEffect(() => {
-    if (currentTurn && currentTurn !== prevTurnRef.current && trickPlayCount > 0) {
+    if (currentTurn && currentTurn !== prevTurnRef.current && trickPlayCount > 0 && !dragonGiftPending) {
       bombWindow.startWindow();
     }
     prevTurnRef.current = currentTurn ?? null;
-  }, [currentTurn, trickPlayCount, bombWindow.startWindow]);
+  }, [currentTurn, trickPlayCount, dragonGiftPending, bombWindow.startWindow]);
+
+  // Clear bomb window when dragon gift phase starts (no plays allowed during gift selection)
+  useEffect(() => {
+    if (dragonGiftPending) {
+      bombWindow.cancelQueuedPlay();
+    }
+  }, [dragonGiftPending, bombWindow.cancelQueuedPlay]);
 
   // REQ-F-BI01: Compute isMyTurn early so useCardSelection can use it for bomb filtering
   const isMyTurnForSelection = gameStore.currentTurn === gameStore.mySeat;

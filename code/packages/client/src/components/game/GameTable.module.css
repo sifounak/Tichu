@@ -113,14 +113,20 @@
 /* Play area glow — visible during player's turn (blue) */
 .playAreaActive {
   border-radius: var(--space-3);
-  transition: background var(--duration-fast) var(--easing-smooth),
-              box-shadow var(--duration-fast) var(--easing-smooth),
-              border-color var(--duration-fast) var(--easing-smooth);
-  box-shadow: 0 0 calc(24px * var(--scale)) rgba(74, 158, 255, 0.55);
+  animation: pulseGlow 2s ease-in-out infinite;
 }
 
 :root[data-layout="mobile"] .playAreaActive {
   border: 2px solid #4a9eff;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 calc(20px * var(--scale)) rgba(74, 158, 255, 0.5), 0 0 calc(8px * var(--scale)) rgba(74, 158, 255, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 calc(32px * var(--scale)) rgba(74, 158, 255, 0.8), 0 0 calc(14px * var(--scale)) rgba(74, 158, 255, 0.5);
+  }
 }
 
 /* Play area glow — trick leader (gold) */

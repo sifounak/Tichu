@@ -61,6 +61,36 @@
   color: white;
 }
 
+.optionSelected {
+  background: var(--color-special-mahjong, #e6c619);
+  color: white;
+}
+
+.confirmButton {
+  display: block;
+  width: 100%;
+  padding: calc(10px * var(--scale)) var(--space-5);
+  margin-bottom: var(--space-2);
+  border: 2px solid var(--color-special-mahjong, #e6c619);
+  border-radius: var(--card-border-radius);
+  background: var(--color-special-mahjong, #e6c619);
+  color: white;
+  font-size: var(--font-md);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: calc(44px * var(--scale));
+  transition: opacity var(--duration-fast) var(--easing-smooth);
+}
+
+.confirmButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.confirmButton:not(:disabled):hover {
+  opacity: 0.85;
+}
+
 .noWishButton {
   display: block;
   width: 100%;
@@ -124,6 +154,14 @@
 
 :root[data-layout="mobile"] .option:last-child {
   grid-column: 2;
+}
+
+:root[data-layout="mobile"] .confirmButton {
+  font-size: var(--font-lg);
+  padding: calc(14px * var(--scale)) 0;
+  width: calc(3 * 56px * var(--scale) + 2 * var(--space-2));
+  margin-left: auto;
+  margin-right: auto;
 }
 
 :root[data-layout="mobile"] .noWishButton {
