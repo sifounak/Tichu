@@ -26,6 +26,15 @@ export interface CardProps {
   tabIndex?: number;
 }
 
+/** Image paths for special card icons — drop PNG files into public/images/cards/ */
+const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
+const SPECIAL_CARD_IMAGES: Record<string, string> = {
+  dragon: `${BASE_PATH}/images/cards/dragon.png`,
+  phoenix: `${BASE_PATH}/images/cards/phoenix.png`,
+  dog: `${BASE_PATH}/images/cards/dog.png`,
+  mahjong: `${BASE_PATH}/images/cards/mahjong.png`,
+};
+
 function CardFace({ card }: { card: CardType }) {
   if (card.kind === 'standard') {
     const symbol = SUIT_SYMBOLS[card.suit];
@@ -40,13 +49,20 @@ function CardFace({ card }: { card: CardType }) {
     );
   }
 
-  // Special cards
+  // Special cards — use image artwork
   const color = specialColor(card.kind);
   const label = SPECIAL_LABELS[card.kind];
   const name = SPECIAL_NAMES[card.kind];
+  const imgSrc = SPECIAL_CARD_IMAGES[card.kind];
   return (
     <div className={styles.face} style={{ color }}>
       <span className={styles.rank}>{label}</span>
+      <img
+        className={styles.specialIcon}
+        src={imgSrc}
+        alt={name}
+        draggable={false}
+      />
       <span className={styles.specialName}>{name}</span>
     </div>
   );
