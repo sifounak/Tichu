@@ -82,7 +82,7 @@
   position: absolute;
   top: calc(var(--card-font-size) + var(--space-2));
   left: calc(6px * var(--scale));
-  font-size: var(--font-sm);
+  font-size: var(--font-base);
   line-height: 1;
 }
 
@@ -91,13 +91,21 @@
   margin-top: calc(var(--card-font-size) * 0.5 + var(--space-1));
 }
 
+.specialIcon {
+  width: var(--card-suit-size);
+  height: var(--card-suit-size);
+  margin-top: calc(var(--card-font-size) * 0.5 + var(--space-1));
+  object-fit: contain;
+  pointer-events: none;
+}
+
 .specialName {
-  font-size: var(--font-xs);
-  font-weight: 600;
+  font-size: var(--font-sm);
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-top: var(--space-2);
-  opacity: 0.8;
+  margin-top: var(--space-1);
+  white-space: nowrap;
 }
 
 /* Card back design */

@@ -93,10 +93,10 @@ html.debug-outlines [data-debug-area="Server Banner"]::after { background: #ee5a
   --color-gold-light: #e0c878;
 
   /* Suit colors */
-  --color-suit-jade: #2e8b57;
-  --color-suit-pagoda: #1a1a2e;
+  --color-suit-jade: #1b8c3a;
+  --color-suit-pagoda: #1565c0;
   --color-suit-star: #c41e3a;
-  --color-suit-sword: #1a1a2e;
+  --color-suit-sword: #1a1a1a;
 
   /* Special card colors */
   --color-special-phoenix: #ff6b35;
@@ -129,13 +129,13 @@ html.debug-outlines [data-debug-area="Server Banner"]::after { background: #ee5a
   --card-lift-selected: calc(-17px * var(--scale));
   --card-border-radius: calc(6px * var(--scale));
   --card-font-size: calc(16px * var(--scale));
-  --card-suit-size: calc(20px * var(--scale));
+  --card-suit-size: calc(28px * var(--scale));
 
   /* Large card variants (for hand display, trick display, pre-game) */
   --card-width-lg: calc(105px * var(--scale));
   --card-height-lg: calc(150px * var(--scale));
   --card-font-size-lg: calc(24px * var(--scale));
-  --card-suit-size-lg: calc(30px * var(--scale));
+  --card-suit-size-lg: calc(40px * var(--scale));
   --card-border-radius-lg: calc(9px * var(--scale));
   --card-overlap-desktop-lg: calc(60px * var(--scale));
 
@@ -143,7 +143,7 @@ html.debug-outlines [data-debug-area="Server Banner"]::after { background: #ee5a
   --card-width-mobile: calc(85px * var(--scale));
   --card-height-mobile: calc(122px * var(--scale));
   --card-font-size-mobile: calc(20px * var(--scale));
-  --card-suit-size-mobile: calc(24px * var(--scale));
+  --card-suit-size-mobile: calc(34px * var(--scale));
   --card-border-radius-mobile: calc(7px * var(--scale));
   --card-overlap-mobile-lg: calc(40px * var(--scale));
 
