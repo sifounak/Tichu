@@ -8,11 +8,11 @@ describe('WishPicker', () => {
   const onSelect = vi.fn();
   const onCancel = vi.fn();
 
-  it('renders 13 rank buttons (2-A) plus No Wish', () => {
+  it('renders 13 rank buttons (2-A) plus OK, No Wish, Cancel', () => {
     render(<WishPicker onSelect={onSelect} onCancel={onCancel} />);
-    // 13 rank buttons + No Wish + Cancel = 15 buttons total
+    // 13 rank buttons + OK + No Wish + Cancel = 16 buttons total
     const buttons = screen.getAllByRole('button');
-    expect(buttons).toHaveLength(15);
+    expect(buttons).toHaveLength(16);
     // Verify face card labels
     expect(screen.getByRole('button', { name: /wish for j/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /wish for q/i })).toBeInTheDocument();
@@ -20,11 +20,13 @@ describe('WishPicker', () => {
     expect(screen.getByRole('button', { name: /wish for a/i })).toBeInTheDocument();
   });
 
-  it('calls onSelect with the chosen rank', async () => {
+  it('calls onSelect with the chosen rank after selecting and confirming', async () => {
     const onSelectMock = vi.fn();
     const user = userEvent.setup();
     render(<WishPicker onSelect={onSelectMock} onCancel={onCancel} />);
     await user.click(screen.getByRole('button', { name: /wish for 7/i }));
+    expect(onSelectMock).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'OK' }));
     expect(onSelectMock).toHaveBeenCalledWith(7);
   });
 
