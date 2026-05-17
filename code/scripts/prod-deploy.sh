@@ -5,7 +5,7 @@
 #   bash code/scripts/prod-deploy.sh <target-directory>
 #
 # Example:
-#   bash code/scripts/prod-deploy.sh /files/.www/tichu/built
+#   bash code/scripts/prod-deploy.sh /files/.www/tichu/production
 #
 # Prerequisites:
 #   - Run prod-build.sh first to create the build/ directory.
@@ -74,6 +74,11 @@ cp -r "$BUILD_DIR/client" "$TARGET/client"
 echo "  Copying start script..."
 cp "$SCRIPT_DIR/systemd/start.sh" "$TARGET/start.sh"
 chmod +x "$TARGET/start.sh"
+
+# Set ownership and permissions so www-data can access all deployed files
+echo "  Setting ownership and permissions..."
+sudo chown -R www-data:www-data "$TARGET"
+sudo chmod -R u=rwX,g=rX,o= "$TARGET"
 
 echo "Deploy complete."
 

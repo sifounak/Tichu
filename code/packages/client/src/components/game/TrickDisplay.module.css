@@ -185,10 +185,10 @@
 /* Phoenix single value overlay — centered between card name and bottom edge */
 .phoenixValue {
   position: absolute;
-  top: 75%;
+  top: 100%;
   left: 0;
   right: 0;
-  transform: translateY(-50%);
+  margin-top: calc(4px * var(--scale));
   text-align: center;
   font-size: min(calc(21px * var(--scale)), calc(var(--card-width) * 0.16));
   font-weight: 700;

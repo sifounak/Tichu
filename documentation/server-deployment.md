@@ -102,14 +102,14 @@ If it fails, check the [Troubleshooting](#troubleshooting) section at the bottom
 ### Step 4 — Deploy to target directory
 
 ```bash
-bash code/scripts/prod-deploy.sh /files/.www/tichu/built
+bash code/scripts/prod-deploy.sh /files/.www/tichu/production
 ```
 
 This will:
 1. Verify the `build/` directory from Step 3 exists
 2. Check that `/files/.www/tichu/.env.production` exists (errors if not)
 3. Create `/files/.www/tichu/data/` if it doesn't exist
-4. Copy server, client, and start script to `/files/.www/tichu/built/`
+4. Copy server, client, and start script to `/files/.www/tichu/production/`
 5. Attempt to restart the systemd service (will gracefully skip if not installed yet)
 
 ---
@@ -123,7 +123,7 @@ Before setting up systemd, verify the game works by running the processes manual
 Open a terminal:
 
 ```bash
-cd /files/.www/tichu/built/server
+cd /files/.www/tichu/production/server
 set -a && . /files/.www/tichu/.env.production && set +a
 PORT=$SERVER_PORT node dist/index.js
 ```
@@ -142,7 +142,7 @@ You should get a JSON response.
 Open another terminal:
 
 ```bash
-cd /files/.www/tichu/built/client/packages/client
+cd /files/.www/tichu/production/client/packages/client
 set -a && . /files/.www/tichu/.env.production && set +a
 PORT=$CLIENT_PORT HOSTNAME=$CLIENT_HOSTNAME node server.js
 ```
@@ -196,7 +196,7 @@ sudo systemctl daemon-reload
 ```
 
 The service file is pre-configured for this directory layout:
-- `WorkingDirectory` points to `/files/.www/tichu/built`
+- `WorkingDirectory` points to `/files/.www/tichu/production`
 - `ExecStart` runs `start.sh` which launches both server and client
 - `EnvironmentFile` points to `/files/.www/tichu/.env.production`
 - Runs as `www-data` user
@@ -207,7 +207,7 @@ If your user isn't `www-data`, edit the service file before enabling.
 
 ```bash
 # The www-data user needs read access to the deployment and execute on node
-sudo chown -R www-data:www-data /files/.www/tichu/built
+sudo chown -R www-data:www-data /files/.www/tichu/production
 sudo chown -R www-data:www-data /files/.www/tichu/data
 sudo chown www-data:www-data /files/.www/tichu/.env.production
 sudo chmod 600 /files/.www/tichu/.env.production
@@ -243,7 +243,7 @@ After pulling new code on the server:
 cd /files/.www/tichu/source
 git pull
 bash code/scripts/prod-build.sh /files/.www/tichu/.env.prod
-bash code/scripts/prod-deploy.sh /files/.www/tichu/built
+bash code/scripts/prod-deploy.sh /files/.www/tichu/production
 ```
 
 The deploy script restarts the systemd service automatically.
@@ -281,7 +281,7 @@ bash scripts/prod-build.sh /files/.www/tichu/.env.prod
 
 1. Check logs: `sudo journalctl -u tichu -n 50`
 2. Verify paths in the service file match your layout
-3. Verify `www-data` can read the files: `sudo -u www-data ls /files/.www/tichu/built/server/dist/`
+3. Verify `www-data` can read the files: `sudo -u www-data ls /files/.www/tichu/production/server/dist/`
 4. Verify the env file is readable: `sudo -u www-data cat /files/.www/tichu/.env.production`
 
 ### Game loads but API calls fail
