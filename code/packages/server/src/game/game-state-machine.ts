@@ -714,12 +714,13 @@ export const gameMachine = setup({
       round.currentTrick.passes.push(seat);
 
       // Check if trick is now complete
-      // Dragon gift and round-over complete inline; otherwise defer to always → awaitingEndOfTrickBomb
+      // Round-over completes inline; otherwise defer to always → awaitingEndOfTrickBomb
       if (isTrickComplete(round.currentTrick, round)) {
-        if (needsDragonGift(round.currentTrick) || isRoundOver(round)) {
+        if (isRoundOver(round)) {
           return completeTrickAndAdvance(round, context);
         }
         // No one's turn during end-of-trick bomb window — anyone can bomb
+        // Dragon tricks also go through bomb window first, then to awaitingDragonGift
         round.currentTurn = null;
         return { currentRound: round };
       }
@@ -745,9 +746,10 @@ export const gameMachine = setup({
         round.currentTrick.passes.push(seat);
 
         if (isTrickComplete(round.currentTrick, round)) {
-          if (needsDragonGift(round.currentTrick) || isRoundOver(round)) {
+          if (isRoundOver(round)) {
             return completeTrickAndAdvance(round, context);
           }
+          // Dragon tricks also go through bomb window first
           round.currentTurn = null;
           return { currentRound: round };
         }

@@ -235,9 +235,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             const BASE_TRICK_SWEEP = 0.40;
             const sweepMs = BASE_TRICK_SWEEP * animMultiplier * 1000;
             setTimeout(() => uiStore.clearDragonGiftAnimation(), sweepMs + 100);
-            // End-of-trick bomb delay for Dragon wins (same as normal trick transitions)
-            const BOMB_WINDOW_MS = 1500;
-            uiStore.startBombWindow(sweepMs + 100 + BOMB_WINDOW_MS);
           }
         }
 

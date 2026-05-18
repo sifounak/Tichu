@@ -124,6 +124,12 @@ function playFullRound(actor: ReturnType<typeof createTestActor>): void {
       actor.send({ type: 'PLAY_CARDS', seat, cards: play.cards });
     }
 
+    // Handle end-of-trick bomb window that may follow a pass completing a trick
+    const postSnap = actor.getSnapshot();
+    if (postSnap.value === 'awaitingEndOfTrickBomb') {
+      actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+    }
+
     // Handle Dragon gift if needed
     const newSnap = actor.getSnapshot();
     if (newSnap.value === 'awaitingDragonGift') {
