@@ -2085,8 +2085,8 @@ describe('Bot', () => {
       }
     });
 
-    // Verifies: REQ-F-END04 — 2-player, opponent many cards: normal lead-low
-    it('leads low when opponent has many cards (2-player)', () => {
+    // Verifies: REQ-F-END04 — 2-player, opponent many cards: singles high→low
+    it('leads singles high-to-low when opponent has many cards (2-player)', () => {
       const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c7 = card('standard', 7, 'pagoda', 701);
@@ -2114,8 +2114,75 @@ describe('Bot', () => {
       const decision = bot.choosePlay(ctx);
       expect(decision.action).toBe('play');
       if (decision.action === 'play') {
-        // Opponent has many cards → normal lead-low strategy
-        expect(decision.cards[0].id).toBe(301);
+        // 2-player endgame: singles are always played high→low
+        expect(decision.cards[0].id).toBe(1401);
+      }
+    });
+
+    // Verifies: REQ-F-END04 — 2-player, prefers multi-card combos over singles
+    it('prefers multi-card combos over singles in 2-player endgame', () => {
+      const bot = new Bot();
+      const c3 = card('standard', 3, 'jade', 301);
+      const c3b = card('standard', 3, 'pagoda', 302);
+      const c14 = card('standard', 14, 'jade', 1401);
+      const hand = [c3, c3b, c14];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [c3], 3),
+        makeCombo(CombinationType.Single, [c3b], 3),
+        makeCombo(CombinationType.Single, [c14], 14),
+        makeCombo(CombinationType.Pair, [c3, c3b], 3),
+      ];
+
+      // 2-player, opponent west has many cards
+      const roundState = makeRoundState({
+        finishOrder: ['east', 'south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 2 },
+          west: { hand: Array(8).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Prefers multi-card combo (pair of 3s) to shed cards faster
+        expect(decision.cards.length).toBe(2);
+      }
+    });
+
+    // Verifies: Phoenix singleton is never led in 2-player endgame (unless last card)
+    it('does not lead Phoenix singleton in 2-player endgame', () => {
+      const bot = new Bot();
+      const phoenix = card('phoenix', undefined, undefined, 9901);
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [phoenix, c5];
+
+      const validPlays = [
+        makeCombo(CombinationType.Single, [phoenix], 0),
+        makeCombo(CombinationType.Single, [c5], 5),
+      ];
+
+      // 2-player endgame
+      const roundState = makeRoundState({
+        finishOrder: ['east', 'south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 1 },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: true, finishOrder: 2 },
+          west: { hand: Array(5).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const ctx = makePlayContext({ hand, validPlays, canPass: false, roundState, seat: 'north' });
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        // Should play the 5, not Phoenix
+        expect(decision.cards[0].id).toBe(501);
       }
     });
 

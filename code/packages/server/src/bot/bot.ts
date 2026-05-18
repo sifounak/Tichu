@@ -1708,7 +1708,11 @@ export class Bot implements BotStrategy {
     if (!currentTrick) {
       // Leading: play highest combo to control (aggressive)
       const ranked = rankCombinationsForLead(plays);
-      // Lead with strongest play to get out fast
+      // Lead with strongest play to get out fast (but never Phoenix singleton — it's weak)
+      for (let i = ranked.length - 1; i >= 0; i--) {
+        if (ranked[i].cards.length === 1 && isPhoenix(ranked[i].cards[0].card)) continue;
+        return this.toDecision(ranked[i]);
+      }
       return this.toDecision(ranked[ranked.length - 1] ?? ranked[0]);
     }
 
@@ -1773,13 +1777,17 @@ export class Bot implements BotStrategy {
 
   // REQ-F-END03, REQ-F-END04: 2-player endgame
   /**
-   * 2 players left:
-   * - Opponent has 1 card → play multi-card groups first, then singles high→low
-   * - Opponent has many cards → normal lead-low-win-high
+   * 2 players left — nuanced lead strategy:
+   * - Opponent has 1 card → multi-card groups first (safe), then singles high→low
+   * - Only singles left in hand → play high→low for maximum control
+   * - Prefer non-singles (pairs, straights, etc.) to shed cards without breaking combos
+   * - Exception: Aces/Kings are more powerful as singles (repeated control)
+   * - Avoid overpowered combos (AAA, AAAKK) unless close to going out
+   * - Uses win probability to avoid wasting high cards on unwinnable tricks
    */
   private choose2PlayerPlay(
     plays: Combination[],
-    _hand: GameCard[],
+    hand: GameCard[],
     currentTrick: import('@tichu/shared').TrickState | null,
     seat: Seat,
     roundState: RoundState,
@@ -1798,35 +1806,124 @@ export class Bot implements BotStrategy {
     if (!currentTrick) {
       // REQ-F-END03: Opponent has 1 card → multi-card groups first, then singles high→low
       if (opponentCards === 1) {
-        // Prefer multi-card plays (opponent can only play singles, so multi-card combos are safe)
         const multiCard = plays.filter((c) => c.cards.length > 1 && !c.cards.some((gc) => isDog(gc.card)));
         if (multiCard.length > 0) {
-          // Play largest multi-card group to shed cards fastest
           const sorted = [...multiCard].sort((a, b) => b.cards.length - a.cards.length);
           return this.toDecision(sorted[0]);
         }
-        // Only singles left: play highest first
-        const singles = rankCombinationsForLead(plays);
-        if (singles.length > 0) {
-          return this.toDecision(singles[singles.length - 1]);
-        }
       }
 
-      // REQ-F-END04: Opponent has many cards → normal lead-low strategy
-      const lowFirst = rankCombinationsForLead(plays);
-      for (const combo of lowFirst) {
-        if (combo.cards.length === 1 && isDragon(combo.cards[0].card)) continue;
-        if (combo.type === CombinationType.Single &&
-          combo.cards[0].card.kind === 'standard' && combo.cards[0].card.rank === 14) continue;
-        return this.toDecision(combo);
-      }
-      return this.toDecision(lowFirst[0]);
+      return this.choose2PlayerLead(plays, hand, opponentCards, roundState, opponent);
     }
 
     // Following in 2-player: win if possible
     if (canPass && plays.length === 0) return { action: 'pass' };
     // Normal follow play (fall through)
     return null;
+  }
+
+  /**
+   * 2-player lead selection with nuanced Ace/King handling and win probability.
+   */
+  private choose2PlayerLead(
+    plays: Combination[],
+    hand: GameCard[],
+    opponentCards: number,
+    roundState: RoundState,
+    opponent: Seat,
+  ): BotPlayDecision {
+    const ranked = rankCombinationsForLead(plays);
+
+    // Categorize available plays
+    const singles = ranked.filter((c) =>
+      c.cards.length === 1 &&
+      !isDog(c.cards[0].card) &&
+      !isDragon(c.cards[0].card) &&
+      !isPhoenix(c.cards[0].card),
+    );
+    const multiCard = ranked.filter((c) =>
+      c.cards.length > 1 && !c.cards.some((gc) => isDog(gc.card)),
+    );
+
+    // If only singles are available, play high→low
+    if (multiCard.length === 0) {
+      if (singles.length > 0) {
+        return this.toDecision(singles[singles.length - 1]);
+      }
+      // Only special cards left
+      return this.toDecision(ranked[ranked.length - 1] ?? ranked[0]);
+    }
+
+    // Count how many "low singles" we have (below Queen, not in any multi-card combo)
+    const lowSingles = singles.filter((c) =>
+      c.cards[0].card.kind === 'standard' && c.cards[0].card.rank < 12 &&
+      !multiCard.some((m) => m.cards.some((gc) => gc.id === c.cards[0].id)),
+    );
+
+    // Determine if we have Aces/Kings as singles
+    const aceSingles = singles.filter((c) =>
+      c.cards[0].card.kind === 'standard' && c.cards[0].card.rank === 14,
+    );
+    const kingSingles = singles.filter((c) =>
+      c.cards[0].card.kind === 'standard' && c.cards[0].card.rank === 13,
+    );
+
+    // Check if Aces/Kings appear in "overpowered" multi-card combos
+    // Overpowered = triples or full houses using Aces or Kings
+    const overpoweredMulti = multiCard.filter((c) => {
+      if (c.type !== CombinationType.Triple && c.type !== CombinationType.FullHouse) return false;
+      return c.rank >= 13; // Triple/FullHouse of Kings or Aces
+    });
+
+    // Determine if we're close to going out (where overpowered combos are acceptable)
+    const canGoOutSoon = hand.length <= 5;
+    const oppCall = roundState.players[opponent].tipiCall;
+    const opponentHasTichu = oppCall === 'tichu' || oppCall === 'grandTichu';
+
+    // Strategy: If we have Aces/Kings AND low singles, prefer singles for repeated control
+    // Aces/Kings as singles win ~85-100% of the time, giving us control to lead low cards
+    if (aceSingles.length > 0 && lowSingles.length > 0) {
+      // Use win probability to decide: lead Ace if it's very likely to win
+      const aceWinProb = this.cardTracker.estimateSingleWinProbability(
+        14, opponentCards, hand.length,
+      );
+      if (aceWinProb >= 0.7) {
+        return this.toDecision(aceSingles[0]);
+      }
+    }
+
+    if (kingSingles.length > 0 && lowSingles.length > 0) {
+      const kingWinProb = this.cardTracker.estimateSingleWinProbability(
+        13, opponentCards, hand.length,
+      );
+      // Kings are strong in 2-player — use if high probability or all Aces accounted for
+      if (kingWinProb >= 0.6 || this.cardTracker.getUnaccountedAces() === 0) {
+        return this.toDecision(kingSingles[0]);
+      }
+    }
+
+    // Filter out overpowered combos unless close to going out or blocking Tichu
+    const safeMulti = (canGoOutSoon || opponentHasTichu)
+      ? multiCard
+      : multiCard.filter((c) => !overpoweredMulti.includes(c));
+
+    // Prefer safe multi-card combos (play low ones first to shed cards)
+    if (safeMulti.length > 0) {
+      return this.toDecision(safeMulti[0]);
+    }
+
+    // If we filtered out all multi-card combos, fall through to singles high→low
+    // (The overpowered combos were skipped because we have better options as singles)
+    if (singles.length > 0) {
+      return this.toDecision(singles[singles.length - 1]);
+    }
+
+    // Last resort: play any multi-card combo (even overpowered ones)
+    if (multiCard.length > 0) {
+      return this.toDecision(multiCard[0]);
+    }
+
+    return this.toDecision(ranked[ranked.length - 1] ?? ranked[0]);
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────

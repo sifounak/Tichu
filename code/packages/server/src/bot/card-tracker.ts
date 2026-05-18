@@ -332,6 +332,83 @@ export class CardTracker {
     return this.dragonPlayed;
   }
 
+  /**
+   * Count the total number of unaccounted cards (not played, not in own hand).
+   * There are 56 cards total (52 standard + Dragon + Phoenix + Dog + Mah Jong).
+   */
+  getTotalUnaccountedCards(ownHandSize: number): number {
+    // Total played = processedCardIds.size
+    // Total in own hand = ownHandSize
+    // Total unaccounted = 56 - played - in hand
+    return 56 - this.processedCardIds.size - ownHandSize;
+  }
+
+  /**
+   * Count how many unaccounted cards can beat a given single of rank `rank`.
+   * Includes: standard cards of higher rank, Dragon (if unaccounted), Phoenix (over Ace).
+   * Does NOT count bombs.
+   */
+  getUnaccountedCardsBeatingSingle(rank: number): number {
+    let count = 0;
+    // Standard cards strictly above this rank
+    for (let r = rank + 1; r <= 14; r++) {
+      const played = this.playedByRank.get(r)?.count ?? 0;
+      const inHand = this.ownHandRankCounts.get(r) ?? 0;
+      count += Math.max(0, 4 - played - inHand);
+    }
+    // Dragon beats any standard single
+    if (!this.dragonPlayed && !this.ownHandHasDragon) count++;
+    // Phoenix can beat any single except Dragon (plays at rank + 0.5)
+    // But Phoenix doesn't beat another Phoenix, and can't beat Dragon
+    if (rank < 14 && !this.phoenixPlayed && !this.ownHandHasPhoenix) count++;
+    return count;
+  }
+
+  /**
+   * Estimate the probability that a single of given rank wins the trick
+   * in a 2-player endgame (opponent has `opponentHandSize` cards).
+   * Uses hypergeometric probability: P(opponent has 0 cards that beat us).
+   *
+   * Returns a value between 0 and 1.
+   */
+  estimateSingleWinProbability(rank: number, opponentHandSize: number, ownHandSize: number): number {
+    const totalUnaccounted = this.getTotalUnaccountedCards(ownHandSize);
+    const beaters = this.getUnaccountedCardsBeatingSingle(rank);
+
+    if (beaters === 0) return 1.0; // Nothing can beat us
+    if (totalUnaccounted <= 0 || opponentHandSize <= 0) return 1.0;
+    if (opponentHandSize >= totalUnaccounted) return beaters > 0 ? 0.0 : 1.0;
+
+    // P(win) = P(opponent has none of the beaters)
+    // = C(totalUnaccounted - beaters, opponentHandSize) / C(totalUnaccounted, opponentHandSize)
+    // Using the product formula to avoid overflow:
+    // P(none) = product_{i=0}^{handSize-1} (pool - beaters - i) / (pool - i)
+    let pNone = 1.0;
+    const pool = totalUnaccounted;
+    const safe = pool - beaters;
+    for (let i = 0; i < opponentHandSize; i++) {
+      if (pool - i <= 0) break;
+      pNone *= Math.max(0, safe - i) / (pool - i);
+    }
+    return pNone;
+  }
+
+  /**
+   * Count unaccounted pairs that beat a pair of given rank.
+   * A pair is beaten by a pair of strictly higher rank.
+   * We estimate by checking if 2+ cards of a higher rank are unaccounted.
+   */
+  getUnaccountedPairsBeatRank(rank: number): number {
+    let count = 0;
+    for (let r = rank + 1; r <= 14; r++) {
+      const played = this.playedByRank.get(r)?.count ?? 0;
+      const inHand = this.ownHandRankCounts.get(r) ?? 0;
+      const available = 4 - played - inHand;
+      if (available >= 2) count++;
+    }
+    return count;
+  }
+
   // ─── Point Tracking ─────────────────────────────────────────────────────
 
   // REQ-F-TRK01: Rough point tracking per team
