@@ -51,6 +51,24 @@ describe('PendingActionManager', () => {
 
       expect(manager.getSnapshot(messageId)).toEqual(snapshot);
     });
+
+    it('passes snapshot to onResolved on ack', () => {
+      const snapshot: UISnapshot = { selectedCardIds: [3, 4], autoPassEnabled: true };
+      const message = { type: 'PLAY_CARDS' as const, cardIds: [3, 4] };
+      const messageId = manager.submit(message, snapshot);
+
+      manager.handleAck(messageId);
+      expect(onResolvedMock).toHaveBeenCalledWith('ack', 'test-uuid-1234', snapshot);
+    });
+
+    it('passes snapshot to onResolved on nack', () => {
+      const snapshot: UISnapshot = { selectedCardIds: [5], autoPassEnabled: false };
+      const message = { type: 'PLAY_CARDS' as const, cardIds: [5] };
+      const messageId = manager.submit(message, snapshot);
+
+      manager.handleNack(messageId, 'ERR', 'fail');
+      expect(onResolvedMock).toHaveBeenCalledWith('nack', 'test-uuid-1234', snapshot, 'ERR', 'fail');
+    });
   });
 
   describe('retry timing — REQ-F-RAD05', () => {
@@ -83,7 +101,7 @@ describe('PendingActionManager', () => {
       vi.advanceTimersByTime(4000); // retry 2 fires
       vi.advanceTimersByTime(6000); // retry 3 fires — now retryCount=3, exhausted
 
-      expect(onResolvedMock).toHaveBeenCalledWith('nack', 'test-uuid-1234', 'TIMEOUT', 'No response after retries');
+      expect(onResolvedMock).toHaveBeenCalledWith('nack', 'test-uuid-1234', undefined, 'TIMEOUT', 'No response after retries');
       expect(manager.size).toBe(0);
     });
   });
@@ -120,7 +138,7 @@ describe('PendingActionManager', () => {
       manager.handleAck(messageId);
 
       expect(manager.size).toBe(0);
-      expect(onResolvedMock).toHaveBeenCalledWith('ack', 'test-uuid-1234');
+      expect(onResolvedMock).toHaveBeenCalledWith('ack', 'test-uuid-1234', undefined);
     });
 
     it('stops retry timers on ack', () => {
@@ -149,7 +167,7 @@ describe('PendingActionManager', () => {
       manager.handleNack(messageId, 'HANDLER_ERROR', 'Not your turn');
 
       expect(manager.size).toBe(0);
-      expect(onResolvedMock).toHaveBeenCalledWith('nack', 'test-uuid-1234', 'HANDLER_ERROR', 'Not your turn');
+      expect(onResolvedMock).toHaveBeenCalledWith('nack', 'test-uuid-1234', undefined, 'HANDLER_ERROR', 'Not your turn');
     });
 
     it('stops retry timers on nack', () => {

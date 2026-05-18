@@ -18,7 +18,7 @@ export interface UseWebSocketOptions {
   /** Called when spinner should be shown for a pending action */
   onSpinnerNeeded?: (messageId: string) => void;
   /** Called when a pending action is resolved (ack or nack) */
-  onResolved?: (result: ResolutionResult, messageId: string, code?: string, message?: string) => void;
+  onResolved?: (result: ResolutionResult, messageId: string, snapshot?: UISnapshot, code?: string, message?: string) => void;
   /** Max reconnection attempts (default: 10) */
   maxRetries?: number;
   /** Enable auto-reconnection (default: true) */
@@ -73,7 +73,7 @@ export function useWebSocket({
         return false;
       },
       onSpinnerNeeded: (messageId) => onSpinnerNeededRef.current?.(messageId),
-      onResolved: (result, messageId, code, message) => onResolvedRef.current?.(result, messageId, code, message),
+      onResolved: (result, messageId, snapshot, code, message) => onResolvedRef.current?.(result, messageId, snapshot, code, message),
     });
   }
 

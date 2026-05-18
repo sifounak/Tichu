@@ -129,6 +129,11 @@ export interface UiStore {
   serverRestarting: boolean;
   setServerRestarting: (value: boolean) => void;
 
+  /* --- Pending Action Spinner (REQ-F-RAD07, REQ-F-RAD08) --- */
+  pendingActionSpinner: boolean;
+  setPendingActionSpinner: (v: boolean) => void;
+  restoreSnapshot: (snapshot: { selectedCardIds: number[]; autoPassEnabled: boolean }) => void;
+
   /* --- Error Toast --- */
   errorToast: string | null;
   showErrorToast: (message: string) => void;
@@ -283,6 +288,15 @@ export const useUiStore = create<UiStore>()((set) => ({
   /* --- Server Restart --- */
   serverRestarting: false,
   setServerRestarting: (value) => set({ serverRestarting: value }),
+
+  /* --- Pending Action Spinner --- */
+  pendingActionSpinner: false,
+  setPendingActionSpinner: (v) => set({ pendingActionSpinner: v }),
+  restoreSnapshot: (snapshot) =>
+    set({
+      selectedCardIds: new Set(snapshot.selectedCardIds),
+      autoPassEnabled: snapshot.autoPassEnabled,
+    }),
 
   /* --- Error Toast --- */
   errorToast: null,

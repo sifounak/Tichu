@@ -28,7 +28,7 @@ export interface PendingActionManagerCallbacks {
   /** Called when spinner should be shown (3s without response) */
   onSpinnerNeeded: (messageId: string) => void;
   /** Called when a pending action is resolved */
-  onResolved: (result: ResolutionResult, messageId: string, code?: string, message?: string) => void;
+  onResolved: (result: ResolutionResult, messageId: string, snapshot?: UISnapshot, code?: string, message?: string) => void;
 }
 
 const RETRY_DELAYS_MS = [2000, 4000, 6000];
@@ -72,7 +72,7 @@ export class PendingActionManager {
     if (!action) return;
     this.clearTimers(action);
     this.pending.delete(messageId);
-    this.callbacks.onResolved('ack', messageId);
+    this.callbacks.onResolved('ack', messageId, action.snapshot);
   }
 
   /** Handle NACK from server — action rejected */
@@ -81,7 +81,7 @@ export class PendingActionManager {
     if (!action) return;
     this.clearTimers(action);
     this.pending.delete(messageId);
-    this.callbacks.onResolved('nack', messageId, code, message);
+    this.callbacks.onResolved('nack', messageId, action.snapshot, code, message);
   }
 
   /** REQ-F-RAD09: Re-send all pending actions on reconnection */
@@ -119,7 +119,7 @@ export class PendingActionManager {
       // All retries exhausted — treat as failure
       this.clearTimers(action);
       this.pending.delete(action.messageId);
-      this.callbacks.onResolved('nack', action.messageId, 'TIMEOUT', 'No response after retries');
+      this.callbacks.onResolved('nack', action.messageId, action.snapshot, 'TIMEOUT', 'No response after retries');
       return;
     }
 

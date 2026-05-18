@@ -45,6 +45,7 @@ import { LeaveConfirmDialog } from '@/components/game/LeaveConfirmDialog';
 import { GameActionsMenu, type MenuAction } from '@/components/game/GameActionsMenu';
 import { GameActionsDrawer } from '@/components/game/GameActionsDrawer';
 import { ActionConfirmDialog, type ConfirmDialogAction } from '@/components/game/ActionConfirmDialog';
+import { ActionSpinner } from '@/components/game/ActionSpinner';
 import { GameSettingsForm } from '@/components/ui/GameSettingsForm';
 import { isOnCooldown, getCooldownRemaining } from '@/stores/uiStore';
 
@@ -445,10 +446,26 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       uiStore.setServerRestarting(false);
     }
   }, [uiStore]);
+  // REQ-F-RAD07: Spinner after 3s, REQ-F-RAD08: Restore state on failure
+  const handleSpinnerNeeded = useCallback(() => {
+    uiStore.setPendingActionSpinner(true);
+  }, [uiStore]);
+  const handleResolved = useCallback((result: 'ack' | 'nack', _messageId: string, snapshot?: { selectedCardIds: number[]; autoPassEnabled: boolean }, code?: string, message?: string) => {
+    uiStore.setPendingActionSpinner(false);
+    if (result === 'nack') {
+      // REQ-F-RAD08: Restore pre-action UI state on failure
+      if (snapshot) {
+        uiStore.restoreSnapshot(snapshot);
+      }
+      uiStore.showErrorToast(message ?? code ?? 'Action failed');
+    }
+  }, [uiStore]);
   const { status, send, disconnect } = useWebSocket({
     url: wsUrl,
     onMessage: handleMessage,
     onStatusChange: handleStatusChange,
+    onSpinnerNeeded: handleSpinnerNeeded,
+    onResolved: handleResolved,
     enabled: authReady,
   });
 
@@ -521,6 +538,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     return hand.some(gc => selection.selectedIds.has(gc.id) && gc.card.kind === 'mahjong');
   }, [gameStore.myHand, selection.selectedIds]);
 
+  // REQ-F-RAD13: Capture pre-action UI snapshot before clearing state
+  const captureSnapshot = useCallback(() => ({
+    selectedCardIds: [...uiStore.selectedCardIds],
+    autoPassEnabled: uiStore.autoPassEnabled,
+  }), [uiStore]);
+
   const handlePlay = useCallback(() => {
     if (!selection.canPlay) return;
     const cardIds = [...selection.selectedIds];
@@ -547,7 +570,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       return;
     }
 
-    if (!send({ type: 'PLAY_CARDS', cardIds, phoenixAs })) {
+    const snapshot = captureSnapshot();
+    if (!send({ type: 'PLAY_CARDS', cardIds, phoenixAs }, snapshot)) {
       uiStore.showErrorToast('Not connected to server');
       return;
     }
@@ -556,13 +580,14 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     uiStore.setAutoPassEnabled(false);
     // Auto-dismiss received cards display when playing
     if (showReceivedCards) setShowReceivedCards(false);
-  }, [selection, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive, showReceivedCards]);
+  }, [selection, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive, showReceivedCards, captureSnapshot]);
 
   // REQ-F-BI09: Handle out-of-turn bomb play (selection-based)
   const handleBomb = useCallback(() => {
     if (!selection.isBombSelection) return;
     const cardIds = [...selection.selectedIds];
-    if (!send({ type: 'PLAY_CARDS', cardIds })) {
+    const snapshot = captureSnapshot();
+    if (!send({ type: 'PLAY_CARDS', cardIds }, snapshot)) {
       uiStore.showErrorToast('Not connected to server');
       return;
     }
@@ -570,7 +595,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     // REQ-F-AP08: Playing cards (bomb) disables auto-pass
     uiStore.setAutoPassEnabled(false);
     if (showReceivedCards) setShowReceivedCards(false);
-  }, [selection, send, uiStore, showReceivedCards]);
+  }, [selection, send, uiStore, showReceivedCards, captureSnapshot]);
 
   // REQ-F-BB01: Auto-detect all bombs in hand for the Bomb button
   const handBombs = useMemo(
@@ -582,14 +607,15 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const handleBombPlay = useCallback(
     (bomb: Combination) => {
       const cardIds = bomb.cards.map((gc) => gc.id);
-      if (!send({ type: 'PLAY_CARDS', cardIds })) {
+      const snapshot = captureSnapshot();
+      if (!send({ type: 'PLAY_CARDS', cardIds }, snapshot)) {
         uiStore.showErrorToast('Not connected to server');
       }
       // REQ-F-AP08: Playing cards (bomb) disables auto-pass
       uiStore.setAutoPassEnabled(false);
       if (showReceivedCards) setShowReceivedCards(false);
     },
-    [send, uiStore, showReceivedCards],
+    [send, uiStore, showReceivedCards, captureSnapshot],
   );
 
   const [bombPopupOpen, setBombPopupOpen] = useState(false);
@@ -694,12 +720,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   );
 
   const handlePass = useCallback(() => {
-    if (!send({ type: 'PASS_TURN' })) {
+    const snapshot = captureSnapshot();
+    if (!send({ type: 'PASS_TURN' }, snapshot)) {
       uiStore.showErrorToast('Not connected to server');
       return;
     }
     uiStore.clearSelection();
-  }, [send, uiStore]);
+  }, [send, uiStore, captureSnapshot]);
 
   const handleTichu = useCallback(() => {
     if (!send({ type: 'TICHU_DECLARATION' })) {
@@ -2277,7 +2304,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           {/* Action bar: mobile renders all buttons via ActionBar; full layout renders only ActionBar */}
           {!isPreGame && !showReceivedCards && (
             isMobileLayout ? (
-              <div data-debug-area="Action Bar" style={{ pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw', boxSizing: 'border-box' }}>
+              <div data-debug-area="Action Bar" style={{ pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw', boxSizing: 'border-box', position: 'relative' }}>
                 <ActionBar
                   canPlay={!gameStore.gameHalted && selection.canPlay}
                   canPass={!gameStore.gameHalted && selection.canPass}
@@ -2302,9 +2329,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   canBombProp={phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0}
                   bombSlotRef={bombActionBarRef}
                 />
+                <ActionSpinner />
               </div>
             ) : (
-              <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center', pointerEvents: 'auto' }}>
+              <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center', pointerEvents: 'auto', position: 'relative' }}>
                 <ActionBar
                   canPlay={!gameStore.gameHalted && selection.canPlay}
                   canPass={!gameStore.gameHalted && selection.canPass}
@@ -2345,6 +2373,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     />
                   }
                 />
+                <ActionSpinner />
               </div>
             )
           )}
