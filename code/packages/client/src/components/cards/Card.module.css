@@ -92,9 +92,9 @@
 }
 
 .specialIcon {
-  width: var(--card-suit-size);
-  height: var(--card-suit-size);
-  margin-top: calc(var(--card-font-size) * 0.5 + var(--space-1));
+  width: calc(var(--card-suit-size) * 1.5);
+  height: calc(var(--card-suit-size) * 1.5);
+  margin-top: calc(var(--card-font-size) * 0.25);
   object-fit: contain;
   pointer-events: none;
 }
