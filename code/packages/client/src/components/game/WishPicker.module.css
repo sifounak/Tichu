@@ -23,7 +23,7 @@
   margin: 0 0 var(--space-4);
   font-size: var(--font-lg);
   font-weight: 700;
-  color: var(--color-special-mahjong, #e6c619);
+  color: var(--color-gold-accent);
 }
 
 .options {
@@ -37,7 +37,7 @@
 .option {
   width: calc(48px * var(--scale));
   height: calc(48px * var(--scale));
-  border: 2px solid var(--color-special-mahjong, #e6c619);
+  border: 2px solid var(--color-gold-accent);
   border-radius: var(--space-2);
   background: transparent;
   color: var(--color-text-primary);
@@ -51,8 +51,8 @@
 }
 
 .option:hover {
-  background: var(--color-special-mahjong, #e6c619);
-  color: white;
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
 }
 
 /* Ace button spans columns 2-3 on the last row */
