@@ -20,21 +20,15 @@
 }
 
 .title {
-  margin: 0 0 4px;
+  margin: 0 0 var(--space-4);
   font-size: var(--font-lg);
   font-weight: 700;
   color: var(--color-special-mahjong, #e6c619);
 }
 
-.subtitle {
-  margin: 0 0 var(--space-4);
-  font-size: calc(13px * var(--scale));
-  color: var(--color-text-secondary);
-}
-
 .options {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, calc(48px * var(--scale)));
   gap: var(--space-2);
   justify-content: center;
   margin-bottom: var(--space-4);
@@ -61,41 +55,17 @@
   color: white;
 }
 
-.optionSelected {
-  background: var(--color-special-mahjong, #e6c619);
-  color: white;
-}
-
-.confirmButton {
-  display: block;
+/* Ace button spans columns 2-3 on the last row */
+.aceOption {
+  grid-column: 2 / 4;
   width: 100%;
-  padding: calc(10px * var(--scale)) var(--space-5);
-  margin-bottom: var(--space-2);
-  border: 2px solid var(--color-special-mahjong, #e6c619);
-  border-radius: var(--card-border-radius);
-  background: var(--color-special-mahjong, #e6c619);
-  color: white;
-  font-size: var(--font-md);
-  font-weight: 600;
-  cursor: pointer;
-  min-height: calc(44px * var(--scale));
-  transition: opacity var(--duration-fast) var(--easing-smooth);
-}
-
-.confirmButton:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.confirmButton:not(:disabled):hover {
-  opacity: 0.85;
 }
 
 .noWishButton {
   display: block;
-  width: 100%;
+  width: calc(2 * 48px * var(--scale) + var(--space-2));
+  margin: 0 auto var(--space-2);
   padding: calc(10px * var(--scale)) var(--space-5);
-  margin-bottom: var(--space-2);
   border: 2px solid var(--color-border);
   border-radius: var(--card-border-radius);
   background: transparent;
@@ -127,8 +97,11 @@
   border-color: var(--color-text-secondary);
 }
 
+/* Mobile layout */
 :root[data-layout="mobile"] .picker {
-  max-width: 75vw;
+  width: 50vw;
+  max-width: 50vw;
+  min-width: unset;
   padding: var(--space-5) var(--space-4);
 }
 
@@ -136,41 +109,23 @@
   font-size: var(--font-2xl);
 }
 
-:root[data-layout="mobile"] .subtitle {
-  font-size: var(--font-base);
-}
-
 :root[data-layout="mobile"] .options {
-  display: grid;
-  grid-template-columns: repeat(3, calc(56px * var(--scale)));
-  justify-content: center;
+  grid-template-columns: repeat(4, 1fr);
 }
 
 :root[data-layout="mobile"] .option {
   width: 100%;
-  height: calc(56px * var(--scale));
+  height: calc(60px * var(--scale));
   font-size: var(--font-lg);
-}
-
-:root[data-layout="mobile"] .option:last-child {
-  grid-column: 2;
-}
-
-:root[data-layout="mobile"] .confirmButton {
-  font-size: var(--font-lg);
-  padding: calc(14px * var(--scale)) 0;
-  width: calc(3 * 56px * var(--scale) + 2 * var(--space-2));
-  margin-left: auto;
-  margin-right: auto;
+  min-width: unset;
+  min-height: calc(52px * var(--scale));
 }
 
 :root[data-layout="mobile"] .noWishButton {
+  width: calc(50%);
   font-size: var(--font-lg);
   padding: calc(14px * var(--scale)) 0;
-  /* Match width of 3-column grid: 3 buttons + 2 gaps */
-  width: calc(3 * 56px * var(--scale) + 2 * var(--space-2));
-  margin-left: auto;
-  margin-right: auto;
+  min-height: calc(52px * var(--scale));
 }
 
 :root[data-layout="mobile"] .cancelButton {
