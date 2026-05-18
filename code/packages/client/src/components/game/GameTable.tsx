@@ -1,7 +1,7 @@
 // REQ-NF-U01: Responsive game table — CSS Grid with 4 seats + center trick area
 'use client';
 
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { ClientGameView, Seat } from '@tichu/shared';
 import type { LayoutTier } from '@/hooks/useLayoutTier';
 import { useUiStore } from '@/stores/uiStore';
@@ -204,8 +204,31 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const isMobile = layoutTier !== 'full';
   const dragonGiftPending = dragonGiftTargets && dragonGiftTargets.size > 0;
 
+  // Full layout: vertically center play area + opponents between partner box bottom and player box top
+  const tableRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (isMobile) return;
+    function updateCenterY() {
+      const table = tableRef.current;
+      if (!table) return;
+      const partnerBox = table.querySelector('[data-debug-area="Partner Seat"] [data-seat]');
+      const playerBox = document.querySelector('[data-debug-area="Bottom Panel"] [data-seat]') ??
+                         document.querySelector('[data-debug-area="Action Bar"] [data-seat]');
+      if (partnerBox && playerBox) {
+        const partnerBottom = partnerBox.getBoundingClientRect().bottom;
+        const playerTop = playerBox.getBoundingClientRect().top;
+        const centerY = (partnerBottom + playerTop) / 2;
+        table.style.setProperty('--center-y', `${centerY}px`);
+      }
+    }
+    updateCenterY();
+    window.addEventListener('resize', updateCenterY);
+    const interval = setInterval(updateCenterY, 300);
+    return () => { window.removeEventListener('resize', updateCenterY); clearInterval(interval); };
+  }, [isMobile]);
+
   return (
-    <div className={styles.table} aria-label="Game table" data-debug-area="Game Table">
+    <div ref={tableRef} className={styles.table} aria-label="Game table" data-debug-area="Game Table">
       {/* Partner (top) */}
       <div className={styles.top} data-debug-area="Partner Seat">
         {seat(seatPositions.top)}

@@ -196,6 +196,16 @@ html.debug-outlines [data-debug-area="Server Banner"]::after { background: #ee5a
   --easing-smooth: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Full layout: enlarge cards by 25% */
+:root[data-layout="full"] {
+  --card-width-lg: calc(131.25px * var(--scale));
+  --card-height-lg: calc(187.5px * var(--scale));
+  --card-font-size-lg: calc(30px * var(--scale));
+  --card-suit-size-lg: calc(50px * var(--scale));
+  --card-border-radius-lg: calc(11.25px * var(--scale));
+  --card-overlap-desktop-lg: calc(75px * var(--scale));
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-fast: 0ms;
