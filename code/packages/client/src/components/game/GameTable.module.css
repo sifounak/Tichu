@@ -152,6 +152,12 @@
   box-shadow: 0 0 calc(32px * var(--scale)) rgba(74, 158, 255, 0.7);
 }
 
+.clickableTrick:active {
+  background: rgba(255, 255, 255, 0.15);
+  transform: none !important;
+  filter: none !important;
+}
+
 /* Mobile: player status indicator below play area */
 .mobileStatusIndicator {
   text-align: center;
