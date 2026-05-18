@@ -487,13 +487,20 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   // REQ-F-BW01: Start bomb window at the start of every turn (except leading a new trick).
   // This ensures players always have 2s to consider bombing, even after a sequence of passes.
+  // Skip bomb window if no player has 4+ cards (minimum needed for any bomb).
   const currentTurn = gameStore.currentTurn;
   const trickPlayCount = gameStore.currentTrick?.plays.length ?? 0;
   const dragonGiftPending = gameStore.dragonGiftPending;
   const prevTurnRef = useRef<string | null>(null);
   useEffect(() => {
     if (currentTurn && currentTurn !== prevTurnRef.current && trickPlayCount > 0 && !dragonGiftPending) {
-      bombWindow.startWindow();
+      // Check if any player can still form a bomb (needs 4+ cards)
+      const myCards = gameStore.myHand.length;
+      const anyoneCanBomb = myCards >= 4 ||
+        gameStore.otherPlayers.some((p) => p.finishOrder === null && p.cardCount >= 4);
+      if (anyoneCanBomb) {
+        bombWindow.startWindow();
+      }
     }
     prevTurnRef.current = currentTurn ?? null;
   }, [currentTurn, trickPlayCount, dragonGiftPending, bombWindow.startWindow]);

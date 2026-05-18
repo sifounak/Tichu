@@ -313,6 +313,23 @@ export const gameMachine = setup({
       // Dragon gift already pending means bomb window already happened — skip to gift prompt
       if (round.dragonGiftPending) return false;
       if (isRoundOver(round)) return false;
+      // Skip bomb window if no player can form a bomb (need 4+ cards for any bomb)
+      const canAnyoneBomb = SEATS_IN_ORDER.some(
+        (s) => round.players[s].finishOrder === null && round.players[s].hand.length >= 4,
+      );
+      if (!canAnyoneBomb) return false;
+      return true;
+    },
+
+    /** Trick is complete but no bomb is possible — skip bomb window entirely */
+    isTrickCompleteNoBombPossible: ({ context }) => {
+      const round = context.currentRound;
+      if (!round?.currentTrick) return false;
+      if (!isTrickComplete(round.currentTrick, round)) return false;
+      if (round.dragonGiftPending) return false;
+      if (isRoundOver(round)) return false;
+      // This guard fires only when isTrickCompleteForBombWindow returned false
+      // (i.e., no player has 4+ cards)
       return true;
     },
 
@@ -937,6 +954,12 @@ export const gameMachine = setup({
         {
           guard: 'isTrickCompleteForBombWindow',
           target: 'awaitingEndOfTrickBomb',
+        },
+        {
+          // Trick complete but bomb window skipped (no player has 4+ cards) — complete immediately
+          guard: 'isTrickCompleteNoBombPossible',
+          actions: 'completeTrickFromBombWindow',
+          target: 'playing',
         },
         {
           guard: 'needsDragonGift',
