@@ -4,7 +4,7 @@
 // REQ-NF-U02: Framer Motion card play, trick sweep, bomb effect animations
 'use client';
 
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TrickState, Seat, Rank } from '@tichu/shared';
 import { Card } from '../cards/Card';
@@ -67,21 +67,48 @@ function seatPosition(seat: Seat, mySeat: Seat): 'bottom' | 'top' | 'left' | 'ri
 }
 
 
-/** Entry direction offsets per seat position — start at the nearest edge of the play area */
-const ENTRY_OFFSETS: Record<string, { x: number | string; y: number | string }> = {
-  bottom: { x: 0, y: '50%' },
-  top: { x: 0, y: '-50%' },
-  left: { x: '-50%', y: 0 },
-  right: { x: '50%', y: 0 },
-};
-
-/** Exit offsets — slide toward the winner's seat */
-const EXIT_OFFSETS: Record<string, { x: number | string; y: number | string }> = {
+/** Fallback offsets — used when DOM elements can't be found */
+const FALLBACK_OFFSETS: Record<string, { x: number | string; y: number | string }> = {
   bottom: { x: 0, y: '120%' },
   top: { x: 0, y: '-120%' },
   left: { x: '-120%', y: 0 },
   right: { x: '120%', y: 0 },
 };
+
+/**
+ * Compute pixel offset from play area center to a target element center.
+ * For 'bottom' (main player), targets the card hand area.
+ * For others, targets their PlayerSeat info box via data-seat attribute.
+ */
+function computeOffsetToSeat(
+  trickEl: HTMLElement,
+  seat: Seat,
+  position: 'bottom' | 'top' | 'left' | 'right',
+): { x: number; y: number } | null {
+  const trickRect = trickEl.getBoundingClientRect();
+  const trickCenterX = trickRect.left + trickRect.width / 2;
+  const trickCenterY = trickRect.top + trickRect.height / 2;
+
+  let targetEl: Element | null = null;
+  if (position === 'bottom') {
+    // Main player — target their card hand area
+    targetEl = document.querySelector('[data-debug-area="Bottom Panel"]');
+  }
+  if (!targetEl) {
+    // Target the player's info box
+    targetEl = document.querySelector(`[data-seat="${seat}"]`);
+  }
+  if (!targetEl) return null;
+
+  const targetRect = targetEl.getBoundingClientRect();
+  const targetCenterX = targetRect.left + targetRect.width / 2;
+  const targetCenterY = targetRect.top + targetRect.height / 2;
+
+  return {
+    x: targetCenterX - trickCenterX,
+    y: targetCenterY - trickCenterY,
+  };
+}
 
 export const TrickDisplay = memo(function TrickDisplay({
   trick,
@@ -97,24 +124,32 @@ export const TrickDisplay = memo(function TrickDisplay({
   serverClockOffsetMs = 0,
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
+  const trickRef = useRef<HTMLDivElement>(null);
+
+  /** Compute offset from play area center to a given seat's info box (or card hand for self) */
+  const getOffsetForSeat = useCallback((seat: Seat): { x: number | string; y: number | string } => {
+    const position = seatPosition(seat, mySeat);
+    if (!trickRef.current) return FALLBACK_OFFSETS[position];
+    const offset = computeOffsetToSeat(trickRef.current, seat, position);
+    if (!offset) return FALLBACK_OFFSETS[position];
+    return { x: offset.x, y: offset.y };
+  }, [mySeat]);
 
   // REQ-F-DRA02: Use the animation trick when the store trick is gone (dragon gift sweep)
   const displayTrick = trick ?? dragonGiftAnimation?.trick ?? null;
 
   // REQ-F-DRA02: Override sweep direction toward the gift recipient
-  const displaySweepTarget = dragonGiftAnimation
-    ? seatPosition(dragonGiftAnimation.recipient, mySeat)
-    : displayTrick?.currentWinner
-      ? seatPosition(displayTrick.currentWinner, mySeat)
-      : null;
+  const displaySweepTargetSeat: Seat | null = dragonGiftAnimation
+    ? dragonGiftAnimation.recipient
+    : displayTrick?.currentWinner ?? null;
 
-  // Cache sweep target so exit animation has the correct direction even after displayTrick
+  // Cache sweep target seat so exit animation has the correct direction even after displayTrick
   // becomes null (e.g., React batches trick-null + new-trick into a single render)
-  const lastSweepTargetRef = useRef<string | null>(null);
-  if (displaySweepTarget) {
-    lastSweepTargetRef.current = displaySweepTarget;
+  const lastSweepTargetSeatRef = useRef<Seat | null>(null);
+  if (displaySweepTargetSeat) {
+    lastSweepTargetSeatRef.current = displaySweepTargetSeat;
   }
-  const effectiveSweepTarget = displaySweepTarget ?? lastSweepTargetRef.current;
+  const effectiveSweepTargetSeat = displaySweepTargetSeat ?? lastSweepTargetSeatRef.current;
 
   // Detect bomb plays for special effect
   const [showBomb, setShowBomb] = useState(false);
@@ -135,10 +170,9 @@ export const TrickDisplay = memo(function TrickDisplay({
 
   // Compute exit animation based on sweep target (or dragon gift recipient)
   // Slide toward the winner at full size, fade out near the end
-  const exitAnim = enabled && effectiveSweepTarget
+  const exitAnim = enabled && effectiveSweepTargetSeat
     ? {
-        x: EXIT_OFFSETS[effectiveSweepTarget].x,
-        y: EXIT_OFFSETS[effectiveSweepTarget].y,
+        ...getOffsetForSeat(effectiveSweepTargetSeat),
         opacity: 0,
         transition: {
           duration: durations.trickSweep,
@@ -173,7 +207,7 @@ export const TrickDisplay = memo(function TrickDisplay({
   }, [endOfTrickBombWindowEndTime, serverClockOffsetMs]);
 
   return (
-    <div className={`${styles.trickDisplay} ${showBomb ? styles.bombFlash : ''}`} aria-label="Trick area">
+    <div ref={trickRef} className={`${styles.trickDisplay} ${showBomb ? styles.bombFlash : ''}`} aria-label="Trick area">
       {/* REQ-F-DR01: Dragon gift notification */}
       {dragonGiftPending && (
         <div className={styles.dragonNotification}>
@@ -204,10 +238,10 @@ export const TrickDisplay = memo(function TrickDisplay({
           <motion.div
             key="dog-play"
             className={styles.dogCard}
-            initial={ENTRY_OFFSETS[seatPosition(dogAnimation.fromSeat, mySeat)]}
+            initial={getOffsetForSeat(dogAnimation.fromSeat)}
             animate={{ x: 0, y: 0, opacity: 1 }}
             exit={{
-              ...EXIT_OFFSETS[seatPosition(dogAnimation.toSeat, mySeat)],
+              ...getOffsetForSeat(dogAnimation.toSeat),
               opacity: 0,
               transition: {
                 // No delay — page.tsx setTimeout controls when exit begins (after entry + pause)
@@ -243,9 +277,8 @@ export const TrickDisplay = memo(function TrickDisplay({
               {(() => {
                 const latestPlay = displayTrick.plays[displayTrick.plays.length - 1];
                 if (!latestPlay) return null;
-                const pos = seatPosition(latestPlay.seat, mySeat);
                 const isWinner = latestPlay.seat === displayTrick.currentWinner;
-                const offset = ENTRY_OFFSETS[pos];
+                const offset = getOffsetForSeat(latestPlay.seat);
                 return (
                   <motion.div
                     key={`${latestPlay.seat}-${displayTrick.plays.length}`}

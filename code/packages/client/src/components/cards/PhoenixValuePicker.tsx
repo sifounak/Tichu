@@ -2,7 +2,7 @@
 // REQ-F-PH06: Auto-dismiss when only one value
 'use client';
 
-import { memo } from 'react';
+import { memo, useLayoutEffect, useRef, useState } from 'react';
 import type { Rank } from '@tichu/shared';
 import styles from './PhoenixValuePicker.module.css';
 
@@ -25,11 +25,27 @@ export const PhoenixValuePicker = memo(function PhoenixValuePicker({
   onSelect,
   onCancel,
 }: PhoenixValuePickerProps) {
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const [topOffset, setTopOffset] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const actionBar = document.querySelector('[data-debug-area="Action Bar"]');
+    if (!actionBar || !pickerRef.current) return;
+    const actionBarRect = actionBar.getBoundingClientRect();
+    const pickerHeight = pickerRef.current.offsetHeight;
+    // Align bottom of picker with bottom of action bar
+    setTopOffset(actionBarRect.bottom - pickerHeight);
+  }, []);
+
   return (
     <div className={styles.overlay} onClick={onCancel} role="dialog" aria-label="Choose Phoenix value">
-      <div className={styles.picker} onClick={(e) => e.stopPropagation()}>
-        <h3 className={styles.title}>Phoenix Value</h3>
-        <p className={styles.subtitle}>Choose the rank for Phoenix:</p>
+      <div
+        ref={pickerRef}
+        className={styles.picker}
+        style={topOffset !== undefined ? { position: 'fixed', top: topOffset } : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className={styles.title}>Choose Phoenix Value</h3>
         <div className={styles.options}>
           {[...options].sort((a, b) => b - a).map((rank) => (
             <button

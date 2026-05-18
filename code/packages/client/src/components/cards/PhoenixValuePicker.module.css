@@ -11,11 +11,14 @@
 .picker {
   background: var(--color-felt-green-light);
   border: 1px solid var(--color-border);
-  border-radius: var(--space-3);
+  border-radius: 12px;
   padding: var(--space-6);
-  min-width: calc(240px * var(--scale));
-  max-width: calc(320px * var(--scale));
+  width: 50vw;
+  max-width: 50vw;
   box-shadow: var(--shadow-panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
 }
 
@@ -23,7 +26,7 @@
   margin: 0 0 4px;
   font-size: var(--font-lg);
   font-weight: 700;
-  color: var(--color-special-phoenix);
+  color: var(--color-gold-accent);
 }
 
 .subtitle {
@@ -37,13 +40,14 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   justify-content: center;
-  margin-bottom: var(--space-4);
+  width: fit-content;
+  margin: 0 auto var(--space-4);
 }
 
 .option {
   width: calc(48px * var(--scale));
   height: calc(48px * var(--scale));
-  border: 2px solid var(--color-special-phoenix);
+  border: 2px solid var(--color-gold-accent);
   border-radius: var(--space-2);
   background: transparent;
   color: var(--color-text-primary);
@@ -57,7 +61,7 @@
 }
 
 .option:hover {
-  background: var(--color-special-phoenix);
+  background: var(--color-gold-accent);
   color: white;
 }
 
@@ -77,14 +81,41 @@
   border-color: var(--color-text-secondary);
 }
 
-/* REQ-NF-U01: Mobile — Phoenix picker as bottom sheet */
+/* REQ-NF-U01: Mobile — Phoenix picker as bottom sheet with enlarged controls */
 :root[data-layout="mobile"] .overlay {
   align-items: flex-end;
 }
 
 :root[data-layout="mobile"] .picker {
+  width: 50vw;
+  max-width: 50vw;
+  border-radius: 12px;
+  padding: var(--space-5) var(--space-4);
+}
+
+:root[data-layout="mobile"] .title {
+  font-size: var(--font-2xl);
+}
+
+:root[data-layout="mobile"] .subtitle {
+  font-size: var(--font-base);
+}
+
+:root[data-layout="mobile"] .options {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content: center;
+}
+
+:root[data-layout="mobile"] .option {
   width: 100%;
-  max-width: 100%;
-  border-radius: 16px 16px 0 0;
-  padding: var(--space-5) var(--space-4) calc(var(--space-5) + env(safe-area-inset-bottom));
+  height: calc(56px * var(--scale));
+  font-size: var(--font-lg);
+  min-height: calc(52px * var(--scale));
+}
+
+:root[data-layout="mobile"] .cancelButton {
+  font-size: var(--font-base);
+  min-height: calc(52px * var(--scale));
+  padding: var(--space-3) var(--space-6);
 }
