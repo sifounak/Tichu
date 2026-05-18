@@ -35,6 +35,14 @@ const SPECIAL_CARD_IMAGES: Record<string, string> = {
   mahjong: `${BASE_PATH}/images/cards/mahjong.png`,
 };
 
+// Preload special card images so they display instantly when first rendered
+if (typeof window !== 'undefined') {
+  for (const src of Object.values(SPECIAL_CARD_IMAGES)) {
+    const img = new Image();
+    img.src = src;
+  }
+}
+
 function CardFace({ card }: { card: CardType }) {
   if (card.kind === 'standard') {
     const symbol = SUIT_SYMBOLS[card.suit];
