@@ -2416,11 +2416,11 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             </div>
             {/* Right: Bomb button — full layout only (mobile renders above) */}
             {!isMobileLayout && (
-              <div style={{ flexShrink: 0, position: 'relative' }}>
+              <div style={{ flexShrink: 0, position: 'relative', zIndex: 30 }}>
                 {/* REQ-F-BB02: Bomb button — appears right of hand when player holds ≥1 bomb */}
                 {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
                   <div
-                    style={{ position: 'relative', zIndex: 30 }}
+                    style={{ position: 'relative' }}
                     onMouseEnter={() => handBombs.length > 0 && setBombPopupOpen(true)}
                     onMouseLeave={() => setBombPopupOpen(false)}
                   >
