@@ -1945,9 +1945,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {isMobileLayout && gameStore.scores && (
         <div style={{
           position: 'fixed',
-          ...(scorePanelPos
-            ? { top: scorePanelPos.centerY, left: scorePanelPos.centerX, transform: 'translateX(-50%)', width: scorePanelPos.width }
-            : { top: 'calc(36px * var(--scale))', right: 'var(--space-2)' }),
+          top: 'var(--space-4)',
+          right: 'var(--space-4)',
           zIndex: 30,
           pointerEvents: 'auto',
         }}>

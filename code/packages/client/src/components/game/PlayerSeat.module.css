@@ -297,7 +297,7 @@
 
 .tichuBanner {
   position: absolute;
-  top: calc(-44px * var(--scale));
+  top: calc(-36px * var(--scale));
   left: 0;
   right: 0;
   font-size: var(--font-base);

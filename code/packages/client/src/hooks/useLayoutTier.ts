@@ -5,8 +5,8 @@ import { useState, useEffect } from 'react';
 // REQ-F-L01: Two-tier layout system
 export type LayoutTier = 'full' | 'mobile';
 
-// REQ-F-L02: Breakpoint at 900px
-const FULL_MIN_WIDTH = 900;
+// REQ-F-L02: Breakpoint at 600px
+const FULL_MIN_WIDTH = 600;
 
 function getTier(width: number): LayoutTier {
   return width >= FULL_MIN_WIDTH ? 'full' : 'mobile';

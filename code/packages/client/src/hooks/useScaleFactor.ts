@@ -14,7 +14,7 @@ import { useEffect } from 'react';
  */
 const TIER_CONFIG = {
   full:   { ref: 1200, min: 0.5, max: 2.0, useMin: true,  scaleBelow: 0 },
-  mobile: { ref: 900,  min: 0.55, max: 1.0, useMin: false, scaleBelow: 700 },
+  mobile: { ref: 600,  min: 0.55, max: 1.0, useMin: false, scaleBelow: 500 },
 } as const;
 
 /**

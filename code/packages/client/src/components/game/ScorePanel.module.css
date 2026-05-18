@@ -262,6 +262,7 @@
   padding: var(--space-1) var(--space-3);
   gap: 0 var(--space-3);
   overflow: hidden;
+  min-width: calc(160px * var(--scale));
 }
 
 :root[data-layout="mobile"] .compactHeader {
