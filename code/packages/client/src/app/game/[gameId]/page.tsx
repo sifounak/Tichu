@@ -646,8 +646,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   // Chat bubble positioning: vertically centered between trick area bottom and action bar top
   const [chatBubblePos, setChatBubblePos] = useState<{ top: number; right: number } | null>(null);
-  // Score panel positioning: right-aligned with right opponent, top-aligned with partner seat
-  const [scorePanelPos, setScorePanelPos] = useState<{ centerY: number; centerX: number; width: number } | null>(null);
 
   useEffect(() => {
     if (!isMobileLayout) return;
@@ -661,18 +659,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         const midY = (trickRect.bottom + actionBarRect.top) / 2;
         const centerX = actionBarRect.right - actionBarRect.width * 0.1;
         setChatBubblePos({ top: midY, right: window.innerWidth - centerX });
-      }
-      // Score panel: top-aligned with partner seat box, right-aligned with right opponent
-      const partnerBoxEl = document.querySelector('[data-debug-area="Partner Seat"] [data-seat]');
-      const rightOppEl = document.querySelector('[data-debug-area="Right Opponent"] [data-seat]');
-      if (partnerBoxEl && rightOppEl) {
-        const partnerBoxRect = partnerBoxEl.getBoundingClientRect();
-        const rightOppRect = rightOppEl.getBoundingClientRect();
-        // Top of score panel aligns with top of partner seat box (the bordered/glowing element)
-        const centerY = partnerBoxRect.top;
-        // Horizontally center with the right opponent info box, match its width
-        const centerX = rightOppRect.left + rightOppRect.width / 2;
-        setScorePanelPos({ centerY, centerX, width: rightOppRect.width });
       }
     }
     updatePos();
