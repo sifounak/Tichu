@@ -291,4 +291,61 @@ describe('serverMessageSchema', () => {
   it('rejects invalid message type', () => {
     expect(() => serverMessageSchema.parse({ type: 'NOT_REAL' })).toThrow();
   });
+
+  // REQ-F-RAD03: ACK message
+  it('validates ACK message', () => {
+    const msg = { type: 'ACK', messageId: 'abc-123' };
+    expect(serverMessageSchema.parse(msg)).toEqual(msg);
+  });
+
+  it('rejects ACK without messageId', () => {
+    expect(() => serverMessageSchema.parse({ type: 'ACK' })).toThrow();
+  });
+
+  // REQ-F-RAD04: NACK message
+  it('validates NACK message', () => {
+    const msg = { type: 'NACK', messageId: 'abc-123', code: 'INVALID_MOVE', message: 'Not your turn' };
+    expect(serverMessageSchema.parse(msg)).toEqual(msg);
+  });
+
+  it('rejects NACK without code', () => {
+    expect(() => serverMessageSchema.parse({ type: 'NACK', messageId: 'abc', message: 'err' })).toThrow();
+  });
+
+  it('rejects NACK without message', () => {
+    expect(() => serverMessageSchema.parse({ type: 'NACK', messageId: 'abc', code: 'ERR' })).toThrow();
+  });
+});
+
+// REQ-F-RAD01: messageId field on client messages
+describe('clientMessageSchema — messageId field', () => {
+  it('accepts messages with messageId', () => {
+    const msg = { type: 'PLAY_CARDS', cardIds: [0, 13], messageId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479' };
+    const parsed = clientMessageSchema.parse(msg);
+    expect(parsed.messageId).toBe('f47ac10b-58cc-4372-a567-0e02b2c3d479');
+  });
+
+  it('accepts messages without messageId (backward compat)', () => {
+    const msg = { type: 'PASS_TURN' };
+    const parsed = clientMessageSchema.parse(msg);
+    expect(parsed.messageId).toBeUndefined();
+  });
+
+  it('accepts HEARTBEAT_PONG with messageId', () => {
+    const msg = { type: 'HEARTBEAT_PONG', messageId: 'hb-123' };
+    const parsed = clientMessageSchema.parse(msg);
+    expect(parsed.messageId).toBe('hb-123');
+  });
+
+  it('messageId works on all message categories', () => {
+    const id = 'test-msg-id';
+    // Room action
+    expect(clientMessageSchema.parse({ type: 'LEAVE_ROOM', messageId: id }).messageId).toBe(id);
+    // Game action
+    expect(clientMessageSchema.parse({ type: 'GIFT_DRAGON', to: 'east', messageId: id }).messageId).toBe(id);
+    // Vote
+    expect(clientMessageSchema.parse({ type: 'PLAYER_VOTE', voteId: 'v1', vote: true, messageId: id }).messageId).toBe(id);
+    // Chat
+    expect(clientMessageSchema.parse({ type: 'CHAT_MESSAGE', text: 'hi', messageId: id }).messageId).toBe(id);
+  });
 });

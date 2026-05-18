@@ -34,76 +34,79 @@ const roomConfigSchema = z.object({
   spectatorChatEnabled: z.boolean().optional(),
 });
 
+// REQ-F-RAD01: Optional messageId for reliable action delivery (ACK/retry support)
+const messageIdField = { messageId: z.string().optional() };
+
 export const clientMessageSchema = z.discriminatedUnion('type', [
   // Room actions
   // REQ-F-CG06: CREATE_ROOM accepts optional config payload
-  z.object({ type: z.literal('CREATE_ROOM'), playerName: z.string().min(1).max(30), roomName: z.string().max(30).optional(), config: roomConfigSchema.optional() }),
+  z.object({ type: z.literal('CREATE_ROOM'), playerName: z.string().min(1).max(30), roomName: z.string().max(30).optional(), config: roomConfigSchema.optional(), ...messageIdField }),
   // REQ-F-SP04: JOIN_ROOM supports optional asSpectator flag
-  z.object({ type: z.literal('JOIN_ROOM'), roomCode: z.string().length(6), playerName: z.string().min(1).max(30), asSpectator: z.boolean().optional() }),
-  z.object({ type: z.literal('LEAVE_ROOM') }),
+  z.object({ type: z.literal('JOIN_ROOM'), roomCode: z.string().length(6), playerName: z.string().min(1).max(30), asSpectator: z.boolean().optional(), ...messageIdField }),
+  z.object({ type: z.literal('LEAVE_ROOM'), ...messageIdField }),
   // REQ-F-MP04: Room configuration
-  z.object({ type: z.literal('CONFIGURE_ROOM'), config: roomConfigSchema }),
-  z.object({ type: z.literal('ADD_BOT'), seat: seatSchema }),
-  z.object({ type: z.literal('REMOVE_BOT'), seat: seatSchema }),
-  z.object({ type: z.literal('GET_LOBBY') }),
-  z.object({ type: z.literal('START_GAME') }),
+  z.object({ type: z.literal('CONFIGURE_ROOM'), config: roomConfigSchema, ...messageIdField }),
+  z.object({ type: z.literal('ADD_BOT'), seat: seatSchema, ...messageIdField }),
+  z.object({ type: z.literal('REMOVE_BOT'), seat: seatSchema, ...messageIdField }),
+  z.object({ type: z.literal('GET_LOBBY'), ...messageIdField }),
+  z.object({ type: z.literal('START_GAME'), ...messageIdField }),
   // REQ-F-006: Seat swap
-  z.object({ type: z.literal('SWAP_SEATS'), targetSeat: seatSchema }),
-  z.object({ type: z.literal('KICK_PLAYER'), seat: seatSchema }),
+  z.object({ type: z.literal('SWAP_SEATS'), targetSeat: seatSchema, ...messageIdField }),
+  z.object({ type: z.literal('KICK_PLAYER'), seat: seatSchema, ...messageIdField }),
 
   // REQ-F-SP18: Ready-to-start system (replaces host-only start)
-  z.object({ type: z.literal('READY_TO_START') }),
-  z.object({ type: z.literal('CANCEL_READY') }),
+  z.object({ type: z.literal('READY_TO_START'), ...messageIdField }),
+  z.object({ type: z.literal('CANCEL_READY'), ...messageIdField }),
 
   // REQ-F-ES06: Spectator seat queue responses (seat optional for multi-vacancy picking)
-  z.object({ type: z.literal('CLAIM_SEAT'), seat: seatSchema.optional() }),
-  z.object({ type: z.literal('DECLINE_SEAT') }),
+  z.object({ type: z.literal('CLAIM_SEAT'), seat: seatSchema.optional(), ...messageIdField }),
+  z.object({ type: z.literal('DECLINE_SEAT'), ...messageIdField }),
 
   // Game actions
-  z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean(), partnerOverride: z.boolean().optional() }),
-  z.object({ type: z.literal('TICHU_DECLARATION'), partnerOverride: z.boolean().optional() }),
-  z.object({ type: z.literal('PASS_CARDS'), cards: z.record(seatSchema, gameCardSchema) }),
-  z.object({ type: z.literal('CANCEL_PASS_CARDS') }),
-  z.object({ type: z.literal('PLAY_CARDS'), cardIds: z.array(z.number().int().min(0).max(55)).min(1), phoenixAs: rankSchema.optional(), wish: rankSchema.nullable().optional() }),
-  z.object({ type: z.literal('PASS_TURN') }),
-  z.object({ type: z.literal('DECLARE_WISH'), rank: rankSchema.nullable() }),
-  z.object({ type: z.literal('GIFT_DRAGON'), to: seatSchema }),
+  z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean(), partnerOverride: z.boolean().optional(), ...messageIdField }),
+  z.object({ type: z.literal('TICHU_DECLARATION'), partnerOverride: z.boolean().optional(), ...messageIdField }),
+  z.object({ type: z.literal('PASS_CARDS'), cards: z.record(seatSchema, gameCardSchema), ...messageIdField }),
+  z.object({ type: z.literal('CANCEL_PASS_CARDS'), ...messageIdField }),
+  z.object({ type: z.literal('PLAY_CARDS'), cardIds: z.array(z.number().int().min(0).max(55)).min(1), phoenixAs: rankSchema.optional(), wish: rankSchema.nullable().optional(), ...messageIdField }),
+  z.object({ type: z.literal('PASS_TURN'), ...messageIdField }),
+  z.object({ type: z.literal('DECLARE_WISH'), rank: rankSchema.nullable(), ...messageIdField }),
+  z.object({ type: z.literal('GIFT_DRAGON'), to: seatSchema, ...messageIdField }),
 
   // Mid-game seat choice (when joining with 2+ vacated seats)
-  z.object({ type: z.literal('CHOOSE_SEAT'), seat: seatSchema }),
+  z.object({ type: z.literal('CHOOSE_SEAT'), seat: seatSchema, ...messageIdField }),
 
   // REQ-F-KM02/KM03: Kick dialog response (any single 'kick' triggers immediate removal)
-  z.object({ type: z.literal('KICK_DIALOG_RESPONSE'), response: z.enum(['kick', 'decline']) }),
+  z.object({ type: z.literal('KICK_DIALOG_RESPONSE'), response: z.enum(['kick', 'decline']), ...messageIdField }),
 
   // REQ-F-PV20: Player-initiated votes (kick player, restart game, restart round)
-  z.object({ type: z.literal('START_KICK_VOTE'), targetSeat: seatSchema }),
-  z.object({ type: z.literal('START_RESTART_GAME_VOTE') }),
-  z.object({ type: z.literal('START_RESTART_ROUND_VOTE') }),
-  z.object({ type: z.literal('PLAYER_VOTE'), voteId: z.string(), vote: z.boolean() }),
+  z.object({ type: z.literal('START_KICK_VOTE'), targetSeat: seatSchema, ...messageIdField }),
+  z.object({ type: z.literal('START_RESTART_GAME_VOTE'), ...messageIdField }),
+  z.object({ type: z.literal('START_RESTART_ROUND_VOTE'), ...messageIdField }),
+  z.object({ type: z.literal('PLAYER_VOTE'), voteId: z.string(), vote: z.boolean(), ...messageIdField }),
 
   // REQ-F-VI09: Pre-game kick vote (separate from in-game to avoid routing conflicts)
-  z.object({ type: z.literal('PRE_GAME_KICK_VOTE'), targetSeat: seatSchema }),
-  z.object({ type: z.literal('PRE_GAME_VOTE'), voteId: z.string(), vote: z.boolean() }),
+  z.object({ type: z.literal('PRE_GAME_KICK_VOTE'), targetSeat: seatSchema, ...messageIdField }),
+  z.object({ type: z.literal('PRE_GAME_VOTE'), voteId: z.string(), vote: z.boolean(), ...messageIdField }),
 
   // REQ-F-GA35-37: Host force actions (bypass voting)
-  z.object({ type: z.literal('FORCE_KICK'), targetSeat: seatSchema }),
-  z.object({ type: z.literal('FORCE_RESTART_ROUND') }),
-  z.object({ type: z.literal('FORCE_RESTART_GAME') }),
+  z.object({ type: z.literal('FORCE_KICK'), targetSeat: seatSchema, ...messageIdField }),
+  z.object({ type: z.literal('FORCE_RESTART_ROUND'), ...messageIdField }),
+  z.object({ type: z.literal('FORCE_RESTART_GAME'), ...messageIdField }),
 
   // REQ-F-GA38: Host transfers host role to another human player
-  z.object({ type: z.literal('TRANSFER_HOST'), targetSeat: seatSchema }),
+  z.object({ type: z.literal('TRANSFER_HOST'), targetSeat: seatSchema, ...messageIdField }),
 
   // REQ-F-GA51: Host or vote initiator cancels an active vote
-  z.object({ type: z.literal('CANCEL_VOTE') }),
+  z.object({ type: z.literal('CANCEL_VOTE'), ...messageIdField }),
 
   // REQ-F-GA52: Host toggles whether non-host players can start votes
-  z.object({ type: z.literal('TOGGLE_VOTING') }),
+  z.object({ type: z.literal('TOGGLE_VOTING'), ...messageIdField }),
 
   // Chat
-  z.object({ type: z.literal('CHAT_MESSAGE'), text: z.string().min(1).max(500) }),
+  z.object({ type: z.literal('CHAT_MESSAGE'), text: z.string().min(1).max(500), ...messageIdField }),
 
   // Heartbeat (application-level — requires JavaScript to respond, unlike protocol-level ping/pong)
-  z.object({ type: z.literal('HEARTBEAT_PONG') }),
+  z.object({ type: z.literal('HEARTBEAT_PONG'), ...messageIdField }),
 ]);
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
@@ -197,6 +200,10 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
     currentOccupant: z.object({ displayName: z.string() }).nullable(),
     offerClaimOriginal: z.boolean(),
   }),
+
+  // REQ-F-RAD03, REQ-F-RAD04: Reliable action delivery acknowledgment
+  z.object({ type: z.literal('ACK'), messageId: z.string() }),
+  z.object({ type: z.literal('NACK'), messageId: z.string(), code: z.string(), message: z.string() }),
 
   // Error
   z.object({ type: z.literal('ERROR'), code: z.string(), message: z.string() }),

@@ -2,10 +2,10 @@
 
 | Req ID | Description | Milestone | Source File(s) | Test File(s) | Status |
 |--------|-------------|-----------|----------------|--------------|--------|
-| REQ-F-RAD01 | Client assigns unique messageId to every outbound message except HEARTBEAT_PONG | M1, M3 | | | Not Started |
+| REQ-F-RAD01 | Client assigns unique messageId to every outbound message except HEARTBEAT_PONG | M1, M3 | code/packages/shared/src/types/protocol.ts:38 | code/packages/shared/tests/types/protocol.test.ts:298 | In Progress |
 | REQ-F-RAD02 | Client tracks pending actions (messageId, payload, sentAt, retryCount) | M3 | | | Not Started |
-| REQ-F-RAD03 | Server responds with ACK { messageId } on successful processing | M1, M2 | | | Not Started |
-| REQ-F-RAD04 | Server responds with NACK { messageId, error } on failure | M1, M2 | | | Not Started |
+| REQ-F-RAD03 | Server responds with ACK { messageId } on successful processing | M1, M2 | code/packages/shared/src/types/protocol.ts:175 | code/packages/shared/tests/types/protocol.test.ts:297 | In Progress |
+| REQ-F-RAD04 | Server responds with NACK { messageId, error } on failure | M1, M2 | code/packages/shared/src/types/protocol.ts:176 | code/packages/shared/tests/types/protocol.test.ts:303 | In Progress |
 | REQ-F-RAD05 | Client retries at 2s, 4s, 6s (3 max) | M3 | | | Not Started |
 | REQ-F-RAD06 | Server idempotency map (messageId → result, TTL 60s, max 1000/room) | M2 | | | Not Started |
 | REQ-F-RAD07 | Spinner overlay after 3s without ACK/NACK | M4 | | | Not Started |
