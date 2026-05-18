@@ -4,4 +4,6 @@ export type { ClientInfo } from './connection-manager.js';
 export { MessageRouter } from './message-router.js';
 export type { MessageHandler, HandlerRegistry } from './message-router.js';
 export { Broadcaster } from './broadcaster.js';
+export { IdempotencyMap } from './idempotency-map.js';
+export type { IdempotencyEntry } from './idempotency-map.js';
 export { projectGameState } from './state-projection.js';

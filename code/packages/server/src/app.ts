@@ -8,6 +8,7 @@ import type { IncomingMessage } from 'http';
 import { ConnectionManager } from './ws/connection-manager.js';
 import { Broadcaster } from './ws/broadcaster.js';
 import { MessageRouter } from './ws/message-router.js';
+import { IdempotencyMap } from './ws/idempotency-map.js';
 import { GameStore } from './game/game-store.js';
 import { RoomHandler } from './room/room-handler.js';
 import { GameHandler } from './game/game-handler.js';
@@ -90,7 +91,9 @@ export function createApp(config: Partial<AppConfig> = {}) {
     staleThresholdMs: cfg.staleThresholdMs,
   });
   const broadcaster = new Broadcaster(connections);
-  const router = new MessageRouter(connections, broadcaster);
+  // REQ-F-RAD06: Idempotency map prevents duplicate message processing
+  const idempotencyMap = new IdempotencyMap();
+  const router = new MessageRouter(connections, broadcaster, idempotencyMap);
 
   // Application-level heartbeat: HEARTBEAT_PONG from client → record liveness
   router.on('HEARTBEAT_PONG', (ws) => {
@@ -103,9 +106,10 @@ export function createApp(config: Partial<AppConfig> = {}) {
   // REQ-F-GMR01: Route game messages (play, pass, tichu, etc.) to GameManager
   const gameHandler = new GameHandler(router, connections, broadcaster, gameStore, roomHandler.roomManager);
 
-  // Wire room destruction → game cleanup
+  // Wire room destruction → game + idempotency cleanup
   roomHandler.roomManager.onRoomDestroyed = (roomCode) => {
     gameStore.destroyGameByRoom(roomCode);
+    idempotencyMap.removeRoom(roomCode);
   };
 
   // REQ-F-SGP01: Let room cleanup check if a room has a frozen solo-human game
@@ -265,6 +269,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
       roomHandler.dispose();
       gameStore.dispose();
       connections.dispose();
+      idempotencyMap.dispose();
       wss.close();
       if (database) database.close();
       await fastify.close();

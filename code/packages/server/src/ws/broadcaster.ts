@@ -110,6 +110,16 @@ export class Broadcaster {
     return this.send(ws, { type: 'ERROR', code, message: errorMessage });
   }
 
+  // REQ-F-RAD03: Acknowledge successful message processing
+  sendAck(ws: WebSocket, messageId: string): boolean {
+    return this.send(ws, { type: 'ACK', messageId });
+  }
+
+  // REQ-F-RAD04: Negative acknowledgment for processing failures
+  sendNack(ws: WebSocket, messageId: string, code: string, nackMessage: string): boolean {
+    return this.send(ws, { type: 'NACK', messageId, code, message: nackMessage });
+  }
+
   /**
    * REQ-F-SJ05, SJ06: Send a structured seat-claim rejection with payload
    * the client dialog uses to show occupant name + optional reclaim action.
