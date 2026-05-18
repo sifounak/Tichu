@@ -52,6 +52,10 @@ export interface ActionBarProps {
   layoutTier?: LayoutTier;
   /** Whether the player can call Tichu (passed from page.tsx for compact mode) */
   canCallTichuProp?: boolean;
+  /** Whether the player can bomb (for mobile full layout — controls bomb slot visibility) */
+  canBombProp?: boolean;
+  /** Ref forwarded to the bomb slot container */
+  bombSlotRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export const ActionBar = memo(function ActionBar({
@@ -77,6 +81,8 @@ export const ActionBar = memo(function ActionBar({
   playerSeat,
   layoutTier = 'full',
   canCallTichuProp = false,
+  canBombProp = false,
+  bombSlotRef,
 }: ActionBarProps) {
   const isPlaying = phase === 'playing';
   const showActions = isPlaying && isMyTurn;
@@ -227,12 +233,12 @@ export const ActionBar = memo(function ActionBar({
       onClick={onTichu}
       aria-label="Declare Tichu"
     >
-      Tichu!
+      Call<br />Tichu!
     </button>
   );
 
-  // Compact/mobile: linear layout — [Pass/AutoPass] [Play]
-  // Tichu and Bomb are rendered inline by page.tsx in the same row
+  // Compact/mobile: linear layout — [Tichu] [Pass/AutoPass] [Play] [Bomb]
+  // All buttons rendered in one container with consistent sizing via CSS
   if (isMobile) {
     return (
       <div
@@ -240,17 +246,33 @@ export const ActionBar = memo(function ActionBar({
         role="toolbar"
         aria-label="Game actions"
       >
-        {/* Slot 1: Pass or Auto-Pass toggle */}
+        {/* Slot 1: Call Tichu */}
+        <div className={`${styles.buttonSlot} ${styles.buttonSlotNarrow}`} style={canCallTichu ? undefined : { visibility: 'hidden' }}>
+          {tichuBtn || (
+            <button className={`${styles.button} ${styles.tichuButton}`} disabled aria-hidden="true">Tichu!</button>
+          )}
+        </div>
+        {/* Slot 2: Pass or Auto-Pass toggle */}
         <div className={styles.buttonSlot} style={(autoPassToggle || passButton || disabledPassFallback) ? undefined : { visibility: 'hidden' }}>
           {autoPassToggle || passButton || disabledPassFallback || (
             <button className={`${styles.button} ${styles.passButton}`} disabled aria-hidden="true">Pass</button>
           )}
         </div>
-        {/* Slot 2: Play */}
+        {/* Slot 3: Play */}
         <div className={styles.buttonSlot} style={playButton ? undefined : { visibility: 'hidden' }}>
           {playButton || (
             <button className={`${styles.button} ${styles.playButton}`} disabled aria-hidden="true">Play</button>
           )}
+        </div>
+        {/* Slot 4: Bomb */}
+        <div ref={bombSlotRef} className={`${styles.buttonSlot} ${styles.buttonSlotNarrow}`} style={canBombProp ? undefined : { visibility: 'hidden' }}>
+          <button
+            className={`${styles.button} ${styles.bombButton}`}
+            onClick={onBomb}
+            aria-label="Play bomb"
+          >
+            Bomb!
+          </button>
         </div>
       </div>
     );

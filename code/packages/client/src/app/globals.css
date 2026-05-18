@@ -183,6 +183,11 @@ html.debug-outlines [data-debug-area="Server Banner"]::after { background: #ee5a
   --shadow-card-selected: 0 4px 16px rgba(201, 168, 76, 0.4);
   --shadow-panel: 0 4px 24px rgba(0, 0, 0, 0.3);
 
+  /* Mobile action button sizing (consistent across all action buttons) */
+  --mobile-btn-width: 25vw;
+  --mobile-btn-height: min(calc(var(--card-height, 20vw) * 0.9), 10vh);
+  --mobile-btn-narrow-width: 10vw;
+
   /* Animation */
   --duration-fast: 150ms;
   --duration-normal: 250ms;

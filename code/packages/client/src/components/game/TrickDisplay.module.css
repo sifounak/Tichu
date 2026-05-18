@@ -182,15 +182,14 @@
   z-index: 5;
 }
 
-/* Phoenix single value overlay — centered between card name and bottom edge */
+/* Phoenix single value overlay — inside the card, below the PHOENIX name */
 .phoenixValue {
   position: absolute;
-  top: 100%;
+  bottom: calc(6px * var(--scale));
   left: 0;
   right: 0;
-  margin-top: calc(4px * var(--scale));
   text-align: center;
-  font-size: min(calc(21px * var(--scale)), calc(var(--card-width) * 0.16));
+  font-size: min(calc(18px * var(--scale)), calc(var(--card-width) * 0.14));
   font-weight: 700;
   color: var(--color-special-phoenix);
   white-space: nowrap;

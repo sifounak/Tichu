@@ -206,8 +206,8 @@
 :root[data-layout="mobile"] .opponentsRow {
   order: 2;
   padding: 0 var(--space-2);
-  margin-top: calc(-30px * var(--scale));
-  grid-template-columns: 1fr min(calc(280px * var(--scale)), 25vw) 1fr;
+  margin-top: calc(-8px * var(--scale));
+  grid-template-columns: 1fr 25vw 1fr;
 }
 
 /* Play area: 90vw × 50% of available gap, centered both ways.

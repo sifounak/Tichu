@@ -95,27 +95,27 @@
 .gtButton {}
 
 :root[data-layout="mobile"] .gtPrompt {
-  padding: var(--space-2) var(--space-4);
-  border-radius: calc(8px * var(--scale));
+  padding: var(--space-5) var(--space-6);
+  border-radius: calc(12px * var(--scale));
 }
 
 :root[data-layout="mobile"] .gtTitle {
-  font-size: var(--font-base);
+  font-size: var(--font-2xl);
 }
 
 :root[data-layout="mobile"] .gtSubtitle {
-  font-size: calc(11px * var(--scale));
-  margin-bottom: var(--space-1);
+  font-size: var(--font-base);
+  margin-bottom: var(--space-3);
 }
 
 :root[data-layout="mobile"] .gtButton {
-  padding: var(--space-2) calc(20px * var(--scale));
-  font-size: var(--font-sm);
-  min-height: calc(36px * var(--scale));
+  padding: var(--space-3) calc(28px * var(--scale));
+  font-size: var(--font-lg);
+  min-height: calc(52px * var(--scale));
 }
 
 :root[data-layout="mobile"] .prompt {
-  max-width: calc(2 * var(--card-width-lg));
+  max-width: 80vw;
 }
 
 :root[data-layout="mobile"] .passMiddle {
