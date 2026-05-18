@@ -514,57 +514,69 @@
 }
 
 /* REQ-NF-U01: Mobile tier seats (<900px) */
-/* Responsive width: natural size or 25% of viewport, whichever is smaller */
-/* Fixed width ensures empty and filled seats match; reduced top padding */
-:root[data-layout="mobile"] .seat {
-  padding: 0 var(--space-2) var(--space-1);
-  gap: var(--space-1);
-  min-width: 0;
-  width: min(calc(240px * var(--scale)), 25vw);
-  max-width: min(calc(280px * var(--scale)), 25vw);
-  zoom: 1;
+/* Same appearance as full layout but 30% shorter — reduce vertical whitespace, keep name size */
+:root[data-layout="mobile"] .seat:not(.me) {
+  padding: 0 var(--space-4) 0;
+  gap: 0;
+  width: 25vw;
+  min-width: 25vw;
+  max-width: 25vw;
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .name {
-  font-size: 0;
-  width: 0;
-  overflow: hidden;
+  margin-bottom: 0;
 }
 
-:root[data-layout="mobile"] .seat:not(.me) .info .cardCount {
-  font-size: var(--font-sm);
-  font-weight: 600;
+:root[data-layout="mobile"] .seat:not(.me) .avatar {
+  width: calc(var(--seat-avatar-size) * 1.4);
+  height: calc(var(--seat-avatar-size) * 1.4);
+  margin-top: 2px;
 }
 
-:root[data-layout="mobile"] .avatar {
-  width: calc(32px * var(--scale));
-  height: calc(32px * var(--scale));
+:root[data-layout="mobile"] .seat:not(.me) .initial {
+  font-size: var(--font-xl);
 }
 
-:root[data-layout="mobile"] .initial {
-  font-size: var(--font-md);
+:root[data-layout="mobile"] .seat:not(.me) .cardCount {
+  font-size: calc(17px * var(--scale));
 }
 
-/* Mobile: enlarge avatar when player has finished (extra room from no card stack) */
-:root[data-layout="mobile"] .seat:not(.me) .finishedAvatar {
-  width: calc(48px * var(--scale));
-  height: calc(48px * var(--scale));
-}
-
-:root[data-layout="mobile"] .seat:not(.me) .finishedAvatar .initial {
+:root[data-layout="mobile"] .seat:not(.me) .countBadge {
   font-size: var(--font-lg);
+}
+
+:root[data-layout="mobile"] .seat:not(.me) .cardStack {
+  padding: 0;
+  margin-top: -2px;
+}
+
+:root[data-layout="mobile"] .seat:not(.me) .stackCard {
+  transform: scale(0.75);
+  transform-origin: center;
+}
+
+:root[data-layout="mobile"] .seat:not(.me) .stackCard + .stackCard {
+  margin-left: calc(-55px * var(--scale));
+}
+
+:root[data-layout="mobile"] .seat:not(.me) .seatRow {
+  min-height: calc(86px * var(--scale));
+}
+
+:root[data-layout="mobile"] .seat:not(.me) .finishInfo {
+  min-height: calc(50px * var(--scale));
 }
 
 
 .finishInfoOrder {
-  font-size: var(--font-3xl);
+  font-size: var(--font-4xl);
   font-weight: 700;
   color: var(--color-gold-accent);
   line-height: 1.2;
 }
 
 .finishInfoLabel {
-  font-size: var(--font-sm);
+  font-size: var(--font-base);
   font-weight: 600;
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -572,25 +584,3 @@
   line-height: 1.2;
 }
 
-:root[data-layout="full"] .finishInfoOrder {
-  font-size: var(--font-4xl);
-}
-
-:root[data-layout="full"] .finishInfoLabel {
-  font-size: var(--font-base);
-}
-
-:root[data-layout="mobile"] .tichuBanner {
-  top: calc(-30px * var(--scale));
-  font-size: var(--font-xs);
-}
-
-:root[data-layout="mobile"] .turnLabel,
-:root[data-layout="mobile"] .leaderLabel,
-:root[data-layout="mobile"] .passLabel,
-:root[data-layout="mobile"] .dragonLabel,
-:root[data-layout="mobile"] .playerVoteLabel,
-:root[data-layout="mobile"] .passConfirmedLabel {
-  font-size: calc(18px * var(--scale));
-  bottom: calc(-28px * var(--scale));
-}
