@@ -127,7 +127,7 @@ describe('useWebSocket', () => {
     consoleWarn.mockRestore();
   });
 
-  it('sends typed messages', () => {
+  it('sends typed messages with messageId via PendingActionManager', () => {
     const onMessage = vi.fn();
     const { result } = renderHook(() =>
       useWebSocket({ url: 'ws://localhost:3001/ws', onMessage }),
@@ -137,7 +137,9 @@ describe('useWebSocket', () => {
     act(() => result.current.send({ type: 'PASS_TURN' }));
 
     expect(getLatestWs().sentMessages).toHaveLength(1);
-    expect(JSON.parse(getLatestWs().sentMessages[0])).toEqual({ type: 'PASS_TURN' });
+    const sent = JSON.parse(getLatestWs().sentMessages[0]);
+    expect(sent.type).toBe('PASS_TURN');
+    expect(sent.messageId).toEqual(expect.any(String));
   });
 
   it('does not send when disconnected', () => {

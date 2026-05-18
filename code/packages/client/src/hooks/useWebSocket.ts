@@ -1,9 +1,11 @@
 // REQ-NF-A03: WebSocket hook with Zod validation and typed messages
+// REQ-F-RAD01: Client assigns messageId to outbound messages via PendingActionManager
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ClientMessage, ServerMessage } from '@tichu/shared';
 import { serverMessageSchema } from '@tichu/shared';
+import { PendingActionManager, type UISnapshot, type ResolutionResult } from '../services/PendingActionManager';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting';
 
@@ -13,6 +15,10 @@ export interface UseWebSocketOptions {
   onMessage: (msg: ServerMessage) => void;
   /** Called when connection status changes */
   onStatusChange?: (status: ConnectionStatus) => void;
+  /** Called when spinner should be shown for a pending action */
+  onSpinnerNeeded?: (messageId: string) => void;
+  /** Called when a pending action is resolved (ack or nack) */
+  onResolved?: (result: ResolutionResult, messageId: string, code?: string, message?: string) => void;
   /** Max reconnection attempts (default: 10) */
   maxRetries?: number;
   /** Enable auto-reconnection (default: true) */
@@ -34,6 +40,8 @@ export function useWebSocket({
   url,
   onMessage,
   onStatusChange,
+  onSpinnerNeeded,
+  onResolved,
   maxRetries = 10,
   autoReconnect = true,
   enabled = true,
@@ -48,6 +56,26 @@ export function useWebSocket({
   onMessageRef.current = onMessage;
   const onStatusChangeRef = useRef(onStatusChange);
   onStatusChangeRef.current = onStatusChange;
+  const onSpinnerNeededRef = useRef(onSpinnerNeeded);
+  onSpinnerNeededRef.current = onSpinnerNeeded;
+  const onResolvedRef = useRef(onResolved);
+  onResolvedRef.current = onResolved;
+
+  // REQ-F-RAD02: PendingActionManager tracks in-flight actions
+  const pendingManagerRef = useRef<PendingActionManager | null>(null);
+  if (!pendingManagerRef.current) {
+    pendingManagerRef.current = new PendingActionManager({
+      rawSend: (payload) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify(payload));
+          return true;
+        }
+        return false;
+      },
+      onSpinnerNeeded: (messageId) => onSpinnerNeededRef.current?.(messageId),
+      onResolved: (result, messageId, code, message) => onResolvedRef.current?.(result, messageId, code, message),
+    });
+  }
 
   const updateStatus = useCallback((next: ConnectionStatus) => {
     setStatus(next);
@@ -66,8 +94,13 @@ export function useWebSocket({
     wsRef.current = ws;
 
     ws.onopen = () => {
+      const wasReconnecting = retryCountRef.current > 0;
       retryCountRef.current = 0;
       updateStatus('connected');
+      // REQ-F-RAD09: Re-send pending actions on reconnection
+      if (wasReconnecting) {
+        pendingManagerRef.current?.retryAll();
+      }
     };
 
     ws.onmessage = (event: MessageEvent) => {
@@ -78,6 +111,16 @@ export function useWebSocket({
           // Application-level heartbeat: respond immediately, don't bubble to game logic
           if (result.data.type === 'HEARTBEAT_PING') {
             ws.send(JSON.stringify({ type: 'HEARTBEAT_PONG' }));
+            return;
+          }
+          // REQ-F-RAD10: ACK resolves pending action
+          if (result.data.type === 'ACK') {
+            pendingManagerRef.current?.handleAck(result.data.messageId);
+            return;
+          }
+          // REQ-F-RAD11: NACK resolves pending action with error
+          if (result.data.type === 'NACK') {
+            pendingManagerRef.current?.handleNack(result.data.messageId, result.data.code, result.data.message);
             return;
           }
           // Server is about to restart — reset retry count and allow auto-reconnect
@@ -118,6 +161,7 @@ export function useWebSocket({
 
   const disconnect = useCallback(() => {
     intentionalCloseRef.current = true;
+    pendingManagerRef.current?.cancelAll();
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
@@ -130,12 +174,21 @@ export function useWebSocket({
     updateStatus('disconnected');
   }, [updateStatus]);
 
-  const send = useCallback((message: ClientMessage): boolean => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(message));
+  // REQ-F-RAD01: All outbound messages except HEARTBEAT_PONG get tracked with messageId
+  const send = useCallback((message: ClientMessage, snapshot?: UISnapshot): boolean => {
+    // HEARTBEAT_PONG bypasses tracking — no messageId, no retry
+    if (message.type === 'HEARTBEAT_PONG') {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(message));
+        return true;
+      }
+      return false;
+    }
+    // REQ-F-RAD12: All other messages (including chat) tracked via PendingActionManager
+    if (pendingManagerRef.current) {
+      pendingManagerRef.current.submit(message, snapshot);
       return true;
     }
-    console.warn('[WS] Cannot send — not connected');
     return false;
   }, []);
 
@@ -160,5 +213,8 @@ export function useWebSocket({
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [enabled, connect]);
 
-  return { status, send, disconnect, reconnect: connect };
+  return { status, send, disconnect, reconnect: connect, pendingActions: pendingManagerRef.current };
 }
+
+export type { UISnapshot } from '../services/PendingActionManager';
+
