@@ -151,8 +151,17 @@
 
 .clickableTrick:active {
   background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-50%) !important;
   filter: none !important;
+}
+
+/* Full layout: preserve translateY(-50%) positioning on click */
+:root[data-layout="full"] .clickableTrick:active {
+  transform: translateY(-50%) !important;
+}
+
+/* Mobile layout: no positional transform to preserve */
+:root[data-layout="mobile"] .clickableTrick:active {
+  transform: none !important;
 }
 
 /* Mobile: player status indicator below play area */
