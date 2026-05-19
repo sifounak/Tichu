@@ -376,8 +376,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         // REQ-F-SP09: Spectator promoted to player — update seat
         const roomStore = useRoomStore.getState();
         roomStore.setRoom(msg.roomCode, msg.seat);
-        // Clear stale UI state from any previous room
-        uiStore.clearChat();
+        // Clear stale UI state from any previous room (chat cleared by CHAT_HISTORY which follows)
         uiStore.setSeatOffer(null);
         uiStore.setQueueStatus(null);
         uiStore.setAvailableSeats([]);

@@ -103,6 +103,7 @@ export class RoomHandler {
 
       this.broadcaster.send(ws, { type: 'ROOM_CREATED', roomCode: room.roomCode });
       this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: room.roomCode, seat: room.hostSeat });
+      this.broadcaster.send(ws, { type: 'CHAT_HISTORY', messages: [] });
       this.broadcastRoomUpdate(room.roomCode);
     } catch (err) {
       this.broadcaster.sendError(ws, 'CREATE_ROOM_FAILED', (err as Error).message);
@@ -1253,6 +1254,7 @@ export class RoomHandler {
           for (const ws of this.connections.getSocketsByUserId(userId)) {
             this.connections.assignToRoom(ws, roomCode, seat);
             this.broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode, seat });
+            this.broadcaster.send(ws, { type: 'CHAT_HISTORY', messages: this.roomManager.getChatHistory(roomCode) });
           }
 
           // Send current game state if game is in progress (once, not per socket)
