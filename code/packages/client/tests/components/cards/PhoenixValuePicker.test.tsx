@@ -13,7 +13,7 @@ describe('PhoenixValuePicker', () => {
   it('renders dialog with correct title', () => {
     render(<PhoenixValuePicker options={options} onSelect={onSelect} onCancel={onCancel} />);
     expect(screen.getByRole('dialog', { name: /choose phoenix value/i })).toBeInTheDocument();
-    expect(screen.getByText('Phoenix Value')).toBeInTheDocument();
+    expect(screen.getByText('Choose Phoenix Value')).toBeInTheDocument();
   });
 
   it('renders a button for each option', () => {
@@ -58,8 +58,8 @@ describe('PhoenixValuePicker', () => {
     expect(screen.getByRole('button', { name: /set phoenix to a/i })).toBeInTheDocument();
   });
 
-  it('renders subtitle text', () => {
+  it('renders title text', () => {
     render(<PhoenixValuePicker options={options} onSelect={onSelect} onCancel={onCancel} />);
-    expect(screen.getByText('Choose the rank for Phoenix:')).toBeInTheDocument();
+    expect(screen.getByText('Choose Phoenix Value')).toBeInTheDocument();
   });
 });
