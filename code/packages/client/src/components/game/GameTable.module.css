@@ -151,7 +151,6 @@
 
 .clickableTrick:active {
   background: rgba(255, 255, 255, 0.15);
-  transform: none !important;
   filter: none !important;
 }
 
