@@ -547,16 +547,12 @@
 
 :root[data-layout="mobile"] .seat:not(.me) .name {
   margin-bottom: 0;
-  max-width: calc(25vw - 2 * var(--space-4));
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .avatar {
   width: calc(var(--seat-avatar-size) * 1.4);
-  height: auto;
-  min-width: 0;
-  flex-shrink: 1;
+  height: calc(var(--seat-avatar-size) * 1.4);
   margin-top: 2px;
-  aspect-ratio: 1;
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .initial {
@@ -571,19 +567,14 @@
   font-size: var(--font-lg);
 }
 
-:root[data-layout="mobile"] .seat:not(.me) .info {
-  flex-shrink: 1;
-  min-width: 0;
-}
-
 :root[data-layout="mobile"] .seat:not(.me) .cardStack {
   padding: 0;
   margin-top: -2px;
-  zoom: 0.75;
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .stackCard {
-  transform: none;
+  transform: scale(0.75);
+  transform-origin: center;
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .stackCard + .stackCard {
@@ -592,8 +583,6 @@
 
 :root[data-layout="mobile"] .seat:not(.me) .seatRow {
   min-height: calc(86px * var(--scale));
-  max-width: 100%;
-  min-width: 0;
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .finishInfo {
