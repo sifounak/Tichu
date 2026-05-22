@@ -522,7 +522,7 @@
 /* REQ-NF-U01: Mobile tier seats (<900px) */
 /* Same appearance as full layout but 30% shorter — reduce vertical whitespace, keep name size */
 :root[data-layout="mobile"] .seat:not(.me) {
-  padding: 0 var(--space-4) 0;
+  padding: 0 var(--space-4) var(--space-3);
   gap: 0;
   width: 25vw;
   min-width: 0;
@@ -547,42 +547,29 @@
 
 :root[data-layout="mobile"] .seat:not(.me) .name {
   margin-bottom: 0;
+  max-width: calc(25vw - 2 * var(--space-4));
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .avatar {
-  width: calc(var(--seat-avatar-size) * 1.4);
-  height: calc(var(--seat-avatar-size) * 1.4);
-  margin-top: 2px;
+  width: calc(39px * var(--scale));
+  height: calc(39px * var(--scale));
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .initial {
-  font-size: var(--font-xl);
-}
-
-:root[data-layout="mobile"] .seat:not(.me) .cardCount {
-  font-size: calc(17px * var(--scale));
-}
-
-:root[data-layout="mobile"] .seat:not(.me) .countBadge {
-  font-size: var(--font-lg);
+  font-size: calc(20px * var(--scale));
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .cardStack {
   padding: 0;
-  margin-top: -2px;
-}
-
-:root[data-layout="mobile"] .seat:not(.me) .stackCard {
-  transform: scale(0.75);
-  transform-origin: center;
+  zoom: 0.45;
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .stackCard + .stackCard {
-  margin-left: calc(-55px * var(--scale));
+  margin-left: calc(-50px * var(--scale));
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .seatRow {
-  min-height: calc(86px * var(--scale));
+  gap: var(--space-2);
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .finishInfo {
