@@ -571,17 +571,19 @@
   font-size: var(--font-lg);
 }
 
-:root[data-layout="mobile"] .seat:not(.me) .cardStack {
-  padding: 0;
-  margin-top: -2px;
-  overflow: hidden;
+:root[data-layout="mobile"] .seat:not(.me) .info {
   flex-shrink: 1;
   min-width: 0;
 }
 
+:root[data-layout="mobile"] .seat:not(.me) .cardStack {
+  padding: 0;
+  margin-top: -2px;
+  zoom: 0.75;
+}
+
 :root[data-layout="mobile"] .seat:not(.me) .stackCard {
-  transform: scale(0.75);
-  transform-origin: center;
+  transform: none;
 }
 
 :root[data-layout="mobile"] .seat:not(.me) .stackCard + .stackCard {
