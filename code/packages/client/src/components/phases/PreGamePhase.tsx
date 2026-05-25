@@ -182,21 +182,24 @@ export const PreGamePhase = memo(function PreGamePhase({
 
     return (
       <div className={styles.phaseContainer}>
-        <div className={styles.passMiddle}>
-          <div className={styles.passLeft}>
-            {renderReceivedSlot(leftOpponent)}
-          </div>
-          <div className={styles.passCenter}>
-            {renderReceivedSlot(partner)}
-            <button
-              className={`${styles.button} ${styles.skipButton}`}
-              onClick={onDismissReceived}
-            >
-              Dismiss
-            </button>
-          </div>
-          <div className={styles.passRight}>
-            {renderReceivedSlot(rightOpponent)}
+        <div className={styles.receivedContainer}>
+          <h3 className={styles.receivedTitle}>Received Cards</h3>
+          <div className={styles.passMiddle}>
+            <div className={styles.passLeft}>
+              {renderReceivedSlot(leftOpponent)}
+            </div>
+            <div className={styles.passCenter}>
+              {renderReceivedSlot(partner)}
+              <button
+                className={`${styles.button} ${styles.skipButton}`}
+                onClick={onDismissReceived}
+              >
+                Dismiss
+              </button>
+            </div>
+            <div className={styles.passRight}>
+              {renderReceivedSlot(rightOpponent)}
+            </div>
           </div>
         </div>
       </div>

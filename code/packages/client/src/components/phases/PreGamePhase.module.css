@@ -278,3 +278,23 @@
 .titleGrandTichu {
   color: var(--color-tichu-badge);
 }
+
+/* Received cards container */
+.receivedContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--color-felt-green);
+  border: 3px solid var(--color-border);
+  border-radius: calc(10px * var(--scale));
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  box-shadow: var(--shadow-panel);
+}
+
+.receivedTitle {
+  margin: 0;
+  font-size: var(--font-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
