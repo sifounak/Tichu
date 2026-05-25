@@ -9,10 +9,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc(32px * var(--scale));
-  height: calc(32px * var(--scale));
+  width: 44px;
+  height: 44px;
   border: 1px solid var(--color-border);
-  border-radius: calc(8px * var(--scale));
+  border-radius: 10px;
   cursor: pointer;
   background: var(--color-bg-panel);
   color: var(--color-text-primary);

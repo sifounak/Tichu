@@ -185,8 +185,8 @@ html.debug-outlines [data-debug-area="Server Banner"]::after { background: #ee5a
 
   /* Mobile action button sizing (consistent across all action buttons) */
   --mobile-btn-width: 25vw;
-  --mobile-btn-height: min(calc(var(--card-height, 20vw) * 0.9), 10vh);
-  --mobile-btn-narrow-width: 10vw;
+  --mobile-btn-height: min(calc(var(--card-height, 20vw) * 0.675), 7.5vh);
+  --mobile-btn-narrow-width: 13vw;
 
   /* Animation */
   --duration-fast: 150ms;

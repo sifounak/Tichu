@@ -1394,21 +1394,21 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {/* Desktop top-left chrome — same compact layout as mobile */}
       <div data-debug-area="Control Panel" style={{
         position: 'fixed',
-        top: 'calc(30px * var(--scale))',
-        left: 'calc(30px * var(--scale))',
+        top: '12px',
+        left: '16px',
         zIndex: 30,
         display: isMobileLayout ? 'none' : 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        gap: 'var(--space-2)',
+        gap: '8px',
       }}>
         {/* Row 1: [Room Name] [eye icon + count] */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {/* REQ-F-GA01: Room name — click to copy URL */}
           <button
             onClick={handleCopyUrl}
             style={{
-              fontSize: 'calc(24px * var(--scale))',
+              fontSize: '32px',
               fontWeight: 700,
               color: urlCopied ? 'var(--color-text-primary)' : 'var(--color-gold-accent)',
               background: 'transparent',
@@ -1438,17 +1438,17 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 'calc(6px * var(--scale))',
+              gap: '6px',
               background: 'var(--color-bg-panel)',
               border: '1px solid var(--color-border)',
-              borderRadius: 'var(--space-2)',
-              padding: 'calc(2px * var(--scale)) calc(6px * var(--scale))',
-              fontSize: 'var(--font-sm)',
+              borderRadius: '8px',
+              padding: '4px 10px',
+              fontSize: '16px',
               fontWeight: 600,
               color: 'var(--color-text-secondary)',
               cursor: 'default',
             }}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, display: 'block' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, display: 'block' }}>
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
@@ -1480,7 +1480,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         </div>
 
         {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {/* Cancel vote moved into VoteOverlay dialog */}
           <GameActionsMenu
             isHost={mySeatFromRoom === hostSeat}
@@ -1506,16 +1506,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 'calc(32px * var(--scale))',
-                  height: 'calc(32px * var(--scale))',
+                  width: '44px',
+                  height: '44px',
                   background: 'var(--color-gold-accent)',
                   color: 'var(--color-felt-green-dark)',
                   border: 'none',
-                  borderRadius: 'calc(8px * var(--scale))',
+                  borderRadius: '10px',
                 }}
                 aria-label="You are a spectator"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
@@ -1560,12 +1560,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    width: 'calc(32px * var(--scale))',
-                    height: 'calc(32px * var(--scale))',
+                    width: '44px',
+                    height: '44px',
                     color: 'white',
                     background: '#991b1b',
                     border: 'none',
-                    borderRadius: 'calc(8px * var(--scale))',
+                    borderRadius: '10px',
                     cursor: 'pointer',
                     transition: 'background var(--duration-fast) var(--easing-smooth)',
                   }}
@@ -1573,7 +1573,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   onMouseLeave={(e) => { e.currentTarget.style.background = '#991b1b'; }}
                   aria-label="Leave room"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
                     <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                     <polyline points="16 17 21 12 16 7" />
                     <line x1="21" y1="12" x2="9" y2="12" />
@@ -2062,7 +2062,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           {isMobileLayout && (isPreGame || showReceivedCards) ? (
             <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%', paddingLeft: '5vw', paddingRight: '5vw', pointerEvents: 'none' }}>
               {/* Left: Call Tichu button */}
-              <div style={{ flex: 1, pointerEvents: 'auto' }}>
+              <div style={{ width: 'var(--mobile-btn-narrow-width)', flexShrink: 0, pointerEvents: 'auto' }}>
                 {(phase === 'playing' || phase === 'cardPassing' || (phase === 'grandTichuDecision' && mySeat && gameStore.grandTichuDecided.includes(mySeat))) && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (
                   <button
                     onClick={handleTichu}
@@ -2087,8 +2087,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   </button>
                 )}
               </div>
-              {/* Center: Pre-game phase content — scaled to fit below opponent midpoint */}
-              <div ref={passPhaseRef} style={{ pointerEvents: 'auto', transformOrigin: 'bottom center', transform: passPhaseScale < 1 && phase !== 'grandTichuDecision' ? `scale(${passPhaseScale})` : undefined }}>
+              {/* Center: Pre-game phase content — constrained to fit between Tichu/Bomb button areas */}
+              <div ref={passPhaseRef} style={{ pointerEvents: 'auto', flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', transformOrigin: 'bottom center', transform: passPhaseScale < 1 && phase !== 'grandTichuDecision' ? `scale(${passPhaseScale})` : undefined }}>
                 {isPreGame ? (
                   <PreGamePhase
                     phase={phase}
@@ -2124,7 +2124,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                 ) : null}
               </div>
               {/* Right: Bomb button — mobile uses click-to-toggle popup */}
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
+              <div style={{ width: 'var(--mobile-btn-narrow-width)', flexShrink: 0, display: 'flex', justifyContent: 'flex-end', pointerEvents: 'auto' }}>
                 {(phase === 'playing' || phase === 'grandTichuDecision' || phase === 'cardPassing') && !gameStore.gameHalted && handBombs.length > 0 && (
                   <div
                     ref={bombPopupRef}
@@ -2291,6 +2291,22 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               </div>
             );
           })()}
+
+          {/* Player info box during pre-game (full layout): ensures --center-y has a stable reference */}
+          {(isPreGame || showReceivedCards) && !isMobileLayout && mySeat && (
+            <PlayerSeat
+              seat={mySeat}
+              displayName={seatNames[mySeat]}
+              cardCount={gameStore.myHand.length}
+              tichuCall={gameStore.myTichuCall}
+              hasPlayed={false}
+              hasPassed={false}
+              finishOrder={null}
+              isCurrentTurn={false}
+              isTrickLeader={false}
+              isMe={true}
+            />
+          )}
 
           {/* Action bar: mobile renders all buttons via ActionBar; full layout renders only ActionBar */}
           {!isPreGame && !showReceivedCards && (

@@ -120,6 +120,22 @@
 
 :root[data-layout="mobile"] .passMiddle {
   margin-bottom: 0;
+  --card-width: 16vw;
+  --card-height: calc(16vw * 10 / 7);
+  --card-font-size: calc(16vw * 0.235);
+  --card-suit-size: calc(16vw * 0.282);
+  --card-border-radius: calc(16vw * 0.082);
+  gap: var(--space-3);
+}
+
+:root[data-layout="mobile"] .passCenter .button {
+  width: calc(var(--mobile-btn-narrow-width) * 1.03);
+  padding: 0;
+  font-size: calc(14px * var(--scale));
+  height: var(--mobile-btn-height);
+  min-height: var(--mobile-btn-height);
+  line-height: 1.2;
+  text-align: center;
 }
 
 .passLeft,

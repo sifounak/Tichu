@@ -189,7 +189,7 @@ export const GameActionsMenu = memo(function GameActionsMenu({
         onMouseEnter={(e) => { const tip = e.currentTarget.parentElement?.querySelector('[data-tooltip]') as HTMLElement; if (tip && !open) tip.style.display = 'block'; }}
         onMouseLeave={(e) => { const tip = e.currentTarget.parentElement?.querySelector('[data-tooltip]') as HTMLElement; if (tip) tip.style.display = 'none'; }}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
           <line x1="3" y1="6" x2="21" y2="6" />
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="18" x2="21" y2="18" />
