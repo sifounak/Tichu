@@ -41,6 +41,9 @@ code/packages/server/data/
 # Superpowers plugin
 .superpowers/
 
+# Claude Code
+.claude/settings.local.json
+
 # Misc
 *.log
 npm-debug.log*
