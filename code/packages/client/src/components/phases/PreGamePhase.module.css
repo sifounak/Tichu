@@ -286,7 +286,7 @@
   align-items: center;
   gap: var(--space-3);
   background: var(--color-felt-green);
-  border: 3px solid var(--color-border);
+  border: 3px solid rgba(255, 255, 255, 0.4);
   border-radius: calc(10px * var(--scale));
   padding: var(--space-3) var(--space-4) var(--space-4);
   box-shadow: var(--shadow-panel);

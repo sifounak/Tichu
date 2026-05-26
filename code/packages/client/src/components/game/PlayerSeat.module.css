@@ -527,7 +527,7 @@
   width: 25vw;
   min-width: 0;
   max-width: 25vw;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Scale down entire opponent/partner info boxes at very narrow mobile widths */

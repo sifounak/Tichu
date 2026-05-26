@@ -210,7 +210,9 @@
   justify-content: center;
   align-items: flex-start;
   flex-shrink: 0;
-  padding-top: calc(36px * var(--scale));
+  /* 36px reserves space for the tichu banner above the seat box;
+     extra 12px aligns the banner top with the score box (--space-4 from viewport) */
+  padding-top: calc(48px * var(--scale));
   position: relative;
   z-index: 1;
 }
