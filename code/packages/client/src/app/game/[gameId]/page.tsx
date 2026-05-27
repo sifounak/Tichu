@@ -785,8 +785,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         if (key?.startsWith('tichu_received_dismissed_')) sessionStorage.removeItem(key);
       }
     } else if (currentPhase === GamePhase.CardPassing) {
-      // Entering card passing — reset pass state but not received cards
-      setPassConfirmed(false);
+      // Entering card passing — reset pass state but not received cards.
+      // If the server already has our pass confirmed (e.g. we confirmed during GT phase),
+      // keep the local confirmed state in sync rather than resetting it.
+      const alreadyConfirmed = gameStore.cardPassConfirmed.includes(gameStore.mySeat!);
+      if (!alreadyConfirmed) {
+        setPassConfirmed(false);
+      }
     }
   }, [currentPhase]);
 

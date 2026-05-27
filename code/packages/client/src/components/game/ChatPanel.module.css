@@ -48,7 +48,7 @@
 /* Desktop: side panel — from below right player's indicator to above card hand */
 .panel {
   position: fixed;
-  top: calc(50vh + calc(48px * var(--scale)));
+  top: calc(50vh + calc(80px * var(--scale)));
   left: calc(87.5vw - calc(171px * var(--scale)));
   right: var(--space-4);
   bottom: calc(256px * var(--scale));
