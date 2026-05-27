@@ -114,7 +114,7 @@ describe('account auth', () => {
       expect(validateUsername(' Alice').error).toContain('leading or trailing spaces');
     });
 
-    // REQ-F-AU12: Cannot be "bot" (case-insensitive)
+    // REQ-F-AU12: Cannot be a reserved username (case-insensitive)
     it('should reject "bot" in any case', () => {
       expect(validateUsername('bot').valid).toBe(false);
       expect(validateUsername('Bot').valid).toBe(false);
@@ -122,9 +122,37 @@ describe('account auth', () => {
       expect(validateUsername('bot').error).toContain('reserved');
     });
 
-    it('should accept usernames containing "bot" as substring', () => {
+    it('should reject administrative reserved names', () => {
+      expect(validateUsername('admin').valid).toBe(false);
+      expect(validateUsername('Admin').valid).toBe(false);
+      expect(validateUsername('ADMINISTRATOR').valid).toBe(false);
+      expect(validateUsername('moderator').valid).toBe(false);
+      expect(validateUsername('system').valid).toBe(false);
+      expect(validateUsername('root').valid).toBe(false);
+    });
+
+    it('should reject game-related reserved names', () => {
+      expect(validateUsername('tichu').valid).toBe(false);
+      expect(validateUsername('Tichu').valid).toBe(false);
+      expect(validateUsername('player1').valid).toBe(false);
+      expect(validateUsername('Player2').valid).toBe(false);
+      expect(validateUsername('team1').valid).toBe(false);
+      expect(validateUsername('spectator').valid).toBe(false);
+      expect(validateUsername('dealer').valid).toBe(false);
+    });
+
+    it('should reject other misleading reserved names', () => {
+      expect(validateUsername('support').valid).toBe(false);
+      expect(validateUsername('official').valid).toBe(false);
+      expect(validateUsername('staff').valid).toBe(false);
+      expect(validateUsername('host').valid).toBe(false);
+    });
+
+    it('should accept usernames containing reserved words as substrings', () => {
       expect(validateUsername('robot')).toEqual({ valid: true });
       expect(validateUsername('botman')).toEqual({ valid: true });
+      expect(validateUsername('administrator2000')).toEqual({ valid: true });
+      expect(validateUsername('myadmin')).toEqual({ valid: true });
     });
   });
 

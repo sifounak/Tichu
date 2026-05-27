@@ -1,6 +1,6 @@
 // REQ-F-AU10: Registration requires username, email, password
 // REQ-F-AU11: Username unique (case-insensitive, trimmed)
-// REQ-F-AU12: Username cannot be "bot" (case-insensitive)
+// REQ-F-AU12: Username cannot be a reserved/misleading name (case-insensitive)
 // REQ-F-AU13: Username constraints: 1-30 chars, no leading/trailing spaces
 // REQ-F-AU14: Login accepts (username OR email) + password
 // REQ-F-AU15: Username is immutable after creation
@@ -21,7 +21,18 @@ export interface AuthTokenPayload {
 }
 
 // REQ-F-AU12: Reserved usernames (case-insensitive)
-const RESERVED_USERNAMES = ['bot'];
+const RESERVED_USERNAMES = [
+  // Administrative/System
+  'admin', 'administrator', 'system', 'server', 'moderator', 'mod',
+  'operator', 'root', 'superuser', 'sysadmin',
+  // Bot/Automated
+  'bot', 'gamebot', 'tichu', 'tichubot', 'autoplay',
+  // Generic/Impersonation
+  'host', 'dealer', 'official', 'support', 'helpdesk', 'staff',
+  // Reserved for game display
+  'player', 'player1', 'player2', 'player3', 'player4',
+  'team1', 'team2', 'spectator', 'observer',
+];
 
 /**
  * Validates username constraints.
