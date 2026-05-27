@@ -171,6 +171,11 @@
   cursor: not-allowed;
 }
 
+.sendIcon {
+  width: calc(18px * var(--scale));
+  height: calc(18px * var(--scale));
+}
+
 /* Spectator chat toggle in header */
 .spectatorToggle {
   display: flex;
