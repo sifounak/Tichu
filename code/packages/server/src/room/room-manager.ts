@@ -631,6 +631,7 @@ export class RoomManager {
         config: room.config,
         gameInProgress: true,
         seatToUserId,
+        chatHistory: [...(this.chatHistory.get(room.roomCode) ?? [])],
       });
     }
 
@@ -659,6 +660,9 @@ export class RoomManager {
       };
 
       this.rooms.set(snapshot.roomCode, room);
+      if (snapshot.chatHistory && snapshot.chatHistory.length > 0) {
+        this.chatHistory.set(snapshot.roomCode, snapshot.chatHistory.slice(-RoomManager.MAX_CHAT_HISTORY));
+      }
 
       // Rebuild userId maps for human players
       for (const [seat, userId] of Object.entries(snapshot.seatToUserId)) {

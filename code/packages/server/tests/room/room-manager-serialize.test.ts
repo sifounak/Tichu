@@ -10,6 +10,8 @@ describe('RoomManager serialization', () => {
     manager.joinRoom('user-2', roomCode, 'Bob');
     manager.addBot(roomCode, 'east');
     manager.addBot(roomCode, 'west');
+    manager.addChatMessage(roomCode, { from: 'south', text: 'hello' });
+    manager.addChatMessage(roomCode, { from: null, text: 'Spectator says hi', spectatorName: 'Watcher' });
     manager.startGame(roomCode);
 
     const snapshots = manager.serializeActiveRooms();
@@ -19,6 +21,10 @@ describe('RoomManager serialization', () => {
     expect(snapshots[0].players).toHaveLength(4);
     expect(snapshots[0].seatToUserId).toHaveProperty('south');
     expect(snapshots[0].seatToUserId).toHaveProperty('north');
+    expect(snapshots[0].chatHistory).toEqual([
+      expect.objectContaining({ from: 'south', text: 'hello' }),
+      expect.objectContaining({ from: null, text: 'Spectator says hi', spectatorName: 'Watcher' }),
+    ]);
     manager.dispose();
   });
 
@@ -44,6 +50,10 @@ describe('RoomManager serialization', () => {
       config: { targetScore: 1000, turnTimerSeconds: null, spectatorsAllowed: true, isPrivate: false, maxSpectators: 10 } as any,
       gameInProgress: true,
       seatToUserId: { south: 'user-1', west: 'user-2' },
+      chatHistory: [
+        { from: 'south', text: 'before restart', timestamp: 123 },
+        { from: null, text: 'system note', timestamp: 124 },
+      ],
     };
 
     const manager = new RoomManager();
@@ -60,6 +70,7 @@ describe('RoomManager serialization', () => {
     const room = manager.getRoom('TEST01')!;
     const alice = room.players.find(p => p.seat === 'south');
     expect(alice!.isConnected).toBe(false);
+    expect(manager.getChatHistory('TEST01')).toEqual(snapshot.chatHistory);
     manager.dispose();
   });
 });

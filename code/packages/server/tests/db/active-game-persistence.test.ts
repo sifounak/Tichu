@@ -66,6 +66,10 @@ describe('active-game-persistence', () => {
       config: {} as any,
       gameInProgress: true,
       seatToUserId: { south: 'user-1' },
+      chatHistory: [
+        { from: 'south', text: 'persist me', timestamp: 1000 },
+        { from: null, text: 'system message', timestamp: 1001 },
+      ],
     };
 
     saveActiveRooms(database, [room]);
@@ -73,5 +77,6 @@ describe('active-game-persistence', () => {
     expect(loaded).toHaveLength(1);
     expect(loaded[0].roomCode).toBe('ROOM1');
     expect(loaded[0].seatToUserId.south).toBe('user-1');
+    expect(loaded[0].chatHistory).toEqual(room.chatHistory);
   });
 });

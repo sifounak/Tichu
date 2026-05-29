@@ -63,6 +63,8 @@ describe('Graceful restart integration', () => {
 
     // Mark room as game-in-progress
     roomManager.startGame(roomCode);
+    roomManager.addChatMessage(roomCode, { from: 'south', text: 'chat before restart' });
+    roomManager.addChatMessage(roomCode, { from: null, text: 'spectator hello', spectatorName: 'Watcher' });
 
     // Start the game FSM (transitions from lobby → grandTichuDecision)
     manager.handleMessage(ws, 'south', { type: 'START_GAME' } as ClientMessage);
@@ -92,6 +94,10 @@ describe('Graceful restart integration', () => {
     expect(restoredRoom).toBeDefined();
     expect(restoredRoom!.gameInProgress).toBe(true);
     expect(restoredRoom!.players).toHaveLength(4);
+    expect(app.roomHandler.roomManager.getChatHistory(roomCode)).toEqual([
+      expect.objectContaining({ from: 'south', text: 'chat before restart' }),
+      expect.objectContaining({ from: null, text: 'spectator hello', spectatorName: 'Watcher' }),
+    ]);
 
     // 10. Verify the host userId mapping was restored
     const restoredHostRoom = app.roomHandler.roomManager.getUserRoom(hostUserId);

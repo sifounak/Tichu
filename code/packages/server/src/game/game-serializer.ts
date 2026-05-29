@@ -113,4 +113,5 @@ export interface RoomSnapshot {
   config: RoomConfig;
   gameInProgress: true;
   seatToUserId: Record<string, string>;
+  chatHistory?: Array<{ from: Seat | null; text: string; timestamp: number; spectatorName?: string }>;
 }
