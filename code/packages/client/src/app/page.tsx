@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { getAuthSuccessRedirect } from '@/lib/authRedirect';
 
 type Mode = 'login' | 'register';
 
@@ -20,7 +21,7 @@ export default function Home() {
   // Auto-redirect to lobby if already logged in
   useEffect(() => {
     if (authReady && user) {
-      router.replace('/lobby');
+      router.replace(getAuthSuccessRedirect(window.location.search));
     }
   }, [authReady, user, router]);
 
@@ -34,7 +35,7 @@ export default function Home() {
     }
     const currentError = useAuthStore.getState().error;
     if (!currentError) {
-      router.push('/lobby');
+      router.push(getAuthSuccessRedirect(window.location.search));
     }
   };
 

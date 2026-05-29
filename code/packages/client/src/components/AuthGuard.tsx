@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { buildLoginRedirectUrl } from '@/lib/authRedirect';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -12,9 +13,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (authReady && !user) {
-      router.replace('/');
+      const destination = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      router.replace(buildLoginRedirectUrl(destination));
     }
-  }, [authReady, user, router]);
+  }, [authReady, router, user]);
 
   if (!authReady) {
     return (
