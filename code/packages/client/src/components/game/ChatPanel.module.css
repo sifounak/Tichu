@@ -126,13 +126,13 @@
 }
 
 .messageLink {
-  color: var(--color-gold-accent);
+  color: #7cc7ff;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .messageLink:hover {
-  color: var(--color-text-primary);
+  color: #b9e2ff;
 }
 
 /* Input row */
