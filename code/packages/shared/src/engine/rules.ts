@@ -64,8 +64,9 @@ export function validatePlay(
   }
 
   // Step 3: Wish enforcement — if a wish is active, the player must play
-  // a combination containing the wished rank IF they can
-  if (wish !== null && canFulfillWish(hand, wish, trickTop)) {
+  // a non-bomb combination containing the wished rank IF they can.
+  // Bombs are legal interrupts and do not need to satisfy the wish.
+  if (!combination.isBomb && wish !== null && canFulfillWish(hand, wish, trickTop)) {
     if (!isWishFulfilled(combination, wish)) {
       return {
         valid: false,
@@ -96,9 +97,11 @@ export function getValidPlays(
   // If no wish, all plays are valid
   if (wish === null) return allPlays;
 
-  // If wish is active and player can fulfill it, filter to only wish-fulfilling plays
+  // If wish is active and player can fulfill it, filter to wish-fulfilling
+  // plays while preserving bombs. Bombs are legal interrupts and do not need
+  // to satisfy the wish.
   if (canFulfillWish(hand, wish, trickTop)) {
-    const wishPlays = allPlays.filter((combo) => isWishFulfilled(combo, wish));
+    const wishPlays = allPlays.filter((combo) => combo.isBomb || isWishFulfilled(combo, wish));
     // Only filter if there are wish-fulfilling plays (canFulfillWish guarantees this)
     return wishPlays.length > 0 ? wishPlays : allPlays;
   }
