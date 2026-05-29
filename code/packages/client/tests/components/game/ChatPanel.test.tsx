@@ -100,6 +100,38 @@ describe('ChatPanel (REQ-F-MP07)', () => {
     expect(screen.getByText('Spectator chat has been enabled by the host')).toBeInTheDocument();
   });
 
+  it('renders http and https URLs as links', () => {
+    render(
+      <ChatPanel
+        messages={[
+          { from: 'north', text: 'Join https://example.com/game/ABC123 and http://localhost:3000/lobby', timestamp: 1000 },
+        ]}
+        onSend={vi.fn()}
+        isOpen={true}
+        onToggle={vi.fn()}
+        unreadCount={0}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'https://example.com/game/ABC123' })).toHaveAttribute('href', 'https://example.com/game/ABC123');
+    expect(screen.getByRole('link', { name: 'http://localhost:3000/lobby' })).toHaveAttribute('href', 'http://localhost:3000/lobby');
+  });
+
+  it('renders bare www URLs as https links without swallowing trailing punctuation', () => {
+    render(
+      <ChatPanel
+        messages={[{ from: 'east', text: 'Look at www.example.com/test).', timestamp: 1000 }]}
+        onSend={vi.fn()}
+        isOpen={true}
+        onToggle={vi.fn()}
+        unreadCount={0}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: 'www.example.com/test' })).toHaveAttribute('href', 'https://www.example.com/test');
+    expect(screen.getByText((_content, el) => el?.textContent === 'Look at www.example.com/test).')).toBeInTheDocument();
+  });
+
   it('shows host toggle when isHost is true', () => {
     render(
       <ChatPanel

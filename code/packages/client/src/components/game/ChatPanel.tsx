@@ -37,6 +37,52 @@ const SEAT_LABELS: Record<Seat, string> = {
   west: 'West',
 };
 
+const URL_PATTERN = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
+const TRAILING_URL_PUNCTUATION = /[.,!?;:)\]]+$/;
+
+function renderMessageText(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(URL_PATTERN)) {
+    const rawUrl = match[0];
+    const index = match.index ?? 0;
+    const trailing = rawUrl.match(TRAILING_URL_PUNCTUATION)?.[0] ?? '';
+    const displayUrl = trailing ? rawUrl.slice(0, -trailing.length) : rawUrl;
+
+    if (index > lastIndex) {
+      parts.push(text.slice(lastIndex, index));
+    }
+
+    if (displayUrl) {
+      const href = displayUrl.startsWith('www.') ? `https://${displayUrl}` : displayUrl;
+      parts.push(
+        <a
+          key={`${index}-${displayUrl}`}
+          className={styles.messageLink}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {displayUrl}
+        </a>,
+      );
+    }
+
+    if (trailing) {
+      parts.push(trailing);
+    }
+
+    lastIndex = index + rawUrl.length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
 export const ChatPanel = memo(function ChatPanel({
   messages,
   onSend,
@@ -130,21 +176,21 @@ export const ChatPanel = memo(function ChatPanel({
                     return (
                       <div key={i} className={`${styles.message} ${styles.spectatorMessage}`}>
                         <span className={styles.sender}>{msg.spectatorName} <span className={styles.spectatorTag}>(spectator)</span>: </span>
-                        <span className={styles.messageText}>{msg.text}</span>
+                        <span className={styles.messageText}>{renderMessageText(msg.text)}</span>
                       </div>
                     );
                   }
                   if (msg.from === null) {
                     return (
                       <div key={i} className={styles.systemMessage}>
-                        <span className={styles.systemText}>{msg.text}</span>
+                        <span className={styles.systemText}>{renderMessageText(msg.text)}</span>
                       </div>
                     );
                   }
                   return (
                     <div key={i} className={styles.message}>
                       <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}:</span>
-                      <span className={styles.messageText}>{msg.text}</span>
+                      <span className={styles.messageText}>{renderMessageText(msg.text)}</span>
                     </div>
                   );
                 })}

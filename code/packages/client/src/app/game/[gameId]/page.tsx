@@ -643,29 +643,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [bombPopupOpen, isMobileLayout]);
 
-  // Chat bubble positioning: vertically centered between trick area bottom and action bar top
-  const [chatBubblePos, setChatBubblePos] = useState<{ top: number; right: number } | null>(null);
-
-  useEffect(() => {
-    if (!isMobileLayout) return;
-    function updatePos() {
-      // Chat bubble
-      const trickEl = document.querySelector('[data-debug-area="Center / Trick"]');
-      const actionBarEl = document.querySelector('[data-debug-area="Action Bar"]');
-      if (trickEl && actionBarEl) {
-        const trickRect = trickEl.getBoundingClientRect();
-        const actionBarRect = actionBarEl.getBoundingClientRect();
-        const midY = (trickRect.bottom + actionBarRect.top) / 2;
-        const centerX = actionBarRect.right - actionBarRect.width * 0.1;
-        setChatBubblePos({ top: midY, right: window.innerWidth - centerX });
-      }
-    }
-    updatePos();
-    window.addEventListener('resize', updatePos);
-    const interval = setInterval(updatePos, 500);
-    return () => { window.removeEventListener('resize', updatePos); clearInterval(interval); };
-  }, [isMobileLayout]);
-
   const handlePhoenixChoice = useCallback(
     (value: Rank) => {
       const cardIds = [...selection.selectedIds];
@@ -1217,22 +1194,48 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           layoutTier={layoutTier}
         />
         {/* Chat available in pre-room — full layout: side panel; mobile: overlay */}
-        <ChatPanel
-          messages={uiStore.chatMessages}
-          onSend={handleChatSend}
-          isOpen={uiStore.chatOpen}
-          onToggle={handleChatToggle}
-          unreadCount={uiStore.chatUnread}
-          seatNames={preRoomSeatNames}
-          isHost={mySeatFromRoom === hostSeat}
-          isSpectator={isPreRoomSpectator}
-          spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
-          onToggleSpectatorChat={() => send({
-            type: 'CONFIGURE_ROOM',
-            config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
-          })}
-          {...(isMobileLayout ? { mobile: true } : {})}
-        />
+        {isMobileLayout ? (
+          <div style={{
+            position: 'fixed',
+            top: 'var(--space-4)',
+            right: 'var(--space-4)',
+            zIndex: 30,
+            pointerEvents: 'auto',
+          }}>
+            <ChatPanel
+              messages={uiStore.chatMessages}
+              onSend={handleChatSend}
+              isOpen={uiStore.chatOpen}
+              onToggle={handleChatToggle}
+              unreadCount={uiStore.chatUnread}
+              seatNames={preRoomSeatNames}
+              isHost={mySeatFromRoom === hostSeat}
+              isSpectator={isPreRoomSpectator}
+              spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+              onToggleSpectatorChat={() => send({
+                type: 'CONFIGURE_ROOM',
+                config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
+              })}
+              mobile
+            />
+          </div>
+        ) : (
+          <ChatPanel
+            messages={uiStore.chatMessages}
+            onSend={handleChatSend}
+            isOpen={uiStore.chatOpen}
+            onToggle={handleChatToggle}
+            unreadCount={uiStore.chatUnread}
+            seatNames={preRoomSeatNames}
+            isHost={mySeatFromRoom === hostSeat}
+            isSpectator={isPreRoomSpectator}
+            spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+            onToggleSpectatorChat={() => send({
+              type: 'CONFIGURE_ROOM',
+              config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
+            })}
+          />
+        )}
         {/* Game summary overlay — shown after server auto-returns to pre-game */}
         {savedGameOver && (
           <GameEndPhase
@@ -1931,38 +1934,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         </div>
       )}
 
-      {/* Mobile score panel — right-aligned with right opponent, top-aligned with partner tichu banner */}
-      {isMobileLayout && gameStore.scores && (
+      {/* Mobile right chrome: collapsed chat icon + compact score */}
+      {isMobileLayout && (
         <div style={{
           position: 'fixed',
           top: 'var(--space-4)',
           right: 'var(--space-4)',
           zIndex: 30,
-          pointerEvents: 'auto',
-        }}>
-          <ScorePanel
-            scores={gameStore.scores}
-            roundHistory={gameStore.roundHistory}
-            tichuCalls={tichuCalls}
-            targetScore={gameStore.config?.targetScore ?? 1000}
-            seatNames={seatNames}
-            mySeat={mySeat!}
-            tichuFailedSeats={tichuFailedSeats}
-            tichuSucceededSeats={tichuSucceededSeats}
-            vacatedSeats={gameStore.vacatedSeats}
-            compact
-          />
-        </div>
-      )}
-
-      {/* Mobile chat bubble — vertically centered between trick area bottom and Bomb button top, horizontally centered with Bomb */}
-      {isMobileLayout && (
-        <div style={{
-          position: 'fixed',
-          ...(chatBubblePos
-            ? { top: chatBubblePos.top, right: chatBubblePos.right, transform: 'translate(50%, -50%)' }
-            : { bottom: 'calc(140px * var(--scale) + 28vw)', right: 'calc(5vw + 8.75vw * 0.5)', transform: 'translateX(50%)' }),
-          zIndex: 31,
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 'var(--space-2)',
           pointerEvents: 'auto',
         }}>
           <ChatPanel
@@ -1981,6 +1962,20 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             })}
             mobile
           />
+          {gameStore.scores && (
+            <ScorePanel
+              scores={gameStore.scores}
+              roundHistory={gameStore.roundHistory}
+              tichuCalls={tichuCalls}
+              targetScore={gameStore.config?.targetScore ?? 1000}
+              seatNames={seatNames}
+              mySeat={mySeat!}
+              tichuFailedSeats={tichuFailedSeats}
+              tichuSucceededSeats={tichuSucceededSeats}
+              vacatedSeats={gameStore.vacatedSeats}
+              compact
+            />
+          )}
         </div>
       )}
 

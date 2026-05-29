@@ -494,29 +494,29 @@
    with the dynamic --scale.  Re-declare them here at scale=1 so the seat
    and all its children render at a constant size. */
 :root[data-layout="full"] .seat {
-  --scale: 0.6;
+  --scale: 1;
 
   /* Spacing (used by padding, gap, margin, border-radius) */
-  --space-1: 2.4px;
-  --space-2: 4.8px;
-  --space-3: 7.2px;
-  --space-4: 9.6px;
-  --space-5: 12px;
-  --space-6: 14.4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
 
   /* Font sizes (used by name, card count, labels, banners) */
-  --font-xs: 6px;
-  --font-sm: 7.2px;
-  --font-md: 8.4px;
-  --font-base: 9.6px;
-  --font-lg: 10.8px;
-  --font-xl: 12px;
-  --font-3xl: 16.8px;
-  --font-4xl: 19.2px;
+  --font-xs: 10px;
+  --font-sm: 12px;
+  --font-md: 14px;
+  --font-base: 16px;
+  --font-lg: 18px;
+  --font-xl: 20px;
+  --font-3xl: 28px;
+  --font-4xl: 32px;
 
   /* Layout */
-  --seat-avatar-size: 24px;
-  --card-border-radius: 3.6px;
+  --seat-avatar-size: 40px;
+  --card-border-radius: 6px;
 }
 
 /* REQ-NF-U01: Mobile tier seats (<900px) */

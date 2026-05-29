@@ -125,6 +125,16 @@
   word-break: break-word;
 }
 
+.messageLink {
+  color: var(--color-gold-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.messageLink:hover {
+  color: var(--color-text-primary);
+}
+
 /* Input row */
 .inputRow {
   display: flex;
