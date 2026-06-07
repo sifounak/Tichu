@@ -127,6 +127,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const [showSettings, setShowSettings] = useState(false);
   // Host transfer notification state
   const [hostTransferInfo, setHostTransferInfo] = useState<{ oldHostName: string; newHostName: string } | null>(null);
+  const serverRestartSeenRef = useRef(false);
+  const serverRestartReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // REQ-F-ID01: Use auth identity when logged in, fall back to guest
   const { user: authUser, authReady, loadFromStorage: loadAuth } = useAuthStore();
@@ -142,6 +144,14 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // Placed before handleMessage so confirmNavigation is available for server-initiated navigation
   const { dialogOpen: backButtonDialogOpen, confirmNavigation, cancelNavigation } =
     useNavigationBlock({ enabled: Boolean(roomCode) });
+
+  useEffect(() => {
+    return () => {
+      if (serverRestartReloadTimerRef.current) {
+        clearTimeout(serverRestartReloadTimerRef.current);
+      }
+    };
+  }, []);
 
   // REQ-F-DA01: Dog animation detection and timing
   const { enabled: animEnabled, multiplier: animMultiplier } = useAnimationSettings();
@@ -416,6 +426,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         gameStore.reset();
         router.push('/lobby');
       } else if (msg.type === 'SERVER_SHUTTING_DOWN') {
+        serverRestartSeenRef.current = true;
         uiStore.setServerRestarting(true);
       } else if (msg.type === 'ERROR') {
         if (msg.code === 'JOIN_ROOM_FAILED' && !useRoomStore.getState().roomCode) {
@@ -446,6 +457,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     uiStore.setConnectionStatus(s);
     if (s === 'connected') {
       uiStore.setServerRestarting(false);
+      if (serverRestartSeenRef.current && !serverRestartReloadTimerRef.current) {
+        serverRestartSeenRef.current = false;
+        serverRestartReloadTimerRef.current = setTimeout(() => {
+          window.location.reload();
+        }, 250);
+      }
     }
   }, [uiStore]);
   // REQ-F-RAD07: Spinner after 3s, REQ-F-RAD08: Restore state on failure
