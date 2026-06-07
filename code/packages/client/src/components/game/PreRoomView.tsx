@@ -816,7 +816,7 @@ export function PreRoomView({
 
       {/* Mobile top-left chrome: [Spectating] [Room Name] [# watching] / [⋮ kebab] / [Leave Game] */}
       {isMobileLayout && (
-        <div style={{
+        <div data-debug-area="Mobile Chrome" style={{
           position: 'fixed',
           top: 'var(--space-3)',
           left: 'var(--space-4)',
@@ -824,15 +824,15 @@ export function PreRoomView({
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-start',
-          gap: 'var(--space-3)',
+          gap: 'var(--space-2)',
         }}>
           {/* Row 1: [Room Name] [eye icon + count] */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             {/* REQ-F-GA01: Room name — click to copy URL */}
             <button
               onClick={handleCopyUrl}
               style={{
-                fontSize: 'calc(24px * var(--scale))',
+                fontSize: 'calc(32px * var(--scale))',
                 fontWeight: 700,
                 color: urlCopied ? 'var(--color-text-primary)' : 'var(--color-gold-accent)',
                 background: 'transparent',
@@ -865,13 +865,13 @@ export function PreRoomView({
                 background: 'var(--color-bg-panel)',
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--space-2)',
-                padding: 'calc(2px * var(--scale)) calc(6px * var(--scale))',
-                fontSize: 'var(--font-sm)',
+                padding: 'calc(4px * var(--scale)) calc(10px * var(--scale))',
+                fontSize: 'var(--font-base)',
                 fontWeight: 600,
                 color: 'var(--color-text-secondary)',
                 cursor: 'default',
               }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, display: 'block' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, display: 'block' }}>
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
@@ -920,12 +920,12 @@ export function PreRoomView({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 'calc(32px * var(--scale))',
-                  height: 'calc(32px * var(--scale))',
+                  width: 'calc(44px * var(--scale))',
+                  height: 'calc(44px * var(--scale))',
                   color: 'var(--color-text-primary)',
                   background: 'var(--color-bg-panel)',
                   border: '1px solid var(--color-border)',
-                  borderRadius: 'calc(8px * var(--scale))',
+                  borderRadius: 'calc(10px * var(--scale))',
                   cursor: 'pointer',
                   transition: 'background var(--duration-fast) var(--easing-smooth), border-color var(--duration-fast) var(--easing-smooth)',
                 }}
@@ -933,7 +933,7 @@ export function PreRoomView({
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-bg-panel)'; e.currentTarget.style.borderColor = 'var(--color-border)'; }}
                 aria-label="Game Menu"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ display: 'block' }}>
                   <line x1="3" y1="6" x2="21" y2="6" />
                   <line x1="3" y1="12" x2="21" y2="12" />
                   <line x1="3" y1="18" x2="21" y2="18" />
@@ -970,16 +970,16 @@ export function PreRoomView({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    width: 'calc(32px * var(--scale))',
-                    height: 'calc(32px * var(--scale))',
+                    width: 'calc(44px * var(--scale))',
+                    height: 'calc(44px * var(--scale))',
                     background: 'var(--color-gold-accent)',
                     color: 'var(--color-felt-green-dark)',
                     border: 'none',
-                    borderRadius: 'calc(8px * var(--scale))',
+                    borderRadius: 'calc(10px * var(--scale))',
                   }}
                   aria-label="You are a spectator"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                     <circle cx="12" cy="12" r="3" />
                   </svg>
@@ -1024,12 +1024,12 @@ export function PreRoomView({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      width: 'calc(32px * var(--scale))',
-                      height: 'calc(32px * var(--scale))',
+                      width: 'calc(44px * var(--scale))',
+                      height: 'calc(44px * var(--scale))',
                       color: 'white',
                       background: '#991b1b',
                       border: 'none',
-                      borderRadius: 'calc(8px * var(--scale))',
+                      borderRadius: 'calc(10px * var(--scale))',
                       cursor: 'pointer',
                       transition: 'background var(--duration-fast) var(--easing-smooth)',
                     }}
@@ -1037,7 +1037,7 @@ export function PreRoomView({
                     onMouseLeave={(e) => { e.currentTarget.style.background = '#991b1b'; }}
                     aria-label="Leave room"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                       <polyline points="16 17 21 12 16 7" />
                       <line x1="21" y1="12" x2="9" y2="12" />
