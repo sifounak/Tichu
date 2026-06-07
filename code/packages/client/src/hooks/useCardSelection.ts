@@ -90,13 +90,17 @@ export function useCardSelection(
     if (selectedCards.length < 4) return false;
     const combo = detectCombination(selectedCards);
     if (!combo?.isBomb) return false;
-    // Must beat current trick top if there is one
+    // Out-of-turn bombs interrupt an active trick only.
+    if (!isMyTurn) {
+      if (!currentTrick || currentTrick.plays.length === 0) return false;
+    }
     if (currentTrick && currentTrick.plays.length > 0) {
       const trickTop = currentTrick.plays[currentTrick.plays.length - 1].combination;
       return canBeat(combo, trickTop);
     }
+    // On your turn with no active trick, a bomb is just a legal lead.
     return false;
-  }, [selectedCards, currentTrick]);
+  }, [selectedCards, currentTrick, isMyTurn]);
 
   // REQ-F-HV06: canPlay — selection forms a valid combination
   // REQ-F-BI11: Off-turn, only bombs are playable

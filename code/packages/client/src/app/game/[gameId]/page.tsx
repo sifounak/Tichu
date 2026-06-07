@@ -546,6 +546,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     uiStore.clearSelection,
     isMyTurnForSelection,
   );
+  const shouldQueueForBombWindow = bombWindow.bombWindowActive && (gameStore.currentTrick?.plays.length ?? 0) > 0;
 
   // --- Action handlers ---
 
@@ -591,7 +592,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     }
 
     // REQ-F-BW01: Queue non-bomb plays during bomb window
-    if (bombWindow.bombWindowActive && !selection.isBombSelection) {
+    if (shouldQueueForBombWindow && !selection.isBombSelection) {
       uiStore.setQueuedPlay({ cardIds, phoenixAs });
       return;
     }
@@ -606,7 +607,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     uiStore.setAutoPassEnabled(false);
     // Auto-dismiss received cards display when playing
     if (showReceivedCards) setShowReceivedCards(false);
-  }, [selection, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive, showReceivedCards, captureSnapshot]);
+  }, [selection, send, uiStore, hasMahjongInSelection, shouldQueueForBombWindow, showReceivedCards, captureSnapshot]);
 
   // REQ-F-BI09: Handle out-of-turn bomb play (selection-based)
   const handleBomb = useCallback(() => {
@@ -675,7 +676,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       }
 
       // REQ-F-BW01: Queue during bomb window
-      if (bombWindow.bombWindowActive) {
+      if (shouldQueueForBombWindow) {
         uiStore.setQueuedPlay({ cardIds, phoenixAs: value });
       } else {
         send({ type: 'PLAY_CARDS', cardIds, phoenixAs: value });
@@ -685,7 +686,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       uiStore.setAutoPassEnabled(false);
       if (showReceivedCards) setShowReceivedCards(false);
     },
-    [selection.selectedIds, send, uiStore, hasMahjongInSelection, bombWindow.bombWindowActive, showReceivedCards],
+    [selection.selectedIds, send, uiStore, hasMahjongInSelection, shouldQueueForBombWindow, showReceivedCards],
   );
 
   // REQ-F-WP01: Handle wish choice from WishPicker
@@ -695,7 +696,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       if (!pending) return;
       uiStore.hideWishPicker();
       // REQ-F-BW01: Queue during bomb window
-      if (bombWindow.bombWindowActive) {
+      if (shouldQueueForBombWindow) {
         uiStore.setQueuedPlay({ ...pending, wish });
       } else {
         send({ type: 'PLAY_CARDS', ...pending, wish });
@@ -705,7 +706,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       uiStore.setAutoPassEnabled(false);
       if (showReceivedCards) setShowReceivedCards(false);
     },
-    [send, uiStore, bombWindow.bombWindowActive, showReceivedCards],
+    [send, uiStore, shouldQueueForBombWindow, showReceivedCards],
   );
 
   const handlePass = useCallback(() => {

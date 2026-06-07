@@ -157,10 +157,10 @@ export const ActionBar = memo(function ActionBar({
     <button
       className={`${styles.button} ${styles.passButton} ${styles.noValidPlayButton}`}
       disabled
-      aria-label="No valid plays available"
+      aria-label="No tricks available"
     >
-      <span>No Valid</span>
-      <span>Plays Available</span>
+      <span>No Tricks</span>
+      <span>Available</span>
     </button>
   );
 
