@@ -1416,7 +1416,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           fontSize: '14px',
           letterSpacing: '0.01em',
         }}>
-          Server restarting — reconnecting automatically...
+          Server Restarting - Browser will refresh reconnect automatically...
         </div>
       )}
       {/* Desktop top-left chrome — same compact layout as mobile */}
