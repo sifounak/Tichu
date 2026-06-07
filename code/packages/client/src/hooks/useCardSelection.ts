@@ -11,6 +11,7 @@ import {
   detectCombination,
   canPlayerPass,
   canBeat,
+  getValidPlays,
 } from '@tichu/shared';
 import type { PhoenixResolution } from '@tichu/shared';
 
@@ -23,6 +24,8 @@ export interface CardSelectionState {
   disabledIds: Set<CardId>;
   /** Whether the current selection forms a valid playable combination */
   canPlay: boolean;
+  /** Whether the player has any valid play available from their hand */
+  hasAnyValidPlay: boolean;
   /** Whether the player can pass this turn */
   canPass: boolean;
   /** REQ-F-BI09: Whether the current selection is a valid bomb (for off-turn play) */
@@ -113,6 +116,11 @@ export function useCardSelection(
     return true;
   }, [selectedCards, phoenixResolution, isMyTurn, currentTrick]);
 
+  const hasAnyValidPlay = useMemo(
+    () => isMyTurn && getValidPlays(hand, currentTrick, wish).length > 0,
+    [hand, currentTrick, wish, isMyTurn],
+  );
+
   // Can player pass?
   const canPass = useMemo(
     () => canPlayerPass(hand, currentTrick, wish),
@@ -132,6 +140,7 @@ export function useCardSelection(
     selectableIds,
     disabledIds,
     canPlay,
+    hasAnyValidPlay,
     canPass,
     isBombSelection,
     phoenixResolution,

@@ -13,6 +13,8 @@ import styles from './ActionBar.module.css';
 export interface ActionBarProps {
   /** Whether the current selection forms a valid play */
   canPlay: boolean;
+  /** Whether the player has any valid play available from their hand */
+  hasAnyValidPlay: boolean;
   /** Whether the player can pass this turn */
   canPass: boolean;
   /** Whether it's the player's turn */
@@ -60,6 +62,7 @@ export interface ActionBarProps {
 
 export const ActionBar = memo(function ActionBar({
   canPlay,
+  hasAnyValidPlay,
   canPass,
   isMyTurn,
   phase,
@@ -150,6 +153,17 @@ export const ActionBar = memo(function ActionBar({
     if (!playQueued) setQueueHovered(false);
   }, [playQueued]);
 
+  const noValidPlayButton = showActions && !playQueued && !hasAnyValidPlay && (
+    <button
+      className={`${styles.button} ${styles.passButton} ${styles.noValidPlayButton}`}
+      disabled
+      aria-label="No valid plays available"
+    >
+      <span>No Valid</span>
+      <span>Plays Available</span>
+    </button>
+  );
+
   const playButton = showActions && (
     playQueued ? (
       <button
@@ -171,6 +185,8 @@ export const ActionBar = memo(function ActionBar({
           </>
         )}
       </button>
+    ) : noValidPlayButton ? (
+      noValidPlayButton
     ) : (
       <button
         className={`${styles.button} ${styles.playButton}`}

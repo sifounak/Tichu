@@ -2334,6 +2334,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               <div data-debug-area="Action Bar" style={{ pointerEvents: 'auto', width: '100%', paddingLeft: '5vw', paddingRight: '5vw', boxSizing: 'border-box', position: 'relative' }}>
                 <ActionBar
                   canPlay={!gameStore.gameHalted && selection.canPlay}
+                  hasAnyValidPlay={!gameStore.gameHalted && selection.hasAnyValidPlay}
                   canPass={!gameStore.gameHalted && selection.canPass}
                   isMyTurn={!gameStore.gameHalted && isMyTurn}
                   phase={phase!}
@@ -2362,6 +2363,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               <div data-debug-area="Action Bar" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', justifyContent: 'center', pointerEvents: 'auto', position: 'relative' }}>
                 <ActionBar
                   canPlay={!gameStore.gameHalted && selection.canPlay}
+                  hasAnyValidPlay={!gameStore.gameHalted && selection.hasAnyValidPlay}
                   canPass={!gameStore.gameHalted && selection.canPass}
                   isMyTurn={!gameStore.gameHalted && isMyTurn}
                   phase={phase!}
