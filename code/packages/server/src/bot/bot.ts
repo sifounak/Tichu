@@ -1027,6 +1027,11 @@ export class Bot implements BotStrategy {
     return call === 'tichu' || call === 'grandTichu';
   }
 
+  private hasSelfTichuCall(roundState: RoundState, seat: Seat): boolean {
+    const call = roundState.players[seat].tipiCall;
+    return call === 'tichu' || call === 'grandTichu';
+  }
+
   // REQ-F-PTS01-03: Partner Tichu lead strategy with escalation
   /**
    * When partner called GT/T:
@@ -1611,6 +1616,9 @@ export class Bot implements BotStrategy {
       ? this.evaluateTichuDefense(roundState, seat)
       : null;
 
+    const selfTichuExitPlay = this.getSelfTichuExitFollowPlay(roundState, seat, hand, plays);
+    if (selfTichuExitPlay) return this.toDecision(selfTichuExitPlay);
+
     // Partner winning — handle overplay and pass logic
     if (partnerWinning && canPass) {
       // REQ-F-PTS05: Suppress go-out when partner called GT/T
@@ -1727,6 +1735,35 @@ export class Bot implements BotStrategy {
 
     if (canPass) return { action: 'pass' };
     return this.toDecision(plays[0]);
+  }
+
+  /**
+   * When this bot called Tichu/Grand Tichu and can reduce to one card while
+   * following, take control instead of politely passing to partner. Passing here
+   * can let the partner finish first and break the bot's own Tichu.
+   */
+  private getSelfTichuExitFollowPlay(
+    roundState: RoundState,
+    seat: Seat,
+    hand: GameCard[],
+    plays: Combination[],
+  ): Combination | null {
+    if (!this.hasSelfTichuCall(roundState, seat)) return null;
+    if (roundState.players[seat].finishOrder !== null) return null;
+
+    const exitPlays = plays.filter((combo) => hand.length - combo.cards.length <= 1);
+    if (exitPlays.length === 0) return null;
+
+    return [...exitPlays].sort((a, b) => {
+      if (a.isBomb !== b.isBomb) return a.isBomb ? -1 : 1;
+
+      const aHasDragon = a.cards.some((gc) => isDragon(gc.card));
+      const bHasDragon = b.cards.some((gc) => isDragon(gc.card));
+      if (aHasDragon !== bHasDragon) return aHasDragon ? -1 : 1;
+
+      if (a.rank !== b.rank) return b.rank - a.rank;
+      return b.cards.length - a.cards.length;
+    })[0];
   }
 
   // ─── Endgame Strategy ─────────────────────────────────────────────────────

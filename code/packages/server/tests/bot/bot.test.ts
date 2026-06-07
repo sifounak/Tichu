@@ -3882,6 +3882,49 @@ describe('Bot', () => {
       expect(decision.action).toBe('pass');
     });
 
+    it('overplays partner with Dragon when bot called Tichu and can exit next', () => {
+      const bot = new Bot();
+      const dragon = card('dragon');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [dragon, c3];
+
+      const trick = {
+        plays: [
+          { seat: 'south' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+        ],
+        passes: [],
+        leadSeat: 'south' as Seat,
+        currentWinner: 'south' as Seat,
+      } as TrickState;
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 7, 'jade', 70)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 11, 'jade', 110)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const validPlays = [
+        makeCombo(CombinationType.Single, [dragon], 25),
+      ];
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays,
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      });
+
+      const decision = bot.choosePlay(ctx);
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).toBe('dragon');
+      }
+    });
+
     // Verifies: REQ-F-PTS07 — does NOT apply when partner called Tichu
     it('does not overplay partner when partner called Tichu', () => {
       const bot = new Bot();
