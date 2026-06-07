@@ -1,5 +1,5 @@
 // Verifies: REQ-F-MP07 — In-game chat panel
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatPanel, type ChatMessage } from '@/components/game/ChatPanel';
 
@@ -7,8 +7,18 @@ const mockMessages: ChatMessage[] = [
   { from: 'north', text: 'Hello!', timestamp: 1000 },
   { from: 'east', text: 'Good luck!', timestamp: 2000 },
 ];
+const originalScrollIntoView = HTMLDivElement.prototype.scrollIntoView;
 
 describe('ChatPanel (REQ-F-MP07)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    if (originalScrollIntoView) {
+      HTMLDivElement.prototype.scrollIntoView = originalScrollIntoView;
+    } else {
+      delete (HTMLDivElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  });
+
   it('renders toggle button when closed', () => {
     render(
       <ChatPanel messages={[]} onSend={vi.fn()} isOpen={false} onToggle={vi.fn()} unreadCount={0} />,
@@ -33,6 +43,22 @@ describe('ChatPanel (REQ-F-MP07)', () => {
     expect(screen.getByText('Good luck!')).toBeInTheDocument();
     expect(screen.getByText('North:')).toBeInTheDocument();
     expect(screen.getByText('East:')).toBeInTheDocument();
+  });
+
+  it('scrolls to the latest messages when opened in mobile mode', () => {
+    const scrollIntoView = vi.fn();
+    HTMLDivElement.prototype.scrollIntoView = scrollIntoView;
+
+    const { rerender } = render(
+      <ChatPanel messages={mockMessages} onSend={vi.fn()} isOpen={false} onToggle={vi.fn()} unreadCount={2} mobile />,
+    );
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    rerender(
+      <ChatPanel messages={mockMessages} onSend={vi.fn()} isOpen={true} onToggle={vi.fn()} unreadCount={0} mobile />,
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'auto', block: 'end' });
   });
 
   it('shows empty state when no messages', () => {

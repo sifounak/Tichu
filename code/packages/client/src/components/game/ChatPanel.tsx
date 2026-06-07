@@ -1,7 +1,7 @@
 // REQ-F-MP07: In-game text chat — side panel desktop, bottom sheet mobile
 'use client';
 
-import { memo, useState, useRef, useEffect, useCallback } from 'react';
+import { memo, useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { Seat } from '@tichu/shared';
 import styles from './ChatPanel.module.css';
@@ -101,10 +101,23 @@ export const ChatPanel = memo(function ChatPanel({
   const effectiveReadOnly = isSpectator ? !spectatorChatEnabled : readOnly;
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const previousMessageCountRef = useRef(messages.length);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
+    messagesEndRef.current?.scrollIntoView?.({ behavior, block: 'end' });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    scrollToBottom('auto');
+  }, [isOpen, mobile, scrollToBottom]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
-  }, [messages.length]);
+    const previousMessageCount = previousMessageCountRef.current;
+    previousMessageCountRef.current = messages.length;
+    if (!isOpen || messages.length === previousMessageCount) return;
+    scrollToBottom('smooth');
+  }, [isOpen, messages.length, scrollToBottom]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
