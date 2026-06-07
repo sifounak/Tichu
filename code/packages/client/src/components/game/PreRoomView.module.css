@@ -33,6 +33,13 @@
   align-items: stretch;
   justify-content: space-evenly;
   align-self: stretch;
+  width: calc(100% + 2 * var(--space-6));
+  margin-inline: calc(-1 * var(--space-6));
+}
+
+:global([data-layout="mobile"]) .emptySeatButtons {
+  width: calc(100% + 2 * var(--space-4));
+  margin-inline: calc(-1 * var(--space-4));
 }
 
 .emptyTitle {
