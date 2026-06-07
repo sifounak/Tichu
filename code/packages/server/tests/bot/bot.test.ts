@@ -457,6 +457,79 @@ describe('Bot', () => {
       expect(result.west.card.kind).toBe('dog');
     });
 
+    it('keeps Dog when partner called Grand Tichu and bot has three Kings for control', () => {
+      const bot = new Bot();
+      const hand = [
+        card('dog'),
+        card('standard', 13, 'jade', 1301),
+        card('standard', 13, 'pagoda', 1302),
+        card('standard', 13, 'star', 1303),
+        card('standard', 3, 'jade', 301), card('standard', 4, 'pagoda', 402),
+        card('standard', 5, 'star', 503), card('standard', 6, 'sword', 604),
+        card('standard', 7, 'jade', 701), card('standard', 8, 'pagoda', 802),
+        card('standard', 9, 'star', 903), card('standard', 10, 'sword', 1004),
+        card('standard', 11, 'jade', 1101), card('standard', 12, 'pagoda', 1202),
+      ];
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'grandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.setContext(roundState, { northSouth: 0, eastWest: 0 }, 1000);
+
+      const result = bot.chooseCardsToPass(hand, 'north');
+
+      expect(result.east.card.kind).not.toBe('dog');
+      expect(result.south.card.kind).not.toBe('dog');
+      expect(result.west.card.kind).not.toBe('dog');
+    });
+
+    it('keeps Dog when weak hand passes partner a strong card and retains control', () => {
+      const bot = new Bot();
+      const hand = [
+        card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 13, 'jade', 1301),
+        card('standard', 13, 'pagoda', 1302),
+        card('standard', 13, 'star', 1303),
+        card('standard', 3, 'jade', 301), card('standard', 4, 'pagoda', 402),
+        card('standard', 5, 'star', 503), card('standard', 6, 'sword', 604),
+        card('standard', 7, 'jade', 701), card('standard', 8, 'pagoda', 802),
+        card('standard', 9, 'star', 903), card('standard', 10, 'sword', 1004),
+        card('standard', 11, 'jade', 1101),
+      ];
+
+      const result = bot.chooseCardsToPass(hand, 'north');
+
+      expect(result.south.card.kind === 'standard' && result.south.card.rank === 14).toBe(true);
+      expect(result.east.card.kind).not.toBe('dog');
+      expect(result.south.card.kind).not.toBe('dog');
+      expect(result.west.card.kind).not.toBe('dog');
+    });
+
+    it('passes Dog from weak hand when the partner card consumes its only control', () => {
+      const bot = new Bot();
+      const hand = [
+        card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 13, 'jade', 1301),
+        card('standard', 12, 'pagoda', 1202),
+        card('standard', 3, 'jade', 301), card('standard', 4, 'pagoda', 402),
+        card('standard', 5, 'star', 503), card('standard', 6, 'sword', 604),
+        card('standard', 7, 'jade', 701), card('standard', 8, 'pagoda', 802),
+        card('standard', 9, 'star', 903), card('standard', 10, 'sword', 1004),
+        card('standard', 11, 'jade', 1101), card('standard', 12, 'sword', 1204),
+      ];
+
+      const result = bot.chooseCardsToPass(hand, 'north');
+
+      expect(result.south.card.kind === 'standard' && result.south.card.rank === 14).toBe(true);
+      expect(result.east.card.kind).toBe('dog');
+    });
+
     // Verifies: REQ-F-PASS08
     it('tracks passedToRight for Mahjong wish', () => {
       const bot = new Bot();

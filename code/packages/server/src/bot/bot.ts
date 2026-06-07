@@ -239,12 +239,33 @@ export class Bot implements BotStrategy {
     // REQ-F-PASS01: Use M1 strength definition (2+ power cards)
     const isStrongHand = hasStrength(hand);
 
+    const defaultPartnerCard = this.selectDefaultPartnerPassCard(
+      hand,
+      sorted,
+      isStrongHand,
+      hasDragon,
+      hasPhoenixCard,
+    );
+
     // ─ REQ-F-PASS06/07: Dog routing ─
     let dogRecipient: Seat | null = null;
     if (hasDog) {
+      const partnerHasCall = this.partnerHasTichuCall(seat);
+      const canRecoverControlNow = this.hasReliableControlForDogSave(hand);
+      const canRecoverControlAfterPassingToPartner =
+        this.hasReliableControlForDogSave(hand, defaultPartnerCard);
+      const shouldSaveDogForPartner =
+        (partnerHasCall && canRecoverControlNow) ||
+        (
+          canRecoverControlAfterPassingToPartner &&
+          !isStrongHand &&
+          this.isStrongCardForPartner(defaultPartnerCard)
+        );
       // Check if any opponent called GT/T (available from lastRoundState set by setContext)
       const opponentWithCall = this.getOpponentWithTichuCall(seat);
-      if (opponentWithCall) {
+      if (shouldSaveDogForPartner) {
+        dogRecipient = null; // Keep Dog to regain control later and transfer lead to partner.
+      } else if (opponentWithCall) {
         // REQ-F-PASS06: Dog to opponent who called GT/T
         dogRecipient = opponentWithCall;
       } else if (isStrongHand) {
@@ -269,33 +290,13 @@ export class Bot implements BotStrategy {
     let partnerCard: GameCard | null = null;
 
     if (!isStrongHand) {
-      // Weak hand: pass best card to partner (Fuegi: concentrate strength)
-      // Dragon > Phoenix > Ace > highest standard
-      if (hasDragon) {
-        partnerCard = hand.find((gc) => isDragon(gc.card))!;
-      } else if (hasPhoenixCard) {
-        partnerCard = hand.find((gc) => isPhoenix(gc.card))!;
-      } else {
-        // Pass highest card (last in sorted = strongest)
-        partnerCard = sorted[sorted.length - 1];
-      }
+      partnerCard = defaultPartnerCard;
     } else {
       // REQ-F-PASS02: Strong hand: 3rd-worst card that doesn't break a combo
       if (dogRecipient === partner) {
         partnerCard = hand.find((gc) => isDog(gc.card))!;
       } else {
-        const nonBreaking = getThirdWorstNonBreaking(hand.filter(
-          (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
-        ));
-        if (nonBreaking) {
-          partnerCard = nonBreaking;
-        } else {
-          // Fallback: 3rd-weakest non-special
-          const nonSpecial = sorted.filter(
-            (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
-          );
-          partnerCard = nonSpecial[2] ?? nonSpecial[nonSpecial.length - 1] ?? sorted[2];
-        }
+        partnerCard = defaultPartnerCard;
       }
     }
 
@@ -384,6 +385,67 @@ export class Bot implements BotStrategy {
     result[partner] = partnerCard;
     result[seat] = sorted[0]; // Placeholder (not actually passed)
     return result;
+  }
+
+  private selectDefaultPartnerPassCard(
+    hand: GameCard[],
+    sorted: GameCard[],
+    isStrongHand: boolean,
+    hasDragon: boolean,
+    hasPhoenixCard: boolean,
+  ): GameCard {
+    if (!isStrongHand) {
+      // Weak hand: pass best card to partner (Fuegi: concentrate strength)
+      // Dragon > Phoenix > Ace > highest standard
+      if (hasDragon) {
+        return hand.find((gc) => isDragon(gc.card))!;
+      }
+      if (hasPhoenixCard) {
+        return hand.find((gc) => isPhoenix(gc.card))!;
+      }
+      return sorted[sorted.length - 1];
+    }
+
+    const nonBreaking = getThirdWorstNonBreaking(hand.filter(
+      (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
+    ));
+    if (nonBreaking) {
+      return nonBreaking;
+    }
+
+    // Fallback: 3rd-weakest non-special
+    const nonSpecial = sorted.filter(
+      (gc) => !isDragon(gc.card) && !isPhoenix(gc.card) && !isDog(gc.card) && !isMahjong(gc.card),
+    );
+    return nonSpecial[2] ?? nonSpecial[nonSpecial.length - 1] ?? sorted[2];
+  }
+
+  /** Whether partner called Grand Tichu or Tichu before the pass */
+  private partnerHasTichuCall(seat: Seat): boolean {
+    const rs = this.lastRoundState;
+    if (!rs) return false;
+    const call = rs.players[getPartner(seat)].tipiCall;
+    return call === 'tichu' || call === 'grandTichu';
+  }
+
+  /** Whether this pass may materially increase partner's chance to call Tichu later */
+  private isStrongCardForPartner(card: GameCard): boolean {
+    if (isDragon(card.card) || isPhoenix(card.card)) return true;
+    return card.card.kind === 'standard' && card.card.rank >= 13;
+  }
+
+  /** Whether Dog is worth saving because the bot can very likely win control later */
+  private hasReliableControlForDogSave(hand: GameCard[], afterPassing?: GameCard): boolean {
+    const remainingHand = afterPassing
+      ? hand.filter((gc) => gc.id !== afterPassing.id)
+      : hand;
+
+    if (findBombs(remainingHand).length > 0) return true;
+    if (remainingHand.some((gc) => isDragon(gc.card))) return true;
+    if (remainingHand.some((gc) => gc.card.kind === 'standard' && gc.card.rank === 14)) return true;
+
+    const kings = remainingHand.filter((gc) => gc.card.kind === 'standard' && gc.card.rank === 13);
+    return kings.length >= 3;
   }
 
   /** Find an opponent who called Grand Tichu or Tichu (from cached round state) */
