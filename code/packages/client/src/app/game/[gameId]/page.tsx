@@ -2405,8 +2405,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             )
           )}
 
-          {/* Tichu/Grand Tichu banner — shown between pass area and cards during pre-game / received cards */}
-          {(isPreGame || showReceivedCards) && gameStore.myTichuCall !== 'none' && (
+          {/* Mobile mode: show player's active Tichu call banner above cards during pre-game / received cards */}
+          {isMobileLayout && (isPreGame || showReceivedCards) && gameStore.myTichuCall !== 'none' && (
             <div style={{
               pointerEvents: 'auto',
               background: gameStore.myTichuCall === 'grandTichu' ? 'var(--color-grand-tichu-badge)' : '#d32f2f',
