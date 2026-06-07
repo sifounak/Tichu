@@ -6,6 +6,7 @@ import { ActionBar } from '../../../src/components/game/ActionBar';
 
 const defaultProps = {
   canPlay: false,
+  hasAnyValidPlay: true,
   canPass: false,
   isMyTurn: true,
   phase: 'playing' as const,

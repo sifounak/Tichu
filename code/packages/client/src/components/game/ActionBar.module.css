@@ -80,10 +80,8 @@
   align-items: center;
   justify-content: center;
   gap: calc(2px * var(--scale));
-  min-width: calc(120px * var(--scale));
-  padding: calc(7px * var(--scale)) calc(8px * var(--scale));
-  font-size: calc(13px * var(--scale));
-  line-height: 1.05;
+  min-width: calc(170px * var(--scale));
+  line-height: 1.1;
   text-align: center;
   white-space: nowrap;
 }
@@ -246,11 +244,6 @@
   align-items: center;
   justify-content: center;
   line-height: 1.2;
-}
-
-.mobileLayout .noValidPlayButton {
-  font-size: calc(10px * var(--scale));
-  line-height: 1.05;
 }
 
 .mobileLayout .buttonSlotNarrow .button {
