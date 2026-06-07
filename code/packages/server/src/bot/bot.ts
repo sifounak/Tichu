@@ -1002,6 +1002,9 @@ export class Bot implements BotStrategy {
     if (!currentTrick) {
       // Leading: play highest to control
       const ranked = rankCombinationsForLead(plays);
+      if (this.hasOnlySinglesWithMoreThanTwoActivePlayers(ranked, context.roundState)) {
+        return this.toDecision(this.getLowestStandardSingle(ranked) ?? ranked[0]);
+      }
       return this.toDecision(ranked[ranked.length - 1] ?? ranked[0]);
     }
 
@@ -1770,6 +1773,11 @@ export class Bot implements BotStrategy {
     if (!currentTrick) {
       // Leading: play highest combo to control (aggressive)
       const ranked = rankCombinationsForLead(plays);
+      if (ranked.every((c) => c.type === CombinationType.Single)) {
+        const lowestStandard = this.getLowestStandardSingle(ranked);
+        const lowestNonPhoenix = ranked.find((c) => !isPhoenix(c.cards[0].card));
+        return this.toDecision(lowestStandard ?? lowestNonPhoenix ?? ranked[0]);
+      }
       // Lead with strongest play to get out fast (but never Phoenix singleton — it's weak)
       for (let i = ranked.length - 1; i >= 0; i--) {
         if (ranked[i].cards.length === 1 && isPhoenix(ranked[i].cards[0].card)) continue;
@@ -1989,6 +1997,22 @@ export class Bot implements BotStrategy {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private hasOnlySinglesWithMoreThanTwoActivePlayers(
+    plays: Combination[],
+    roundState: RoundState,
+  ): boolean {
+    const activePlayers = SEATS_IN_ORDER.filter(
+      (s) => roundState.players[s].finishOrder === null,
+    );
+    return activePlayers.length > 2 && plays.every((c) => c.type === CombinationType.Single);
+  }
+
+  private getLowestStandardSingle(plays: Combination[]): Combination | null {
+    return plays.find(
+      (c) => c.type === CombinationType.Single && c.cards[0].card.kind === 'standard',
+    ) ?? null;
+  }
 
   private toDecision(combo: Combination): BotPlayDecision {
     // REQ-F-MJ01: Track if Mah Jong is played in a straight (no wish)

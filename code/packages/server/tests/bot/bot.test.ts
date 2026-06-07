@@ -901,7 +901,7 @@ describe('Bot', () => {
 
   describe('one-two prevention', () => {
     // Verifies: REQ-F-PLAY05
-    it('plays highest when opponent teammate already went out first', () => {
+    it('does not play singles high-to-low when opponent teammate already went out first', () => {
       const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c14 = card('standard', 14, 'star', 1401);
@@ -934,8 +934,8 @@ describe('Bot', () => {
       const decision = bot.choosePlay(ctx);
       expect(decision.action).toBe('play');
       if (decision.action === 'play') {
-        // Should play highest (Ace) to control the game and prevent one-two
-        expect(decision.cards[0].id).toBe(1401);
+        // More than 2 players remain, so do not burn singles high-to-low.
+        expect(decision.cards[0].id).toBe(301);
       }
     });
 
@@ -972,8 +972,8 @@ describe('Bot', () => {
       const decision = bot.choosePlay(ctx);
       expect(decision.action).toBe('play');
       if (decision.action === 'play') {
-        // REQ-F-END01: Partner out in 3-player → play aggressively (highest)
-        expect(decision.cards[0].id).toBe(701);
+        // More than 2 players remain, so do not burn singles high-to-low.
+        expect(decision.cards[0].id).toBe(301);
       }
     });
 
@@ -2029,8 +2029,8 @@ describe('Bot', () => {
   // ─── Endgame Strategy (REQ-F-END01-04) ──────────────────────────────────
 
   describe('endgame strategy', () => {
-    // Verifies: REQ-F-END01 — 3-player, partner out: play aggressively
-    it('plays highest when partner already went out (3-player)', () => {
+    // Verifies: REQ-F-END01 — 3-player, partner out: do not burn singles high-to-low
+    it('plays lowest single when partner already went out and only singles remain (3-player)', () => {
       const bot = new Bot();
       const c3 = card('standard', 3, 'jade', 301);
       const c14 = card('standard', 14, 'jade', 1401);
@@ -2055,8 +2055,8 @@ describe('Bot', () => {
       const decision = bot.choosePlay(ctx);
       expect(decision.action).toBe('play');
       if (decision.action === 'play') {
-        // Partner out → aggressive play → highest card (Ace)
-        expect(decision.cards[0].id).toBe(1401);
+        // More than 2 players remain, so do not burn singles high-to-low.
+        expect(decision.cards[0].id).toBe(301);
       }
     });
 
