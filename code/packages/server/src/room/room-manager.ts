@@ -603,13 +603,11 @@ export class RoomManager {
     return this.rooms.size;
   }
 
-  /** Serialize all rooms that have an active game in progress. */
+  /** Serialize all live rooms so both pre-game and in-progress rooms survive restart. */
   serializeActiveRooms(): RoomSnapshot[] {
     const snapshots: RoomSnapshot[] = [];
 
     for (const room of this.rooms.values()) {
-      if (!room.gameInProgress) continue;
-
       // Build seatToUserId from seatToUser map, filtering to this room
       const seatToUserId: Record<string, string> = {};
       for (const [key, userId] of this.seatToUser) {
@@ -628,9 +626,12 @@ export class RoomManager {
           name: p.name,
           isBot: p.isBot,
         })),
+        spectators: room.spectators.map(s => ({ ...s, isConnected: false })),
         config: room.config,
-        gameInProgress: true,
+        gameInProgress: room.gameInProgress,
+        votingEnabled: room.votingEnabled,
         seatToUserId,
+        readySeats: this.getReadySeats(room.roomCode),
         chatHistory: [...(this.chatHistory.get(room.roomCode) ?? [])],
       });
     }
@@ -652,10 +653,13 @@ export class RoomManager {
           // Humans start disconnected; bots are always "connected"
           isConnected: p.isBot,
         })),
-        spectators: [],
+        spectators: (snapshot.spectators ?? []).map(s => ({
+          ...s,
+          isConnected: false,
+        })),
         config: snapshot.config,
-        gameInProgress: true,
-        votingEnabled: true,
+        gameInProgress: snapshot.gameInProgress ?? true,
+        votingEnabled: snapshot.votingEnabled ?? true,
         createdAt: Date.now(),
       };
 
@@ -667,6 +671,12 @@ export class RoomManager {
       // Rebuild userId maps for human players
       for (const [seat, userId] of Object.entries(snapshot.seatToUserId)) {
         this.assignUser(userId, snapshot.roomCode, seat as Seat);
+      }
+      for (const spectator of snapshot.spectators ?? []) {
+        this.spectatorToRoom.set(spectator.userId, snapshot.roomCode);
+      }
+      if (snapshot.readySeats && snapshot.readySeats.length > 0) {
+        this.readySeats.set(snapshot.roomCode, new Set(snapshot.readySeats));
       }
     }
   }

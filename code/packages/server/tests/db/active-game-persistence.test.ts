@@ -63,9 +63,12 @@ describe('active-game-persistence', () => {
       roomName: 'Test Room',
       hostSeat: 'south',
       players: [{ seat: 'south', name: 'Alice', isBot: false }],
+      spectators: [{ userId: 'spectator-1', name: 'Watcher', joinedAt: 100, isConnected: false }],
       config: {} as any,
-      gameInProgress: true,
+      gameInProgress: false,
+      votingEnabled: false,
       seatToUserId: { south: 'user-1' },
+      readySeats: ['south'],
       chatHistory: [
         { from: 'south', text: 'persist me', timestamp: 1000 },
         { from: null, text: 'system message', timestamp: 1001 },
@@ -76,7 +79,11 @@ describe('active-game-persistence', () => {
     const loaded = loadActiveRooms(database);
     expect(loaded).toHaveLength(1);
     expect(loaded[0].roomCode).toBe('ROOM1');
+    expect(loaded[0].gameInProgress).toBe(false);
+    expect(loaded[0].votingEnabled).toBe(false);
     expect(loaded[0].seatToUserId.south).toBe('user-1');
+    expect(loaded[0].readySeats).toEqual(['south']);
+    expect(loaded[0].spectators).toEqual(room.spectators);
     expect(loaded[0].chatHistory).toEqual(room.chatHistory);
   });
 });

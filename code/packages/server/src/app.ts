@@ -280,7 +280,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
       if (!database) return 0;
       const roomSnapshots = loadActiveRooms(database);
       const gameSnapshots = loadActiveGames(database);
-      if (gameSnapshots.length === 0) return 0;
+      if (roomSnapshots.length === 0 && gameSnapshots.length === 0) return 0;
 
       roomHandler.roomManager.restoreRooms(roomSnapshots);
 
@@ -317,7 +317,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
       broadcaster.broadcastToAll({ type: 'SERVER_SHUTTING_DOWN' });
 
       // 2. Serialize active games and rooms to DB
-      if (database && gameStore.size > 0) {
+      if (database && (gameStore.size > 0 || roomHandler.roomManager.size > 0)) {
         const gameSnapshots = gameStore.activeGameIds
           .map((id) => gameStore.getGame(id))
           .filter((g): g is GameManager => g !== undefined)

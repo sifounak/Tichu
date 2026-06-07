@@ -7,6 +7,7 @@ import type {
   RoundScore,
   RoundState,
   CombinationType,
+  RoomSpectator,
 } from '@tichu/shared';
 // ─── Conversion Helpers ────────────────────────────────────────────────────
 
@@ -110,8 +111,11 @@ export interface RoomSnapshot {
   roomName: string;
   hostSeat: Seat;
   players: Array<{ seat: Seat; name: string; isBot: boolean }>;
+  spectators?: RoomSpectator[];
   config: RoomConfig;
-  gameInProgress: true;
+  gameInProgress: boolean;
+  votingEnabled?: boolean;
   seatToUserId: Record<string, string>;
+  readySeats?: Seat[];
   chatHistory?: Array<{ from: Seat | null; text: string; timestamp: number; spectatorName?: string }>;
 }

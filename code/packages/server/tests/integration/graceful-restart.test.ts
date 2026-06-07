@@ -28,6 +28,44 @@ describe('Graceful restart integration', () => {
     try { unlinkSync(TEST_DB + '-shm'); } catch { /* may not exist */ }
   });
 
+  it('serializes and restores a room before the game has started', async () => {
+    app = createApp({ port: 0, host: '127.0.0.1', databasePath: TEST_DB });
+    await app.start();
+
+    const roomManager = app.roomHandler.roomManager;
+    const hostUserId = 'pregame-host';
+    const room = roomManager.createRoom(hostUserId, 'Alice', 'Pre-game room');
+    const roomCode = room.roomCode;
+
+    roomManager.joinRoom('pregame-user-2', roomCode, 'Bob');
+    roomManager.addBot(roomCode, 'east');
+    roomManager.setReady(roomCode, 'east');
+    roomManager.toggleVoting(hostUserId);
+    roomManager.addChatMessage(roomCode, { from: 'south', text: 'waiting to start' });
+
+    expect(app.gameStore.size).toBe(0);
+    expect(roomManager.getRoom(roomCode)?.gameInProgress).toBe(false);
+
+    await app.serializeAndShutdown();
+
+    app = createApp({ port: 0, host: '127.0.0.1', databasePath: TEST_DB });
+    await app.start();
+
+    expect(app.gameStore.size).toBe(0);
+    const restoredRoom = app.roomHandler.roomManager.getRoom(roomCode);
+    expect(restoredRoom).toBeDefined();
+    expect(restoredRoom!.gameInProgress).toBe(false);
+    expect(restoredRoom!.roomName).toBe('Pre-game room');
+    expect(restoredRoom!.players).toHaveLength(3);
+    expect(restoredRoom!.votingEnabled).toBe(false);
+    expect(app.roomHandler.roomManager.getReadySeats(roomCode)).toEqual(['east']);
+    expect(app.roomHandler.roomManager.getUserRoom(hostUserId)).toBe(roomCode);
+    expect(app.roomHandler.roomManager.getUserSeat(hostUserId)).toBe('south');
+    expect(app.roomHandler.roomManager.getChatHistory(roomCode)).toEqual([
+      expect.objectContaining({ from: 'south', text: 'waiting to start' }),
+    ]);
+  });
+
   it('serializes and restores a game in progress', async () => {
     // 1. Create app and start listening
     app = createApp({ port: 0, host: '127.0.0.1', databasePath: TEST_DB });
