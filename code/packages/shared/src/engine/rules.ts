@@ -3,7 +3,7 @@
 // REQ-F-CB02: Combination comparison in validation
 
 import type { GameCard, Rank } from '../types/card.js';
-import { isDog } from '../types/card.js';
+import { isDog, isPhoenix, isStandard } from '../types/card.js';
 import type { Combination } from '../types/combination.js';
 import type { TrickState } from '../types/game.js';
 import { detectCombination } from './combination-detector.js';
@@ -40,15 +40,23 @@ export function validatePlay(
   hand: GameCard[],
   currentTrick: TrickState | null,
   wish: Rank | null,
+  phoenixAs?: Rank,
 ): PlayValidation {
   if (cards.length === 0) {
     return { valid: false, reason: 'No cards selected' };
   }
 
   // Step 1: Detect combination
-  const combination = detectCombination(cards);
+  let combination = detectCombination(cards);
   if (combination === null) {
     return { valid: false, reason: 'Cards do not form a valid combination' };
+  }
+  if (phoenixAs !== undefined) {
+    const resolved = applyPhoenixChoice(combination, cards, phoenixAs);
+    if (resolved === null) {
+      return { valid: false, reason: 'Invalid Phoenix value' };
+    }
+    combination = resolved;
   }
 
   // Step 2: Check if the combination can beat the current trick
@@ -76,6 +84,67 @@ export function validatePlay(
   }
 
   return { valid: true, combination };
+}
+
+/**
+ * Applies an explicit Phoenix value for ambiguous combinations.
+ *
+ * The detector chooses a deterministic default for 2+2 full houses and
+ * open-ended straights. User-facing play can choose either valid value, so
+ * validation must compare using the chosen rank rather than the default.
+ */
+function applyPhoenixChoice(
+  combination: Combination,
+  cards: GameCard[],
+  phoenixAs: Rank,
+): Combination | null {
+  if (!cards.some((gc) => isPhoenix(gc.card))) return null;
+
+  if (combination.type === 'fullHouse') {
+    const standards = cards.filter((gc) => isStandard(gc.card));
+    const rankCounts = new Map<Rank, number>();
+    for (const gc of standards) {
+      const rank = (gc.card as { rank: Rank }).rank;
+      rankCounts.set(rank, (rankCounts.get(rank) ?? 0) + 1);
+    }
+    const entries = [...rankCounts.entries()];
+    const isTwoPair = entries.length === 2 && entries.every(([, count]) => count === 2);
+    if (!isTwoPair) {
+      return combination.phoenixUsedAs === phoenixAs ? combination : null;
+    }
+    if (!rankCounts.has(phoenixAs)) return null;
+    return { ...combination, rank: phoenixAs, phoenixUsedAs: phoenixAs };
+  }
+
+  if (combination.type === 'straight') {
+    const nonPhoenixRanks = cards
+      .filter((gc) => !isPhoenix(gc.card))
+      .map((gc) => {
+        if (gc.card.kind === 'standard') return gc.card.rank;
+        if (gc.card.kind === 'mahjong') return 1;
+        return null;
+      });
+    if (nonPhoenixRanks.some((rank) => rank === null)) return null;
+    const ranks = nonPhoenixRanks as number[];
+    const sorted = [...ranks].sort((a, b) => a - b);
+    const min = sorted[0];
+    const max = sorted[sorted.length - 1];
+    const span = max - min + 1;
+
+    if (span === cards.length - 1) {
+      const validValues = [min - 1, max + 1].filter((rank) => rank >= 2 && rank <= 14);
+      if (!validValues.includes(phoenixAs)) return null;
+      return {
+        ...combination,
+        rank: Math.max(max, phoenixAs),
+        phoenixUsedAs: phoenixAs,
+      };
+    }
+
+    return combination.phoenixUsedAs === phoenixAs ? combination : null;
+  }
+
+  return combination.phoenixUsedAs === phoenixAs ? combination : null;
 }
 
 /**

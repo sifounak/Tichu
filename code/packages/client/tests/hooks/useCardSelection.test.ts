@@ -86,6 +86,25 @@ describe('useCardSelection', () => {
     expect(result.current.canPlay).toBe(true);
   });
 
+  it('REQ-F-PH10: leading AA+66+Phoenix asks which full house to play', () => {
+    const hand = [
+      makeCard(0, 14), makeCard(1, 14),
+      makeCard(2, 6), makeCard(3, 6),
+      makePhoenix(),
+    ];
+    const selected = new Set([0, 1, 2, 3, 52] as CardId[]);
+
+    const { result } = renderHook(() =>
+      useCardSelection(hand, null, null, selected, noopToggle, noopClear, true),
+    );
+
+    expect(result.current.phoenixResolution).toEqual({
+      status: 'choose',
+      validValues: [6, 14],
+    });
+    expect(result.current.canPlay).toBe(true);
+  });
+
   it('REQ-F-PH10: canPlay is true for JJ+AA+Phoenix over an active full-house trick', () => {
     // Regression test for the reported bug: couldn't play JJ+AA+Phoenix over 7s/9s FH
     const trick: TrickState = {

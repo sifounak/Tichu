@@ -149,6 +149,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   // Sound effects for game events
   const { playSound } = useSoundEffects();
+  const hasReceivedGameStateRef = useRef(false);
 
   // Check if any human player still has cards (used for Dog animation & bomb window)
   const anyHumanActive = useMemo(() => {
@@ -164,6 +165,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     (msg: ServerMessage) => {
       if (msg.type === 'GAME_STATE') {
         const view = msg.state as ClientGameView;
+        const shouldPlayLiveEffects = hasReceivedGameStateRef.current;
 
         // REQ-F-DA01: Detect Dog play and trigger animation
         // Allow animation when the dog sender is a human player (even if they just
@@ -174,7 +176,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         const humanStillActive = (['north', 'east', 'south', 'west'] as const).some(
           (s) => !botSeats.has(s) && !view.finishOrder.includes(s),
         );
-        if (view.lastDogPlay && animEnabled && (dogSenderIsHuman || humanStillActive)) {
+        if (shouldPlayLiveEffects && view.lastDogPlay && animEnabled && (dogSenderIsHuman || humanStillActive)) {
           // Skip if dog animation is already in progress (server may broadcast
           // state twice with lastDogPlay set — once on play success, once on
           // timer broadcast — avoid duplicate sound/animation).
@@ -216,7 +218,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         {
           const prevPlays = gameStore.currentTrick?.plays.length ?? 0;
           const newPlays = view.currentTrick?.plays.length ?? 0;
-          if (newPlays > prevPlays && view.currentTrick) {
+          if (shouldPlayLiveEffects && newPlays > prevPlays && view.currentTrick) {
             const latestPlay = view.currentTrick.plays[view.currentTrick.plays.length - 1];
             if (latestPlay) {
               const cards = latestPlay.combination.cards;
@@ -229,7 +231,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         }
 
         // REQ-F-DRA02/DRA03: Dragon gift animation — sweep trick toward recipient
-        if (view.dragonGiftedTo && animEnabled) {
+        if (shouldPlayLiveEffects && view.dragonGiftedTo && animEnabled) {
           const prevTrick = gameStore.currentTrick;
           if (prevTrick) {
             uiStore.startDragonGiftAnimation(view.dragonGiftedTo as Seat, prevTrick);
@@ -243,18 +245,19 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         {
           const prevMy = gameStore.myTichuCall;
           const newMy = view.myTichuCall;
-          if (prevMy === 'none' && newMy !== 'none') {
+          if (shouldPlayLiveEffects && prevMy === 'none' && newMy !== 'none') {
             playSound(newMy === 'grandTichu' ? 'grandTichu' : 'tichu');
           }
           for (const op of view.otherPlayers) {
             const prevOp = gameStore.otherPlayers.find(p => p.seat === op.seat);
-            if (prevOp && prevOp.tichuCall === 'none' && op.tichuCall !== 'none') {
+            if (shouldPlayLiveEffects && prevOp && prevOp.tichuCall === 'none' && op.tichuCall !== 'none') {
               playSound(op.tichuCall === 'grandTichu' ? 'grandTichu' : 'tichu');
             }
           }
         }
 
         gameStore.applyGameState(view);
+        hasReceivedGameStateRef.current = true;
 
         // Save game-over info to local state so it persists after game store reset
         // (server auto-returns everyone to pre-game after game ends)

@@ -156,6 +156,42 @@ describe('validatePlay', () => {
     expect(result.valid).toBe(true);
     if (result.valid) expect(result.combination.isBomb).toBe(true);
   });
+
+  it('uses explicit Phoenix value for ambiguous 2+2 full houses', () => {
+    const cards = [
+      findStandard(14), findStandard(14, 1),
+      findStandard(6), findStandard(6, 1),
+      findCard('phoenix'),
+    ];
+    const result = validatePlay(cards, cards, null, null, 6 as Rank);
+
+    expect(result.valid).toBe(true);
+    if (result.valid) {
+      expect(result.combination.type).toBe('fullHouse');
+      expect(result.combination.rank).toBe(6);
+      expect(result.combination.phoenixUsedAs).toBe(6);
+    }
+  });
+
+  it('rejects an explicit Phoenix full house value that cannot beat the trick', () => {
+    const trickCards = [
+      findStandard(10), findStandard(10, 1), findStandard(10, 2),
+      findStandard(4), findStandard(4, 1),
+    ];
+    const trick = makeTrick([{ seat: 'north', cards: trickCards }]);
+    const cards = [
+      findStandard(14), findStandard(14, 1),
+      findStandard(6), findStandard(6, 1),
+      findCard('phoenix'),
+    ];
+
+    const lowChoice = validatePlay(cards, cards, trick, null, 6 as Rank);
+    const highChoice = validatePlay(cards, cards, trick, null, 14 as Rank);
+
+    expect(lowChoice.valid).toBe(false);
+    if (!lowChoice.valid) expect(lowChoice.reason).toBe('Play does not beat the current trick');
+    expect(highChoice.valid).toBe(true);
+  });
 });
 
 // --- getValidPlays ---

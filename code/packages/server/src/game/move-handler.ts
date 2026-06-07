@@ -176,7 +176,7 @@ export class MoveHandler {
   }
 
   /** Handle PLAY_CARDS */
-  handlePlayCards(seat: Seat, cardIds: number[], _phoenixAs?: Rank, wish?: Rank | null): MoveResult {
+  handlePlayCards(seat: Seat, cardIds: number[], phoenixAs?: Rank, wish?: Rank | null): MoveResult {
     if (this.stateValue !== 'playing' && this.stateValue !== 'awaitingEndOfTrickBomb') {
       return { ok: false, error: `Not in playing phase (server state: ${this.stateValue})` };
     }
@@ -208,7 +208,7 @@ export class MoveHandler {
 
     // The state machine's playCards action handles full validation
     // REQ-F-WP01: Forward wish from PLAY_CARDS to state machine
-    this.actor.send({ type: 'PLAY_CARDS', seat, cards, wish: wish ?? undefined });
+    this.actor.send({ type: 'PLAY_CARDS', seat, cards, phoenixAs, wish: wish ?? undefined });
     return { ok: true };
   }
 

@@ -54,7 +54,7 @@ export type GameEvent =
   | { type: 'REGULAR_TICHU_CALL'; seat: Seat }
   | { type: 'CARDS_PASSED'; seat: Seat; cards: Record<Seat, GameCard> }
   | { type: 'CARDS_PASS_CANCELLED'; seat: Seat }
-  | { type: 'PLAY_CARDS'; seat: Seat; cards: GameCard[]; wish?: Rank }
+  | { type: 'PLAY_CARDS'; seat: Seat; cards: GameCard[]; phoenixAs?: Rank; wish?: Rank }
   | { type: 'PASS_TURN'; seat: Seat }
   | { type: 'DRAGON_GIFT_CHOSEN'; seat: Seat; recipient: Seat }
   | { type: 'TURN_TIMEOUT'; seat: Seat }
@@ -593,6 +593,7 @@ export const gameMachine = setup({
         round.players[seat].hand,
         round.currentTrick,
         effectiveWish,
+        event.phoenixAs,
       );
 
       if (!validation.valid) return {}; // Invalid play — no state change
