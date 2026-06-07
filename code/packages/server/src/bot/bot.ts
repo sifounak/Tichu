@@ -903,6 +903,11 @@ export class Bot implements BotStrategy {
     // REQ-F-PHX08: In pair with rank > 10
     if (combo.type === CombinationType.Pair && combo.rank > 10) return 'acceptable';
 
+    if (combo.type === CombinationType.FullHouse) {
+      if (hand.length !== combo.cards.length && combo.rank < 10) return 'never';
+      if (combo.rank >= 10) return 'acceptable';
+    }
+
     // REQ-F-PHX09: As singleton lead if all remaining are Ace/King(if Aces played)/Dragon
     if (!currentTrick && combo.cards.length === 1) {
       const otherCards = hand.filter((gc) => !isPhoenix(gc.card));
@@ -1163,7 +1168,11 @@ export class Bot implements BotStrategy {
     // REQ-F-PHX10/PHX11: Prefer Phoenix in multi-card combos over holding for singleton
     if (hand.some((gc) => isPhoenix(gc.card))) {
       const phoenixMultiCombos = validPlays.filter(
-        (c) => c.cards.length > 1 && !c.isBomb && c.cards.some((gc) => isPhoenix(gc.card)),
+        (c) =>
+          c.cards.length > 1 &&
+          !c.isBomb &&
+          c.cards.some((gc) => isPhoenix(gc.card)) &&
+          !this.shouldAvoidPhoenixLead(c, hand, validPlays),
       );
       if (phoenixMultiCombos.length > 0) {
         // Prefer the largest combo (clears most cards), then lowest rank
@@ -1197,7 +1206,9 @@ export class Bot implements BotStrategy {
           vp.cards.length === planned.cards.length &&
           vp.cards.every((c) => planned.cards.some((p) => p.id === c.id)),
         );
-        if (match) return this.toDecision(match);
+        if (match && !this.shouldAvoidPhoenixLead(match, hand, validPlays)) {
+          return this.toDecision(match);
+        }
       }
     }
 
@@ -1220,6 +1231,7 @@ export class Bot implements BotStrategy {
     // REQ-F-DEF01: Keep Aces as singletons, skip Ace pairs
     // REQ-F-DEF06: Prefer combos where we have a high follow-up of same type
     for (const combo of ranked) {
+      if (this.shouldAvoidPhoenixLead(combo, hand, validPlays)) continue;
       // Skip Dragon singleton (save it)
       if (combo.cards.length === 1 && isDragon(combo.cards[0].card)) continue;
       // REQ-F-DEF02/DEF03: Skip Ace singletons unless needed for control or disruption
@@ -1264,7 +1276,40 @@ export class Bot implements BotStrategy {
       return this.toDecision(combo);
     }
 
-    return this.toDecision(ranked[0]);
+    return this.toDecision(
+      ranked.find((combo) => !this.shouldAvoidPhoenixLead(combo, hand, validPlays)) ?? ranked[0],
+    );
+  }
+
+  private shouldAvoidPhoenixLead(
+    combo: Combination,
+    hand: GameCard[],
+    validPlays: Combination[],
+  ): boolean {
+    if (!combo.cards.some((gc) => isPhoenix(gc.card))) return false;
+    if (canGoOut(hand, combo)) return false;
+    if (this.findEquivalentNaturalPlay(combo, validPlays)) return true;
+    return this.evaluatePhoenixPlay(combo, null, hand) !== 'acceptable';
+  }
+
+  private findEquivalentNaturalPlay(
+    combo: Combination,
+    plays: Combination[],
+  ): Combination | null {
+    if (!combo.cards.some((gc) => isPhoenix(gc.card))) return null;
+
+    return plays.find((candidate) =>
+      candidate.type === combo.type &&
+      candidate.length === combo.length &&
+      candidate.cards.length === combo.cards.length &&
+      !candidate.cards.some((gc) => isPhoenix(gc.card)) &&
+      (
+        candidate.rank === combo.rank ||
+        combo.type === CombinationType.FullHouse ||
+        combo.type === CombinationType.Straight ||
+        combo.type === CombinationType.PairSequence
+      ),
+    ) ?? null;
   }
 
   // ─── Bomb-Proof Exit Planning ──────────────────────────────────────────────
@@ -1718,6 +1763,9 @@ export class Bot implements BotStrategy {
     // REQ-F-PHX01-09: Win with minimum force, evaluate Phoenix plays
     if (ranked.length > 0) {
       const cheapest = ranked[0];
+      const naturalEquivalent = this.findEquivalentNaturalPlay(cheapest, ranked);
+      if (naturalEquivalent) return this.toDecision(naturalEquivalent);
+
       const phoenixEval = this.evaluatePhoenixPlay(cheapest, currentTrick, hand);
 
       // If cheapest win uses Phoenix and it's 'never', try next non-Phoenix play

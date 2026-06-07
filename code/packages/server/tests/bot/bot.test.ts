@@ -4182,24 +4182,24 @@ describe('Bot', () => {
       expect(decision.cards!.some((gc) => isPhoenix(gc.card))).toBe(true);
     });
 
-    it('prefers full house with Phoenix over separate pair lead', () => {
-      // Hand: Phoenix, 8, 8, 5, 5, King
-      // Valid plays: pair 8s, pair 5s, singles, full house (Phoenix+8,8 triple + 5,5 pair)
+    it('prefers strong full house with Phoenix over separate pair lead', () => {
+      // Hand: Phoenix, J, J, 5, 5, King
+      // Valid plays: pair Jacks, pair 5s, singles, full house (Phoenix+J,J triple + 5,5 pair)
       const hand = [
         card('phoenix'),
-        card('standard', 8, 'jade', 801),
-        card('standard', 8, 'pagoda', 802),
+        card('standard', 11, 'jade', 1101),
+        card('standard', 11, 'pagoda', 1102),
         card('standard', 5, 'jade', 501),
         card('standard', 5, 'pagoda', 502),
         card('standard', 13, 'star', 1303),
       ];
       const validPlays = [
-        makeCombo(CombinationType.Pair, [hand[1], hand[2]], 8),
+        makeCombo(CombinationType.Pair, [hand[1], hand[2]], 11),
         makeCombo(CombinationType.Pair, [hand[3], hand[4]], 5),
-        makeCombo(CombinationType.Single, [hand[1]], 8),
+        makeCombo(CombinationType.Single, [hand[1]], 11),
         makeCombo(CombinationType.Single, [hand[3]], 5),
         makeCombo(CombinationType.Single, [hand[5]], 13),
-        makeCombo(CombinationType.FullHouse, [hand[0], hand[1], hand[2], hand[3], hand[4]], 8),
+        makeCombo(CombinationType.FullHouse, [hand[0], hand[1], hand[2], hand[3], hand[4]], 11),
       ];
       const roundState = makeRoundState();
       roundState.players.south.hand = hand;
@@ -4213,6 +4213,102 @@ describe('Bot', () => {
       });
       expect(decision.cards!.length).toBe(5);
       expect(decision.cards!.some((gc) => isPhoenix(gc.card))).toBe(true);
+    });
+
+    it('does not lead a weak full house with Phoenix at the start of a hand', () => {
+      const hand = [
+        card('phoenix'),
+        card('standard', 2, 'jade', 201),
+        card('standard', 2, 'pagoda', 202),
+        card('standard', 2, 'star', 203),
+        card('standard', 13, 'jade', 1301),
+        card('standard', 7, 'star', 701),
+      ];
+      const phoenixFullHouse = makeCombo(
+        CombinationType.FullHouse,
+        [hand[1], hand[2], hand[3], hand[4], hand[0]],
+        2,
+        false,
+        13,
+      );
+      const validPlays = [
+        makeCombo(CombinationType.Triple, [hand[1], hand[2], hand[3]], 2),
+        makeCombo(CombinationType.Single, [hand[1]], 2),
+        makeCombo(CombinationType.Single, [hand[5]], 7),
+        makeCombo(CombinationType.Single, [hand[4]], 13),
+        phoenixFullHouse,
+      ];
+      const roundState = makeRoundState();
+      roundState.players.south.hand = hand;
+      const bot = new Bot();
+      const decision = bot.choosePlay({
+        hand, validPlays, roundState,
+        seat: 'south' as Seat,
+        currentTrick: null,
+        canPass: false,
+        wish: null,
+      });
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.some((gc) => isPhoenix(gc.card))).toBe(false);
+      }
+    });
+
+    it('uses a natural full house instead of a redundant Phoenix full house', () => {
+      const hand = [
+        card('phoenix'),
+        card('standard', 2, 'jade', 201),
+        card('standard', 2, 'pagoda', 202),
+        card('standard', 2, 'star', 203),
+        card('standard', 13, 'jade', 1301),
+        card('standard', 13, 'pagoda', 1302),
+        card('standard', 7, 'star', 701),
+      ];
+      const naturalFullHouse = makeCombo(
+        CombinationType.FullHouse,
+        [hand[1], hand[2], hand[3], hand[4], hand[5]],
+        2,
+      );
+      const phoenixFullHouse = makeCombo(
+        CombinationType.FullHouse,
+        [hand[1], hand[2], hand[3], hand[4], hand[0]],
+        2,
+        false,
+        13,
+      );
+      const highPhoenixFullHouse = makeCombo(
+        CombinationType.FullHouse,
+        [hand[1], hand[2], hand[4], hand[5], hand[0]],
+        13,
+        false,
+        13,
+      );
+      const validPlays = [
+        makeCombo(CombinationType.Single, [hand[1]], 2),
+        makeCombo(CombinationType.Single, [hand[6]], 7),
+        makeCombo(CombinationType.Single, [hand[4]], 13),
+        naturalFullHouse,
+        phoenixFullHouse,
+        highPhoenixFullHouse,
+      ];
+      const roundState = makeRoundState();
+      roundState.players.south.hand = hand;
+      const bot = new Bot();
+      const decision = bot.choosePlay({
+        hand, validPlays, roundState,
+        seat: 'south' as Seat,
+        currentTrick: null,
+        canPass: false,
+        wish: null,
+      });
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards.map((gc) => gc.id).sort((a, b) => a - b)).toEqual(
+          naturalFullHouse.cards.map((gc) => gc.id).sort((a, b) => a - b),
+        );
+      }
     });
   });
 });
