@@ -5,7 +5,7 @@
 // REQ-F-GT06: Bot Grand Tichu decision at exactly 1000 ms
 // REQ-F-GT07: No duplicate Grand Tichu timers per bot per round
 
-import type { Seat, RoundState } from '@tichu/shared';
+import type { Seat, RoundState, Rank } from '@tichu/shared';
 import { SEATS_IN_ORDER, getTeam, getValidPlays, canPlayerPass, isMahjong, detectAllBombs, canBeat, getCardPoints } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext } from './bot-interface.js';
 import { Bot } from './bot.js';
@@ -19,6 +19,12 @@ export interface BotRunnerConfig {
   minDelayMs: number;
   /** Maximum delay in ms before bot acts */
   maxDelayMs: number;
+  /** Pause after card passing before a bot leads the first trick with Mahjong */
+  firstTrickLeadDelayMs?: number;
+  /** Pause before a bot calls Tichu immediately after a human action */
+  postHumanTichuDelayMs?: number;
+  /** Pause between a bot Tichu call and the bot's next turn action */
+  postTichuPlayDelayMs?: number;
 }
 
 /** Default timing config — artificial thinking delay for readability */
@@ -26,12 +32,18 @@ export interface BotRunnerConfig {
 const DEFAULT_CONFIG: BotRunnerConfig = {
   minDelayMs: 1000,
   maxDelayMs: 1000,
+  firstTrickLeadDelayMs: 2000,
+  postHumanTichuDelayMs: 1000,
+  postTichuPlayDelayMs: 1000,
 };
 
 /** Fast config for testing */
 export const INSTANT_CONFIG: BotRunnerConfig = {
   minDelayMs: 0,
   maxDelayMs: 0,
+  firstTrickLeadDelayMs: 0,
+  postHumanTichuDelayMs: 0,
+  postTichuPlayDelayMs: 0,
 };
 
 /**
@@ -50,6 +62,9 @@ export class BotRunner {
 
   /** Tracks bots that already have a Grand Tichu timer scheduled (REQ-F-GT07) */
   private readonly grandTichuTimers = new Set<Seat>();
+
+  /** Tracks playing-phase turns already queued for a bot seat */
+  private readonly playingTurnTimers = new Set<Seat>();
 
   /** Whether the runner has been disposed */
   private disposed = false;
@@ -124,6 +139,7 @@ export class BotRunner {
     }
     this.pendingTimers.clear();
     this.grandTichuTimers.clear();
+    this.playingTurnTimers.clear();
     this.bots.clear();
   }
 
@@ -176,24 +192,52 @@ export class BotRunner {
     return !!round && round.currentTrick === null && round.currentTurn !== null;
   }
 
-  /** Schedule a bot play with an explicit delay (no base delay added) */
-  private schedulePlayAction(action: () => void, delayMs: number): void {
-    if (this.disposed) return;
+  private getTimingConfig(): Required<BotRunnerConfig> {
+    return {
+      ...DEFAULT_CONFIG,
+      ...this.config,
+    } as Required<BotRunnerConfig>;
+  }
 
-    const { minDelayMs, maxDelayMs } = this.config;
-    if (minDelayMs === 0 && maxDelayMs === 0) {
-      // Instant mode (testing)
-      const timer = setTimeout(() => {
-        this.pendingTimers.delete(timer);
-        if (!this.disposed) action();
-      }, 0);
-      this.pendingTimers.add(timer);
-      return;
-    }
+  private isInstantTiming(): boolean {
+    const { minDelayMs, maxDelayMs } = this.getTimingConfig();
+    return minDelayMs === 0 && maxDelayMs === 0;
+  }
+
+  private isOpeningMahjongLead(round: RoundState, seat: Seat): boolean {
+    if (round.currentTrick !== null || round.currentTurn !== seat) return false;
+    const noPlayerHasPlayed = SEATS_IN_ORDER.every((s) => !round.players[s].hasPlayed);
+    return noPlayerHasPlayed && round.players[seat].hand.some((gc) => isMahjong(gc.card));
+  }
+
+  private wasPreviousActionByHuman(round: RoundState): boolean {
+    const trick = round.currentTrick;
+    if (!trick) return false;
+
+    const lastPass = trick.passes.at(-1);
+    if (lastPass) return !this.bots.has(lastPass);
+
+    const lastPlay = trick.plays.at(-1);
+    return !!lastPlay && !this.bots.has(lastPlay.seat);
+  }
+
+  private isStillCurrentTurn(seat: Seat): boolean {
+    const snapshot = this.actor.getSnapshot();
+    const state = typeof snapshot.value === 'string' ? snapshot.value : String(snapshot.value);
+    return state === 'playing' && snapshot.context.currentRound?.currentTurn === seat;
+  }
+
+  private schedulePlayingTurnStep(seat: Seat, action: () => void, delayMs: number): void {
+    if (this.disposed) return;
 
     const timer = setTimeout(() => {
       this.pendingTimers.delete(timer);
-      if (!this.disposed) action();
+      if (this.disposed || !this.playingTurnTimers.has(seat)) return;
+      if (!this.isStillCurrentTurn(seat)) {
+        this.playingTurnTimers.delete(seat);
+        return;
+      }
+      action();
     }, delayMs);
     this.pendingTimers.add(timer);
   }
@@ -202,8 +246,8 @@ export class BotRunner {
   private scheduleAction(action: () => void, extraDelayMs = 0): void {
     if (this.disposed) return;
 
-    const { minDelayMs, maxDelayMs } = this.config;
-    if (minDelayMs === 0 && maxDelayMs === 0) {
+    const { minDelayMs, maxDelayMs } = this.getTimingConfig();
+    if (this.isInstantTiming()) {
       // Instant mode (testing) — use microtask to avoid reentrant actor.send
       const timer = setTimeout(() => {
         this.pendingTimers.delete(timer);
@@ -237,8 +281,7 @@ export class BotRunner {
 
     this.grandTichuTimers.add(seat);
 
-    const { minDelayMs, maxDelayMs } = this.config;
-    const delayMs = (minDelayMs === 0 && maxDelayMs === 0) ? 0 : 1000; // REQ-F-GT06
+    const delayMs = this.isInstantTiming() ? 0 : 1000; // REQ-F-GT06
 
     const timer = setTimeout(() => {
       this.pendingTimers.delete(timer);
@@ -323,29 +366,16 @@ export class BotRunner {
     const seat = round.currentTurn;
     const bot = this.bots.get(seat);
     if (!bot) return;
+    if (this.playingTurnTimers.has(seat)) return;
 
     this.provideContext(bot, round, context);
     const player = round.players[seat];
 
     // Call regular Tichu right before first play — delays the announcement
     // so opponents can't plan around it until the last moment.
-    if (!player.hasPlayed && player.tipiCall === 'none') {
-      const callTichu = bot.chooseRegularTichu(player.hand);
-      if (callTichu) {
-        if (this.moveHandler) {
-          const result = this.moveHandler.handleTichuDeclaration(seat);
-          if (result.ok) {
-            this.scheduleAction(() => {
-              this.afterActionCallback?.();
-            });
-          }
-        } else {
-          this.scheduleAction(() => {
-            this.send({ type: 'REGULAR_TICHU_CALL', seat });
-          });
-        }
-      }
-    }
+    const callTichu = !player.hasPlayed &&
+      player.tipiCall === 'none' &&
+      bot.chooseRegularTichu(player.hand);
 
     const activeWish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
     const validPlays = getValidPlays(player.hand, round.currentTrick, activeWish);
@@ -364,21 +394,13 @@ export class BotRunner {
     // Decide what to do synchronously so we can pick the right delay
     const decision = bot.choosePlay(playContext);
 
-    if (decision.action === 'pass') {
-      // No bomb delay for passes
-      this.scheduleAction(() => {
-        this.send({ type: 'PASS_TURN', seat });
-      });
-      return;
-    }
-
     // REQ-F-WR01: Include wish inline with PLAY_CARDS to avoid race condition
-    const mahjongPlayed = decision.cards.some((gc) => isMahjong(gc.card));
-    const wish = mahjongPlayed
-      ? (bot.chooseMahjongWish(
-          player.hand.filter((gc) => !decision.cards.some((pc) => pc.id === gc.id)),
-        ) ?? undefined)
-      : undefined;
+    let wish: Rank | undefined;
+    if (decision.action === 'play' && decision.cards.some((gc) => isMahjong(gc.card))) {
+      wish = bot.chooseMahjongWish(
+        player.hand.filter((gc) => !decision.cards.some((pc) => pc.id === gc.id)),
+      ) ?? undefined;
+    }
 
     const isLead = this.isNewTrickLead();
     const fast = this.onlyBotsRemain();
@@ -391,9 +413,55 @@ export class BotRunner {
     const bombWindowDelay = (isLead || fast) ? 0 : 1000;
     const playDelay = Math.max(trickSweepPause, bombWindowDelay);
 
-    this.schedulePlayAction(() => {
-      this.send({ type: 'PLAY_CARDS', seat, cards: decision.cards, wish });
-    }, playDelay);
+    const actionDelay = this.computeFirstPlayingActionDelay(round, seat, callTichu, playDelay);
+    this.playingTurnTimers.add(seat);
+
+    const finishTurnAction = () => {
+      if (decision.action === 'pass') {
+        this.send({ type: 'PASS_TURN', seat });
+      } else {
+        this.send({ type: 'PLAY_CARDS', seat, cards: decision.cards, wish });
+      }
+      this.playingTurnTimers.delete(seat);
+    };
+
+    if (callTichu) {
+      this.schedulePlayingTurnStep(seat, () => {
+        this.callRegularTichu(seat);
+        const postTichuPlayDelayMs = (this.isInstantTiming() || this.onlyBotsRemain())
+          ? 0
+          : this.getTimingConfig().postTichuPlayDelayMs;
+        this.schedulePlayingTurnStep(seat, finishTurnAction, postTichuPlayDelayMs);
+      }, actionDelay);
+      return;
+    }
+
+    this.schedulePlayingTurnStep(seat, finishTurnAction, actionDelay);
+  }
+
+  private computeFirstPlayingActionDelay(
+    round: RoundState,
+    seat: Seat,
+    callTichu: boolean,
+    playDelay: number,
+  ): number {
+    if (this.isInstantTiming() || this.onlyBotsRemain()) return 0;
+
+    const { firstTrickLeadDelayMs, postHumanTichuDelayMs } = this.getTimingConfig();
+    const firstTrickDelay = this.isOpeningMahjongLead(round, seat) ? firstTrickLeadDelayMs : 0;
+    const tichuDelay = callTichu && this.wasPreviousActionByHuman(round) ? postHumanTichuDelayMs : 0;
+    return Math.max(firstTrickDelay, tichuDelay, callTichu ? 0 : playDelay);
+  }
+
+  private callRegularTichu(seat: Seat): void {
+    if (this.moveHandler) {
+      const result = this.moveHandler.handleTichuDeclaration(seat);
+      if (result.ok) {
+        this.afterActionCallback?.();
+      }
+      return;
+    }
+    this.send({ type: 'REGULAR_TICHU_CALL', seat });
   }
 
   private handleDragonGift(context: GameMachineContext): void {

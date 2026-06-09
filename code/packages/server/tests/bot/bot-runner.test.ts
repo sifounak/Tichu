@@ -10,7 +10,7 @@ import {
   type GameMachineContext,
 } from '../../src/game/game-state-machine.js';
 import type { Seat, GameCard, Rank, Combination, TrickState, RoundState } from '@tichu/shared';
-import { SEATS_IN_ORDER, Suit } from '@tichu/shared';
+import { SEATS_IN_ORDER, Suit, isMahjong } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext, BotPlayDecision } from '../../src/bot/bot-interface.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -34,6 +34,42 @@ function getContext(actor: GameActor): GameMachineContext {
 function getState(actor: GameActor): string {
   const v = actor.getSnapshot().value;
   return typeof v === 'string' ? v : String(v);
+}
+
+function passAllGrandTichu(actor: GameActor): void {
+  for (const seat of SEATS_IN_ORDER) {
+    actor.send({ type: 'GRAND_TICHU_PASS', seat });
+  }
+}
+
+function passAllCards(actor: GameActor): void {
+  for (const seat of SEATS_IN_ORDER) {
+    const round = getContext(actor).currentRound!;
+    const hand = round.players[seat].hand;
+    const otherSeats = SEATS_IN_ORDER.filter((s) => s !== seat);
+    const cards = {} as Record<Seat, GameCard>;
+    for (let i = 0; i < otherSeats.length; i++) {
+      cards[otherSeats[i]] = hand[i];
+    }
+    actor.send({ type: 'CARDS_PASSED', seat, cards });
+  }
+}
+
+function advanceToPlaying(actor: GameActor): void {
+  seatAllPlayers(actor);
+  actor.send({ type: 'HOST_START_GAME' });
+  passAllGrandTichu(actor);
+  passAllCards(actor);
+  expect(getState(actor)).toBe('playing');
+}
+
+function playOpeningMahjong(actor: GameActor): Seat {
+  const round = getContext(actor).currentRound!;
+  const seat = round.currentTurn!;
+  const mahjong = round.players[seat].hand.find((gc) => isMahjong(gc.card));
+  expect(mahjong).toBeDefined();
+  actor.send({ type: 'PLAY_CARDS', seat, cards: [mahjong!] });
+  return seat;
 }
 
 /** Flush all pending microtasks / setTimeout(0) */
@@ -326,6 +362,72 @@ describe('BotRunner', () => {
 
       // Now the decision should be made
       expect(getContext(actor).grandTichuDecisions.has('north')).toBe(true);
+    });
+
+    it('should wait 2 seconds before a bot leads the first trick with Mahjong', () => {
+      actor = createTestActor();
+      advanceToPlaying(actor);
+
+      const mahjongHolder = getContext(actor).currentRound!.currentTurn!;
+      const bot: BotStrategy = {
+        chooseGrandTichu: () => false,
+        chooseRegularTichu: () => false,
+        chooseCardsToPass: vi.fn(),
+        choosePlay: ({ hand }) => {
+          const mahjong = hand.find((gc) => isMahjong(gc.card));
+          return { action: 'play', cards: [mahjong ?? hand[0]] };
+        },
+        chooseDragonGiftRecipient: vi.fn().mockReturnValue('east'),
+        chooseMahjongWish: vi.fn().mockReturnValue(null),
+      };
+      runner = new BotRunner(actor, { minDelayMs: 1, maxDelayMs: 1 }, new MoveHandler(actor));
+      runner.addBot(mahjongHolder, bot);
+
+      runner.onStateChange();
+      vi.advanceTimersByTime(1999);
+      expect(getContext(actor).currentRound!.players[mahjongHolder].hasPlayed).toBe(false);
+
+      vi.advanceTimersByTime(1);
+      expect(getContext(actor).currentRound!.players[mahjongHolder].hasPlayed).toBe(true);
+    });
+
+    it('should separate a bot Tichu call after a human action from the bot play', () => {
+      actor = createTestActor();
+      advanceToPlaying(actor);
+      playOpeningMahjong(actor);
+
+      const botSeat = getContext(actor).currentRound!.currentTurn!;
+      const startingHandSize = getContext(actor).currentRound!.players[botSeat].hand.length;
+      const bot: BotStrategy = {
+        chooseGrandTichu: () => false,
+        chooseRegularTichu: () => true,
+        chooseCardsToPass: vi.fn(),
+        choosePlay: ({ validPlays, canPass }) => {
+          const single = validPlays.find((play) =>
+            play.cards.length === 1 && play.cards[0].card.kind === 'standard',
+          );
+          if (single) return { action: 'play', cards: single.cards };
+          return canPass ? { action: 'pass' } : { action: 'play', cards: validPlays[0].cards };
+        },
+        chooseDragonGiftRecipient: vi.fn().mockReturnValue('east'),
+        chooseMahjongWish: vi.fn().mockReturnValue(null),
+      };
+      runner = new BotRunner(actor, { minDelayMs: 1, maxDelayMs: 1 }, new MoveHandler(actor));
+      runner.addBot(botSeat, bot);
+
+      runner.onStateChange();
+      vi.advanceTimersByTime(999);
+      expect(getContext(actor).currentRound!.players[botSeat].tipiCall).toBe('none');
+
+      vi.advanceTimersByTime(1);
+      expect(getContext(actor).currentRound!.players[botSeat].tipiCall).toBe('tichu');
+      expect(getContext(actor).currentRound!.players[botSeat].hand).toHaveLength(startingHandSize);
+
+      vi.advanceTimersByTime(999);
+      expect(getContext(actor).currentRound!.players[botSeat].hand).toHaveLength(startingHandSize);
+
+      vi.advanceTimersByTime(1);
+      expect(getContext(actor).currentRound!.players[botSeat].hand.length).toBeLessThan(startingHandSize);
     });
 
     it('should use instant timing with INSTANT_CONFIG', async () => {
