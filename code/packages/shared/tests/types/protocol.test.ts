@@ -171,7 +171,7 @@ describe('serverMessageSchema', () => {
     const msg = {
       type: 'LOBBY_LIST',
       rooms: [
-        { roomCode: 'ABC123', roomName: 'Test Room', hostName: 'Alice', playerCount: 2, spectatorCount: 0, config: { targetScore: 1000 }, gameInProgress: false, hasEmptySeats: false },
+        { roomCode: 'ABC123', roomName: 'Test Room', hostName: 'Alice', playerCount: 2, spectatorCount: 0, playerNames: ['Alice', 'Bob'], spectatorNames: [], config: { targetScore: 1000 }, gameInProgress: false, hasEmptySeats: false },
       ],
     };
     expect(serverMessageSchema.parse(msg)).toEqual(msg);

@@ -5,7 +5,7 @@
 // REQ-F-ID02: CREATE_ROOM/JOIN_ROOM use username as playerName
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -15,7 +15,8 @@ import { AuthGuard } from '@/components/AuthGuard';
 import { CreateGamePopup } from '@/components/lobby/CreateGamePopup';
 import { UserMenu } from '@/components/lobby/UserMenu';
 import type { CreateGameConfig } from '@/components/lobby/CreateGamePopup';
-import type { ServerMessage } from '@tichu/shared';
+import type { LobbyEntry, ServerMessage } from '@tichu/shared';
+import styles from './lobby.module.css';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 
@@ -26,6 +27,92 @@ function getGuestId(): string {
     sessionStorage.setItem('tichu_user_id', id);
   }
   return id;
+}
+
+function SpectatorIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={styles.spectatorIcon}
+    >
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function PlayerIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={styles.playerIcon}
+    >
+      <path d="M20 21a8 8 0 0 0-16 0" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function RoomOccupancy({ playerCount, spectatorCount }: { playerCount: number; spectatorCount: number }) {
+  return (
+    <span className={styles.roomOccupancy}>
+      <span className={styles.occupancyItem}>
+        <PlayerIcon />
+        {playerCount}
+      </span>
+      <span className={styles.occupancyItem}>
+        <SpectatorIcon />
+        {spectatorCount}
+      </span>
+    </span>
+  );
+}
+
+function RoomDetails({ room }: { room: LobbyEntry }) {
+  const status = room.gameInProgress ? 'In progress' : 'Waiting';
+  const playerNames = room.playerNames ?? [];
+  const spectatorNames = room.spectatorNames ?? [];
+
+  return (
+    <div className={styles.roomDetails}>
+      <div>
+        <span>Room</span>
+        <strong>{room.roomName}</strong>
+      </div>
+      <div>
+        <span>Host</span>
+        <strong>{room.hostName}</strong>
+      </div>
+      <div>
+        <span>Goal</span>
+        <strong>{room.config.targetScore}</strong>
+      </div>
+      <div>
+        <span>Status</span>
+        <strong>{status}</strong>
+      </div>
+      <div className={styles.detailList}>
+        <span>Players</span>
+        <strong>{playerNames.length > 0 ? playerNames.join(', ') : 'None'}</strong>
+      </div>
+      <div className={styles.detailList}>
+        <span>Spectators</span>
+        <strong>{spectatorNames.length > 0 ? spectatorNames.join(', ') : 'None'}</strong>
+      </div>
+    </div>
+  );
 }
 
 export default function LobbyPage() {
@@ -47,6 +134,7 @@ export default function LobbyPage() {
   const [joiningGame, setJoiningGame] = useState(false);
   const [lobbyLoaded, setLobbyLoaded] = useState(false);
   const [connectionError, setConnectionError] = useState(false);
+  const [expandedRoomCode, setExpandedRoomCode] = useState<string | null>(null);
   const connectionErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasConnectedRef = useRef(false);
 
@@ -226,9 +314,50 @@ export default function LobbyPage() {
   const sortIndicator = (col: typeof sortCol) =>
     sortCol === col ? (sortAsc ? ' \u25B2' : ' \u25BC') : '';
 
+  const renderRoomAction = (room: LobbyEntry) => {
+    if (room.hasEmptySeats) {
+      return (
+        <button
+          onClick={(event) => { event.stopPropagation(); handleJoinRoom(room.roomCode); }}
+          className={`${styles.roomActionButton} ${styles.joinAction}`}
+        >
+          Join (In Progress)
+        </button>
+      );
+    }
+
+    if (room.playerCount < 4) {
+      return (
+        <button
+          onClick={(event) => { event.stopPropagation(); handleJoinRoom(room.roomCode); }}
+          className={`${styles.roomActionButton} ${styles.joinAction}`}
+        >
+          Join
+        </button>
+      );
+    }
+
+    if (room.config.spectatorsAllowed) {
+      return (
+        <button
+          onClick={(event) => { event.stopPropagation(); handleJoinAsSpectator(room.roomCode); }}
+          className={`${styles.roomActionButton} ${styles.spectateAction}`}
+        >
+          Spectate
+        </button>
+      );
+    }
+
+    return (
+      <span className={`${styles.roomActionButton} ${styles.fullAction}`}>
+        Full
+      </span>
+    );
+  };
+
   return (
     <AuthGuard>
-      <main className="p-6" style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
+      <main className={`p-6 ${styles.lobbyMain}`} style={{ background: 'var(--color-felt-green-dark)', height: '100dvh', overflowY: 'auto' }}>
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8 relative">
           <h1 className="text-4xl font-bold" style={{ color: 'var(--color-gold-accent)' }}>Tichu Lobby</h1>
@@ -324,9 +453,9 @@ export default function LobbyPage() {
         )}
 
         {/* Create room + Join by code — right-aligned buttons */}
-        <div className="mb-8" style={{ maxWidth: '500px', margin: '0 auto 32px' }}>
+        <div className={`mb-8 ${styles.quickActions}`}>
           {/* Create room row */}
-          <div className="flex gap-2 mb-3" style={{ justifyContent: 'flex-end' }}>
+          <div className={`flex gap-2 mb-3 ${styles.controlRow}`} style={{ justifyContent: 'flex-end' }}>
             <input
               type="text"
               placeholder="ROOM NAME"
@@ -334,7 +463,7 @@ export default function LobbyPage() {
               onChange={(e) => { setRoomName(e.target.value); setRoomNameError(false); }}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); }}
               maxLength={30}
-              className="px-4 py-2 rounded-lg text-center font-semibold flex-1"
+              className={`px-4 py-2 rounded-lg text-center font-semibold flex-1 ${styles.roomNameInput}`}
               style={{
                 background: 'var(--color-bg-panel)',
                 color: 'var(--color-text-primary)',
@@ -352,7 +481,7 @@ export default function LobbyPage() {
           </div>
 
           {/* Join by code row — right-aligned with button */}
-          <div className="flex gap-2" style={{ justifyContent: 'flex-end' }}>
+          <div className={`flex gap-2 ${styles.controlRow}`} style={{ justifyContent: 'flex-end' }}>
             <input
               type="text"
               placeholder="ROOM CODE"
@@ -360,7 +489,7 @@ export default function LobbyPage() {
               onChange={(e) => setJoinCode(e.target.value.toUpperCase().slice(0, 6))}
               onKeyDown={(e) => { if (e.key === 'Enter') handleJoinByCode(); }}
               maxLength={6}
-              className="px-4 py-2 rounded-lg text-center uppercase tracking-widest font-mono"
+              className={`px-4 py-2 rounded-lg text-center uppercase tracking-widest font-mono ${styles.joinCodeInput}`}
               style={{
                 background: 'var(--color-bg-panel)',
                 color: 'var(--color-text-primary)',
@@ -385,7 +514,7 @@ export default function LobbyPage() {
         </div>
 
         {/* Public room list */}
-        <div className="rounded-xl p-4" style={{ background: 'var(--color-bg-panel)' }}>
+        <div className={`rounded-xl p-4 ${styles.roomsPanel}`} style={{ background: 'var(--color-bg-panel)' }}>
           <h2 className="text-xl font-bold mb-4 text-center" style={{ color: 'var(--color-text-primary)' }}>
             Public Rooms
           </h2>
@@ -432,29 +561,47 @@ export default function LobbyPage() {
               {lobbyRooms.length === 0 ? 'No public rooms available. Create one!' : 'No rooms match your search.'}
             </p>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px', tableLayout: 'fixed' }}>
-                <colgroup>
+            <>
+              <div className={styles.desktopRooms} style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '15px', tableLayout: 'fixed' }}>
+                  <colgroup>
                   <col style={{ width: '35%' }} />
                   <col />
                   <col style={{ width: '80px' }} />
-                  <col style={{ width: '100px' }} />
-                  <col style={{ width: '85px' }} />
-                  <col style={{ width: '120px' }} />
-                </colgroup>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                    {([
-                      ['roomName', 'Room Name', 'left'],
-                      ['hostName', 'Host', 'left'],
-                      ['goal', 'Goal', 'right'],
-                    ] as const).map(([col, label, align]) => (
+                    <col style={{ width: '130px' }} />
+                    <col style={{ width: '120px' }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
+                      {([
+                        ['roomName', 'Room Name', 'left'],
+                        ['hostName', 'Host', 'left'],
+                        ['goal', 'Goal', 'right'],
+                      ] as const).map(([col, label, align]) => (
+                        <th
+                          key={col}
+                          onClick={() => handleSort(col)}
+                          style={{
+                            padding: '10px 12px',
+                            textAlign: align as 'center' | 'left',
+                            color: 'var(--color-text-muted)',
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {label}{sortIndicator(col)}
+                        </th>
+                      ))}
                       <th
-                        key={col}
-                        onClick={() => handleSort(col)}
+                        onClick={() => handleSort('players')}
                         style={{
                           padding: '10px 12px',
-                          textAlign: align as 'center' | 'left',
+                          textAlign: 'center',
                           color: 'var(--color-text-muted)',
                           fontWeight: 600,
                           fontSize: '13px',
@@ -465,24 +612,9 @@ export default function LobbyPage() {
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {label}{sortIndicator(col)}
+                        Players{sortIndicator('players')}
                       </th>
-                    ))}
-                    <th style={{
-                      padding: '10px 12px',
-                      textAlign: 'center',
-                      color: 'var(--color-text-muted)',
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      whiteSpace: 'nowrap',
-                    }}>
-                      Spectators
-                    </th>
-                    <th
-                      onClick={() => handleSort('players')}
-                      style={{
+                      <th style={{
                         padding: '10px 12px',
                         textAlign: 'center',
                         color: 'var(--color-text-muted)',
@@ -490,86 +622,107 @@ export default function LobbyPage() {
                         fontSize: '13px',
                         textTransform: 'uppercase',
                         letterSpacing: '0.5px',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      Players{sortIndicator('players')}
-                    </th>
-                    <th style={{
-                      padding: '10px 12px',
-                      textAlign: 'center',
-                      color: 'var(--color-text-muted)',
-                      fontWeight: 600,
-                      fontSize: '13px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                    }}>
-                      Join
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRooms.map((room) => (
-                    <tr
-                      key={room.roomCode}
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-                    >
-                      <td style={{ padding: '12px', color: 'var(--color-text-primary)', fontWeight: 700 }}>
-                        {room.roomName}
-                      </td>
-                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)' }}>
-                        {room.hostName}
-                      </td>
-                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'right' }}>
-                        {room.config.targetScore}
-                      </td>
-                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
-                        {room.spectatorCount}
-                      </td>
-                      <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
-                        {room.playerCount}/4
-                      </td>
-                      <td style={{ padding: '12px', textAlign: 'center' }}>
-                        {/* REQ-F-ES05: "Join (In Progress)" for mid-game rooms with empty seats */}
-                        {room.hasEmptySeats ? (
-                          <button
-                            onClick={() => handleJoinRoom(room.roomCode)}
-                            className="px-4 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
-                            style={{ background: 'var(--color-success)', color: '#000' }}
-                          >
-                            Join (In Progress)
-                          </button>
-                        ) : room.playerCount < 4 ? (
-                          <button
-                            onClick={() => handleJoinRoom(room.roomCode)}
-                            className="px-5 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
-                            style={{ background: 'var(--color-success)', color: '#000' }}
-                          >
-                            Join
-                          </button>
-                        ) : room.config.spectatorsAllowed ? (
-                          /* REQ-F-SP01: "Spectate" button when room is full + spectators allowed */
-                          <button
-                            onClick={() => handleJoinAsSpectator(room.roomCode)}
-                            className="px-4 py-1.5 rounded text-sm font-semibold transition-opacity hover:opacity-80"
-                            style={{ background: 'var(--color-gold-accent)', color: 'var(--color-felt-green-dark)' }}
-                          >
-                            Spectate
-                          </button>
-                        ) : (
-                          <span className="px-4 py-1.5 rounded text-sm font-semibold inline-block"
-                            style={{ background: 'var(--color-text-muted)', color: '#000' }}>
-                            Full
-                          </span>
-                        )}
-                      </td>
+                      }}>
+                        Join
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredRooms.map((room) => {
+                      const expanded = expandedRoomCode === room.roomCode;
+                      return (
+                        <Fragment key={room.roomCode}>
+                          <tr
+                            className={styles.desktopRoomRow}
+                            onClick={() => setExpandedRoomCode(expanded ? null : room.roomCode)}
+                            style={{ borderBottom: expanded ? '0' : '1px solid rgba(255,255,255,0.06)' }}
+                          >
+                            <td style={{ padding: '12px', color: 'var(--color-text-primary)', fontWeight: 700 }}>
+                              {room.roomName}
+                            </td>
+                            <td style={{ padding: '12px', color: 'var(--color-text-secondary)' }}>
+                              {room.hostName}
+                            </td>
+                            <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'right' }}>
+                              {room.config.targetScore}
+                            </td>
+                            <td style={{ padding: '12px', color: 'var(--color-text-secondary)', textAlign: 'center' }}>
+                              <RoomOccupancy playerCount={room.playerCount} spectatorCount={room.spectatorCount} />
+                            </td>
+                            <td style={{ padding: '12px', textAlign: 'center' }}>
+                              {renderRoomAction(room)}
+                            </td>
+                          </tr>
+                          {expanded && (
+                            <tr className={styles.desktopDetailsRow}>
+                              <td colSpan={5}>
+                                <RoomDetails room={room} />
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className={styles.mobileRooms}>
+                <table className={styles.mobileRoomTable}>
+                  <colgroup>
+                    <col className={styles.mobileRoomNameCol} />
+                    <col className={styles.mobilePlayersCol} />
+                    <col className={styles.mobileActionCol} />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>Room Name</th>
+                      <th>Players</th>
+                      <th>Join</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredRooms.map((room) => {
+                      const expanded = expandedRoomCode === room.roomCode;
+                      return (
+                        <Fragment key={room.roomCode}>
+                          <tr
+                            className={styles.mobileRoomRow}
+                            onClick={() => setExpandedRoomCode(expanded ? null : room.roomCode)}
+                          >
+                            <td className={styles.mobileRoomNameCell}>
+                              <button
+                                type="button"
+                                className={styles.mobileRoomNameButton}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setExpandedRoomCode(expanded ? null : room.roomCode);
+                                }}
+                                aria-expanded={expanded}
+                              >
+                                <span className={styles.mobileRoomNameText}>{room.roomName}</span>
+                              </button>
+                            </td>
+                            <td className={styles.mobilePlayersCell}>
+                              <RoomOccupancy playerCount={room.playerCount} spectatorCount={room.spectatorCount} />
+                            </td>
+                            <td className={styles.mobileActionCell}>
+                              {renderRoomAction(room)}
+                            </td>
+                          </tr>
+                          {expanded && (
+                            <tr className={styles.mobileDetailsRow}>
+                              <td colSpan={3}>
+                                <RoomDetails room={room} />
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
           </div>
         </div>

@@ -124,7 +124,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ROOM_LEFT') }),
   z.object({ type: z.literal('KICKED'), message: z.string() }),
   // REQ-F-ES05: LOBBY_LIST includes hasEmptySeats for "Join (In Progress)" button
-  z.object({ type: z.literal('LOBBY_LIST'), rooms: z.array(z.object({ roomCode: z.string(), roomName: z.string(), hostName: z.string(), playerCount: z.number(), spectatorCount: z.number(), config: z.any(), gameInProgress: z.boolean(), hasEmptySeats: z.boolean() })) }),
+  z.object({ type: z.literal('LOBBY_LIST'), rooms: z.array(z.object({ roomCode: z.string(), roomName: z.string(), hostName: z.string(), playerCount: z.number(), spectatorCount: z.number(), playerNames: z.array(z.string()), spectatorNames: z.array(z.string()), config: z.any(), gameInProgress: z.boolean(), hasEmptySeats: z.boolean() })) }),
 
   // REQ-F-ES06: Seat offered to deciding spectator (FIFO priority, array for multi-vacancy)
   z.object({ type: z.literal('SEAT_OFFERED'), seats: z.array(seatSchema), timeoutMs: z.number() }),

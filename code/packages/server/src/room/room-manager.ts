@@ -337,6 +337,8 @@ export class RoomManager {
         hostName: hostPlayer?.name ?? 'Unknown',
         playerCount: room.players.length,
         spectatorCount: room.spectators.length,
+        playerNames: room.players.map(p => p.name),
+        spectatorNames: room.spectators.map(s => s.name),
         config: {
           targetScore: room.config.targetScore,
           spectatorsAllowed: room.config.spectatorsAllowed,

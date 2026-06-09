@@ -46,6 +46,8 @@ export interface LobbyEntry {
   hostName: string;
   playerCount: number;
   spectatorCount: number;
+  playerNames: string[];
+  spectatorNames: string[];
   // REQ-F-SP01: Include spectatorsAllowed so lobby can show "Join as Spectator" button
   config: Pick<RoomConfig, 'targetScore' | 'spectatorsAllowed'>;
   gameInProgress: boolean;

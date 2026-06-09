@@ -303,7 +303,12 @@ describe('RoomHandler', () => {
       expect(broadcaster.send).toHaveBeenCalledWith(ws1, expect.objectContaining({
         type: 'LOBBY_LIST',
         rooms: expect.arrayContaining([
-          expect.objectContaining({ hostName: 'Alice', playerCount: 1 }),
+          expect.objectContaining({
+            hostName: 'Alice',
+            playerCount: 1,
+            playerNames: ['Alice'],
+            spectatorNames: [],
+          }),
         ]),
       }));
     });

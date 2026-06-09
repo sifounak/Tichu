@@ -1,0 +1,304 @@
+.lobbyMain {
+  box-sizing: border-box;
+}
+
+.quickActions {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto 32px;
+}
+
+.controlRow input {
+  min-width: 0;
+}
+
+.roomsPanel {
+  box-sizing: border-box;
+}
+
+.mobileRooms {
+  display: none;
+}
+
+.roomActionButton {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  transition: opacity var(--duration-fast) var(--easing-smooth);
+}
+
+button.roomActionButton {
+  cursor: pointer;
+}
+
+button.roomActionButton:hover {
+  opacity: 0.8;
+}
+
+.joinAction {
+  background: var(--color-success);
+  color: #000;
+}
+
+.spectateAction {
+  background: var(--color-gold-accent);
+  color: var(--color-felt-green-dark);
+}
+
+.fullAction {
+  background: var(--color-text-muted);
+  color: #000;
+}
+
+.playerIcon,
+.spectatorIcon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.roomOccupancy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.occupancyItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.desktopRoomRow {
+  cursor: pointer;
+}
+
+.desktopRoomRow:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.desktopDetailsRow td {
+  padding: 0 12px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.roomDetails {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.roomDetails div {
+  min-width: 0;
+}
+
+.roomDetails span,
+.roomDetails strong {
+  display: block;
+}
+
+.roomDetails span {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.roomDetails strong {
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.detailList {
+  grid-column: span 2;
+}
+
+@media (max-width: 700px) {
+  .lobbyMain {
+    padding: 16px;
+  }
+
+  .quickActions {
+    max-width: none;
+  }
+
+  .controlRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 135px;
+    align-items: stretch;
+  }
+
+  .roomNameInput,
+  .joinCodeInput {
+    width: 100% !important;
+  }
+
+  .roomsPanel {
+    padding: 12px;
+  }
+
+  .desktopRooms {
+    display: none;
+  }
+
+  .mobileRooms {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .mobileRoomTable {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .mobileRoomNameCol {
+    width: 43%;
+  }
+
+  .mobilePlayersCol {
+    width: 27%;
+  }
+
+  .mobileActionCol {
+    width: 31%;
+  }
+
+  .mobileRoomTable th {
+    padding: 9px 8px;
+    border-bottom: 2px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .mobileRoomTable th:nth-child(2),
+  .mobileRoomTable th:nth-child(3) {
+    text-align: center;
+  }
+
+  .mobileRoomRow {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+  }
+
+  .mobileRoomRow td {
+    padding: 12px 8px;
+    vertical-align: middle;
+  }
+
+  .mobileRoomNameCell {
+    min-width: 0;
+    color: var(--color-text-primary);
+    font-weight: 700;
+  }
+
+  .mobileRoomNameButton {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mobileRoomNameButton:focus-visible {
+    outline: 2px solid var(--color-gold-accent);
+    outline-offset: 3px;
+  }
+
+  .mobileRoomNameText {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobilePlayersCell {
+    color: var(--color-text-secondary);
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .mobilePlayersCell .roomOccupancy {
+    gap: 8px;
+  }
+
+  .mobilePlayersCell .occupancyItem {
+    gap: 3px;
+  }
+
+  .mobileActionCell {
+    text-align: center;
+  }
+
+  .mobileActionCell .roomActionButton {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .mobileDetailsRow td {
+    padding: 0 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .roomDetails {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .detailList {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 420px) {
+  .controlRow {
+    grid-template-columns: minmax(0, 1fr) 116px;
+  }
+
+  .mobileRoomNameCol {
+    width: 39%;
+  }
+
+  .mobilePlayersCol {
+    width: 29%;
+  }
+
+  .mobileActionCol {
+    width: 32%;
+  }
+
+  .mobileRoomTable th,
+  .mobileRoomRow td {
+    padding-inline: 6px;
+  }
+}
