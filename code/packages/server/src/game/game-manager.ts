@@ -793,14 +793,19 @@ export class GameManager {
       const onlyBots = activePlayers.length > 0 && activePlayers.every((s) => this.botRunner.isBot(s));
 
       if (onlyBots) {
-        // Let bots decide synchronously (no delay), then immediately timeout
+        const lastPlay = round?.currentTrick?.plays.at(-1);
+        const lastPlayWasHuman = !!lastPlay && !this.botRunner.isBot(lastPlay.seat);
+        const timeoutDelayMs = lastPlayWasHuman ? 800 : 0;
+
+        // Let bots decide synchronously, then timeout after any human-to-bot handoff pause.
         this.botRunner.onStateChange(() => this.broadcastState());
-        // Use microtask to allow any bot bomb to process first
-        setTimeout(() => {
+        this.broadcastState();
+        this.endOfTrickBombTimer = setTimeout(() => {
           if (this.destroyed) return;
+          this.endOfTrickBombTimer = null;
           this.actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
           this.broadcastState();
-        }, 0);
+        }, timeoutDelayMs);
         return;
       }
 

@@ -10,7 +10,7 @@ import {
   type GameMachineContext,
 } from '../../src/game/game-state-machine.js';
 import type { Seat, GameCard, Rank, Combination, TrickState, RoundState } from '@tichu/shared';
-import { SEATS_IN_ORDER, Suit, isMahjong } from '@tichu/shared';
+import { CombinationType, SEATS_IN_ORDER, Suit, isMahjong } from '@tichu/shared';
 import type { BotStrategy, BotPlayContext, BotPlayDecision } from '../../src/bot/bot-interface.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
@@ -428,6 +428,61 @@ describe('BotRunner', () => {
 
       vi.advanceTimersByTime(1);
       expect(getContext(actor).currentRound!.players[botSeat].hand.length).toBeLessThan(startingHandSize);
+    });
+
+    it('should pause before bot-only fast play begins after the final human play', () => {
+      actor = createTestActor();
+      advanceToPlaying(actor);
+
+      const round = getContext(actor).currentRound!;
+      const humanSeat: Seat = 'north';
+      const botSeat: Seat = 'east';
+      const humanCard = round.players[humanSeat].hand[0];
+
+      round.players[humanSeat].finishOrder = 1;
+      round.finishOrder = [humanSeat];
+      round.currentTurn = botSeat;
+      round.currentTrick = {
+        plays: [{
+          seat: humanSeat,
+          combination: {
+            type: CombinationType.Single,
+            cards: [humanCard],
+            rank: 7,
+            length: 1,
+            isBomb: false,
+          },
+        }],
+        passes: [],
+        leadSeat: humanSeat,
+        currentWinner: humanSeat,
+      };
+
+      const bot: BotStrategy = {
+        chooseGrandTichu: () => false,
+        chooseRegularTichu: () => false,
+        chooseCardsToPass: vi.fn(),
+        choosePlay: () => ({ action: 'pass' }),
+        chooseDragonGiftRecipient: vi.fn().mockReturnValue('north'),
+        chooseMahjongWish: vi.fn().mockReturnValue(null),
+      };
+      const afterAction = vi.fn();
+
+      runner = new BotRunner(
+        actor,
+        { minDelayMs: 1, maxDelayMs: 1, postHumanBotOnlyDelayMs: 800 },
+        new MoveHandler(actor),
+      );
+      runner.addBot(botSeat, bot);
+      runner.addBot('south', new Bot());
+      runner.addBot('west', new Bot());
+
+      runner.onStateChange(afterAction);
+      vi.advanceTimersByTime(799);
+      expect(afterAction).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1);
+      expect(afterAction).toHaveBeenCalledTimes(1);
     });
 
     it('should use instant timing with INSTANT_CONFIG', async () => {

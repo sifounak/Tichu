@@ -25,6 +25,8 @@ export interface BotRunnerConfig {
   postHumanTichuDelayMs?: number;
   /** Pause between a bot Tichu call and the bot's next turn action */
   postTichuPlayDelayMs?: number;
+  /** Pause before bot-only fast play starts after a human play */
+  postHumanBotOnlyDelayMs?: number;
 }
 
 /** Default timing config — artificial thinking delay for readability */
@@ -35,6 +37,7 @@ const DEFAULT_CONFIG: BotRunnerConfig = {
   firstTrickLeadDelayMs: 2000,
   postHumanTichuDelayMs: 1000,
   postTichuPlayDelayMs: 1000,
+  postHumanBotOnlyDelayMs: 800,
 };
 
 /** Fast config for testing */
@@ -44,6 +47,7 @@ export const INSTANT_CONFIG: BotRunnerConfig = {
   firstTrickLeadDelayMs: 0,
   postHumanTichuDelayMs: 0,
   postTichuPlayDelayMs: 0,
+  postHumanBotOnlyDelayMs: 0,
 };
 
 /**
@@ -445,9 +449,15 @@ export class BotRunner {
     callTichu: boolean,
     playDelay: number,
   ): number {
-    if (this.isInstantTiming() || this.onlyBotsRemain()) return 0;
+    if (this.isInstantTiming()) return 0;
 
-    const { firstTrickLeadDelayMs, postHumanTichuDelayMs } = this.getTimingConfig();
+    const { firstTrickLeadDelayMs, postHumanTichuDelayMs, postHumanBotOnlyDelayMs } = this.getTimingConfig();
+
+    if (this.onlyBotsRemain()) {
+      const humanHandoffDelay = this.wasPreviousActionByHuman(round) ? postHumanBotOnlyDelayMs : 0;
+      return Math.max(playDelay, humanHandoffDelay);
+    }
+
     const firstTrickDelay = this.isOpeningMahjongLead(round, seat) ? firstTrickLeadDelayMs : 0;
     const tichuDelay = callTichu && this.wasPreviousActionByHuman(round) ? postHumanTichuDelayMs : 0;
     return Math.max(firstTrickDelay, tichuDelay, callTichu ? 0 : playDelay);
