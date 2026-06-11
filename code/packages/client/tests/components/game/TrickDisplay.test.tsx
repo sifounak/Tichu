@@ -1,7 +1,7 @@
 // Verifies: REQ-F-DI06, REQ-F-DI07, REQ-F-DI02
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { TrickDisplay } from '../../../src/components/game/TrickDisplay';
+import { calculateTrickCardLayout, TrickDisplay } from '../../../src/components/game/TrickDisplay';
 import type { TrickState, GameCard, Rank, CardId } from '@tichu/shared';
 import { CombinationType } from '@tichu/shared';
 
@@ -97,5 +97,69 @@ describe('TrickDisplay', () => {
     // Only the latest play (east) is shown
     expect(screen.getByLabelText(/east played single/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/north played single/i)).not.toBeInTheDocument();
+  });
+
+  it('scales wide played-card groups instead of letting them overflow', () => {
+    const layout = calculateTrickCardLayout({
+      cardCount: 14,
+      containerWidth: 650,
+      cardWidth: 105,
+      desiredOverlap: 60,
+      edgePadding: 10,
+    });
+
+    expect(layout.overlapPx).toBe(60);
+    expect(layout.scale).toBeLessThan(1);
+    expect(layout.cardWidthPx).toBeLessThan(105);
+  });
+
+  it('shrinks played-card groups when minimum visible card width still cannot fit', () => {
+    const layout = calculateTrickCardLayout({
+      cardCount: 14,
+      containerWidth: 300,
+      cardWidth: 105,
+      desiredOverlap: 60,
+      edgePadding: 10,
+    });
+
+    expect(layout.overlapPx).toBe(60);
+    expect(layout.scale).toBeLessThan(1);
+  });
+
+  it('renders longer tricks with smaller cards than short tricks', () => {
+    const threeOfAKind = calculateTrickCardLayout({
+      cardCount: 3,
+      containerWidth: 500,
+      cardWidth: 105,
+      desiredOverlap: 60,
+      edgePadding: 10,
+    });
+    const elevenCardStraight = calculateTrickCardLayout({
+      cardCount: 11,
+      containerWidth: 500,
+      cardWidth: 105,
+      desiredOverlap: 60,
+      edgePadding: 10,
+    });
+
+    expect(threeOfAKind.scale).toBe(1);
+    expect(elevenCardStraight.scale).toBeLessThan(threeOfAKind.scale);
+    expect(elevenCardStraight.cardWidthPx).toBeLessThan(threeOfAKind.cardWidthPx);
+  });
+
+  it('scales against visual fan bounds for bomb card groups', () => {
+    const layout = calculateTrickCardLayout({
+      cardCount: 14,
+      containerWidth: 650,
+      cardWidth: 105,
+      cardHeight: 150,
+      desiredOverlap: 60,
+      edgePadding: 10,
+      fanRotateStepDeg: 8,
+      fanXStep: 6,
+    });
+
+    expect(layout.scale).toBeLessThan(1);
+    expect(Math.abs(layout.centerOffsetPx)).toBeLessThan(1);
   });
 });

@@ -112,11 +112,12 @@
 
 .cards {
   display: flex;
-  gap: -8px;
+  transform: translateX(var(--trick-card-center-offset, 0));
+  transform-origin: center;
 }
 
 .cards > * + * {
-  margin-left: calc(-62.75px * var(--scale));
+  margin-left: calc(-1 * var(--trick-card-overlap, var(--card-overlap-desktop-lg)));
 }
 
 .trickCard {

@@ -104,6 +104,17 @@
   gap: 0 var(--space-6);
 }
 
+.historyHeader {
+  padding-bottom: 5px;
+  font-size: var(--font-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+
+.historyHeader .historyScore {
+  min-width: 4ch;
+}
+
 .historyTeamLeft,
 .historyTeamRight {
   display: flex;
@@ -150,6 +161,24 @@
   border-radius: 3px;
   line-height: 1;
   text-align: center;
+}
+
+.historyBadgeHeader {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(22px * var(--scale));
+  padding: 0 calc(4px * var(--scale));
+  line-height: 1;
+  font-weight: 700;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.historyBadgeHeaderMuted {
+  opacity: 0.65;
 }
 
 .historyBadgeWon {

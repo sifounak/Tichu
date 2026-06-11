@@ -4,7 +4,7 @@
 // REQ-NF-U02: Framer Motion card play, trick sweep, bomb effect animations
 'use client';
 
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TrickState, Seat, Rank } from '@tichu/shared';
 import { Card } from '../cards/Card';
@@ -21,6 +21,100 @@ const RANK_FULL_NAMES: Record<number, string> = {
   2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7',
   8: '8', 9: '9', 10: '10', 11: 'Jack', 12: 'Queen', 13: 'King', 14: 'Ace',
 };
+
+const TRICK_CARD_MIN_VISIBLE_RATIO = 0.28;
+const TRICK_CARD_EDGE_PADDING_PX = 10;
+
+interface TrickCardLayout {
+  overlapPx: number;
+  scale: number;
+  centerOffsetPx: number;
+  cardWidthPx: number;
+  cardHeightPx: number;
+  cardFontSizePx: number;
+  cardSuitSizePx: number;
+  cardBorderRadiusPx: number;
+}
+
+export function calculateTrickCardLayout({
+  cardCount,
+  containerWidth,
+  cardWidth,
+  cardHeight = cardWidth * (10 / 7),
+  cardFontSize = cardWidth * (8 / 35),
+  cardSuitSize = cardWidth * (8 / 21),
+  cardBorderRadius = cardWidth * (3 / 35),
+  desiredOverlap,
+  minVisibleRatio = TRICK_CARD_MIN_VISIBLE_RATIO,
+  edgePadding = TRICK_CARD_EDGE_PADDING_PX,
+  fanRotateStepDeg = 0,
+  fanXStep = 0,
+}: {
+  cardCount: number;
+  containerWidth: number;
+  cardWidth: number;
+  cardHeight?: number;
+  cardFontSize?: number;
+  cardSuitSize?: number;
+  cardBorderRadius?: number;
+  desiredOverlap: number;
+  minVisibleRatio?: number;
+  edgePadding?: number;
+  fanRotateStepDeg?: number;
+  fanXStep?: number;
+}): TrickCardLayout {
+  if (cardCount <= 1 || containerWidth <= 0 || cardWidth <= 0) {
+    return {
+      overlapPx: Math.max(0, desiredOverlap),
+      scale: 1,
+      centerOffsetPx: 0,
+      cardWidthPx: cardWidth,
+      cardHeightPx: cardHeight,
+      cardFontSizePx: cardFontSize,
+      cardSuitSizePx: cardSuitSize,
+      cardBorderRadiusPx: cardBorderRadius,
+    };
+  }
+
+  const availableWidth = Math.max(0, containerWidth - edgePadding * 2);
+  const maxOverlap = Math.max(0, cardWidth - cardWidth * minVisibleRatio);
+  const overlapPx = Math.min(maxOverlap, Math.max(0, desiredOverlap));
+
+  let visualLeft = Number.POSITIVE_INFINITY;
+  let visualRight = Number.NEGATIVE_INFINITY;
+  const midIdx = (cardCount - 1) / 2;
+  for (let idx = 0; idx < cardCount; idx += 1) {
+    const angleRad = Math.abs((idx - midIdx) * fanRotateStepDeg) * Math.PI / 180;
+    const rotatedWidth = Math.abs(cardWidth * Math.cos(angleRad)) + Math.abs(cardHeight * Math.sin(angleRad));
+    const cardCenter = idx * (cardWidth - overlapPx) + cardWidth / 2 + (idx - midIdx) * fanXStep;
+    visualLeft = Math.min(visualLeft, cardCenter - rotatedWidth / 2);
+    visualRight = Math.max(visualRight, cardCenter + rotatedWidth / 2);
+  }
+
+  const visualWidth = visualRight - visualLeft;
+  const visualCenter = visualLeft + visualWidth / 2;
+  const layoutWidth = cardWidth + (cardCount - 1) * (cardWidth - overlapPx);
+  const layoutCenter = layoutWidth / 2;
+  const scale = visualWidth > availableWidth && availableWidth > 0
+    ? Math.min(1, availableWidth / visualWidth)
+    : 1;
+
+  return {
+    overlapPx,
+    scale,
+    centerOffsetPx: layoutCenter - visualCenter,
+    cardWidthPx: cardWidth * scale,
+    cardHeightPx: cardHeight * scale,
+    cardFontSizePx: cardFontSize * scale,
+    cardSuitSizePx: cardSuitSize * scale,
+    cardBorderRadiusPx: cardBorderRadius * scale,
+  };
+}
+
+function parseCssPixelValue(value: string, fallback: number): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
 
 /** Format the effective value of a Phoenix single for display */
 function formatPhoenixValue(rank: number): string {
@@ -125,6 +219,16 @@ export const TrickDisplay = memo(function TrickDisplay({
 }: TrickDisplayProps) {
   const { durations, enabled } = useAnimationSettings();
   const trickRef = useRef<HTMLDivElement>(null);
+  const [cardLayout, setCardLayout] = useState<TrickCardLayout>({
+    overlapPx: 62.75,
+    scale: 1,
+    centerOffsetPx: 0,
+    cardWidthPx: 105,
+    cardHeightPx: 150,
+    cardFontSizePx: 24,
+    cardSuitSizePx: 40,
+    cardBorderRadiusPx: 9,
+  });
 
   /** Compute offset from play area center to a given seat's info box (or card hand for self) */
   const getOffsetForSeat = useCallback((seat: Seat): { x: number | string; y: number | string } => {
@@ -159,6 +263,52 @@ export const TrickDisplay = memo(function TrickDisplay({
   const lastPlayId = lastPlay
     ? `${lastPlay.seat}-${lastPlay.combination.cards.map(c => c.id).join(',')}`
     : null;
+  const latestCardCount = lastPlay?.combination.cards.length ?? 0;
+
+  useLayoutEffect(() => {
+    const trickEl = trickRef.current;
+    if (!trickEl) return;
+
+    const updateLayout = () => {
+      const computedStyle = getComputedStyle(trickEl);
+      const scale = parseCssPixelValue(computedStyle.getPropertyValue('--scale'), 1);
+      const cardWidth = parseCssPixelValue(computedStyle.getPropertyValue('--card-width-lg'), 105 * scale);
+      const cardHeight = parseCssPixelValue(computedStyle.getPropertyValue('--card-height-lg'), 150 * scale);
+      const cardFontSize = parseCssPixelValue(computedStyle.getPropertyValue('--card-font-size-lg'), 24 * scale);
+      const cardSuitSize = parseCssPixelValue(computedStyle.getPropertyValue('--card-suit-size-lg'), 40 * scale);
+      const cardBorderRadius = parseCssPixelValue(computedStyle.getPropertyValue('--card-border-radius-lg'), 9 * scale);
+      const desiredOverlap = parseCssPixelValue(
+        computedStyle.getPropertyValue('--card-overlap-desktop-lg'),
+        60 * scale,
+      );
+      const edgePadding = TRICK_CARD_EDGE_PADDING_PX * scale;
+
+      setCardLayout(calculateTrickCardLayout({
+        cardCount: latestCardCount,
+        containerWidth: trickEl.clientWidth,
+        cardWidth,
+        cardHeight,
+        cardFontSize,
+        cardSuitSize,
+        cardBorderRadius,
+        desiredOverlap,
+        edgePadding,
+        fanRotateStepDeg: isBombPlay ? 8 : 0,
+        fanXStep: isBombPlay ? 6 * scale : 0,
+      }));
+    };
+
+    updateLayout();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateLayout);
+      return () => window.removeEventListener('resize', updateLayout);
+    }
+
+    const observer = new ResizeObserver(updateLayout);
+    observer.observe(trickEl);
+    return () => observer.disconnect();
+  }, [isBombPlay, latestCardCount]);
 
   useEffect(() => {
     if (isBombPlay && enabled) {
@@ -296,7 +446,18 @@ export const TrickDisplay = memo(function TrickDisplay({
                       damping: 20,
                     }}
                   >
-                    <div className={styles.cards} style={{ '--card-width': 'var(--card-width-lg)', '--card-height': 'var(--card-height-lg)', '--card-font-size': 'var(--card-font-size-lg)', '--card-suit-size': 'var(--card-suit-size-lg)', '--card-border-radius': 'var(--card-border-radius-lg)' } as React.CSSProperties}>
+                    <div
+                      className={styles.cards}
+                      style={{
+                        '--card-width': `${cardLayout.cardWidthPx}px`,
+                        '--card-height': `${cardLayout.cardHeightPx}px`,
+                        '--card-font-size': `${cardLayout.cardFontSizePx}px`,
+                        '--card-suit-size': `${cardLayout.cardSuitSizePx}px`,
+                        '--card-border-radius': `${cardLayout.cardBorderRadiusPx}px`,
+                        '--trick-card-overlap': `${cardLayout.overlapPx * cardLayout.scale}px`,
+                        '--trick-card-center-offset': `${cardLayout.centerOffsetPx}px`,
+                      } as React.CSSProperties}
+                    >
                       {sortCombinationForDisplay(latestPlay.combination).map((gc, cardIdx) => {
                         const isPhoenixSingle =
                           latestPlay.combination.type === 'single' &&
@@ -305,8 +466,8 @@ export const TrickDisplay = memo(function TrickDisplay({
                         const midIdx = (cardCount - 1) / 2;
                         // Fan: spread cards out with rotation + vertical lift after impact
                         const fanRotate = (cardIdx - midIdx) * 8;
-                        const fanY = -Math.abs(cardIdx - midIdx) * 12; // arc shape, center card stays centered
-                        const fanX = (cardIdx - midIdx) * 6;
+                        const fanY = -Math.abs(cardIdx - midIdx) * 12 * cardLayout.scale; // arc shape, center card stays centered
+                        const fanX = (cardIdx - midIdx) * 6 * cardLayout.scale;
                         return (
                           <motion.div
                             key={gc.id}

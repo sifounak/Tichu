@@ -94,6 +94,37 @@ export const ScorePanel = memo(function ScorePanel({
     );
   }
 
+  function playerIndicator(seat: Seat) {
+    const name = seatNames[seat]?.trim() || seat;
+    const shortName = name.slice(0, 2).toUpperCase();
+    return <span className={styles.historyBadgeHeader} title={name}>{shortName}</span>;
+  }
+
+  function renderHistoryHeaderBadges(seats: Seat[]) {
+    return (
+      <>
+        <span className={`${styles.historyBadgeHeader} ${styles.historyBadgeHeaderMuted}`}>1-2</span>
+        {playerIndicator(seats[0])}
+        {playerIndicator(seats[1])}
+      </>
+    );
+  }
+
+  function renderHistoryHeader() {
+    return (
+      <div className={`${styles.historyRow} ${styles.historyHeader}`} aria-label="Score history column headers">
+        <span className={styles.historyTeamLeft}>
+          <span className={styles.historyBadges}>{renderHistoryHeaderBadges(myTeamSeats)}</span>
+          <span className={styles.historyScore} aria-hidden="true" />
+        </span>
+        <span className={styles.historyTeamRight}>
+          <span className={styles.historyScore} aria-hidden="true" />
+          <span className={`${styles.historyBadges} ${styles.historyBadgesRight}`}>{renderHistoryHeaderBadges(oppTeamSeats)}</span>
+        </span>
+      </div>
+    );
+  }
+
   function renderHistoryRow(rs: RoundScore) {
     return (
       <div key={rs.roundNumber} className={styles.historyRow}>
@@ -166,6 +197,7 @@ export const ScorePanel = memo(function ScorePanel({
 
               {roundHistory.length > 0 && (
                 <div className={styles.history}>
+                  {renderHistoryHeader()}
                   {roundHistory.map((rs) => renderHistoryRow(rs))}
                 </div>
               )}
@@ -212,6 +244,7 @@ export const ScorePanel = memo(function ScorePanel({
 
       {expanded && roundHistory.length > 0 && (
         <div className={styles.history}>
+          {renderHistoryHeader()}
           {roundHistory.map((rs) => renderHistoryRow(rs))}
         </div>
       )}

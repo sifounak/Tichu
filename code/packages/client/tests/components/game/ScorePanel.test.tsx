@@ -21,6 +21,14 @@ const roundHistory: RoundScore[] = [
     tichuBonuses: { northSouth: 100, eastWest: 0 },
     oneTwoBonus: null,
     total: { northSouth: 175, eastWest: 25 },
+    tichuResults: {
+      north: null,
+      east: null,
+      south: { call: 'tichu', won: true },
+      west: null,
+    },
+    bombsPerTeam: { northSouth: 0, eastWest: 0 },
+    finishOrder: ['south', 'north', 'east', 'west'],
   },
   {
     roundNumber: 2,
@@ -28,6 +36,14 @@ const roundHistory: RoundScore[] = [
     tichuBonuses: { northSouth: 0, eastWest: 0 },
     oneTwoBonus: null,
     total: { northSouth: 75, eastWest: 125 },
+    tichuResults: {
+      north: null,
+      east: null,
+      south: null,
+      west: null,
+    },
+    bombsPerTeam: { northSouth: 0, eastWest: 0 },
+    finishOrder: ['east', 'west', 'north', 'south'],
   },
 ];
 
@@ -94,6 +110,19 @@ describe('ScorePanel', () => {
     // mySeat=south → myTeam=northSouth, history shows myTeam first
     expect(screen.getByText('175')).toBeInTheDocument();
     expect(screen.getByText('25')).toBeInTheDocument();
+  });
+
+  it('shows short player indicators above score history Tichu columns', async () => {
+    const user = userEvent.setup();
+    render(<ScorePanel {...baseProps} roundHistory={roundHistory} />);
+    await user.click(screen.getByText('History (2)'));
+
+    const header = screen.getByLabelText('Score history column headers');
+    expect(header).toBeInTheDocument();
+    expect(header.querySelector('[title="Alice"]')).toHaveTextContent('AL');
+    expect(header.querySelector('[title="Charlie"]')).toHaveTextContent('CH');
+    expect(header.querySelector('[title="Diana"]')).toHaveTextContent('DI');
+    expect(header.querySelector('[title="Bob"]')).toHaveTextContent('BO');
   });
 
   it('hides history toggle when no rounds', () => {
