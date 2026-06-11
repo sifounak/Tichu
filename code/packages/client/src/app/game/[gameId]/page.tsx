@@ -80,6 +80,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // Responsive layout tier
   const layoutTier = useLayoutTier();
   const isMobileLayout = layoutTier !== 'full';
+  const chatDraftStorageKey = `tichu_chat_draft_${roomCode ?? urlGameId}`;
 
   // Default chat to collapsed if starting in mobile layout
   const chatInitialized = useRef(false);
@@ -1233,6 +1234,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               isHost={mySeatFromRoom === hostSeat}
               isSpectator={isPreRoomSpectator}
               spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+              draftStorageKey={chatDraftStorageKey}
               onToggleSpectatorChat={() => send({
                 type: 'CONFIGURE_ROOM',
                 config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
@@ -1251,6 +1253,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             isHost={mySeatFromRoom === hostSeat}
             isSpectator={isPreRoomSpectator}
             spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+            draftStorageKey={chatDraftStorageKey}
             onToggleSpectatorChat={() => send({
               type: 'CONFIGURE_ROOM',
               config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
@@ -1977,6 +1980,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             isHost={mySeatFromRoom === hostSeat}
             isSpectator={isSpectator}
             spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+            draftStorageKey={chatDraftStorageKey}
             onToggleSpectatorChat={() => send({
               type: 'CONFIGURE_ROOM',
               config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },
@@ -2682,6 +2686,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         isHost={mySeatFromRoom === hostSeat}
         isSpectator={isSpectator}
         spectatorChatEnabled={roomConfig?.spectatorChatEnabled ?? false}
+        draftStorageKey={chatDraftStorageKey}
         onToggleSpectatorChat={() => send({
           type: 'CONFIGURE_ROOM',
           config: { spectatorChatEnabled: !(roomConfig?.spectatorChatEnabled ?? false) },

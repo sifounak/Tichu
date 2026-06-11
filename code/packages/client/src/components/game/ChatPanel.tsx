@@ -28,6 +28,8 @@ export interface ChatPanelProps {
   onToggleSpectatorChat?: () => void;
   /** Mobile mode: inline bubble button + centered overlay modal */
   mobile?: boolean;
+  /** Local storage key used to preserve unsent draft text across refreshes */
+  draftStorageKey?: string;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -39,6 +41,28 @@ const SEAT_LABELS: Record<Seat, string> = {
 
 const URL_PATTERN = /((?:https?:\/\/|www\.)[^\s<]+)/gi;
 const TRAILING_URL_PUNCTUATION = /[.,!?;:)\]]+$/;
+
+function readChatDraft(key?: string): string {
+  if (!key || typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(key) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+function writeChatDraft(key: string | undefined, value: string): void {
+  if (!key || typeof window === 'undefined') return;
+  try {
+    if (value.length > 0) {
+      window.localStorage.setItem(key, value);
+    } else {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // Ignore storage failures; draft persistence is best-effort.
+  }
+}
 
 function renderMessageText(text: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
@@ -96,10 +120,13 @@ export const ChatPanel = memo(function ChatPanel({
   spectatorChatEnabled = false,
   onToggleSpectatorChat,
   mobile = false,
+  draftStorageKey,
 }: ChatPanelProps) {
   // Spectators can type when spectator chat is enabled; players always can
   const effectiveReadOnly = isSpectator ? !spectatorChatEnabled : readOnly;
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(() => readChatDraft(draftStorageKey));
+  const draftStorageKeyRef = useRef(draftStorageKey);
+  const skipNextDraftWriteRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const previousMessageCountRef = useRef(messages.length);
 
@@ -119,15 +146,47 @@ export const ChatPanel = memo(function ChatPanel({
     scrollToBottom('smooth');
   }, [isOpen, messages.length, scrollToBottom]);
 
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
+  useEffect(() => {
+    if (draftStorageKeyRef.current === draftStorageKey) return;
+    draftStorageKeyRef.current = draftStorageKey;
+    skipNextDraftWriteRef.current = true;
+    setInput(readChatDraft(draftStorageKey));
+  }, [draftStorageKey]);
+
+  useEffect(() => {
+    if (skipNextDraftWriteRef.current) {
+      skipNextDraftWriteRef.current = false;
+      return;
+    }
+    writeChatDraft(draftStorageKey, input);
+  }, [draftStorageKey, input]);
+
+  const sendInput = useCallback(
+    () => {
       const trimmed = input.trim();
       if (!trimmed) return;
       onSend(trimmed);
       setInput('');
+      writeChatDraft(draftStorageKey, '');
     },
-    [input, onSend],
+    [draftStorageKey, input, onSend],
+  );
+
+  const handleSubmit = useCallback(
+    (e: React.FormEvent) => {
+      e.preventDefault();
+      sendInput();
+    },
+    [sendInput],
+  );
+
+  const handleInputKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key !== 'Enter' || e.shiftKey) return;
+      e.preventDefault();
+      sendInput();
+    },
+    [sendInput],
   );
 
   const toggleButtonClass = mobile ? styles.mobileToggleButton : styles.toggleButton;
@@ -212,14 +271,15 @@ export const ChatPanel = memo(function ChatPanel({
 
               {!effectiveReadOnly && (
                 <form className={styles.inputRow} onSubmit={handleSubmit}>
-                  <input
+                  <textarea
                     className={styles.input}
-                    type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Type a message..."
                     maxLength={500}
                     aria-label="Chat message"
+                    rows={1}
+                    onKeyDown={handleInputKeyDown}
                   />
                   <button
                     className={styles.sendButton}

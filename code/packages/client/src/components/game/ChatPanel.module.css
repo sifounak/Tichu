@@ -49,7 +49,10 @@
 .panel {
   position: fixed;
   top: calc(50vh + calc(80px * var(--scale)));
-  left: calc(87.5vw - calc(171px * var(--scale)));
+  left: max(
+    calc(87.5vw - calc(171px * var(--scale))),
+    calc(50vw + 140px + calc(84px * var(--scale)))
+  );
   right: var(--space-4);
   bottom: calc(256px * var(--scale));
   z-index: 25;
@@ -122,6 +125,7 @@
 .messageText {
   font-size: var(--font-lg);
   color: var(--color-text-primary);
+  white-space: pre-wrap;
   word-break: break-word;
 }
 
@@ -146,6 +150,8 @@
 
 .input {
   flex: 1;
+  min-width: 0;
+  max-height: calc(96px * var(--scale));
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
   border-radius: var(--card-border-radius);
@@ -153,7 +159,12 @@
   color: var(--color-text-primary);
   font-size: var(--font-lg);
   font-family: var(--font-display);
+  line-height: 1.25;
   min-height: calc(36px * var(--scale));
+  resize: none;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .input::placeholder {
@@ -226,6 +237,7 @@
   font-size: var(--font-sm);
   color: var(--color-text-muted);
   font-style: italic;
+  white-space: pre-wrap;
 }
 
 /* Mobile mode: inline toggle button for chrome row */
