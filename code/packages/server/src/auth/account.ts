@@ -32,6 +32,7 @@ const RESERVED_USERNAMES = [
   // Reserved for game display
   'player', 'player1', 'player2', 'player3', 'player4',
   'team1', 'team2', 'spectator', 'observer',
+  'empty', 'empty seat',
 ];
 
 /**

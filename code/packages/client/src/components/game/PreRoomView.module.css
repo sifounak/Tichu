@@ -23,6 +23,9 @@
   min-height: calc(100px * var(--scale));
   /* Fill full seat width so button row can space-evenly against seat edges */
   align-self: stretch;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Side-by-side button row for empty seats in mobile */
@@ -46,6 +49,12 @@
   font-size: calc(22px * var(--scale));
   font-weight: 600;
   color: var(--color-text-muted);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sitHereBtn {
@@ -104,13 +113,22 @@
   justify-content: center;
   gap: calc(6px * var(--scale));
   min-height: calc(100px * var(--scale));
+  align-self: stretch;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .botName {
-  font-size: calc(26px * var(--scale));
+  font-size: calc(22px * var(--scale));
   font-weight: 600;
   color: var(--color-text-primary);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .seatAvatar {

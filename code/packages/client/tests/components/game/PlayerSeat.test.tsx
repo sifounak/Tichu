@@ -1,5 +1,6 @@
 // Verifies: REQ-F-DI01, REQ-F-DI02, REQ-F-DI03, REQ-F-DI04
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { render, screen } from '@testing-library/react';
 import { PlayerSeat } from '@/components/game/PlayerSeat';
 
@@ -71,5 +72,16 @@ describe('PlayerSeat', () => {
   it('shows initial when no finish order', () => {
     render(<PlayerSeat {...baseProps} />);
     expect(screen.getByText('N')).toBeInTheDocument();
+  });
+
+  it('constrains player names for ellipsis in standard and pre-game seat layouts', () => {
+    const playerSeatCss = readFileSync('src/components/game/PlayerSeat.module.css', 'utf8');
+    const preRoomCss = readFileSync('src/components/game/PreRoomView.module.css', 'utf8');
+
+    expect(playerSeatCss).toMatch(/\.name\s*\{[^}]*white-space:\s*nowrap;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*min-width:\s*0;[^}]*width:\s*100%;/s);
+    expect(preRoomCss).toMatch(/\.botSeatContent\s*\{[^}]*align-self:\s*stretch;[^}]*min-width:\s*0;[^}]*width:\s*100%;/s);
+    expect(preRoomCss).toMatch(/\.botName\s*\{[^}]*max-width:\s*100%;[^}]*min-width:\s*0;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s);
+    expect(preRoomCss).toMatch(/\.emptySeatContent\s*\{[^}]*align-self:\s*stretch;[^}]*min-width:\s*0;[^}]*width:\s*100%;/s);
+    expect(preRoomCss).toMatch(/\.emptyTitle\s*\{[^}]*max-width:\s*100%;[^}]*min-width:\s*0;[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s);
   });
 });

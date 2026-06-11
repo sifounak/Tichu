@@ -139,6 +139,10 @@ describe('account auth', () => {
       expect(validateUsername('team1').valid).toBe(false);
       expect(validateUsername('spectator').valid).toBe(false);
       expect(validateUsername('dealer').valid).toBe(false);
+      expect(validateUsername('empty').valid).toBe(false);
+      expect(validateUsername('Empty').valid).toBe(false);
+      expect(validateUsername('empty seat').valid).toBe(false);
+      expect(validateUsername('Empty Seat').valid).toBe(false);
     });
 
     it('should reject other misleading reserved names', () => {
@@ -237,6 +241,17 @@ describe('account auth', () => {
       await expect(registerAccount(mockDb, JWT_SECRET, {
         userId: 'new-user',
         username: 'Bot',
+        email: 'alice@test.com',
+        password: 'secret123',
+      })).rejects.toThrow('reserved');
+    });
+
+    it('should reject game display placeholder names as usernames', async () => {
+      const mockDb = createMockDb([]);
+
+      await expect(registerAccount(mockDb, JWT_SECRET, {
+        userId: 'new-user',
+        username: 'Empty Seat',
         email: 'alice@test.com',
         password: 'secret123',
       })).rejects.toThrow('reserved');

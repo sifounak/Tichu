@@ -242,7 +242,8 @@
 }
 
 .name {
-  font-size: calc(26px * var(--scale));
+  align-self: stretch;
+  font-size: calc(22px * var(--scale));
   font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -250,7 +251,10 @@
   text-overflow: ellipsis;
   text-align: center;
   margin-bottom: var(--space-1);
+  min-width: 0;
+  width: 100%;
   max-width: 100%;
+  box-sizing: border-box;
 }
 
 .cardCount {
