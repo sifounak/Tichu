@@ -132,22 +132,18 @@
 
 /* Badge areas — 3 fixed slots: [1-2] [PTOP] [PBOT] */
 .historyBadges {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, calc(30px * var(--scale)));
   gap: 2px;
-  min-width: calc(72px * var(--scale));
-  justify-content: flex-end;
-}
-
-.historyBadgesRight {
-  justify-content: flex-start;
+  width: calc(90px * var(--scale) + 4px);
+  justify-content: end;
+  flex: 0 0 calc(90px * var(--scale) + 4px);
 }
 
 .historyScore {
+  flex: 0 0 calc(44px * var(--scale));
+  width: calc(44px * var(--scale));
   text-align: right;
-}
-
-.historyTeamRight .historyScore {
-  min-width: 4ch;
 }
 
 .historyBadge {
@@ -156,18 +152,21 @@
   justify-content: center;
   font-size: var(--font-xs);
   font-weight: 700;
-  min-width: calc(22px * var(--scale));
+  width: calc(30px * var(--scale));
+  min-width: 0;
   padding: 1px calc(4px * var(--scale));
   border-radius: 3px;
   line-height: 1;
   text-align: center;
+  box-sizing: border-box;
 }
 
 .historyBadgeHeader {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: calc(22px * var(--scale));
+  width: calc(30px * var(--scale));
+  min-width: 0;
   padding: 0 calc(4px * var(--scale));
   line-height: 1;
   font-weight: 700;
@@ -175,6 +174,7 @@
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .historyBadgeHeaderMuted {

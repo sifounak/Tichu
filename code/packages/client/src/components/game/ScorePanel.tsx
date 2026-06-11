@@ -83,13 +83,9 @@ export const ScorePanel = memo(function ScorePanel({
       <>
         {hasOneTwo
           ? <span key="12" className={`${styles.historyBadge} ${styles.historyBadgeOneTwo}`}>1-2</span>
-          : (topResult || botResult) ? <span key="12" className={`${styles.historyBadge} ${styles.historyBadgePlaceholder}`}>1-2</span> : null}
-        {topResult || botResult ? (
-          <>
-            {tichuBadge(topResult, 'top')}
-            {tichuBadge(botResult, 'bot')}
-          </>
-        ) : null}
+          : <span key="12" className={`${styles.historyBadge} ${styles.historyBadgePlaceholder}`}>1-2</span>}
+        {tichuBadge(topResult, 'top')}
+        {tichuBadge(botResult, 'bot')}
       </>
     );
   }

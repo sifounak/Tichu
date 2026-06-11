@@ -80,7 +80,7 @@
   align-items: center;
   justify-content: center;
   gap: calc(2px * var(--scale));
-  min-width: calc(170px * var(--scale));
+  font-size: calc(14px * var(--scale));
   line-height: 1.1;
   text-align: center;
   white-space: nowrap;
@@ -158,7 +158,10 @@
   display: inline-flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   text-align: center;
+  min-width: calc(100px * var(--scale));
+  min-height: calc(56px * var(--scale));
   font-size: calc(14px * var(--scale));
   line-height: 1.1;
   cursor: pointer;
@@ -190,6 +193,10 @@
 
 /* Mobile: auto-pass label scales with other buttons */
 .mobileLayout .autoPassLabel {
+  font-size: calc(10px * var(--scale));
+}
+
+.mobileLayout .noValidPlayButton {
   font-size: calc(10px * var(--scale));
 }
 

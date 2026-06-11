@@ -47,6 +47,24 @@ const roundHistory: RoundScore[] = [
   },
 ];
 
+const oneTwoOnlyHistory: RoundScore[] = [
+  {
+    roundNumber: 1,
+    cardPoints: { northSouth: 0, eastWest: 0 },
+    tichuBonuses: { northSouth: 0, eastWest: 0 },
+    oneTwoBonus: 'northSouth',
+    total: { northSouth: 200, eastWest: 0 },
+    tichuResults: {
+      north: null,
+      east: null,
+      south: null,
+      west: null,
+    },
+    bombsPerTeam: { northSouth: 0, eastWest: 0 },
+    finishOrder: ['south', 'north', 'east', 'west'],
+  },
+];
+
 const baseProps = {
   scores: defaultScores,
   roundHistory: [] as RoundScore[],
@@ -123,6 +141,19 @@ describe('ScorePanel', () => {
     expect(header.querySelector('[title="Charlie"]')).toHaveTextContent('CH');
     expect(header.querySelector('[title="Diana"]')).toHaveTextContent('DI');
     expect(header.querySelector('[title="Bob"]')).toHaveTextContent('BO');
+  });
+
+  it('keeps score history badge columns reserved for one-two-only rounds', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<ScorePanel {...baseProps} roundHistory={oneTwoOnlyHistory} />);
+    await user.click(screen.getByText('History (1)'));
+
+    const badgeGroups = Array.from(container.querySelectorAll('[class*="historyBadges"]'));
+    const oneTwoDataGroup = badgeGroups.find((group) =>
+      Array.from(group.children).some((child) => child.className.includes('historyBadgeOneTwo')),
+    );
+
+    expect(oneTwoDataGroup?.children).toHaveLength(3);
   });
 
   it('hides history toggle when no rounds', () => {
