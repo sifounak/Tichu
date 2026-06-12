@@ -1321,3 +1321,47 @@ export function rebuildPlayerCache(database: Database, userId: string): void {
   const relStats = computeRelationalStatsForUser(database, userId);
   writeRelationalStatsToCache(database, userId, relStats);
 }
+
+/**
+ * Recompute a player's materialized stats only when raw completed-game data has
+ * moved past the cached snapshot. This covers missed incremental updates while
+ * keeping normal stats-page visits cheap.
+ */
+export function refreshPlayerStatsCacheIfStale(database: Database, userId: string): boolean {
+  const { db } = database;
+
+  const rawRows = db.all(sql`
+    SELECT
+      COUNT(DISTINCT pr.game_id) as gameCount,
+      MAX(g.ended_at) as latestEndedAt
+    FROM player_rounds pr
+    JOIN games g ON g.id = pr.game_id
+    WHERE pr.user_id = ${userId}
+  `) as { gameCount: number; latestEndedAt: string | null }[];
+
+  const raw = rawRows[0];
+  if (!raw || raw.gameCount === 0) {
+    return false;
+  }
+
+  const cacheRows = db.all(sql`
+    SELECT games_played as gamesPlayed, last_updated_at as lastUpdatedAt
+    FROM stats_cache
+    WHERE user_id = ${userId}
+    LIMIT 1
+  `) as { gamesPlayed: number; lastUpdatedAt: string }[];
+
+  const cache = cacheRows[0];
+  const isMissing = cache === undefined;
+  const gameCountChanged = cache !== undefined && cache.gamesPlayed !== raw.gameCount;
+  const hasNewerRawGame = cache !== undefined
+    && raw.latestEndedAt !== null
+    && raw.latestEndedAt > cache.lastUpdatedAt;
+
+  if (!isMissing && !gameCountChanged && !hasNewerRawGame) {
+    return false;
+  }
+
+  rebuildPlayerCache(database, userId);
+  return true;
+}

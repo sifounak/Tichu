@@ -9,6 +9,7 @@ import { ensureGuestUser, getUserById } from './guest.js';
 import { registerAccount, loginAccount, verifyToken } from './account.js';
 import { getPlayerGameHistory, getGameRounds } from '../db/game-persistence.js';
 import { getLeaderboard, getRecentGames, getPlayerProfile, getPlayerPartners, getPlayerOpponents, getPlayerRelationships } from '../db/queries.js';
+import { refreshPlayerStatsCacheIfStale } from '../db/stats-cache.js';
 
 export function registerAuthRoutes(fastify: FastifyInstance, database: Database, jwtSecret: string): void {
   // ─── Guest session ──────────────────────────────────────────────────
@@ -88,6 +89,7 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
 
   fastify.get('/api/players/:userId/profile', async (request) => {
     const { userId } = request.params as { userId: string };
+    refreshPlayerStatsCacheIfStale(database, userId);
     const profile = await getPlayerProfile(database, userId);
     return { profile: profile ?? null };
   });
@@ -97,6 +99,7 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
 
   fastify.get('/api/players/:userId/partners', async (request) => {
     const { userId } = request.params as { userId: string };
+    refreshPlayerStatsCacheIfStale(database, userId);
     const partners = getPlayerPartners(database, userId);
     return { partners };
   });
@@ -106,6 +109,7 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
 
   fastify.get('/api/players/:userId/opponents', async (request) => {
     const { userId } = request.params as { userId: string };
+    refreshPlayerStatsCacheIfStale(database, userId);
     const opponents = getPlayerOpponents(database, userId);
     return { opponents };
   });
@@ -114,6 +118,7 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
 
   fastify.get('/api/players/:userId/relationships', async (request) => {
     const { userId } = request.params as { userId: string };
+    refreshPlayerStatsCacheIfStale(database, userId);
     const relationships = getPlayerRelationships(database, userId);
     return { relationships };
   });

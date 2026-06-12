@@ -4,7 +4,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import { createDatabase, type Database } from '../../src/db/connection.js';
 import { writeEventData } from '../../src/db/event-persistence.js';
-import { rebuildStatsCache, updateCacheAfterGame, rebuildPlayerCache } from '../../src/db/stats-cache.js';
+import {
+  rebuildStatsCache,
+  refreshPlayerStatsCacheIfStale,
+  updateCacheAfterGame,
+  rebuildPlayerCache,
+} from '../../src/db/stats-cache.js';
 import { createGameAccumulator, createEmptyRoundData, createBlankPlayerRound } from '../../src/game/event-types.js';
 import type { GameEventAccumulator } from '../../src/game/event-types.js';
 
@@ -441,6 +446,67 @@ describe('Stats Cache', () => {
       const row = getCacheRow(database, 'user1');
       expect(row).toBeDefined();
       expect(row!.rounds_with_dragon).toBe(1);
+    });
+  });
+
+  describe('On-demand stats freshness', () => {
+    it('rebuilds a missing player cache when raw game data exists', () => {
+      const gameId = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'NS' });
+      writeEventData(database, gameId, makeMinimalAccumulator(gameId));
+
+      expect(getCacheRow(database, 'user1')).toBeUndefined();
+
+      const rebuilt = refreshPlayerStatsCacheIfStale(database, 'user1');
+
+      expect(rebuilt).toBe(true);
+      expect(getCacheRow(database, 'user1')!.games_played).toBe(1);
+      expect(getCacheRow(database, 'user1')!.games_won).toBe(1);
+    });
+
+    it('rebuilds stale player cache when a newer game has not been incrementally applied', () => {
+      const g1 = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'NS' });
+      writeEventData(database, g1, makeMinimalAccumulator(g1));
+      updateCacheAfterGame(database, g1);
+
+      const g2 = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'EW' });
+      writeEventData(database, g2, makeMinimalAccumulator(g2));
+
+      expect(getCacheRow(database, 'user1')!.games_played).toBe(1);
+
+      const rebuilt = refreshPlayerStatsCacheIfStale(database, 'user1');
+
+      expect(rebuilt).toBe(true);
+      expect(getCacheRow(database, 'user1')!.games_played).toBe(2);
+      expect(getCacheRow(database, 'user1')!.games_won).toBe(1);
+    });
+
+    it('rebuilds stale player cache when existing raw game data is newer than the cache', () => {
+      const gameId = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'NS' });
+      writeEventData(database, gameId, makeMinimalAccumulator(gameId));
+      updateCacheAfterGame(database, gameId);
+
+      database.client.prepare(`
+        UPDATE games
+        SET winner_team = 'EW', ended_at = '2999-01-01 00:00:00'
+        WHERE id = ?
+      `).run(gameId);
+
+      const rebuilt = refreshPlayerStatsCacheIfStale(database, 'user1');
+
+      expect(rebuilt).toBe(true);
+      expect(getCacheRow(database, 'user1')!.games_played).toBe(1);
+      expect(getCacheRow(database, 'user1')!.games_won).toBe(0);
+    });
+
+    it('leaves fresh player cache untouched', () => {
+      const gameId = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'NS' });
+      writeEventData(database, gameId, makeMinimalAccumulator(gameId));
+      updateCacheAfterGame(database, gameId);
+
+      const rebuilt = refreshPlayerStatsCacheIfStale(database, 'user1');
+
+      expect(rebuilt).toBe(false);
+      expect(getCacheRow(database, 'user1')!.games_played).toBe(1);
     });
   });
 
