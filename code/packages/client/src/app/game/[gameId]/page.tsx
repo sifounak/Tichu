@@ -48,6 +48,7 @@ import { ActionConfirmDialog, type ConfirmDialogAction } from '@/components/game
 import { ActionSpinner } from '@/components/game/ActionSpinner';
 import { GameSettingsForm } from '@/components/ui/GameSettingsForm';
 import { isOnCooldown, getCooldownRemaining } from '@/stores/uiStore';
+import { shouldResetPassStateForPhaseTransition } from '@/lib/passPhaseState';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 
@@ -807,9 +808,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   const hasReceivedCards = gameStore.receivedCards
     ? Object.values(gameStore.receivedCards).some((c) => c !== null)
     : false;
+  const previousPassPhaseRef = useRef<GamePhase | null>(null);
 
   useEffect(() => {
-    if (currentPhase !== GamePhase.CardPassing && currentPhase !== GamePhase.Playing) {
+    const previousPhase = previousPassPhaseRef.current;
+    previousPassPhaseRef.current = currentPhase;
+
+    if (shouldResetPassStateForPhaseTransition(previousPhase, currentPhase)) {
       // New round — reset everything
       setPassSelection(new Map());
       setActivePassCardId(null);
