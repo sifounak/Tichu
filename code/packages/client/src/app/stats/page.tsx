@@ -7,6 +7,7 @@ import { API_BASE, getUserId, pct, type PlayerProfile } from '@/components/stats
 import { StatCard } from '@/components/stats/StatCard';
 import { StatSection } from '@/components/stats/StatSection';
 import { RecordBanner } from '@/components/stats/RecordBanner';
+import { getTichuCallStats, getTichuSuccessSubtitle } from '@/components/stats/tichu-call-stats';
 
 export default function StatsOverviewPage() {
   const router = useRouter();
@@ -32,6 +33,7 @@ export default function StatsOverviewPage() {
 
   const dogTotal = profile.dogControlToPartner + profile.dogControlToOpponent + profile.dogControlToSelf;
   const dogPartnerPct = dogTotal > 0 ? `${Math.round((profile.dogControlToPartner / dogTotal) * 100)}%` : '-';
+  const tichuCallStats = getTichuCallStats(profile);
 
   return (
     <AuthGuard>
@@ -40,9 +42,18 @@ export default function StatsOverviewPage() {
 
       <StatSection title="Tichu Calls" href="/stats/tichu">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Tichu" value={`${profile.tichuSuccesses} / ${profile.tichuCalls}`} subtitle={pct(profile.tichuSuccesses, profile.tichuCalls) !== '-' ? `${pct(profile.tichuSuccesses, profile.tichuCalls)} success` : undefined} highlight />
-          <StatCard label="Blind Grand" value={`${profile.blindGrandTichuSuccesses} / ${profile.blindGrandTichuCalls}`} subtitle={pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls) !== '-' ? `${pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls)} success` : undefined} />
-          <StatCard label="Grand Tichu" value={`${profile.grandTichuSuccesses} / ${profile.grandTichuCalls}`} subtitle={pct(profile.grandTichuSuccesses, profile.grandTichuCalls) !== '-' ? `${pct(profile.grandTichuSuccesses, profile.grandTichuCalls)} success` : undefined} />
+          {tichuCallStats.map(({ label, successes, calls }, index) => {
+            const subtitle = getTichuSuccessSubtitle(successes, calls);
+            return (
+              <StatCard
+                key={label}
+                label={label}
+                value={`${successes} / ${calls}`}
+                subtitle={subtitle ? `${subtitle} success` : undefined}
+                highlight={index === 0}
+              />
+            );
+          })}
           <StatCard label="Opponent Tichus Broken" value={profile.opponentTichuBroken} />
           <StatCard label="Opponent GTs Broken" value={profile.opponentGrandTichuBroken} />
         </div>

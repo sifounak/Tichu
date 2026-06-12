@@ -7,6 +7,7 @@ import { API_BASE, getUserId, pct, type PlayerProfile } from '@/components/stats
 import { StatCard } from '@/components/stats/StatCard';
 import { CompactTable } from '@/components/stats/CompactTable';
 import { TablePanel } from '@/components/stats/TablePanel';
+import { getTichuCallStats, getTichuSuccessSubtitle } from '@/components/stats/tichu-call-stats';
 
 export default function TichuCallsPage() {
   const router = useRouter();
@@ -24,43 +25,47 @@ export default function TichuCallsPage() {
 
   if (loading) return <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: '2rem' }}>Loading...</p>;
   if (!profile) return <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No stats yet.</p>;
+  const tichuCallStats = getTichuCallStats(profile);
 
   return (
     <AuthGuard>
       <div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Tichu Success" value={`${profile.tichuSuccesses} / ${profile.tichuCalls}`} subtitle={pct(profile.tichuSuccesses, profile.tichuCalls) !== '-' ? pct(profile.tichuSuccesses, profile.tichuCalls) : undefined} highlight />
-        <StatCard label="Blind Grand Success" value={`${profile.blindGrandTichuSuccesses} / ${profile.blindGrandTichuCalls}`} subtitle={pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls) !== '-' ? pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls) : undefined} />
-        <StatCard label="Grand Tichu Success" value={`${profile.grandTichuSuccesses} / ${profile.grandTichuCalls}`} subtitle={pct(profile.grandTichuSuccesses, profile.grandTichuCalls) !== '-' ? pct(profile.grandTichuSuccesses, profile.grandTichuCalls) : undefined} />
-        <StatCard label="Opponent Calls Broken" value={profile.opponentTichuBroken + profile.opponentGrandTichuBroken} />
-        <StatCard label="Total Calls Made" value={profile.tichuCalls + profile.blindGrandTichuCalls + profile.grandTichuCalls} highlight />
-      </div>
+          {tichuCallStats.map(({ label, successes, calls }, index) => (
+            <StatCard
+              key={label}
+              label={`${label} Success`}
+              value={`${successes} / ${calls}`}
+              subtitle={getTichuSuccessSubtitle(successes, calls)}
+              highlight={index === 0}
+            />
+          ))}
+          <StatCard label="Opponent Calls Broken" value={profile.opponentTichuBroken + profile.opponentGrandTichuBroken} />
+          <StatCard label="Total Calls Made" value={profile.tichuCalls + profile.blindGrandTichuCalls + profile.grandTichuCalls} highlight />
+        </div>
 
-      <div className="flex flex-wrap gap-4">
-        <TablePanel title="Your Calls">
-          <CompactTable headers={['Stat', 'Value']} rows={[
-            { label: 'Tichu Calls', value: profile.tichuCalls },
-            { label: 'Tichu Successes', value: profile.tichuSuccesses },
-            { label: 'Tichu Success Rate', value: pct(profile.tichuSuccesses, profile.tichuCalls) },
-            { label: 'Blind Grand Calls', value: profile.blindGrandTichuCalls },
-            { label: 'Blind Grand Successes', value: profile.blindGrandTichuSuccesses },
-            { label: 'Blind Grand Success Rate', value: pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls) },
-            { label: 'Grand Tichu Calls', value: profile.grandTichuCalls },
-            { label: 'Grand Tichu Successes', value: profile.grandTichuSuccesses },
-            { label: 'Grand Tichu Success Rate', value: pct(profile.grandTichuSuccesses, profile.grandTichuCalls) },
-          ]} />
-        </TablePanel>
-        <TablePanel title="Broken Calls">
-          <CompactTable headers={['Stat', 'Value']} rows={[
-            { label: 'Opponent Tichus Broken', value: profile.opponentTichuBroken },
-            { label: 'Opponent GTs Broken', value: profile.opponentGrandTichuBroken },
-            { label: 'Partner Tichus You Broke', value: profile.partnerTichuBroken },
-            { label: 'Partner GTs You Broke', value: profile.partnerGrandTichuBroken },
-            { label: 'Your Tichu Broken by Partner', value: profile.tichuBrokenByPartner },
-            { label: 'Your GT Broken by Partner', value: profile.grandTichuBrokenByPartner },
-          ]} />
-        </TablePanel>
-      </div>
+        <div className="flex flex-wrap gap-4">
+          <TablePanel title="Your Calls">
+            <CompactTable
+              headers={['Stat', 'Value']}
+              rows={tichuCallStats.flatMap(({ label, successes, calls }) => [
+                { label: `${label} Calls`, value: calls },
+                { label: `${label} Successes`, value: successes },
+                { label: `${label} Success Rate`, value: pct(successes, calls) },
+              ])}
+            />
+          </TablePanel>
+          <TablePanel title="Broken Calls">
+            <CompactTable headers={['Stat', 'Value']} rows={[
+              { label: 'Opponent Tichus Broken', value: profile.opponentTichuBroken },
+              { label: 'Opponent GTs Broken', value: profile.opponentGrandTichuBroken },
+              { label: 'Partner Tichus You Broke', value: profile.partnerTichuBroken },
+              { label: 'Partner GTs You Broke', value: profile.partnerGrandTichuBroken },
+              { label: 'Your Tichu Broken by Partner', value: profile.tichuBrokenByPartner },
+              { label: 'Your GT Broken by Partner', value: profile.grandTichuBrokenByPartner },
+            ]} />
+          </TablePanel>
+        </div>
       </div>
     </AuthGuard>
   );
