@@ -447,17 +447,27 @@ export class BotRunner {
   }
 
   private handleBlindGrandTichuPhase(context: GameMachineContext): void {
-    for (const [seat] of this.bots) {
+    for (const [seat, bot] of this.bots) {
       if (context.blindGrandTichuDecisions.has(seat)) continue;
+      const round = context.currentRound;
+      if (round) this.provideContext(bot, round, context);
       this.scheduleGrandTichuAction(seat, () => {
+        const call = bot.chooseBlindGrandTichu?.(seat) ?? false;
         if (this.moveHandler) {
-          const result = this.moveHandler.handleBlindGrandTichuDecision(seat, false);
+          const result = this.moveHandler.handleBlindGrandTichuDecision(seat, call);
+          if (!result.ok && result.error === 'PARTNER_ALREADY_CALLED') {
+            this.send({ type: 'BLIND_GRAND_TICHU_PASS', seat });
+            return;
+          }
           if (result.ok) {
             this.afterActionCallback?.();
           }
           return;
         }
-        this.send({ type: 'BLIND_GRAND_TICHU_PASS', seat });
+        this.send(call
+          ? { type: 'BLIND_GRAND_TICHU_CALL', seat }
+          : { type: 'BLIND_GRAND_TICHU_PASS', seat },
+        );
       });
     }
   }

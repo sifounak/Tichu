@@ -42,6 +42,9 @@ export type BotPlayDecision =
  * (its own hand, public trick state, etc.).
  */
 export interface BotStrategy {
+  /** Decide whether to call Blind Grand Tichu before seeing cards */
+  chooseBlindGrandTichu?(seat: Seat): boolean;
+
   /** Decide whether to call Grand Tichu (first 8 cards seen) */
   chooseGrandTichu(hand8: GameCard[]): boolean;
 

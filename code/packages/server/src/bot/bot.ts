@@ -113,6 +113,22 @@ export class Bot implements BotStrategy {
 
   // REQ-F-GT01, REQ-F-GT02, REQ-F-GT03: Grand Tichu with concrete criteria
   /**
+   * Blind Grand Tichu has no card information, so bots only call it in
+   * desperate score states. It is more valuable than Grand Tichu, but also
+   * much riskier because the hand is unknown.
+   */
+  chooseBlindGrandTichu(seat: Seat = this.mySeat): boolean {
+    this.mySeat = seat;
+    if (this.gameScores) {
+      const myTeam = getTeam(seat);
+      const oppTeam = myTeam === 'northSouth' ? 'eastWest' : 'northSouth';
+      this.scoreDiff = this.gameScores[myTeam] - this.gameScores[oppTeam];
+    }
+    if (this.scoreDiff === null || !this.gameScores) return false;
+    return this.scoreDiff <= -500 && this.areOpponentsNearWinning();
+  }
+
+  /**
    * Grand Tichu evaluation using power card count + hand quality.
    *
    * Call Grand Tichu when:
@@ -214,6 +230,18 @@ export class Bot implements BotStrategy {
 
   // ─── Card Passing ─────────────────────────────────────────────────────────
 
+  private isAnyTichuCall(call: string): boolean {
+    return call === 'tichu' || call === 'grandTichu' || call === 'blindGrandTichu';
+  }
+
+  private isGrandLikeTichuCall(call: string): boolean {
+    return call === 'grandTichu' || call === 'blindGrandTichu';
+  }
+
+  private partnerHasBlindGrandTichuCall(roundState: RoundState, seat: Seat): boolean {
+    return roundState.players[getPartner(seat)].tipiCall === 'blindGrandTichu';
+  }
+
   // REQ-F-PASS01-08: Card passing with strength concentration + parity convention
   /**
    * Card passing based on updated strategy:
@@ -238,14 +266,18 @@ export class Bot implements BotStrategy {
     const hasDog = hand.some((gc) => isDog(gc.card));
     // REQ-F-PASS01: Use M1 strength definition (2+ power cards)
     const isStrongHand = hasStrength(hand);
+    const partnerCall = this.lastRoundState?.players[partner]?.tipiCall ?? 'none';
+    const partnerBlindGrand = partnerCall === 'blindGrandTichu';
 
-    const defaultPartnerCard = this.selectDefaultPartnerPassCard(
-      hand,
-      sorted,
-      isStrongHand,
-      hasDragon,
-      hasPhoenixCard,
-    );
+    const defaultPartnerCard = partnerBlindGrand
+      ? this.selectStrongestPartnerPassCard(hand, sorted)
+      : this.selectDefaultPartnerPassCard(
+        hand,
+        sorted,
+        isStrongHand,
+        hasDragon,
+        hasPhoenixCard,
+      );
 
     // ─ REQ-F-PASS06/07: Dog routing ─
     let dogRecipient: Seat | null = null;
@@ -283,6 +315,9 @@ export class Bot implements BotStrategy {
       } else {
         // Weak hand — Dog to left opponent
         dogRecipient = leftOpp;
+      }
+      if (partnerBlindGrand && dogRecipient === partner) {
+        dogRecipient = null;
       }
     }
 
@@ -420,12 +455,27 @@ export class Bot implements BotStrategy {
     return nonSpecial[2] ?? nonSpecial[nonSpecial.length - 1] ?? sorted[2];
   }
 
+  private selectStrongestPartnerPassCard(hand: GameCard[], sorted: GameCard[]): GameCard {
+    const dragon = hand.find((gc) => isDragon(gc.card));
+    if (dragon) return dragon;
+
+    const phoenix = hand.find((gc) => isPhoenix(gc.card));
+    if (phoenix) return phoenix;
+
+    const highStandard = [...hand]
+      .filter((gc) => gc.card.kind === 'standard')
+      .sort((a, b) => (b.card.kind === 'standard' ? b.card.rank : 0) - (a.card.kind === 'standard' ? a.card.rank : 0))[0];
+    if (highStandard) return highStandard;
+
+    return sorted.find((gc) => !isDog(gc.card) && !isMahjong(gc.card)) ?? sorted[sorted.length - 1];
+  }
+
   /** Whether partner called Grand Tichu or Tichu before the pass */
   private partnerHasTichuCall(seat: Seat): boolean {
     const rs = this.lastRoundState;
     if (!rs) return false;
     const call = rs.players[getPartner(seat)].tipiCall;
-    return call === 'tichu' || call === 'grandTichu';
+    return this.isAnyTichuCall(call);
   }
 
   /** Whether this pass may materially increase partner's chance to call Tichu later */
@@ -456,7 +506,7 @@ export class Bot implements BotStrategy {
     for (const s of SEATS_IN_ORDER) {
       if (getTeam(s) === myTeam) continue;
       const call = rs.players[s].tipiCall;
-      if (call === 'tichu' || call === 'grandTichu') return s;
+      if (this.isAnyTichuCall(call)) return s;
     }
     return null;
   }
@@ -549,6 +599,10 @@ export class Bot implements BotStrategy {
       return { action: 'pass' };
     }
 
+    if (this.shouldWaitForBlindGrandPartner(context)) {
+      return { action: 'pass' };
+    }
+
     // Separate bombs from non-bombs
     const bombs = validPlays.filter((c) => c.isBomb);
     const nonBombs = validPlays.filter((c) => !c.isBomb);
@@ -626,8 +680,8 @@ export class Bot implements BotStrategy {
     if (this.lastRoundState) {
       rightOppCall = this.lastRoundState.players[rightOpp].tipiCall;
     }
-    const rightOppCalledTichuOrGT = rightOppCall === 'tichu' || rightOppCall === 'grandTichu';
-    const rightOppCalledGT = rightOppCall === 'grandTichu';
+    const rightOppCalledTichuOrGT = this.isAnyTichuCall(rightOppCall);
+    const rightOppCalledGT = this.isGrandLikeTichuCall(rightOppCall);
 
     // REQ-F-MJ01: Mahjong played in a straight
     if (this.mahjongPlayedInStraight) {
@@ -787,7 +841,7 @@ export class Bot implements BotStrategy {
       if (getTeam(s) === myTeam) continue;
       if (roundState.players[s].finishOrder !== null) continue;
       const call = roundState.players[s].tipiCall;
-      if ((call === 'tichu' || call === 'grandTichu') && roundState.players[s].hand.length <= 5) {
+      if (this.isAnyTichuCall(call) && roundState.players[s].hand.length <= 5) {
         return true;
       }
     }
@@ -943,7 +997,7 @@ export class Bot implements BotStrategy {
 
     // 1. Partner called Tichu → save Dog to bail them out
     const partnerCall = roundState.players[partner].tipiCall;
-    if (partnerCall === 'tichu' || partnerCall === 'grandTichu') return true;
+    if (this.isAnyTichuCall(partnerCall)) return true;
 
     // 2. Bot has bomb or Dragon → can regain lead later, Dog is more valuable saved
     const hasBomb = hand.some((gc) => {
@@ -959,7 +1013,7 @@ export class Bot implements BotStrategy {
     for (const s of SEATS_IN_ORDER) {
       if (getTeam(s) === myTeam) continue;
       const call = roundState.players[s].tipiCall;
-      if (call === 'tichu' || call === 'grandTichu') return true;
+      if (this.isAnyTichuCall(call)) return true;
     }
 
     // 4. Significantly behind → save for critical moment
@@ -1007,8 +1061,16 @@ export class Bot implements BotStrategy {
     if (!currentTrick) {
       // Leading: play highest to control
       const ranked = rankCombinationsForLead(plays);
-      if (this.hasOnlySinglesWithMoreThanTwoActivePlayers(ranked, context.roundState)) {
-        return this.toDecision(this.getLowestStandardSingle(ranked) ?? ranked[0]);
+      if (this.hasMoreThanTwoActivePlayers(context.roundState)) {
+        const multiCardLead = ranked.find((combo) =>
+          combo.cards.length > 1 &&
+          !combo.isBomb &&
+          !combo.cards.some((gc) => isDog(gc.card)),
+        );
+        if (multiCardLead) return this.toDecision(multiCardLead);
+
+        const lowestSingleton = this.getLowestTrueSingleton(ranked, ranked);
+        return this.toDecision(lowestSingleton ?? this.getLowestStandardSingle(ranked) ?? ranked[0]);
       }
       return this.toDecision(ranked[ranked.length - 1] ?? ranked[0]);
     }
@@ -1029,12 +1091,22 @@ export class Bot implements BotStrategy {
   private hasPartnerTichuCall(roundState: RoundState, seat: Seat): boolean {
     const partner = getPartner(seat);
     const call = roundState.players[partner].tipiCall;
-    return call === 'tichu' || call === 'grandTichu';
+    return this.isAnyTichuCall(call);
   }
 
   private hasSelfTichuCall(roundState: RoundState, seat: Seat): boolean {
     const call = roundState.players[seat].tipiCall;
-    return call === 'tichu' || call === 'grandTichu';
+    return this.isAnyTichuCall(call);
+  }
+
+  private shouldWaitForBlindGrandPartner(context: BotPlayContext): boolean {
+    const { currentTrick, roundState, seat, canPass } = context;
+    if (!currentTrick || !canPass) return false;
+    if (!this.partnerHasBlindGrandTichuCall(roundState, seat)) return false;
+
+    const partner = getPartner(seat);
+    if (roundState.players[partner].finishOrder !== null) return false;
+    return !currentTrick.passes.includes(partner);
   }
 
   // REQ-F-PTS01-03: Partner Tichu lead strategy with escalation
@@ -1094,7 +1166,9 @@ export class Bot implements BotStrategy {
     const lowestSingle = ranked.find(
       (c) => c.type === CombinationType.Single &&
         !isDragon(c.cards[0].card) &&
-        !c.cards.some((gc) => isPhoenix(gc.card)),
+        !c.cards.some((gc) => isPhoenix(gc.card)) &&
+        !this.singleBreaksMultiCardCombo(c, validPlays) &&
+        c.rank <= 10,
     );
     if (lowestSingle) {
       this.ptsConsecutiveLeads++;
@@ -1103,7 +1177,9 @@ export class Bot implements BotStrategy {
 
     // Fallback: lead lowest available (excluding Dragon)
     const fallback = ranked.find(
-      (c) => !c.cards.some((gc) => isDragon(gc.card)),
+      (c) => c.cards.length > 1 && !c.cards.some((gc) => isDragon(gc.card)),
+    ) ?? ranked.find(
+      (c) => !c.cards.some((gc) => isDragon(gc.card)) && !this.singleBreaksMultiCardCombo(c, validPlays),
     );
     if (fallback) {
       this.ptsConsecutiveLeads++;
@@ -1212,6 +1288,9 @@ export class Bot implements BotStrategy {
       }
     }
 
+    const openingLead = this.chooseConservativeOpeningLead(ranked, hand, validPlays, roundState);
+    if (openingLead) return this.toDecision(openingLead);
+
     // Can go out? Always do it (unless PTS05 suppresses).
     const suppressGoOutLead = this.shouldSuppressGoOut(roundState, seat, hand);
     for (const combo of ranked) {
@@ -1278,6 +1357,42 @@ export class Bot implements BotStrategy {
 
     return this.toDecision(
       ranked.find((combo) => !this.shouldAvoidPhoenixLead(combo, hand, validPlays)) ?? ranked[0],
+    );
+  }
+
+  private chooseConservativeOpeningLead(
+    ranked: Combination[],
+    hand: GameCard[],
+    validPlays: Combination[],
+    roundState: RoundState,
+  ): Combination | null {
+    if (roundState.currentTrick !== null) return null;
+    if (SEATS_IN_ORDER.some((s) => roundState.players[s].hasPlayed)) return null;
+
+    const safeLowSingle = ranked.find((combo) =>
+      combo.type === CombinationType.Single &&
+      !isDog(combo.cards[0].card) &&
+      !this.isVeryStrongLead(combo) &&
+      !this.shouldAvoidPhoenixLead(combo, hand, validPlays) &&
+      !validPlays.some((c) => c.cards.length > 1 && !c.isBomb && c.cards.some((gc) => gc.id === combo.cards[0].id)) &&
+      combo.rank <= 10,
+    );
+    if (safeLowSingle) return safeLowSingle;
+
+    return ranked.find((combo) =>
+      combo.cards.length > 1 &&
+      !combo.isBomb &&
+      !this.isVeryStrongLead(combo) &&
+      !this.shouldAvoidPhoenixLead(combo, hand, validPlays) &&
+      combo.rank <= 10,
+    ) ?? null;
+  }
+
+  private isVeryStrongLead(combo: Combination): boolean {
+    return combo.cards.some((gc) =>
+      isDragon(gc.card) ||
+      isPhoenix(gc.card) ||
+      (gc.card.kind === 'standard' && gc.card.rank >= 13),
     );
   }
 
@@ -1378,7 +1493,7 @@ export class Bot implements BotStrategy {
       if (getTeam(s) === myTeam) continue;
       if (roundState.players[s].finishOrder !== null) continue;
       const call = roundState.players[s].tipiCall;
-      if (call === 'tichu' || call === 'grandTichu') {
+      if (this.isAnyTichuCall(call)) {
         const callerCards = roundState.players[s].hand.length;
         if (callerCards <= 2) fightScore -= 3; // Almost out, concede
         else if (callerCards <= 4) fightScore -= 1;
@@ -1412,7 +1527,7 @@ export class Bot implements BotStrategy {
 
     // Factor 4: Partner's behavior (if partner is playing aggressively, fight together)
     const partnerCall = roundState.players[partner].tipiCall;
-    if (partnerCall === 'tichu' || partnerCall === 'grandTichu') {
+    if (this.isAnyTichuCall(partnerCall)) {
       fightScore += 2; // Partner called Tichu — definitely fight
     }
 
@@ -1487,7 +1602,7 @@ export class Bot implements BotStrategy {
     const myTeam = getTeam(seat);
     const partner = getPartner(seat);
     const partnerCall = roundState.players[partner].tipiCall;
-    const partnerHasCall = partnerCall === 'tichu' || partnerCall === 'grandTichu';
+    const partnerHasCall = this.isAnyTichuCall(partnerCall);
 
     // REQ-F-USD02: threshold 2, rank < 11 (Jack)
     // REQ-F-USD03: threshold 1, rank < 12 (Queen) when partner GT/T
@@ -1570,7 +1685,7 @@ export class Bot implements BotStrategy {
       if (getTeam(s) === myTeam) continue;
       if (roundState.players[s].finishOrder !== null) continue;
       const call = roundState.players[s].tipiCall;
-      if (call === 'tichu' || call === 'grandTichu') {
+      if (this.isAnyTichuCall(call)) {
         opponentCallerSeat = s;
         opponentCards = roundState.players[s].hand.length;
         break;
@@ -1579,7 +1694,7 @@ export class Bot implements BotStrategy {
 
     if (
       opponentCallerSeat &&
-      (partnerCall === 'tichu' || partnerCall === 'grandTichu') &&
+      this.isAnyTichuCall(partnerCall) &&
       partnerCards >= 8 &&
       opponentCards <= 3
     ) {
@@ -2033,7 +2148,7 @@ export class Bot implements BotStrategy {
     // Determine if we're close to going out (where overpowered combos are acceptable)
     const canGoOutSoon = hand.length <= 5;
     const oppCall = roundState.players[opponent].tipiCall;
-    const opponentHasTichu = oppCall === 'tichu' || oppCall === 'grandTichu';
+    const opponentHasTichu = this.isAnyTichuCall(oppCall);
 
     // Strategy: If we have Aces/Kings AND low singles, prefer singles for repeated control
     // Aces/Kings as singles win ~85-100% of the time, giving us control to lead low cards
@@ -2083,14 +2198,30 @@ export class Bot implements BotStrategy {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private hasOnlySinglesWithMoreThanTwoActivePlayers(
-    plays: Combination[],
-    roundState: RoundState,
-  ): boolean {
+  private hasMoreThanTwoActivePlayers(roundState: RoundState): boolean {
     const activePlayers = SEATS_IN_ORDER.filter(
       (s) => roundState.players[s].finishOrder === null,
     );
-    return activePlayers.length > 2 && plays.every((c) => c.type === CombinationType.Single);
+    return activePlayers.length > 2;
+  }
+
+  private singleBreaksMultiCardCombo(combo: Combination, validPlays: Combination[]): boolean {
+    if (combo.type !== CombinationType.Single) return false;
+    const cardId = combo.cards[0].id;
+    return validPlays.some((candidate) =>
+      candidate.cards.length > 1 &&
+      !candidate.isBomb &&
+      candidate.cards.some((gc) => gc.id === cardId),
+    );
+  }
+
+  private getLowestTrueSingleton(plays: Combination[], validPlays: Combination[]): Combination | null {
+    return plays.find(
+      (c) =>
+        c.type === CombinationType.Single &&
+        c.cards[0].card.kind === 'standard' &&
+        !this.singleBreaksMultiCardCombo(c, validPlays),
+    ) ?? null;
   }
 
   private getLowestStandardSingle(plays: Combination[]): Combination | null {
