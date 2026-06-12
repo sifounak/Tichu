@@ -370,9 +370,9 @@ export class VoteHandler {
     } else if (session.voteType === 'restartRound') {
       message = passed ? 'Restarting round!' : 'Restart round vote failed!';
     } else if (session.voteType === 'enableBlindGrand') {
-      message = passed ? 'Blind Grand enabled!' : 'Enable Blind Grand vote failed!';
+      message = passed ? 'Blind Grand is enabled for next round!' : 'Enable Blind Grand vote failed!';
     } else if (session.voteType === 'disableBlindGrand') {
-      message = passed ? 'Blind Grand disabled!' : 'Disable Blind Grand vote failed!';
+      message = passed ? 'Blind Grand is disabled for next round!' : 'Disable Blind Grand vote failed!';
     } else {
       message = passed ? 'Restarting game!' : 'Restart game vote failed!';
     }

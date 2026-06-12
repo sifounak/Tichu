@@ -259,6 +259,31 @@ describe('RoomHandler', () => {
 
       expect(broadcaster.sendError).toHaveBeenCalledWith(ws2, 'NOT_HOST', expect.any(String));
     });
+
+    it('should persist spectator chat toggle status messages without sound', async () => {
+      await router.handleMessage(ws1, JSON.stringify({ type: 'CREATE_ROOM', playerName: 'Alice' }));
+      const roomCode = handler.roomManager.getUserRoom('user1')!;
+
+      await router.handleMessage(ws1, JSON.stringify({
+        type: 'CONFIGURE_ROOM',
+        config: { spectatorChatEnabled: true },
+      }));
+
+      expect(handler.roomManager.getChatHistory(roomCode)).toEqual([
+        expect.objectContaining({
+          from: null,
+          text: 'Spectator chat has been enabled by the host',
+        }),
+      ]);
+      expect(broadcaster.broadcastToRoom).toHaveBeenCalledWith(
+        roomCode,
+        expect.objectContaining({
+          type: 'CHAT_RECEIVED',
+          text: 'Spectator chat has been enabled by the host',
+          silent: true,
+        }),
+      );
+    });
   });
 
   describe('ADD_BOT / REMOVE_BOT', () => {

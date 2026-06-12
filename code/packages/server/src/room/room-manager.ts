@@ -35,9 +35,8 @@ export class RoomManager {
   private readonly seatToUser = new Map<string, string>(); // key: `${roomCode}:${seat}`
   // REQ-F-SP02: Spectator userId → roomCode mapping
   private readonly spectatorToRoom = new Map<string, string>();
-  // In-memory chat history per room (capped at 100 messages)
+  // In-memory chat history per room for the room lifetime.
   private readonly chatHistory = new Map<string, { from: Seat | null; text: string; timestamp: number; spectatorName?: string }[]>();
-  private static readonly MAX_CHAT_HISTORY = 100;
 
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
   private readonly staleTimeoutMs: number;
@@ -669,7 +668,7 @@ export class RoomManager {
 
       this.rooms.set(snapshot.roomCode, room);
       if (snapshot.chatHistory && snapshot.chatHistory.length > 0) {
-        this.chatHistory.set(snapshot.roomCode, snapshot.chatHistory.slice(-RoomManager.MAX_CHAT_HISTORY));
+        this.chatHistory.set(snapshot.roomCode, [...snapshot.chatHistory]);
       }
 
       // Rebuild userId maps for human players
@@ -726,9 +725,6 @@ export class RoomManager {
       this.chatHistory.set(roomCode, history);
     }
     history.push({ ...msg, timestamp: Date.now() });
-    if (history.length > RoomManager.MAX_CHAT_HISTORY) {
-      history.splice(0, history.length - RoomManager.MAX_CHAT_HISTORY);
-    }
   }
 
   getChatHistory(roomCode: string): { from: Seat | null; text: string; timestamp: number; spectatorName?: string }[] {

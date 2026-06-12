@@ -12,6 +12,7 @@ export type ConfirmDialogAction =
   | { type: 'kick'; targetName: string }
   | { type: 'restartRound' }
   | { type: 'restartGame' }
+  | { type: 'blindGrand'; enabled: boolean }
   | { type: 'transferHost'; targetName: string };
 
 interface ActionConfirmDialogProps {
@@ -63,6 +64,12 @@ export const ActionConfirmDialog = memo(function ActionConfirmDialog({
       message = 'Restart the entire game? All scores will be reset.';
       voteLabel = 'Start Vote';
       forceLabel = 'Force Restart';
+      break;
+    case 'blindGrand':
+      title = action.enabled ? 'Enable Blind Grand' : 'Disable Blind Grand';
+      message = `${action.enabled ? 'Enable' : 'Disable'} Blind Grand for upcoming rounds?`;
+      voteLabel = 'Start Vote';
+      forceLabel = action.enabled ? 'Force Enable' : 'Force Disable';
       break;
     case 'transferHost':
       title = 'Transfer Host';

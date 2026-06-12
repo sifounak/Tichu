@@ -186,7 +186,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('VOTE_RESULT'), voteId: z.string(), voteType: voteTypeSchema, passed: z.boolean(), targetSeat: seatSchema.optional(), message: z.string() }),
 
   // Chat
-  z.object({ type: z.literal('CHAT_RECEIVED'), from: seatSchema.nullable(), text: z.string(), spectatorName: z.string().optional() }),
+  z.object({ type: z.literal('CHAT_RECEIVED'), from: seatSchema.nullable(), text: z.string(), spectatorName: z.string().optional(), silent: z.boolean().optional() }),
   z.object({ type: z.literal('CHAT_HISTORY'), messages: z.array(z.object({ from: seatSchema.nullable(), text: z.string(), timestamp: z.number(), spectatorName: z.string().optional() })) }),
 
   // Host role change notification

@@ -745,10 +745,12 @@ export class RoomHandler {
         const text = newSpectatorChat
           ? 'Spectator chat has been enabled by the host'
           : 'Spectator chat has been disabled by the host';
+        this.roomManager.addChatMessage(info.roomCode, { from: null, text });
         this.broadcaster.broadcastToRoom(info.roomCode, {
           type: 'CHAT_RECEIVED',
           from: null,
           text,
+          silent: true,
         } as import('@tichu/shared').ServerMessage);
       }
     } catch (err) {
@@ -1216,12 +1218,14 @@ export class RoomHandler {
       }
       this.broadcastRoomUpdate(roomCode);
       const text = enabled
-        ? 'Blind Grand has been enabled'
-        : 'Blind Grand has been disabled';
+        ? 'Blind Grand is enabled for next round!'
+        : 'Blind Grand is disabled for next round!';
+      this.roomManager.addChatMessage(roomCode, { from: null, text });
       this.broadcaster.broadcastToRoom(roomCode, {
         type: 'CHAT_RECEIVED',
         from: null,
         text,
+        silent: true,
       } as import('@tichu/shared').ServerMessage);
     } catch {
       // Invalid room/state; callers already operate on live rooms, so ignore stale races.

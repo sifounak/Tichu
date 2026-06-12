@@ -47,6 +47,21 @@ describe('RoomManager serialization', () => {
     manager.dispose();
   });
 
+  it('keeps the full room chat history', () => {
+    const manager = new RoomManager();
+    const room = manager.createRoom('user-1', 'Alice');
+
+    for (let i = 0; i < 125; i += 1) {
+      manager.addChatMessage(room.roomCode, { from: 'south', text: `message ${i}` });
+    }
+
+    const history = manager.getChatHistory(room.roomCode);
+    expect(history).toHaveLength(125);
+    expect(history[0]).toEqual(expect.objectContaining({ text: 'message 0' }));
+    expect(history[124]).toEqual(expect.objectContaining({ text: 'message 124' }));
+    manager.dispose();
+  });
+
   it('restores rooms from snapshots', () => {
     const snapshot: RoomSnapshot = {
       roomCode: 'TEST01',

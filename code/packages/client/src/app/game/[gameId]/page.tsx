@@ -312,7 +312,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         // REQ-F-AP12: Auto-pass resets naturally via trick-won detection and phase change.
         // Do NOT reset here — GAME_STATE fires on every state transition, not just reconnect.
       } else if (msg.type === 'CHAT_RECEIVED') {
-        playSound('chat');
+        if (!msg.silent) playSound('chat');
         // REQ-F-MP07: Chat message received — SC-04: spectator + system messages
         uiStore.addChatMessage({
           from: msg.from,
@@ -1031,11 +1031,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         break;
       case 'toggleBlindGrand': {
         const enabled = !(roomConfig?.blindGrandTichuEnabled ?? false);
-        if (mySeatFromRoom === hostSeat) {
-          send({ type: 'FORCE_SET_BLIND_GRAND', enabled });
-        } else {
-          send({ type: 'START_BLIND_GRAND_VOTE', enabled });
-        }
+        setConfirmAction({ type: 'blindGrand', enabled });
         break;
       }
       case 'cancelVote':
@@ -1053,6 +1049,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       send({ type: 'START_RESTART_ROUND_VOTE' });
     } else if (confirmAction.type === 'restartGame') {
       send({ type: 'START_RESTART_GAME_VOTE' });
+    } else if (confirmAction.type === 'blindGrand') {
+      send({ type: 'START_BLIND_GRAND_VOTE', enabled: confirmAction.enabled });
     }
     setConfirmAction(null);
     setConfirmTargetSeat(null);
@@ -1068,6 +1066,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       send({ type: 'FORCE_RESTART_GAME' });
     } else if (confirmAction.type === 'transferHost' && confirmTargetSeat) {
       send({ type: 'TRANSFER_HOST', targetSeat: confirmTargetSeat });
+    } else if (confirmAction.type === 'blindGrand') {
+      send({ type: 'FORCE_SET_BLIND_GRAND', enabled: confirmAction.enabled });
     }
     setConfirmAction(null);
     setConfirmTargetSeat(null);

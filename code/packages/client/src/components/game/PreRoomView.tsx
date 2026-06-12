@@ -244,23 +244,21 @@ export function PreRoomView({
         send({ type: 'TOGGLE_VOTING' });
         break;
       case 'toggleBlindGrand':
-        if (isHost) {
-          send({ type: 'FORCE_SET_BLIND_GRAND', enabled: !(config?.blindGrandTichuEnabled ?? false) });
-        } else {
-          send({ type: 'PRE_GAME_BLIND_GRAND_VOTE', enabled: !(config?.blindGrandTichuEnabled ?? false) });
-        }
+        setConfirmAction({ type: 'blindGrand', enabled: !(config?.blindGrandTichuEnabled ?? false) });
         break;
       case 'cancelVote':
         send({ type: 'CANCEL_VOTE' });
         break;
     }
-  }, [send]);
+  }, [config?.blindGrandTichuEnabled, send]);
 
   // Confirmation dialog callbacks
   const handleConfirmStartVote = useCallback(() => {
-    if (!confirmTargetSeat || !confirmAction) return;
-    if (confirmAction.type === 'kick') {
+    if (!confirmAction) return;
+    if (confirmAction.type === 'kick' && confirmTargetSeat) {
       send({ type: 'PRE_GAME_KICK_VOTE', targetSeat: confirmTargetSeat });
+    } else if (confirmAction.type === 'blindGrand') {
+      send({ type: 'PRE_GAME_BLIND_GRAND_VOTE', enabled: confirmAction.enabled });
     }
     setConfirmAction(null);
     setConfirmTargetSeat(null);
@@ -272,6 +270,8 @@ export function PreRoomView({
       send({ type: 'FORCE_KICK', targetSeat: confirmTargetSeat });
     } else if (confirmAction.type === 'transferHost' && confirmTargetSeat) {
       send({ type: 'TRANSFER_HOST', targetSeat: confirmTargetSeat });
+    } else if (confirmAction.type === 'blindGrand') {
+      send({ type: 'FORCE_SET_BLIND_GRAND', enabled: confirmAction.enabled });
     }
     setConfirmAction(null);
     setConfirmTargetSeat(null);
@@ -1213,7 +1213,7 @@ export function PreRoomView({
           action={confirmAction}
           isHost={isHost}
           onCancel={handleConfirmCancel}
-          onStartVote={confirmAction.type === 'kick' ? handleConfirmStartVote : undefined}
+          onStartVote={confirmAction.type !== 'transferHost' ? handleConfirmStartVote : undefined}
           onForceAction={handleConfirmForceAction}
         />
       )}

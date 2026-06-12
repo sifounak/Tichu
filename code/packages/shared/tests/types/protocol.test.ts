@@ -281,6 +281,7 @@ describe('serverMessageSchema', () => {
 
   it('validates CHAT_RECEIVED message', () => {
     expect(serverMessageSchema.parse({ type: 'CHAT_RECEIVED', from: 'north', text: 'Hello' })).toBeTruthy();
+    expect(serverMessageSchema.parse({ type: 'CHAT_RECEIVED', from: null, text: 'Quiet system note', silent: true })).toBeTruthy();
   });
 
   it('validates ERROR message', () => {
