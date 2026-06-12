@@ -205,7 +205,10 @@ export function createApp(config: Partial<AppConfig> = {}) {
 
         // REQ-F-SP13: Check if spectator first
         if (roomHandler.roomManager.isSpectator(info.userId)) {
-          roomHandler.roomManager.markSpectatorDisconnected(info.userId);
+          const result = roomHandler.roomManager.markSpectatorDisconnected(info.userId);
+          if (result) {
+            roomHandler.broadcastRoomUpdate(result.roomCode);
+          }
           // No PLAYER_DISCONNECTED broadcast for spectators
         } else if (info.seat) {
           // REQ-F-002: Mark player as disconnected (preserves room membership for reconnection)

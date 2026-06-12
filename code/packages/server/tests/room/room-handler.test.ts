@@ -206,6 +206,41 @@ describe('RoomHandler', () => {
 
       expect(broadcaster.sendError).toHaveBeenCalledWith(ws1, 'JOIN_ROOM_FAILED', expect.any(String));
     });
+
+    it('should broadcast only connected spectators in ROOM_UPDATE', async () => {
+      await router.handleMessage(ws1, JSON.stringify({ type: 'CREATE_ROOM', playerName: 'Alice' }));
+      const roomCode = handler.roomManager.getUserRoom('user1')!;
+
+      const ws2 = createMockWs();
+      (connections.addClient as any)(ws2, 'spectator1', 'Watcher 1');
+      await router.handleMessage(ws2, JSON.stringify({
+        type: 'JOIN_ROOM',
+        roomCode,
+        playerName: 'Watcher 1',
+        asSpectator: true,
+      }));
+
+      const ws3 = createMockWs();
+      (connections.addClient as any)(ws3, 'spectator2', 'Watcher 2');
+      await router.handleMessage(ws3, JSON.stringify({
+        type: 'JOIN_ROOM',
+        roomCode,
+        playerName: 'Watcher 2',
+        asSpectator: true,
+      }));
+
+      handler.roomManager.markSpectatorDisconnected('spectator1');
+      handler.broadcastRoomUpdate(roomCode);
+
+      expect(broadcaster.broadcastToRoom).toHaveBeenLastCalledWith(
+        roomCode,
+        expect.objectContaining({
+          type: 'ROOM_UPDATE',
+          spectatorCount: 1,
+          spectatorNames: ['Watcher 2'],
+        }),
+      );
+    });
   });
 
   describe('LEAVE_ROOM', () => {

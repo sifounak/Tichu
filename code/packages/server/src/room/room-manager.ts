@@ -330,16 +330,17 @@ export class RoomManager {
       if (room.config.isPrivate) continue;
 
       const hostPlayer = room.players.find(p => p.seat === room.hostSeat);
-      // REQ-F-SP11: Compute real spectatorCount from room.spectators
+      const connectedSpectators = room.spectators.filter(s => s.isConnected);
+      // REQ-F-SP11: Compute real spectatorCount from connected spectators
       // REQ-F-SP01: Include spectatorsAllowed so lobby can show "Join as Spectator" button
       entries.push({
         roomCode: room.roomCode,
         roomName: room.roomName,
         hostName: hostPlayer?.name ?? 'Unknown',
         playerCount: room.players.length,
-        spectatorCount: room.spectators.length,
+        spectatorCount: connectedSpectators.length,
         playerNames: room.players.map(p => p.name),
-        spectatorNames: room.spectators.map(s => s.name),
+        spectatorNames: connectedSpectators.map(s => s.name),
         config: {
           targetScore: room.config.targetScore,
           spectatorsAllowed: room.config.spectatorsAllowed,

@@ -1561,6 +1561,7 @@ export class RoomHandler {
     const room = this.roomManager.getRoom(roomCode);
     if (!room) return;
 
+    const connectedSpectators = room.spectators.filter(s => s.isConnected);
     const update = {
       type: 'ROOM_UPDATE' as const,
       roomName: room.roomName,
@@ -1573,8 +1574,8 @@ export class RoomHandler {
       hostSeat: room.hostSeat,
       config: room.config,
       gameInProgress: room.gameInProgress,
-      spectatorCount: room.spectators.length,
-      spectatorNames: room.spectators.filter(s => s.isConnected).map(s => s.name),
+      spectatorCount: connectedSpectators.length,
+      spectatorNames: connectedSpectators.map(s => s.name),
       readyPlayers: this.roomManager.getReadySeats(roomCode),
       // REQ-F-GA52: Include voting toggle state
       votingEnabled: room.votingEnabled,

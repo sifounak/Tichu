@@ -1101,12 +1101,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // the player can react, so the sound is just noise.
   const wasMyTurnRef = useRef(false);
   useEffect(() => {
-    const actionBarVisible = phase === 'playing' && isMyTurnForSelection && !gameStore.gameHalted;
+    const actionBarVisible = phase === 'playing' && !isSpectator && isMyTurnForSelection && !gameStore.gameHalted;
     if (actionBarVisible && !wasMyTurnRef.current && !autoPassEnabled) {
       playSound('yourTurn');
     }
     wasMyTurnRef.current = actionBarVisible;
-  }, [phase, isMyTurnForSelection, gameStore.gameHalted, playSound, autoPassEnabled]);
+  }, [phase, isSpectator, isMyTurnForSelection, gameStore.gameHalted, playSound, autoPassEnabled]);
 
   // REQ-F-AP05: Auto-send PASS_TURN when auto-pass is enabled and it's the player's turn
   useEffect(() => {

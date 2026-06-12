@@ -273,6 +273,17 @@ describe('RoomManager', () => {
       const rooms = manager.getPublicRooms();
       expect(rooms[0].playerCount).toBe(2);
     });
+
+    it('should count only connected spectators', () => {
+      const room = manager.createRoom('u1', 'Alice');
+      manager.joinAsSpectator('s1', room.roomCode, 'Watcher 1');
+      manager.joinAsSpectator('s2', room.roomCode, 'Watcher 2');
+      manager.markSpectatorDisconnected('s1');
+
+      const [entry] = manager.getPublicRooms();
+      expect(entry.spectatorCount).toBe(1);
+      expect(entry.spectatorNames).toEqual(['Watcher 2']);
+    });
   });
 
   // ─── User tracking ─────────────────────────────────────────────────

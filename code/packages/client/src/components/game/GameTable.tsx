@@ -48,7 +48,7 @@ export interface GameTableProps {
   onTransferHostTarget?: (seat: Seat) => void;
   /** REQ-F-VI05: Callback for host to add bot to vacated seat */
   onAddBot?: (seat: Seat) => void;
-  /** Fixed compass orientation (N top, S bottom, W left, E right) for spectators */
+  /** Fixed spectator orientation (south-facing player camera) */
   compassLayout?: boolean;
   /** Current layout tier for responsive behavior */
   layoutTier?: LayoutTier;
@@ -78,9 +78,10 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
 
   // Determine layout: player (me) is always at the bottom
   // Partner is at the top, opponents on left and right
-  // compassLayout: fixed compass orientation for spectators (N top, S bottom, W left, E right)
+  // Spectators use the same south-facing camera players see when seated at south.
+  // With turn order N -> E -> S -> W, this makes turn progression counter-clockwise on screen.
   const seatPositions = compassLayout
-    ? { top: 'north' as Seat, bottom: 'south' as Seat, left: 'west' as Seat, right: 'east' as Seat }
+    ? { top: 'north' as Seat, bottom: 'south' as Seat, left: 'east' as Seat, right: 'west' as Seat }
     : getSeatPositions(mySeat);
 
   // Green glow for players who have confirmed their card pass

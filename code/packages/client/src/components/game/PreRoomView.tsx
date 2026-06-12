@@ -156,7 +156,7 @@ export function PreRoomView({
   const isSpectator = mySeat === null;
   const isHost = mySeat === hostSeat;
   const amReady = mySeat ? readyPlayers.includes(mySeat) : false;
-  // Spectators always see compass layout (N top, S bottom, W left, E right)
+  // Spectators use the south-facing player camera (N top, S bottom, E left, W right).
   const effectiveSeat = mySeat ?? 'south';
   const isMobileLayout = layoutTier !== 'full';
 
