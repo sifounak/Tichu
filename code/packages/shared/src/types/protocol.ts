@@ -32,7 +32,10 @@ const roomConfigSchema = z.object({
   spectatorsAllowed: z.boolean().optional(),
   isPrivate: z.boolean().optional(),
   spectatorChatEnabled: z.boolean().optional(),
+  blindGrandTichuEnabled: z.boolean().optional(),
 });
+
+const voteTypeSchema = z.enum(['kick', 'restartGame', 'restartRound', 'enableBlindGrand', 'disableBlindGrand']);
 
 // REQ-F-RAD01: Optional messageId for reliable action delivery (ACK/retry support)
 const messageIdField = { messageId: z.string().optional() };
@@ -63,6 +66,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('DECLINE_SEAT'), ...messageIdField }),
 
   // Game actions
+  z.object({ type: z.literal('BLIND_GRAND_TICHU_DECISION'), call: z.boolean(), partnerOverride: z.boolean().optional(), ...messageIdField }),
   z.object({ type: z.literal('GRAND_TICHU_DECISION'), call: z.boolean(), partnerOverride: z.boolean().optional(), ...messageIdField }),
   z.object({ type: z.literal('TICHU_DECLARATION'), partnerOverride: z.boolean().optional(), ...messageIdField }),
   z.object({ type: z.literal('PASS_CARDS'), cards: z.record(seatSchema, gameCardSchema), ...messageIdField }),
@@ -82,16 +86,19 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('START_KICK_VOTE'), targetSeat: seatSchema, ...messageIdField }),
   z.object({ type: z.literal('START_RESTART_GAME_VOTE'), ...messageIdField }),
   z.object({ type: z.literal('START_RESTART_ROUND_VOTE'), ...messageIdField }),
+  z.object({ type: z.literal('START_BLIND_GRAND_VOTE'), enabled: z.boolean(), ...messageIdField }),
   z.object({ type: z.literal('PLAYER_VOTE'), voteId: z.string(), vote: z.boolean(), ...messageIdField }),
 
   // REQ-F-VI09: Pre-game kick vote (separate from in-game to avoid routing conflicts)
   z.object({ type: z.literal('PRE_GAME_KICK_VOTE'), targetSeat: seatSchema, ...messageIdField }),
+  z.object({ type: z.literal('PRE_GAME_BLIND_GRAND_VOTE'), enabled: z.boolean(), ...messageIdField }),
   z.object({ type: z.literal('PRE_GAME_VOTE'), voteId: z.string(), vote: z.boolean(), ...messageIdField }),
 
   // REQ-F-GA35-37: Host force actions (bypass voting)
   z.object({ type: z.literal('FORCE_KICK'), targetSeat: seatSchema, ...messageIdField }),
   z.object({ type: z.literal('FORCE_RESTART_ROUND'), ...messageIdField }),
   z.object({ type: z.literal('FORCE_RESTART_GAME'), ...messageIdField }),
+  z.object({ type: z.literal('FORCE_SET_BLIND_GRAND'), enabled: z.boolean(), ...messageIdField }),
 
   // REQ-F-GA38: Host transfers host role to another human player
   z.object({ type: z.literal('TRANSFER_HOST'), targetSeat: seatSchema, ...messageIdField }),
@@ -142,7 +149,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('CARDS_PASSED'), received: z.array(gameCardSchema).length(3) }),
 
   // Game events
-  z.object({ type: z.literal('TICHU_CALLED'), seat: seatSchema, level: z.enum(['tichu', 'grandTichu']) }),
+  z.object({ type: z.literal('TICHU_CALLED'), seat: seatSchema, level: z.enum(['tichu', 'grandTichu', 'blindGrandTichu']) }),
   z.object({ type: z.literal('CARDS_PLAYED'), seat: seatSchema, cardIds: z.array(z.number()), combinationType: z.string() }),
   z.object({ type: z.literal('PLAYER_PASSED'), seat: seatSchema }),
   z.object({ type: z.literal('TRICK_WON'), seat: seatSchema }),
@@ -174,9 +181,9 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('KICK_DIALOG_DISMISSED'), targetSeat: seatSchema, reason: z.enum(['kicked', 'declined', 'reconnected', 'vote_priority']) }),
 
   // REQ-F-PV21: Player-initiated vote messages (kick player or restart game)
-  z.object({ type: z.literal('VOTE_STARTED'), voteId: z.string(), voteType: z.enum(['kick', 'restartGame', 'restartRound']), initiatorSeat: seatSchema, targetSeat: seatSchema.optional(), timeoutMs: z.number() }),
+  z.object({ type: z.literal('VOTE_STARTED'), voteId: z.string(), voteType: voteTypeSchema, initiatorSeat: seatSchema, targetSeat: seatSchema.optional(), timeoutMs: z.number() }),
   z.object({ type: z.literal('VOTE_UPDATE'), voteId: z.string(), votes: z.record(seatSchema, z.boolean().nullable()), timeoutMs: z.number() }),
-  z.object({ type: z.literal('VOTE_RESULT'), voteId: z.string(), voteType: z.enum(['kick', 'restartGame', 'restartRound']), passed: z.boolean(), targetSeat: seatSchema.optional(), message: z.string() }),
+  z.object({ type: z.literal('VOTE_RESULT'), voteId: z.string(), voteType: voteTypeSchema, passed: z.boolean(), targetSeat: seatSchema.optional(), message: z.string() }),
 
   // Chat
   z.object({ type: z.literal('CHAT_RECEIVED'), from: seatSchema.nullable(), text: z.string(), spectatorName: z.string().optional() }),

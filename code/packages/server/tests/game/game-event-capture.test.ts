@@ -60,6 +60,8 @@ const defaultConfig: GameConfig = {
   turnTimerSeconds: null,
   spectatorsAllowed: true,
   isPrivate: false,
+  spectatorChatEnabled: false,
+  blindGrandTichuEnabled: false,
 };
 
 function makeContext(round: RoundState | null, overrides: Partial<GameMachineContext> = {}): GameMachineContext {
@@ -70,6 +72,7 @@ function makeContext(round: RoundState | null, overrides: Partial<GameMachineCon
     scores: { northSouth: 0, eastWest: 0 },
     roundHistory: [],
     currentRound: round,
+    blindGrandTichuDecisions: new Set(),
     grandTichuDecisions: new Set(),
     cardPassDecisions: new Set(),
     winner: null,
@@ -191,6 +194,25 @@ describe('GameEventCapture', () => {
       expect(northPR).toBeDefined();
       expect(northPR!.first8Cards).toHaveLength(8);
       expect(northPR!.first8Cards![0]).toBe(1);
+    });
+
+    it('should capture first 8 from a Blind Grand caller with all 14 cards revealed', () => {
+      const hand = Array.from({ length: 14 }, (_, i) => card('standard', (i % 13) + 2, 'jade', i + 1));
+      const round = makeRound({
+        phase: GamePhase.GrandTichuDecision,
+        players: {
+          north: makePlayerState('north', { hand, tipiCall: 'blindGrandTichu' }),
+          east: makePlayerState('east', { hand: hand.slice(0, 8).map((c, i) => ({ ...c, id: i + 100 })) }),
+          south: makePlayerState('south', { hand: hand.slice(0, 8).map((c, i) => ({ ...c, id: i + 200 })) }),
+          west: makePlayerState('west', { hand: hand.slice(0, 8).map((c, i) => ({ ...c, id: i + 300 })) }),
+        },
+      });
+
+      capture.onStateChange(makeContext(round));
+
+      const roundData = capture.getCurrentRound();
+      const northPR = roundData!.playerRounds.find(pr => pr.seat === 'north');
+      expect(northPR!.first8Cards).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
     });
 
     it('should capture pre-pass, pass, and post-pass hands on phase transition', () => {
@@ -332,6 +354,35 @@ describe('GameEventCapture', () => {
         leftOpp: 12,
         rightOpp: 8,
       });
+    });
+
+    it('should classify regular Tichu during Blind Grand setup as pre-passing', () => {
+      const hand = Array.from({ length: 14 }, (_, i) => card('standard', i + 2, 'jade', i + 1));
+      const prevRound = makeRound({
+        phase: GamePhase.BlindGrandTichuDecision,
+        players: {
+          north: makePlayerState('north', { hand }),
+          east: makePlayerState('east'),
+          south: makePlayerState('south'),
+          west: makePlayerState('west'),
+        },
+      });
+      const currRound = makeRound({
+        ...prevRound,
+        players: {
+          ...prevRound.players,
+          north: { ...prevRound.players.north, tipiCall: 'tichu' },
+        },
+      });
+
+      capture.onStateChange(makeContext(prevRound));
+      capture.onStateChange(makeContext(currRound));
+
+      const roundData = capture.getCurrentRound();
+      const northPR = roundData!.playerRounds.find(pr => pr.seat === 'north');
+      expect(northPR!.tichuCall).toBe(true);
+      expect(northPR!.tichuCallPhase).toBe('prePassing');
+      expect(northPR!.tichuCallTrickNumber).toBeNull();
     });
   });
 

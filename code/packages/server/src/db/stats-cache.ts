@@ -71,6 +71,7 @@ interface PlayerRoundRow {
   received_from_partner: string | null;
   received_from_right: string | null;
   hand_after_pass: string | null;
+  blind_grand_tichu_call: number;
   grand_tichu_call: number;
   tichu_call: number;
   tichu_call_phase: string | null;
@@ -196,6 +197,8 @@ interface StatsResult {
   winRate: number;
   tichuCalls: number;
   tichuSuccesses: number;
+  blindGrandTichuCalls: number;
+  blindGrandTichuSuccesses: number;
   grandTichuCalls: number;
   grandTichuSuccesses: number;
   totalRoundsPlayed: number;
@@ -292,7 +295,9 @@ interface StatsResult {
 function createEmptyStats(): StatsResult {
   return {
     gamesPlayed: 0, gamesWon: 0, winRate: 0,
-    tichuCalls: 0, tichuSuccesses: 0, grandTichuCalls: 0, grandTichuSuccesses: 0,
+    tichuCalls: 0, tichuSuccesses: 0,
+    blindGrandTichuCalls: 0, blindGrandTichuSuccesses: 0,
+    grandTichuCalls: 0, grandTichuSuccesses: 0,
     totalRoundsPlayed: 0, firstFinishes: 0,
     largestWinDiff: 0, largestLossDiff: 0, oneTwoWins: 0, oneTwoAgainst: 0,
     gamesRequiringTieBreak: 0, mostTieBreakRoundsNeeded: 0,
@@ -345,7 +350,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     SELECT game_id, round_number, seat, user_id,
            first_8_cards, full_hand_pre_pass, passed_to_left, passed_to_partner, passed_to_right,
            received_from_left, received_from_partner, received_from_right, hand_after_pass,
-           grand_tichu_call, tichu_call, tichu_call_phase, tichu_call_trick_number,
+           blind_grand_tichu_call, grand_tichu_call, tichu_call, tichu_call_phase, tichu_call_trick_number,
            tichu_call_hand_sizes, tichu_call_success, finish_position, finish_trick_number
     FROM player_rounds
     WHERE user_id = ${userId}
@@ -410,7 +415,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
 
   // ── 4. Get ALL player_rounds for cross-player stats (partner/opponent tichu) ──
   const allPlayerRounds = db.all(sql`
-    SELECT game_id, round_number, seat, user_id, grand_tichu_call, tichu_call,
+    SELECT game_id, round_number, seat, user_id, blind_grand_tichu_call, grand_tichu_call, tichu_call,
            tichu_call_success, finish_position, hand_after_pass
     FROM player_rounds
     WHERE game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
@@ -578,6 +583,10 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     if (pr.tichu_call) {
       stats.tichuCalls++;
       if (pr.tichu_call_success) stats.tichuSuccesses++;
+    }
+    if (pr.blind_grand_tichu_call) {
+      stats.blindGrandTichuCalls++;
+      if (pr.tichu_call_success) stats.blindGrandTichuSuccesses++;
     }
     if (pr.grand_tichu_call) {
       stats.grandTichuCalls++;
@@ -1139,7 +1148,8 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
   db.run(sql`
     INSERT OR REPLACE INTO stats_cache (
       user_id, games_played, games_won, win_rate,
-      tichu_calls, tichu_successes, grand_tichu_calls, grand_tichu_successes,
+      tichu_calls, tichu_successes, blind_grand_tichu_calls, blind_grand_tichu_successes,
+      grand_tichu_calls, grand_tichu_successes,
       total_rounds_played, first_finishes, last_updated_at,
       largest_win_diff, largest_loss_diff, games_forfeited, games_spectated,
       one_two_wins, one_two_against,
@@ -1175,7 +1185,8 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
       double_bomb_in_trick, all_players_bomb_in_round
     ) VALUES (
       ${userId}, ${stats.gamesPlayed}, ${stats.gamesWon}, ${stats.winRate},
-      ${stats.tichuCalls}, ${stats.tichuSuccesses}, ${stats.grandTichuCalls}, ${stats.grandTichuSuccesses},
+      ${stats.tichuCalls}, ${stats.tichuSuccesses}, ${stats.blindGrandTichuCalls}, ${stats.blindGrandTichuSuccesses},
+      ${stats.grandTichuCalls}, ${stats.grandTichuSuccesses},
       ${stats.totalRoundsPlayed}, ${stats.firstFinishes}, datetime('now'),
       ${stats.largestWinDiff}, ${stats.largestLossDiff}, ${stats.gamesForfeited}, 0,
       ${stats.oneTwoWins}, ${stats.oneTwoAgainst},

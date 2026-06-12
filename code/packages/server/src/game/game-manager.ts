@@ -56,6 +56,7 @@ import { writeRecoveryFile as serializeRecoveryFile } from '../db/event-persiste
 /** Minimal shape of the XState persisted snapshot for serialize/restore operations. */
 interface PersistedSnapshotLike {
   context?: {
+    blindGrandTichuDecisions?: Set<Seat> | Seat[];
     grandTichuDecisions?: Set<Seat> | Seat[];
     cardPassDecisions?: Set<Seat> | Seat[];
     [key: string]: unknown;
@@ -217,6 +218,10 @@ export class GameManager {
         result = this.moveHandler.handleStartGame();
         break;
 
+      case 'BLIND_GRAND_TICHU_DECISION':
+        result = this.moveHandler.handleBlindGrandTichuDecision(seat, message.call, message.partnerOverride);
+        break;
+
       case 'GRAND_TICHU_DECISION':
         result = this.moveHandler.handleGrandTichuDecision(seat, message.call, message.partnerOverride);
         break;
@@ -269,6 +274,9 @@ export class GameManager {
         return;
       case 'START_RESTART_ROUND_VOTE':
         this.handleStartRestartRoundVote(ws, seat);
+        return;
+      case 'START_BLIND_GRAND_VOTE':
+        this.handleStartBlindGrandVote(ws, seat, message.enabled);
         return;
       case 'PLAYER_VOTE':
         this.voteHandler.handleVote(this.roomCode, seat, message.voteId, message.vote);
@@ -351,6 +359,7 @@ export class GameManager {
     onKickVotePassed: (roomCode: string, targetSeat: Seat) => void,
     onRestartGameVotePassed: (roomCode: string) => void,
     onRestartRoundVotePassed: (roomCode: string) => void,
+    onBlindGrandVotePassed: (roomCode: string, enabled: boolean) => void,
   ): void {
     this.voteHandler.onVoteResult = (roomCode, voteType, passed, targetSeat) => {
       // REQ-F-VI09: Reset turn timer to full after vote ends
@@ -374,6 +383,8 @@ export class GameManager {
       } else if (voteType === 'restartRound' && passed) {
         // Restart round vote passed — handled by room-handler after delay
         onRestartRoundVotePassed(roomCode);
+      } else if ((voteType === 'enableBlindGrand' || voteType === 'disableBlindGrand') && passed) {
+        onBlindGrandVotePassed(roomCode, voteType === 'enableBlindGrand');
       } else {
         // REQ-F-PV17/PV19: Vote failed — just broadcast to clear vote UI
         this.broadcastState();
@@ -417,7 +428,9 @@ export class GameManager {
   isPastCardPassPhase(): boolean {
     const round = this.context.currentRound;
     if (!round) return false;
-    return round.phase !== 'grandTichuDecision' && round.phase !== 'cardPassing';
+    return round.phase !== 'blindGrandTichuDecision' &&
+      round.phase !== 'grandTichuDecision' &&
+      round.phase !== 'cardPassing';
   }
 
   /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
@@ -527,6 +540,11 @@ export class GameManager {
     this._votingEnabled = votingEnabled;
   }
 
+  setBlindGrandTichuEnabled(enabled: boolean): void {
+    this.actor.send({ type: 'SET_BLIND_GRAND_TICHU_ENABLED', enabled });
+    this.broadcastState();
+  }
+
   /** REQ-F-PV03, REQ-F-PV25, REQ-F-PV28: Start a kick vote with validation */
   private handleStartKickVote(ws: WebSocket, initiatorSeat: Seat, targetSeat: Seat): void {
     // REQ-F-GA53: Non-host players cannot start votes when voting is disabled
@@ -623,6 +641,31 @@ export class GameManager {
     }
   }
 
+  /** Start a Blind Grand setting vote with validation. */
+  private handleStartBlindGrandVote(ws: WebSocket, initiatorSeat: Seat, enabled: boolean): void {
+    if (!this._votingEnabled && initiatorSeat !== this._hostSeat) {
+      this.broadcaster.sendError(ws, 'VOTING_DISABLED', 'Voting has been disabled by the host');
+      return;
+    }
+    if (this.voteHandler.hasActiveVote(this.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
+      return;
+    }
+    if (this.botRunner.isBot(initiatorSeat)) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
+      return;
+    }
+
+    this.kickDialogHandler.dismissForVote(this.roomCode);
+
+    const humanSeats = this.getHumanSeats();
+    const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
+    const started = this.voteHandler.startBlindGrandVote(this.roomCode, initiatorSeat, enabled, humanSeats, excludedSeats);
+    if (started) {
+      this.timer.pause();
+    }
+  }
+
   /** Get all human (non-bot) seats */
   private getHumanSeats(): Seat[] {
     const allSeats: Seat[] = ['north', 'east', 'south', 'west'];
@@ -649,10 +692,17 @@ export class GameManager {
     if (!round) return null;
 
     // Untimed phases where we wait for a specific player's action:
+    // - blindGrandTichuDecision: waiting for players who haven't decided yet
     // - grandTichuDecision: waiting for players who haven't decided yet
     // - cardPassing: waiting for players who haven't passed cards yet
     // - awaitingDragonGift: waiting for dragon gift decision
-    if (state === 'grandTichuDecision') {
+    if (state === 'blindGrandTichuDecision') {
+      for (const seat of SEATS_IN_ORDER) {
+        if (!this.context.blindGrandTichuDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+          return seat;
+        }
+      }
+    } else if (state === 'grandTichuDecision') {
       // Check each undecided seat to see if any are disconnected
       for (const seat of SEATS_IN_ORDER) {
         if (!this.context.grandTichuDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
@@ -1039,8 +1089,8 @@ export class GameManager {
     opponents.sort((a, b) => {
       const aCall = round.players[a].tipiCall;
       const bCall = round.players[b].tipiCall;
-      const aHasTichu = aCall === 'tichu' || aCall === 'grandTichu';
-      const bHasTichu = bCall === 'tichu' || bCall === 'grandTichu';
+      const aHasTichu = aCall === 'tichu' || aCall === 'grandTichu' || aCall === 'blindGrandTichu';
+      const bHasTichu = bCall === 'tichu' || bCall === 'grandTichu' || bCall === 'blindGrandTichu';
 
       // Prefer opponent without Tichu call (give dragon to the one who didn't call)
       if (aHasTichu !== bHasTichu) return aHasTichu ? 1 : -1;
@@ -1069,6 +1119,9 @@ export class GameManager {
     const machineSnap = this.actor.getPersistedSnapshot() as PersistedSnapshotLike;
     if (machineSnap?.context) {
       const ctx = machineSnap.context;
+      if (ctx.blindGrandTichuDecisions instanceof Set) {
+        ctx.blindGrandTichuDecisions = [...ctx.blindGrandTichuDecisions];
+      }
       if (ctx.grandTichuDecisions instanceof Set) {
         ctx.grandTichuDecisions = [...ctx.grandTichuDecisions];
       }
@@ -1150,6 +1203,11 @@ export class GameManager {
     const machineSnap = snapshot.machineSnapshot as PersistedSnapshotLike;
     if (machineSnap?.context) {
       const ctx = machineSnap.context;
+      if (ctx.blindGrandTichuDecisions != null && !(ctx.blindGrandTichuDecisions instanceof Set)) {
+        ctx.blindGrandTichuDecisions = Array.isArray(ctx.blindGrandTichuDecisions)
+          ? new Set(ctx.blindGrandTichuDecisions)
+          : new Set();
+      }
       if (ctx.grandTichuDecisions != null && !(ctx.grandTichuDecisions instanceof Set)) {
         ctx.grandTichuDecisions = Array.isArray(ctx.grandTichuDecisions)
           ? new Set(ctx.grandTichuDecisions)
@@ -1367,6 +1425,8 @@ export class GameManager {
       this.voteHandler.startRestartGameVote(this.roomCode, snapshot.initiatorSeat, humanSeats, excludedSeats);
     } else if (snapshot.voteType === 'restartRound') {
       this.voteHandler.startRestartRoundVote(this.roomCode, snapshot.initiatorSeat, humanSeats, excludedSeats);
+    } else if (snapshot.voteType === 'enableBlindGrand' || snapshot.voteType === 'disableBlindGrand') {
+      this.voteHandler.startBlindGrandVote(this.roomCode, snapshot.initiatorSeat, snapshot.voteType === 'enableBlindGrand', humanSeats, excludedSeats);
     }
 
     // REQ-F-VI08: Pause timer for restarted vote

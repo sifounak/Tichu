@@ -117,6 +117,9 @@ export class BotRunner {
     const state = typeof snapshot.value === 'string' ? snapshot.value : String(snapshot.value);
 
     switch (state) {
+      case 'blindGrandTichuDecision':
+        this.handleBlindGrandTichuPhase(context);
+        break;
       case 'grandTichuDecision':
         this.handleGrandTichuPhase(context);
         break;
@@ -441,6 +444,22 @@ export class BotRunner {
     }
 
     this.schedulePlayingTurnStep(seat, finishTurnAction, actionDelay);
+  }
+
+  private handleBlindGrandTichuPhase(context: GameMachineContext): void {
+    for (const [seat] of this.bots) {
+      if (context.blindGrandTichuDecisions.has(seat)) continue;
+      this.scheduleGrandTichuAction(seat, () => {
+        if (this.moveHandler) {
+          const result = this.moveHandler.handleBlindGrandTichuDecision(seat, false);
+          if (result.ok) {
+            this.afterActionCallback?.();
+          }
+          return;
+        }
+        this.send({ type: 'BLIND_GRAND_TICHU_PASS', seat });
+      });
+    }
   }
 
   private computeFirstPlayingActionDelay(

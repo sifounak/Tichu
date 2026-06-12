@@ -63,6 +63,35 @@ describe('PreGamePhase', () => {
     });
   });
 
+  describe('Blind Grand Tichu Decision', () => {
+    it('shows Blind Grand prompt before player has decided', () => {
+      render(
+        <PreGamePhase
+          {...defaultProps}
+          phase="blindGrandTichuDecision"
+          onBlindGrandTichuDecision={vi.fn()}
+        />,
+      );
+      expect(screen.getByText('Blind Grand?')).toBeInTheDocument();
+      expect(screen.getByText(/500/)).toBeInTheDocument();
+    });
+
+    it('shows card passing UI after player calls Blind Grand while others are still deciding', () => {
+      render(
+        <PreGamePhase
+          {...defaultProps}
+          phase="blindGrandTichuDecision"
+          blindGrandTichuDecided={['south']}
+          grandTichuDecided={['south']}
+        />,
+      );
+
+      expect(screen.queryByText('Blind Grand?')).toBeNull();
+      expect(screen.queryByText('Grand Tichu?')).toBeNull();
+      expect(screen.getByText('Pass Cards')).toBeInTheDocument();
+    });
+  });
+
   describe('Card Passing', () => {
     it('REQ-F-GF02: shows card passing title and instruction', () => {
       render(<PreGamePhase {...defaultProps} phase="cardPassing" />);

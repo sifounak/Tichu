@@ -21,6 +21,8 @@ export interface GameEndPhaseProps {
 interface TeamStats {
   grandTichuWon: number;
   grandTichuBroken: number;
+  blindGrandWon: number;
+  blindGrandBroken: number;
   tichuWon: number;
   tichuBroken: number;
   oneTwoVictories: number;
@@ -48,6 +50,8 @@ function computeStats(roundHistory: RoundScore[], team: Team): TeamStats {
   const stats: TeamStats = {
     grandTichuWon: 0,
     grandTichuBroken: 0,
+    blindGrandWon: 0,
+    blindGrandBroken: 0,
     tichuWon: 0,
     tichuBroken: 0,
     oneTwoVictories: 0,
@@ -59,7 +63,10 @@ function computeStats(roundHistory: RoundScore[], team: Team): TeamStats {
     for (const [seat, result] of Object.entries(round.tichuResults) as [Seat, (typeof round.tichuResults)[Seat]][]) {
       if (result === null) continue;
       if (getTeam(seat) !== team) continue;
-      if (result.call === 'grandTichu') {
+      if (result.call === 'blindGrandTichu') {
+        if (result.won) stats.blindGrandWon += 1;
+        else stats.blindGrandBroken += 1;
+      } else if (result.call === 'grandTichu') {
         if (result.won) stats.grandTichuWon += 1;
         else stats.grandTichuBroken += 1;
       } else {
@@ -121,6 +128,11 @@ export const GameEndPhase = memo(function GameEndPhase({
 
           <div className={styles.divider} />
           <div className={styles.divider} />
+
+          <div className={styles.statLabel}>Blind Grand</div>
+          <div className={styles.statLabel}>Blind Grand</div>
+          <div className={styles.statValue}><TichuStat won={myStats.blindGrandWon} broken={myStats.blindGrandBroken} /></div>
+          <div className={styles.statValue}><TichuStat won={theirStats.blindGrandWon} broken={theirStats.blindGrandBroken} /></div>
 
           {/* REQ-F-GS04: Grand Tichu */}
           <div className={styles.statLabel}>Grand Tichu</div>

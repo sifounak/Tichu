@@ -38,6 +38,8 @@ export function getNextSeat(seat: Seat): Seat {
 export enum GamePhase {
   /** Waiting for players to join */
   WaitingForPlayers = 'waitingForPlayers',
+  /** Optional pre-deal Blind Grand Tichu decision */
+  BlindGrandTichuDecision = 'blindGrandTichuDecision',
   /** First 8 cards dealt; players decide on Grand Tichu */
   GrandTichuDecision = 'grandTichuDecision',
   /** Players pass 1 card to each other player */
@@ -51,7 +53,7 @@ export enum GamePhase {
 }
 
 /** Tichu call level */
-export type TichuCall = 'none' | 'tichu' | 'grandTichu';
+export type TichuCall = 'none' | 'tichu' | 'grandTichu' | 'blindGrandTichu';
 
 /** State for an individual player within a round */
 export interface PlayerState {
@@ -128,6 +130,7 @@ export interface GameConfig {
   spectatorsAllowed: boolean;
   isPrivate: boolean;
   spectatorChatEnabled: boolean;
+  blindGrandTichuEnabled: boolean;
 }
 
 /** Default game configuration */
@@ -137,6 +140,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   spectatorsAllowed: true,
   isPrivate: false,
   spectatorChatEnabled: false,
+  blindGrandTichuEnabled: false,
 };
 
 /** Full game state across rounds */
@@ -185,6 +189,8 @@ export interface ClientGameView {
   lastDogPlay: { fromSeat: Seat; toSeat: Seat } | null;
   /** Seats that have made their Grand Tichu decision (call or pass) */
   grandTichuDecided: Seat[];
+  /** Seats that have made their Blind Grand Tichu decision (call or pass) */
+  blindGrandTichuDecided: Seat[];
   /** Seats that have confirmed their card pass */
   cardPassConfirmed: Seat[];
   /** Seats vacated by players who left mid-game (game paused until filled) */
@@ -198,7 +204,7 @@ export interface ClientGameView {
   /** REQ-F-PV23: Active player-initiated vote (kick or restart), null when no vote */
   activeVote?: {
     voteId: string;
-    voteType: 'kick' | 'restartGame' | 'restartRound';
+    voteType: 'kick' | 'restartGame' | 'restartRound' | 'enableBlindGrand' | 'disableBlindGrand';
     initiatorSeat: Seat;
     targetSeat?: Seat;
     votes: Record<string, boolean | null>;

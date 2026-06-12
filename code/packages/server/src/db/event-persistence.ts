@@ -75,6 +75,7 @@ export function writeEventData(database: Database, dbGameId: number, accumulator
           receivedFromPartner: pr.receivedFromPartner as any,
           receivedFromRight: pr.receivedFromRight as any,
           handAfterPass: pr.handAfterPass,
+          blindGrandTichuCall: pr.blindGrandTichuCall,
           grandTichuCall: pr.grandTichuCall,
           tichuCall: pr.tichuCall,
           tichuCallPhase: pr.tichuCallPhase,

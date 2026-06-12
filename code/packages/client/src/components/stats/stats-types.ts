@@ -8,6 +8,8 @@ export interface PlayerProfile {
   winRate: number;
   tichuCalls: number;
   tichuSuccesses: number;
+  blindGrandTichuCalls: number;
+  blindGrandTichuSuccesses: number;
   grandTichuCalls: number;
   grandTichuSuccesses: number;
   totalRoundsPlayed: number;

@@ -49,6 +49,8 @@ import {
 export type GameEvent =
   | { type: 'PLAYER_JOINED'; seat: Seat }
   | { type: 'HOST_START_GAME' }
+  | { type: 'BLIND_GRAND_TICHU_CALL'; seat: Seat }
+  | { type: 'BLIND_GRAND_TICHU_PASS'; seat: Seat }
   | { type: 'GRAND_TICHU_CALL'; seat: Seat }
   | { type: 'GRAND_TICHU_PASS'; seat: Seat }
   | { type: 'REGULAR_TICHU_CALL'; seat: Seat }
@@ -61,6 +63,7 @@ export type GameEvent =
   | { type: 'DECLARE_WISH'; seat: Seat; rank: Rank | null }
   | { type: 'ADVANCE_FROM_SCORING' }
   | { type: 'END_OF_TRICK_BOMB_TIMEOUT' }
+  | { type: 'SET_BLIND_GRAND_TICHU_ENABLED'; enabled: boolean }
   | { type: 'RESTART_ROUND' };
 
 // ─── Context Type ───────────────────────────────────────────────────────────
@@ -74,6 +77,8 @@ export interface GameMachineContext {
   currentRound: RoundState | null;
   /** Tracks which seats have made their Grand Tichu decision */
   grandTichuDecisions: Set<Seat>;
+  /** Tracks which seats have made their Blind Grand Tichu decision */
+  blindGrandTichuDecisions: Set<Seat>;
   /** Tracks which seats have passed cards */
   cardPassDecisions: Set<Seat>;
   /** Winner of the game, if any */
@@ -92,6 +97,7 @@ export function createInitialContext(gameId: string, config?: Partial<GameConfig
     roundHistory: [],
     currentRound: null,
     grandTichuDecisions: new Set(),
+    blindGrandTichuDecisions: new Set(),
     cardPassDecisions: new Set(),
     winner: null,
   };
@@ -114,10 +120,10 @@ function createPlayerState(seat: Seat): PlayerState {
 }
 
 /** Create a fresh RoundState */
-function createRoundState(roundNumber: number): RoundState {
+function createRoundState(roundNumber: number, phase: GamePhase = GamePhase.GrandTichuDecision): RoundState {
   return {
     roundNumber,
-    phase: GamePhase.GrandTichuDecision,
+    phase,
     players: {
       north: createPlayerState('north'),
       east: createPlayerState('east'),
@@ -280,6 +286,16 @@ export const gameMachine = setup({
       return context.grandTichuDecisions.size === 4;
     },
 
+    /** All players made Blind Grand Tichu decision */
+    allBlindGrandTichuDecided: ({ context }) => {
+      return context.blindGrandTichuDecisions.size === 4;
+    },
+
+    /** Blind Grand Tichu is enabled for this game */
+    isBlindGrandTichuEnabled: ({ context }) => {
+      return context.config.blindGrandTichuEnabled;
+    },
+
     /** All players passed cards */
     allCardsPassed: ({ context }) => {
       return context.cardPassDecisions.size === 4;
@@ -373,6 +389,12 @@ export const gameMachine = setup({
       return !context.grandTichuDecisions.has(event.seat);
     },
 
+    /** Player hasn't already decided Blind Grand Tichu */
+    hasNotDecidedBlindGrandTichu: ({ context, event }) => {
+      if (!('seat' in event)) return false;
+      return !context.blindGrandTichuDecisions.has(event.seat);
+    },
+
     /** Player hasn't called any Tichu (regular or grand) */
     hasNotCalledTichu: ({ context, event }) => {
       if (!('seat' in event) || !context.currentRound) return false;
@@ -396,6 +418,17 @@ export const gameMachine = setup({
     },
   },
   actions: {
+    /** Update Blind Grand setting for subsequent rounds. */
+    setBlindGrandTichuEnabled: assign(({ context, event }) => {
+      if (event.type !== 'SET_BLIND_GRAND_TICHU_ENABLED') return {};
+      return {
+        config: {
+          ...context.config,
+          blindGrandTichuEnabled: event.enabled,
+        },
+      };
+    }),
+
     /** Add a player to a seat */
     seatPlayer: assign({
       seats: ({ context, event }) => {
@@ -407,7 +440,11 @@ export const gameMachine = setup({
     /** REQ-F-GF01: Start a new round — deal first 8 cards */
     startRound: assign(({ context }) => {
       const roundNumber = context.roundHistory.length + 1;
-      const round = createRoundState(roundNumber);
+      const blindGrandEnabled = context.config.blindGrandTichuEnabled;
+      const round = createRoundState(
+        roundNumber,
+        blindGrandEnabled ? GamePhase.BlindGrandTichuDecision : GamePhase.GrandTichuDecision,
+      );
 
       // Deal cards
       const deck = shuffleDeck(createDeck());
@@ -415,17 +452,53 @@ export const gameMachine = setup({
 
       // Give each player their first 8 cards
       for (const seat of SEATS_IN_ORDER) {
-        round.players[seat].hand = dealt[seat].first8;
+        const player = round.players[seat] as PlayerState & { _first8?: GameCard[]; _remaining6?: GameCard[] };
+        if (blindGrandEnabled) {
+          player.hand = [];
+          player._first8 = dealt[seat].first8;
+        } else {
+          player.hand = dealt[seat].first8;
+        }
         // Store remaining 6 in a temporary property — we'll add them after Grand Tichu
-        (round.players[seat] as PlayerState & { _remaining6?: GameCard[] })._remaining6 =
-          dealt[seat].remaining6;
+        player._remaining6 = dealt[seat].remaining6;
       }
 
       return {
         currentRound: round,
+        blindGrandTichuDecisions: new Set<Seat>(),
         grandTichuDecisions: new Set<Seat>(),
         cardPassDecisions: new Set<Seat>(),
       };
+    }),
+
+    /** Record Blind Grand Tichu call and reveal all 14 cards immediately. */
+    recordBlindGrandTichuCall: assign(({ context, event }) => {
+      if (event.type !== 'BLIND_GRAND_TICHU_CALL' || !context.currentRound) return {};
+      const round = structuredClone(context.currentRound) as RoundState;
+      const player = round.players[event.seat] as PlayerState & { _first8?: GameCard[]; _remaining6?: GameCard[] };
+      player.tipiCall = 'blindGrandTichu';
+      player.hand = [...(player._first8 ?? player.hand), ...(player._remaining6 ?? [])];
+      delete player._first8;
+      delete player._remaining6;
+      const blindDecisions = new Set(context.blindGrandTichuDecisions);
+      blindDecisions.add(event.seat);
+      const grandDecisions = new Set(context.grandTichuDecisions);
+      grandDecisions.add(event.seat);
+      return { currentRound: round, blindGrandTichuDecisions: blindDecisions, grandTichuDecisions: grandDecisions };
+    }),
+
+    /** Record Blind Grand Tichu pass and reveal only the first 8 cards. */
+    recordBlindGrandTichuPass: assign(({ context, event }) => {
+      if (event.type !== 'BLIND_GRAND_TICHU_PASS' || !context.currentRound) return {};
+      const round = structuredClone(context.currentRound) as RoundState;
+      const player = round.players[event.seat] as PlayerState & { _first8?: GameCard[] };
+      if (player._first8) {
+        player.hand = [...player._first8];
+        delete player._first8;
+      }
+      const decisions = new Set(context.blindGrandTichuDecisions);
+      decisions.add(event.seat);
+      return { currentRound: round, blindGrandTichuDecisions: decisions };
     }),
 
     /** REQ-F-GF09: Record Grand Tichu call + deal remaining 6 immediately */
@@ -816,6 +889,11 @@ export const gameMachine = setup({
   id: 'tichuGame',
   initial: 'lobby',
   context: ({ input }) => createInitialContext(input.gameId, input.config),
+  on: {
+    SET_BLIND_GRAND_TICHU_ENABLED: {
+      actions: 'setBlindGrandTichuEnabled',
+    },
+  },
   states: {
     lobby: {
       on: {
@@ -823,11 +901,72 @@ export const gameMachine = setup({
           guard: 'seatAvailable',
           actions: 'seatPlayer',
         },
-        HOST_START_GAME: {
-          guard: 'canStartGame',
-          target: 'grandTichuDecision',
-          actions: 'startRound',
+        HOST_START_GAME: [
+          {
+            guard: ({ context }) => SEATS_IN_ORDER.every((s) => context.seats[s]) && context.config.blindGrandTichuEnabled,
+            target: 'blindGrandTichuDecision',
+            actions: 'startRound',
+          },
+          {
+            guard: 'canStartGame',
+            target: 'grandTichuDecision',
+            actions: 'startRound',
+          },
+        ],
+      },
+    },
+
+    blindGrandTichuDecision: {
+      on: {
+        BLIND_GRAND_TICHU_CALL: {
+          guard: 'hasNotDecidedBlindGrandTichu',
+          actions: 'recordBlindGrandTichuCall',
         },
+        BLIND_GRAND_TICHU_PASS: {
+          guard: 'hasNotDecidedBlindGrandTichu',
+          actions: 'recordBlindGrandTichuPass',
+        },
+        GRAND_TICHU_CALL: {
+          guard: ({ context, event }) => {
+            if (!('seat' in event)) return false;
+            return context.blindGrandTichuDecisions.has(event.seat) && !context.grandTichuDecisions.has(event.seat);
+          },
+          actions: 'recordGrandTichuCall',
+        },
+        GRAND_TICHU_PASS: {
+          guard: ({ context, event }) => {
+            if (!('seat' in event)) return false;
+            return context.blindGrandTichuDecisions.has(event.seat) && !context.grandTichuDecisions.has(event.seat);
+          },
+          actions: 'recordGrandTichuPass',
+        },
+        CARDS_PASSED: {
+          guard: 'hasNotPassedCards',
+          actions: 'recordCardPass',
+        },
+        CARDS_PASS_CANCELLED: {
+          guard: 'hasPassedCards',
+          actions: 'cancelCardPass',
+        },
+        REGULAR_TICHU_CALL: {
+          guard: 'hasNotCalledTichu',
+          actions: 'recordRegularTichuCall',
+        },
+        RESTART_ROUND: [
+          {
+            guard: 'isBlindGrandTichuEnabled',
+            target: 'blindGrandTichuDecision',
+            actions: 'startRound',
+          },
+          {
+            target: 'grandTichuDecision',
+            actions: 'startRound',
+          },
+        ],
+      },
+      always: {
+        guard: 'allBlindGrandTichuDecided',
+        target: 'grandTichuDecision',
       },
     },
 
@@ -850,10 +989,14 @@ export const gameMachine = setup({
           guard: 'hasPassedCards',
           actions: 'cancelCardPass',
         },
-        RESTART_ROUND: {
-          target: 'grandTichuDecision',
-          actions: 'startRound',
+        REGULAR_TICHU_CALL: {
+          guard: 'hasNotCalledTichu',
+          actions: 'recordRegularTichuCall',
         },
+        RESTART_ROUND: [
+          { guard: 'isBlindGrandTichuEnabled', target: 'blindGrandTichuDecision', actions: 'startRound' },
+          { target: 'grandTichuDecision', actions: 'startRound' },
+        ],
       },
       always: {
         guard: 'allGrandTichuDecided',
@@ -876,10 +1019,10 @@ export const gameMachine = setup({
           guard: 'hasPassedCards',
           actions: 'cancelCardPass',
         },
-        RESTART_ROUND: {
-          target: 'grandTichuDecision',
-          actions: 'startRound',
-        },
+        RESTART_ROUND: [
+          { guard: 'isBlindGrandTichuEnabled', target: 'blindGrandTichuDecision', actions: 'startRound' },
+          { target: 'grandTichuDecision', actions: 'startRound' },
+        ],
       },
       always: {
         guard: 'allCardsPassed',
@@ -946,10 +1089,10 @@ export const gameMachine = setup({
             return { currentRound: round };
           }),
         },
-        RESTART_ROUND: {
-          target: 'grandTichuDecision',
-          actions: 'startRound',
-        },
+        RESTART_ROUND: [
+          { guard: 'isBlindGrandTichuEnabled', target: 'blindGrandTichuDecision', actions: 'startRound' },
+          { target: 'grandTichuDecision', actions: 'startRound' },
+        ],
       },
       always: [
         {
@@ -985,10 +1128,10 @@ export const gameMachine = setup({
           actions: 'completeTrickFromBombWindow',
           target: 'playing',
         },
-        RESTART_ROUND: {
-          target: 'grandTichuDecision',
-          actions: 'startRound',
-        },
+        RESTART_ROUND: [
+          { guard: 'isBlindGrandTichuEnabled', target: 'blindGrandTichuDecision', actions: 'startRound' },
+          { target: 'grandTichuDecision', actions: 'startRound' },
+        ],
       },
     },
 
@@ -1000,10 +1143,10 @@ export const gameMachine = setup({
         },
         // REQ-F-TT05: Timer runs during dragon gift; timeout handled by game-manager
         TURN_TIMEOUT: {},
-        RESTART_ROUND: {
-          target: 'grandTichuDecision',
-          actions: 'startRound',
-        },
+        RESTART_ROUND: [
+          { guard: 'isBlindGrandTichuEnabled', target: 'blindGrandTichuDecision', actions: 'startRound' },
+          { target: 'grandTichuDecision', actions: 'startRound' },
+        ],
       },
     },
 
@@ -1018,10 +1161,8 @@ export const gameMachine = setup({
             guard: 'isGameOver',
             target: 'gameOver',
           },
-          {
-            target: 'grandTichuDecision',
-            actions: 'startRound',
-          },
+          { guard: 'isBlindGrandTichuEnabled', target: 'blindGrandTichuDecision', actions: 'startRound' },
+          { target: 'grandTichuDecision', actions: 'startRound' },
         ],
       },
     },

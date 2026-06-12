@@ -14,6 +14,7 @@ interface LeaderboardEntry {
   gamesWon: number;
   winRate: number;
   tichuSuccessRate: number;
+  blindGrandTichuSuccessRate: number;
   grandTichuSuccessRate: number;
 }
 
@@ -75,6 +76,7 @@ export default function LeaderboardPage() {
                   <th className="text-center px-4 py-3 text-xs uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Games</th>
                   <th className="text-center px-4 py-3 text-xs uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Win Rate</th>
                   <th className="text-center px-4 py-3 text-xs uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Tichu %</th>
+                  <th className="text-center px-4 py-3 text-xs uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>BG %</th>
                   <th className="text-center px-4 py-3 text-xs uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>Grand %</th>
                 </tr>
               </thead>
@@ -98,6 +100,9 @@ export default function LeaderboardPage() {
                     </td>
                     <td className="px-4 py-3 text-center" style={{ color: 'var(--color-text-secondary)' }}>
                       {formatRate(entry.tichuSuccessRate)}
+                    </td>
+                    <td className="px-4 py-3 text-center" style={{ color: 'var(--color-text-secondary)' }}>
+                      {formatRate(entry.blindGrandTichuSuccessRate)}
                     </td>
                     <td className="px-4 py-3 text-center" style={{ color: 'var(--color-text-secondary)' }}>
                       {formatRate(entry.grandTichuSuccessRate)}

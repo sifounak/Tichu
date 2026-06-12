@@ -89,6 +89,7 @@ export class RoomManager {
         isPrivate: false,
         maxSpectators: 10,
         spectatorChatEnabled: false,
+        blindGrandTichuEnabled: false,
       },
       gameInProgress: false,
       votingEnabled: true,
@@ -228,9 +229,10 @@ export class RoomManager {
     if (!room) throw new Error('Room not found.');
 
     if (room.gameInProgress) {
-      // Only spectatorChatEnabled can be changed mid-game
+      // Only spectatorChatEnabled and Blind Grand (next round) can be changed mid-game
       const keys = Object.keys(updates) as (keyof GameConfig)[];
-      if (keys.length !== 1 || keys[0] !== 'spectatorChatEnabled') {
+      const allowed = keys.every(key => key === 'spectatorChatEnabled' || key === 'blindGrandTichuEnabled');
+      if (!allowed) {
         throw new Error('Game already in progress.');
       }
     }

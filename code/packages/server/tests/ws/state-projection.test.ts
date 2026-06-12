@@ -104,6 +104,23 @@ describe('projectGameState', () => {
       expect(southView.cardCount).toBe(0);
     });
 
+    it('does not project server-only pending Blind Grand cards', () => {
+      const context = createInitialContext('game-1', { blindGrandTichuEnabled: true });
+      const round = createTestRound();
+      (round.players.north as PlayerState & { _first8?: GameCard[]; _remaining6?: GameCard[] })._first8 = [
+        { id: 0, card: { kind: 'standard', suit: 'jade', rank: 5 } },
+      ];
+      (round.players.north as PlayerState & { _first8?: GameCard[]; _remaining6?: GameCard[] })._remaining6 = [
+        { id: 1, card: { kind: 'dragon' } },
+      ];
+      context.currentRound = round;
+
+      const view = projectGameState(context, 'blindGrandTichuDecision', 'north');
+
+      expect(view.phase).toBe(GamePhase.BlindGrandTichuDecision);
+      expect(view.myHand).toEqual([]);
+    });
+
     it('different seat sees different hand', () => {
       const context = createInitialContext('game-1');
       context.currentRound = createTestRound({

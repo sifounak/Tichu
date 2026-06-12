@@ -25,6 +25,7 @@ export type MenuAction =
   | { type: 'transferHost' }
   | { type: 'gameSettings' }
   | { type: 'toggleVoting' }
+  | { type: 'toggleBlindGrand' }
   | { type: 'cancelVote' };
 
 interface MenuItem {
@@ -40,6 +41,7 @@ export interface GameActionsMenuProps {
   isSpectator: boolean;
   isPreGame: boolean;
   votingEnabled: boolean;
+  blindGrandTichuEnabled?: boolean;
   activeVote: { initiatorSeat: Seat } | null;
   mySeat: Seat | null;
   onAction: (action: MenuAction) => void;
@@ -53,6 +55,7 @@ export const GameActionsMenu = memo(function GameActionsMenu({
   isSpectator,
   isPreGame,
   votingEnabled,
+  blindGrandTichuEnabled = false,
   activeVote,
   mySeat,
   onAction,
@@ -139,6 +142,17 @@ export const GameActionsMenu = memo(function GameActionsMenu({
       items.push({
         action: { type: 'toggleVoting' },
         label: votingEnabled ? 'Disable Voting' : 'Enable Voting',
+      });
+      items.push({
+        action: { type: 'toggleBlindGrand' },
+        label: blindGrandTichuEnabled ? 'Disable Blind Grand' : 'Enable Blind Grand',
+      });
+    } else {
+      items.push({
+        action: { type: 'toggleBlindGrand' },
+        label: blindGrandTichuEnabled ? 'Disable Blind Grand' : 'Enable Blind Grand',
+        disabled: !votingEnabled,
+        hint: !votingEnabled ? 'Voting disabled by host' : undefined,
       });
     }
   }

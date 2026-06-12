@@ -45,6 +45,7 @@ export interface SerializedContext {
   scores: Record<Team, number>;
   roundHistory: RoundScore[];
   currentRound: RoundState | null;
+  blindGrandTichuDecisions: Seat[];
   grandTichuDecisions: Seat[];
   cardPassDecisions: Seat[];
   winner: Team | null;

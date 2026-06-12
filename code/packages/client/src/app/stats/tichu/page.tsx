@@ -30,9 +30,10 @@ export default function TichuCallsPage() {
       <div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <StatCard label="Tichu Success" value={`${profile.tichuSuccesses} / ${profile.tichuCalls}`} subtitle={pct(profile.tichuSuccesses, profile.tichuCalls) !== '-' ? pct(profile.tichuSuccesses, profile.tichuCalls) : undefined} highlight />
+        <StatCard label="Blind Grand Success" value={`${profile.blindGrandTichuSuccesses} / ${profile.blindGrandTichuCalls}`} subtitle={pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls) !== '-' ? pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls) : undefined} />
         <StatCard label="Grand Tichu Success" value={`${profile.grandTichuSuccesses} / ${profile.grandTichuCalls}`} subtitle={pct(profile.grandTichuSuccesses, profile.grandTichuCalls) !== '-' ? pct(profile.grandTichuSuccesses, profile.grandTichuCalls) : undefined} />
         <StatCard label="Opponent Calls Broken" value={profile.opponentTichuBroken + profile.opponentGrandTichuBroken} />
-        <StatCard label="Total Calls Made" value={profile.tichuCalls + profile.grandTichuCalls} highlight />
+        <StatCard label="Total Calls Made" value={profile.tichuCalls + profile.blindGrandTichuCalls + profile.grandTichuCalls} highlight />
       </div>
 
       <div className="flex flex-wrap gap-4">
@@ -41,6 +42,9 @@ export default function TichuCallsPage() {
             { label: 'Tichu Calls', value: profile.tichuCalls },
             { label: 'Tichu Successes', value: profile.tichuSuccesses },
             { label: 'Tichu Success Rate', value: pct(profile.tichuSuccesses, profile.tichuCalls) },
+            { label: 'Blind Grand Calls', value: profile.blindGrandTichuCalls },
+            { label: 'Blind Grand Successes', value: profile.blindGrandTichuSuccesses },
+            { label: 'Blind Grand Success Rate', value: pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls) },
             { label: 'Grand Tichu Calls', value: profile.grandTichuCalls },
             { label: 'Grand Tichu Successes', value: profile.grandTichuSuccesses },
             { label: 'Grand Tichu Success Rate', value: pct(profile.grandTichuSuccesses, profile.grandTichuCalls) },

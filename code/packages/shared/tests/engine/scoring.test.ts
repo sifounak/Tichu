@@ -249,6 +249,26 @@ describe('scoreRound', () => {
     expect(result.tichuBonuses.northSouth).toBe(-200);
   });
 
+  it('awards +500 for successful Blind Grand', () => {
+    const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
+    const calls: Record<Seat, TichuCall> = { ...noCall(), north: 'blindGrandTichu' };
+
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), calls);
+
+    expect(result.tichuBonuses.northSouth).toBe(500);
+    expect(result.tichuResults.north).toEqual({ call: 'blindGrandTichu', won: true });
+  });
+
+  it('penalizes -500 for failed Blind Grand', () => {
+    const finishOrder: Seat[] = ['east', 'north', 'south', 'west'];
+    const calls: Record<Seat, TichuCall> = { ...noCall(), north: 'blindGrandTichu' };
+
+    const result = scoreRound(1, finishOrder, emptyTricks(), emptyHands(), calls);
+
+    expect(result.tichuBonuses.northSouth).toBe(-500);
+    expect(result.tichuResults.north).toEqual({ call: 'blindGrandTichu', won: false });
+  });
+
   it('handles multiple Tichu calls in the same round', () => {
     const finishOrder: Seat[] = ['north', 'east', 'south', 'west'];
     const calls: Record<Seat, TichuCall> = {

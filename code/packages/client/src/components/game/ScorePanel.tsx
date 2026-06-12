@@ -74,7 +74,7 @@ export const ScorePanel = memo(function ScorePanel({
 
     function tichuBadge(tr: { call: TichuCall; won: boolean } | null, key: string) {
       if (!tr) return <span key={key} className={`${styles.historyBadge} ${styles.historyBadgePlaceholder}`}>GT</span>;
-      const label = tr.call === 'grandTichu' ? 'GT' : 'T';
+      const label = tr.call === 'blindGrandTichu' ? 'BG' : tr.call === 'grandTichu' ? 'GT' : 'T';
       const badgeClass = tr.won ? styles.historyBadgeWon : styles.historyBadgeFailed;
       return <span key={key} className={`${styles.historyBadge} ${badgeClass}`}>{label}</span>;
     }
@@ -143,6 +143,7 @@ export const ScorePanel = memo(function ScorePanel({
     const isEmpty = vacatedSeats?.includes(seat);
     const bannerClass = failed ? styles.nameBannerFailed
       : succeeded ? styles.nameBannerSucceeded
+      : call === 'blindGrandTichu' ? styles.nameBannerBlindGrandTichu
       : call === 'grandTichu' ? styles.nameBannerGrandTichu
       : call === 'tichu' ? styles.nameBannerTichu
       : '';

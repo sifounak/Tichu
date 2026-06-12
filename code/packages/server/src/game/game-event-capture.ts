@@ -262,6 +262,11 @@ export class GameEventCapture {
       this.captureInitialHands(prev);
     }
 
+    if (prev.phase === GamePhase.BlindGrandTichuDecision &&
+        curr.phase === GamePhase.GrandTichuDecision) {
+      this.captureInitialHands(curr);
+    }
+
     // CardPassing → Playing: exchange happened
     if (prev.phase === GamePhase.CardPassing && curr.phase === GamePhase.Playing) {
       // REQ-F-CP07: Capture pre-pass hands
@@ -289,8 +294,8 @@ export class GameEventCapture {
       const pr = this.playerRoundMap.get(seat);
       if (!pr) continue;
       const hand = round.players[seat].hand;
-      if (hand.length <= 8) {
-        pr.first8Cards = hand.map(gc => gc.id);
+      if (hand.length >= 8) {
+        pr.first8Cards = hand.slice(0, 8).map(gc => gc.id);
       }
     }
   }
@@ -435,7 +440,7 @@ export class GameEventCapture {
       // Tichu context
       const partner = getPartner(play.seat);
       const partnerCall = curr.players[partner].tipiCall;
-      const partnerTichuActive = partnerCall === 'tichu' || partnerCall === 'grandTichu';
+      const partnerTichuActive = partnerCall === 'tichu' || partnerCall === 'grandTichu' || partnerCall === 'blindGrandTichu';
 
       const seatIdx = SEATS_IN_ORDER.indexOf(play.seat);
       const leftOpp = SEATS_IN_ORDER[(seatIdx + 1) % 4];
@@ -535,7 +540,7 @@ export class GameEventCapture {
       // Tichu context for passes
       const partner = getPartner(seat);
       const partnerCall = curr.players[partner].tipiCall;
-      const partnerTichuActive = partnerCall === 'tichu' || partnerCall === 'grandTichu';
+      const partnerTichuActive = partnerCall === 'tichu' || partnerCall === 'grandTichu' || partnerCall === 'blindGrandTichu';
 
       const seatIdx = SEATS_IN_ORDER.indexOf(seat);
       const leftOpp = SEATS_IN_ORDER[(seatIdx + 1) % 4];
@@ -609,7 +614,7 @@ export class GameEventCapture {
     const activeTichuSeats: Seat[] = [];
     for (const seat of SEATS_IN_ORDER) {
       const call = round.players[seat].tipiCall;
-      if (call === 'tichu' || call === 'grandTichu') {
+      if (call === 'tichu' || call === 'grandTichu' || call === 'blindGrandTichu') {
         activeTichuSeats.push(seat);
       }
     }
@@ -751,13 +756,19 @@ export class GameEventCapture {
       const pr = this.playerRoundMap.get(seat);
       if (!pr) continue;
 
-      if (currCall === 'grandTichu') {
+      if (currCall === 'blindGrandTichu') {
+        pr.blindGrandTichuCall = true;
+      } else if (currCall === 'grandTichu') {
         pr.grandTichuCall = true;
       } else if (currCall === 'tichu') {
         pr.tichuCall = true;
 
         // Determine phase of call
-        if (curr.phase === GamePhase.GrandTichuDecision || curr.phase === GamePhase.CardPassing) {
+        if (
+          curr.phase === GamePhase.BlindGrandTichuDecision ||
+          curr.phase === GamePhase.GrandTichuDecision ||
+          curr.phase === GamePhase.CardPassing
+        ) {
           pr.tichuCallPhase = 'prePassing';
         } else {
           pr.tichuCallPhase = 'midRound';
@@ -884,9 +895,11 @@ export class GameEventCapture {
 
     // Check Tichu calls
     const recipientHasTichu = curr.players[recipient].tipiCall === 'tichu' ||
-      curr.players[recipient].tipiCall === 'grandTichu';
+      curr.players[recipient].tipiCall === 'grandTichu' ||
+      curr.players[recipient].tipiCall === 'blindGrandTichu';
     const otherOpponentHasTichu = curr.players[otherOpponent].tipiCall === 'tichu' ||
-      curr.players[otherOpponent].tipiCall === 'grandTichu';
+      curr.players[otherOpponent].tipiCall === 'grandTichu' ||
+      curr.players[otherOpponent].tipiCall === 'blindGrandTichu';
 
     // Gift was forced when only one valid opponent recipient
     const opponentSeats = SEATS_IN_ORDER.filter(s => getTeam(s) !== getTeam(gifterSeat!));
@@ -926,7 +939,8 @@ export class GameEventCapture {
 
     // Check if partner has Tichu
     const partnerHasTichu = curr.players[partner].tipiCall === 'tichu' ||
-      curr.players[partner].tipiCall === 'grandTichu';
+      curr.players[partner].tipiCall === 'grandTichu' ||
+      curr.players[partner].tipiCall === 'blindGrandTichu';
 
     // Check if player led any prior trick (had prior lead opportunity)
     const hadPriorLeadOpportunity = this.tricksLedBy.has(fromSeat) &&
@@ -1128,7 +1142,7 @@ export class GameEventCapture {
       }
 
       // Tichu call success
-      if (pr.tichuCall || pr.grandTichuCall) {
+      if (pr.tichuCall || pr.grandTichuCall || pr.blindGrandTichuCall) {
         pr.tichuCallSuccess = player.finishOrder === 1;
       }
     }

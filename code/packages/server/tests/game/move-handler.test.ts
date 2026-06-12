@@ -116,6 +116,15 @@ describe('MoveHandler', () => {
       expect(result.ok).toBe(true);
     });
 
+    it('should keep current Grand Tichu decisions valid when Blind Grand is enabled for future rounds', () => {
+      actor.send({ type: 'SET_BLIND_GRAND_TICHU_ENABLED', enabled: true });
+
+      const result = handler.handleGrandTichuDecision('north', false);
+
+      expect(result.ok).toBe(true);
+      expect(actor.getSnapshot().context.grandTichuDecisions.has('north')).toBe(true);
+    });
+
     it('should reject duplicate decision', () => {
       handler.handleGrandTichuDecision('north', false);
       const result = handler.handleGrandTichuDecision('north', true);

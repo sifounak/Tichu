@@ -100,14 +100,14 @@ export interface UiStore {
   /* --- Player Vote (REQ-F-PV01–PV28) --- */
   activeVote: {
     voteId: string;
-    voteType: 'kick' | 'restartGame' | 'restartRound';
+    voteType: 'kick' | 'restartGame' | 'restartRound' | 'enableBlindGrand' | 'disableBlindGrand';
     initiatorSeat: Seat;
     targetSeat?: Seat;
     votes: Record<string, boolean | null>;
     timeoutMs: number;
   } | null;
   voteResult: {
-    voteType: 'kick' | 'restartGame' | 'restartRound';
+    voteType: 'kick' | 'restartGame' | 'restartRound' | 'enableBlindGrand' | 'disableBlindGrand';
     passed: boolean;
     message: string;
   } | null;

@@ -140,6 +140,27 @@ describe('GameManager', () => {
       expect(manager.context.grandTichuDecisions.has('north')).toBe(true);
     });
 
+    it('should allow canceling an early card pass during Blind Grand decision', () => {
+      const { manager: bgtManager } = createTestManager({ blindGrandTichuEnabled: true });
+      try {
+        seatAllPlayers(bgtManager);
+        bgtManager.handleMessage(ws, 'north', { type: 'START_GAME' } as ClientMessage);
+        bgtManager.handleMessage(ws, 'north', { type: 'BLIND_GRAND_TICHU_DECISION', call: true } as ClientMessage);
+        const hand = bgtManager.context.currentRound!.players.north.hand;
+        bgtManager.handleMessage(ws, 'north', {
+          type: 'PASS_CARDS',
+          cards: { east: hand[0], south: hand[1], west: hand[2] },
+        } as ClientMessage);
+        expect(bgtManager.context.cardPassDecisions.has('north')).toBe(true);
+
+        bgtManager.handleMessage(ws, 'north', { type: 'CANCEL_PASS_CARDS' } as ClientMessage);
+
+        expect(bgtManager.context.cardPassDecisions.has('north')).toBe(false);
+      } finally {
+        bgtManager.destroy();
+      }
+    });
+
     it('should handle TICHU_DECLARATION', () => {
       seatAllPlayers(manager);
       manager.handleMessage(ws, 'north', { type: 'START_GAME' } as ClientMessage);

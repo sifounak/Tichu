@@ -12,7 +12,7 @@ import type { GameActor, GameEvent, GameMachineContext } from './game-state-mach
 export type MoveResult =
   | { ok: true }
   | { ok: false; error: string }
-  | { ok: false; error: 'PARTNER_ALREADY_CALLED'; partnerCall: 'tichu' | 'grandTichu' };
+  | { ok: false; error: 'PARTNER_ALREADY_CALLED'; partnerCall: 'tichu' | 'grandTichu' | 'blindGrandTichu' };
 
 /**
  * Translates client WebSocket messages into state machine events and
@@ -65,9 +65,39 @@ export class MoveHandler {
   }
 
   /** Handle GRAND_TICHU_DECISION */
+  handleBlindGrandTichuDecision(seat: Seat, call: boolean, partnerOverride?: boolean): MoveResult {
+    if (this.stateValue !== 'blindGrandTichuDecision') {
+      return { ok: false, error: 'Not in Blind Grand Tichu decision phase' };
+    }
+    if (this.context.blindGrandTichuDecisions.has(seat)) {
+      return { ok: false, error: 'Already made Blind Grand Tichu decision' };
+    }
+
+    if (call && !partnerOverride) {
+      const round = this.context.currentRound;
+      if (round) {
+        const partner = getPartner(seat);
+        const partnerCall = round.players[partner].tipiCall;
+        if (partnerCall !== 'none') {
+          return { ok: false, error: 'PARTNER_ALREADY_CALLED', partnerCall };
+        }
+      }
+    }
+
+    const event: GameEvent = call
+      ? { type: 'BLIND_GRAND_TICHU_CALL', seat }
+      : { type: 'BLIND_GRAND_TICHU_PASS', seat };
+    this.actor.send(event);
+    return { ok: true };
+  }
+
+  /** Handle GRAND_TICHU_DECISION */
   handleGrandTichuDecision(seat: Seat, call: boolean, partnerOverride?: boolean): MoveResult {
-    if (this.stateValue !== 'grandTichuDecision') {
+    if (this.stateValue !== 'grandTichuDecision' && this.stateValue !== 'blindGrandTichuDecision') {
       return { ok: false, error: 'Not in Grand Tichu decision phase' };
+    }
+    if (this.stateValue === 'blindGrandTichuDecision' && !this.context.blindGrandTichuDecisions.has(seat)) {
+      return { ok: false, error: 'Must decide Blind Grand Tichu first' };
     }
     if (this.context.grandTichuDecisions.has(seat)) {
       return { ok: false, error: 'Already made Grand Tichu decision' };
@@ -95,7 +125,7 @@ export class MoveHandler {
   /** Handle TICHU_DECLARATION — allowed during cardPassing and playing (before first play) */
   handleTichuDeclaration(seat: Seat, partnerOverride?: boolean): MoveResult {
     const state = this.stateValue;
-    if (state !== 'cardPassing' && state !== 'playing') {
+    if (state !== 'cardPassing' && state !== 'playing' && state !== 'grandTichuDecision' && state !== 'blindGrandTichuDecision') {
       return { ok: false, error: 'Cannot call Tichu in current phase' };
     }
 
@@ -107,6 +137,9 @@ export class MoveHandler {
     }
     if (player.tipiCall !== 'none') {
       return { ok: false, error: 'Already made a Tichu call' };
+    }
+    if (player.hand.length < 14) {
+      return { ok: false, error: 'Must receive all cards before calling Tichu' };
     }
 
     // Partner check: if partner already called, require override
@@ -124,7 +157,7 @@ export class MoveHandler {
 
   /** Handle PASS_CARDS — allowed during cardPassing and earlier phases (once player has 14 cards) */
   handlePassCards(seat: Seat, cards: Record<Seat, GameCard>): MoveResult {
-    const allowedStates = ['cardPassing', 'grandTichuDecision'];
+    const allowedStates = ['cardPassing', 'grandTichuDecision', 'blindGrandTichuDecision'];
     if (!allowedStates.includes(this.stateValue)) {
       return { ok: false, error: 'Not in card passing phase' };
     }
@@ -164,7 +197,7 @@ export class MoveHandler {
 
   /** Handle CANCEL_PASS_CARDS — allowed during cardPassing and earlier phases */
   handleCancelPassCards(seat: Seat): MoveResult {
-    const allowedStates = ['cardPassing', 'grandTichuDecision'];
+    const allowedStates = ['cardPassing', 'grandTichuDecision', 'blindGrandTichuDecision'];
     if (!allowedStates.includes(this.stateValue)) {
       return { ok: false, error: 'Not in card passing phase' };
     }

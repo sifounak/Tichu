@@ -49,6 +49,11 @@
   color: #1a1a1a;
 }
 
+.nameBannerBlindGrandTichu {
+  background: #ff00c8;
+  color: white;
+}
+
 /* Failed Tichu — grey banner */
 .nameBannerFailed {
   background: #666;

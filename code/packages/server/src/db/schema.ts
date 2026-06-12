@@ -102,6 +102,7 @@ export const playerRounds = sqliteTable('player_rounds', {
   handAfterPass: text('hand_after_pass', { mode: 'json' }),
 
   // Calls
+  blindGrandTichuCall: integer('blind_grand_tichu_call', { mode: 'boolean' }).notNull().default(false),
   grandTichuCall: integer('grand_tichu_call', { mode: 'boolean' }).notNull().default(false),
   tichuCall: integer('tichu_call', { mode: 'boolean' }).notNull().default(false),
   tichuCallPhase: text('tichu_call_phase'), // 'prePassing' | 'midRound' | null
@@ -349,6 +350,8 @@ export const statsCache = sqliteTable('stats_cache', {
   winRate: real('win_rate').notNull().default(0),
   tichuCalls: integer('tichu_calls').notNull().default(0),
   tichuSuccesses: integer('tichu_successes').notNull().default(0),
+  blindGrandTichuCalls: integer('blind_grand_tichu_calls').notNull().default(0),
+  blindGrandTichuSuccesses: integer('blind_grand_tichu_successes').notNull().default(0),
   grandTichuCalls: integer('grand_tichu_calls').notNull().default(0),
   grandTichuSuccesses: integer('grand_tichu_successes').notNull().default(0),
   totalRoundsPlayed: integer('total_rounds_played').notNull().default(0),

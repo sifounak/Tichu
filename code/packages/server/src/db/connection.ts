@@ -132,6 +132,7 @@ function syncSchema(client: BetterSqlite3Database): void {
       received_from_right TEXT,
       hand_after_pass TEXT,
       -- Calls
+      blind_grand_tichu_call INTEGER NOT NULL DEFAULT 0,
       grand_tichu_call INTEGER NOT NULL DEFAULT 0,
       tichu_call INTEGER NOT NULL DEFAULT 0,
       tichu_call_phase TEXT,
@@ -325,6 +326,8 @@ function syncSchema(client: BetterSqlite3Database): void {
       win_rate REAL NOT NULL DEFAULT 0,
       tichu_calls INTEGER NOT NULL DEFAULT 0,
       tichu_successes INTEGER NOT NULL DEFAULT 0,
+      blind_grand_tichu_calls INTEGER NOT NULL DEFAULT 0,
+      blind_grand_tichu_successes INTEGER NOT NULL DEFAULT 0,
       grand_tichu_calls INTEGER NOT NULL DEFAULT 0,
       grand_tichu_successes INTEGER NOT NULL DEFAULT 0,
       total_rounds_played INTEGER NOT NULL DEFAULT 0,
@@ -482,6 +485,19 @@ function syncSchema(client: BetterSqlite3Database): void {
     );
   } catch {
     // Already renamed, or fresh DB created with the new name
+  }
+
+  const blindGrandColumns = [
+    ['player_rounds', 'blind_grand_tichu_call INTEGER NOT NULL DEFAULT 0'],
+    ['stats_cache', 'blind_grand_tichu_calls INTEGER NOT NULL DEFAULT 0'],
+    ['stats_cache', 'blind_grand_tichu_successes INTEGER NOT NULL DEFAULT 0'],
+  ] as const;
+  for (const [table, columnDef] of blindGrandColumns) {
+    try {
+      client.exec(`ALTER TABLE ${table} ADD COLUMN ${columnDef}`);
+    } catch {
+      // Column already exists
+    }
   }
 
   // Ensure the synthetic __bot__ user exists so relational_stats_cache FK

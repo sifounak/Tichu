@@ -24,14 +24,19 @@ export const TichuBanner = memo(function TichuBanner({ tichuEvent }: TichuBanner
     }
   }, [tichuEvent, durations.tichuDismiss]);
 
-  const label = tichuEvent?.level === 'grandTichu' ? 'Grand Tichu!' : 'Tichu!';
+  const label = tichuEvent?.level === 'blindGrandTichu'
+    ? 'Blind Grand!'
+    : tichuEvent?.level === 'grandTichu'
+      ? 'Grand Tichu!'
+      : 'Tichu!';
   const isGrand = tichuEvent?.level === 'grandTichu';
+  const isBlindGrand = tichuEvent?.level === 'blindGrandTichu';
 
   return (
     <AnimatePresence>
       {visible && tichuEvent && (
         <motion.div
-          className={`${styles.banner} ${isGrand ? styles.grand : styles.regular}`}
+          className={`${styles.banner} ${isBlindGrand ? styles.blindGrand : isGrand ? styles.grand : styles.regular}`}
           initial={enabled ? { opacity: 0, scale: 0.5 } : false}
           animate={{ opacity: 1, scale: 1 }}
           exit={enabled ? { opacity: 0, scale: 0.8 } : undefined}

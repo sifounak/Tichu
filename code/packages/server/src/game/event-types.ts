@@ -69,6 +69,7 @@ export interface PlayerRoundRecord {
   handAfterPass: number[] | null;
 
   // Calls
+  blindGrandTichuCall: boolean;
   grandTichuCall: boolean;
   tichuCall: boolean;
   tichuCallPhase: TichuCallPhase | null;
@@ -363,6 +364,7 @@ export function createBlankPlayerRound(
     receivedFromPartner: null,
     receivedFromRight: null,
     handAfterPass: null,
+    blindGrandTichuCall: false,
     grandTichuCall: false,
     tichuCall: false,
     tichuCallPhase: null,

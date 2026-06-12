@@ -16,6 +16,8 @@ interface PlayerProfile {
   winRate: number;
   tichuCalls: number;
   tichuSuccesses: number;
+  blindGrandTichuCalls: number;
+  blindGrandTichuSuccesses: number;
   grandTichuCalls: number;
   grandTichuSuccesses: number;
   totalRoundsPlayed: number;
@@ -122,6 +124,7 @@ function ProfileContent() {
               <StatCard label="Games Won" value={profile.gamesWon} />
               <StatCard label="Win Rate" value={`${(profile.winRate * 100).toFixed(1)}%`} />
               <StatCard label="Tichu Success" value={profile.tichuCalls > 0 ? `${((profile.tichuSuccesses / profile.tichuCalls) * 100).toFixed(0)}% (${profile.tichuSuccesses}/${profile.tichuCalls})` : 'N/A'} />
+              <StatCard label="Blind Grand" value={profile.blindGrandTichuCalls > 0 ? `${((profile.blindGrandTichuSuccesses / profile.blindGrandTichuCalls) * 100).toFixed(0)}% (${profile.blindGrandTichuSuccesses}/${profile.blindGrandTichuCalls})` : 'N/A'} />
               <StatCard label="Grand Tichu" value={profile.grandTichuCalls > 0 ? `${((profile.grandTichuSuccesses / profile.grandTichuCalls) * 100).toFixed(0)}% (${profile.grandTichuSuccesses}/${profile.grandTichuCalls})` : 'N/A'} />
               <StatCard label="First Finishes" value={profile.firstFinishes} />
             </div>

@@ -14,6 +14,7 @@ import styles from './PreGamePhase.module.css';
 export interface PreGamePhaseProps {
   phase: GamePhase;
   mySeat: Seat;
+  onBlindGrandTichuDecision?: (call: boolean) => void;
   onGrandTichuDecision: (call: boolean) => void;
   // Card passing (state lifted to parent)
   passSelection: Map<Seat, GameCard>;
@@ -29,6 +30,7 @@ export interface PreGamePhaseProps {
   seatNames?: Record<Seat, string>;
   /** Seats that have made their Grand Tichu decision */
   grandTichuDecided?: Seat[];
+  blindGrandTichuDecided?: Seat[];
   /** Current player's tichu call — used to show decision in waiting screen (REQ-F-GT04) */
   myTichuCall?: string;
 }
@@ -40,6 +42,7 @@ const SEAT_LABELS: Record<Seat, string> = {
 export const PreGamePhase = memo(function PreGamePhase({
   phase,
   mySeat,
+  onBlindGrandTichuDecision,
   onGrandTichuDecision,
   passSelection,
   activeCardId,
@@ -52,13 +55,52 @@ export const PreGamePhase = memo(function PreGamePhase({
   onDismissReceived,
   seatNames,
   grandTichuDecided,
+  blindGrandTichuDecided,
   myTichuCall: _myTichuCall,
 }: PreGamePhaseProps) {
   const partner = getPartner(mySeat);
   const leftOpponent = getNextSeat(getNextSeat(getNextSeat(mySeat)));
   const rightOpponent = getNextSeat(mySeat);
 
-  if (phase === 'grandTichuDecision') {
+  if (phase === 'blindGrandTichuDecision') {
+    const blindDecidedSet = new Set(blindGrandTichuDecided ?? []);
+    const grandDecidedSet = new Set(grandTichuDecided ?? []);
+    const hasDecidedBlindGrand = blindDecidedSet.has(mySeat);
+    const hasFullHand = grandDecidedSet.has(mySeat);
+
+    if (!hasDecidedBlindGrand) {
+      return (
+        <div className={styles.phaseContainer}>
+          <div className={`${styles.prompt} ${styles.gtPrompt}`}>
+            <h2 className={`${styles.title} ${styles.gtTitle}`}>Blind Grand?</h2>
+            <p className={`${styles.subtitle} ${styles.gtSubtitle}`}>Wager 500 points before seeing your cards?</p>
+            <div className={styles.buttonRow}>
+              <button
+                className={`${styles.button} ${styles.skipButton} ${styles.gtButton}`}
+                onClick={() => onBlindGrandTichuDecision?.(false)}
+              >
+                Pass
+              </button>
+              <button
+                className={`${styles.button} ${styles.callButton} ${styles.gtButton}`}
+                onClick={() => onBlindGrandTichuDecision?.(true)}
+              >
+                Blind Grand!
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!hasFullHand) {
+      // Player passed Blind Grand and now gets the normal Grand Tichu prompt.
+    } else {
+      // Player called Blind Grand and can proceed directly to card passing.
+    }
+  }
+
+  if (phase === 'grandTichuDecision' || phase === 'blindGrandTichuDecision') {
     const decidedSet = new Set(grandTichuDecided ?? []);
     const hasDecided = decidedSet.has(mySeat);
 
@@ -92,7 +134,7 @@ export const PreGamePhase = memo(function PreGamePhase({
     }
   }
 
-  if (phase === 'cardPassing' || phase === 'grandTichuDecision') {
+  if (phase === 'cardPassing' || phase === 'grandTichuDecision' || phase === 'blindGrandTichuDecision') {
     const allFilled = passSelection.size === 3;
 
     function renderSlot(seat: Seat) {

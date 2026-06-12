@@ -40,7 +40,7 @@ describe('queries', () => {
   describe('getLeaderboard', () => {
     it('should call db.all with SQL and return typed results', () => {
       const entries = [
-        { userId: 'u1', displayName: 'Alice', gamesPlayed: 10, gamesWon: 7, winRate: 0.7, tichuSuccessRate: 0.5, grandTichuSuccessRate: 0 },
+        { userId: 'u1', displayName: 'Alice', gamesPlayed: 10, gamesWon: 7, winRate: 0.7, tichuSuccessRate: 0.5, blindGrandTichuSuccessRate: 0, grandTichuSuccessRate: 0 },
       ];
       const mockDb = createMockDatabase();
       (mockDb.db as any).all = vi.fn().mockReturnValue(entries);
@@ -62,8 +62,8 @@ describe('queries', () => {
 
     it('should return LeaderboardEntry array from rows', () => {
       const entries = [
-        { userId: 'u1', displayName: 'Alice', gamesPlayed: 10, gamesWon: 7, winRate: 0.7, tichuSuccessRate: 0.5, grandTichuSuccessRate: 0.25 },
-        { userId: 'u2', displayName: 'Bob', gamesPlayed: 8, gamesWon: 5, winRate: 0.625, tichuSuccessRate: 0.3, grandTichuSuccessRate: 0 },
+        { userId: 'u1', displayName: 'Alice', gamesPlayed: 10, gamesWon: 7, winRate: 0.7, tichuSuccessRate: 0.5, blindGrandTichuSuccessRate: 0.5, grandTichuSuccessRate: 0.25 },
+        { userId: 'u2', displayName: 'Bob', gamesPlayed: 8, gamesWon: 5, winRate: 0.625, tichuSuccessRate: 0.3, blindGrandTichuSuccessRate: 0, grandTichuSuccessRate: 0 },
       ];
       const mockDb = createMockDatabase();
       (mockDb.db as any).all = vi.fn().mockReturnValue(entries);
@@ -107,6 +107,7 @@ describe('queries', () => {
       const profile = {
         userId: 'u1', displayName: 'Alice', gamesPlayed: 10, gamesWon: 7,
         winRate: 0.7, tichuCalls: 5, tichuSuccesses: 3,
+        blindGrandTichuCalls: 1, blindGrandTichuSuccesses: 1,
         grandTichuCalls: 2, grandTichuSuccesses: 1,
         totalRoundsPlayed: 30, firstFinishes: 8,
       };

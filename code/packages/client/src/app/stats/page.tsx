@@ -41,6 +41,7 @@ export default function StatsOverviewPage() {
       <StatSection title="Tichu Calls" href="/stats/tichu">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="Tichu" value={`${profile.tichuSuccesses} / ${profile.tichuCalls}`} subtitle={pct(profile.tichuSuccesses, profile.tichuCalls) !== '-' ? `${pct(profile.tichuSuccesses, profile.tichuCalls)} success` : undefined} highlight />
+          <StatCard label="Blind Grand" value={`${profile.blindGrandTichuSuccesses} / ${profile.blindGrandTichuCalls}`} subtitle={pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls) !== '-' ? `${pct(profile.blindGrandTichuSuccesses, profile.blindGrandTichuCalls)} success` : undefined} />
           <StatCard label="Grand Tichu" value={`${profile.grandTichuSuccesses} / ${profile.grandTichuCalls}`} subtitle={pct(profile.grandTichuSuccesses, profile.grandTichuCalls) !== '-' ? `${pct(profile.grandTichuSuccesses, profile.grandTichuCalls)} success` : undefined} />
           <StatCard label="Opponent Tichus Broken" value={profile.opponentTichuBroken} />
           <StatCard label="Opponent GTs Broken" value={profile.opponentGrandTichuBroken} />

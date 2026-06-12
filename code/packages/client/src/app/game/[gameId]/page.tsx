@@ -51,6 +51,18 @@ import { isOnCooldown, getCooldownRemaining } from '@/stores/uiStore';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 
+function formatTichuCall(call: string): string {
+  if (call === 'blindGrandTichu') return 'Blind Grand';
+  if (call === 'grandTichu') return 'Grand Tichu';
+  return 'Tichu';
+}
+
+function getTichuCallColors(call: TichuCall): { background: string; color: string } {
+  if (call === 'blindGrandTichu') return { background: '#ff00c8', color: 'white' };
+  if (call === 'grandTichu') return { background: 'var(--color-grand-tichu-badge)', color: '#1a1a1a' };
+  return { background: '#d32f2f', color: 'white' };
+}
+
 // REQ-F-SG01: Retrieve userId and playerName for WebSocket authentication
 function getGuestId(): string {
   let id = sessionStorage.getItem('tichu_user_id');
@@ -111,11 +123,25 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // Game-over info persisted in local state so it survives game store reset
   // (server auto-returns to pre-game after game ends, which resets the game store)
   const [savedGameOver, setSavedGameOver] = useState<{
+    roomCode: string | null;
     winner: Team;
     finalScores: Record<Team, number>;
     roundHistory: RoundScore[];
     mySeat: Seat;
   } | null>(null);
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
+  useEffect(() => {
+    if (gameInProgress) {
+      setSavedGameOver(null);
+      setShowGameOverModal(false);
+    }
+  }, [gameInProgress]);
+  useEffect(() => {
+    if (savedGameOver && savedGameOver.roomCode !== roomCode) {
+      setSavedGameOver(null);
+      setShowGameOverModal(false);
+    }
+  }, [roomCode, savedGameOver]);
 
   // REQ-F-GA01: URL copy toast state
   const [urlCopied, setUrlCopied] = useState(false);
@@ -257,12 +283,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           const prevMy = gameStore.myTichuCall;
           const newMy = view.myTichuCall;
           if (shouldPlayLiveEffects && prevMy === 'none' && newMy !== 'none') {
-            playSound(newMy === 'grandTichu' ? 'grandTichu' : 'tichu');
+            playSound(newMy === 'blindGrandTichu' ? 'blindGrandTichu' : newMy === 'grandTichu' ? 'grandTichu' : 'tichu');
           }
           for (const op of view.otherPlayers) {
             const prevOp = gameStore.otherPlayers.find(p => p.seat === op.seat);
             if (shouldPlayLiveEffects && prevOp && prevOp.tichuCall === 'none' && op.tichuCall !== 'none') {
-              playSound(op.tichuCall === 'grandTichu' ? 'grandTichu' : 'tichu');
+              playSound(op.tichuCall === 'blindGrandTichu' ? 'blindGrandTichu' : op.tichuCall === 'grandTichu' ? 'grandTichu' : 'tichu');
             }
           }
         }
@@ -274,11 +300,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         // (server auto-returns everyone to pre-game after game ends)
         if (view.winner !== null && view.phase === 'gameOver') {
           setSavedGameOver({
+            roomCode: useRoomStore.getState().roomCode ?? roomCode ?? urlGameId,
             winner: view.winner as Team,
             finalScores: view.scores,
             roundHistory: view.roundHistory,
             mySeat: view.mySeat,
           });
+          setShowGameOverModal(true);
         }
 
         // REQ-F-AP12: Auto-pass resets naturally via trick-won detection and phase change.
@@ -352,7 +380,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           uiStore.setVoteResult(null);
         }, 2000);
       } else if (msg.type === 'TICHU_CALLED') {
-        playSound(msg.level === 'grandTichu' ? 'grandTichu' : 'tichu');
+        playSound(msg.level === 'blindGrandTichu' ? 'blindGrandTichu' : msg.level === 'grandTichu' ? 'grandTichu' : 'tichu');
         // REQ-NF-U02: Show Tichu banner
         uiStore.setTichuEvent({ seat: msg.seat as Seat, level: msg.level as TichuCall });
         gameStore.applyServerMessage(msg);
@@ -408,6 +436,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           msg.readyPlayers ?? [],
           msg.votingEnabled ?? true,
         );
+        if (msg.gameInProgress) {
+          setSavedGameOver(null);
+          setShowGameOverModal(false);
+        }
         // REQ-F-PV18: Game ended (restart vote) — reset game store so PreRoomView shows
         if (!msg.gameInProgress && gameStore.gameId) {
           gameStore.reset();
@@ -441,7 +473,11 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           // Parse partner call level from message (format: "PARTNER_ALREADY_CALLED:grandTichu")
           const partnerCall = msg.message.split(':')[1] || 'tichu';
           // Determine which call was attempted based on game phase
-          const callType = gameStore.phase === 'grandTichuDecision' ? 'grandTichu' : 'tichu';
+          const callType = gameStore.phase === 'blindGrandTichuDecision'
+            ? 'blindGrandTichu'
+            : gameStore.phase === 'grandTichuDecision'
+              ? 'grandTichu'
+              : 'tichu';
           setPartnerCallConfirm({ type: callType, partnerCall });
         } else {
           uiStore.showErrorToast(msg.message);
@@ -556,7 +592,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   // Partner call safeguard confirmation dialog state
   const [partnerCallConfirm, setPartnerCallConfirm] = useState<{
-    type: 'grandTichu' | 'tichu';
+    type: 'blindGrandTichu' | 'grandTichu' | 'tichu';
     partnerCall: string;
   } | null>(null);
 
@@ -730,9 +766,16 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     [send],
   );
 
+  const handleBlindGrandTichuDecision = useCallback(
+    (call: boolean) => send({ type: 'BLIND_GRAND_TICHU_DECISION', call }),
+    [send],
+  );
+
   const handlePartnerOverrideConfirm = useCallback(() => {
     if (!partnerCallConfirm) return;
-    if (partnerCallConfirm.type === 'grandTichu') {
+    if (partnerCallConfirm.type === 'blindGrandTichu') {
+      send({ type: 'BLIND_GRAND_TICHU_DECISION', call: true, partnerOverride: true });
+    } else if (partnerCallConfirm.type === 'grandTichu') {
       send({ type: 'GRAND_TICHU_DECISION', call: true, partnerOverride: true });
     } else {
       send({ type: 'TICHU_DECLARATION', partnerOverride: true });
@@ -742,7 +785,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   const handlePartnerOverrideCancel = useCallback(() => {
     if (!partnerCallConfirm) return;
-    if (partnerCallConfirm.type === 'grandTichu') {
+    if (partnerCallConfirm.type === 'blindGrandTichu') {
+      send({ type: 'BLIND_GRAND_TICHU_DECISION', call: false });
+    } else if (partnerCallConfirm.type === 'grandTichu') {
       // Send a GT pass instead
       send({ type: 'GRAND_TICHU_DECISION', call: false });
     }
@@ -984,11 +1029,20 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       case 'toggleVoting':
         send({ type: 'TOGGLE_VOTING' });
         break;
+      case 'toggleBlindGrand': {
+        const enabled = !(roomConfig?.blindGrandTichuEnabled ?? false);
+        if (mySeatFromRoom === hostSeat) {
+          send({ type: 'FORCE_SET_BLIND_GRAND', enabled });
+        } else {
+          send({ type: 'START_BLIND_GRAND_VOTE', enabled });
+        }
+        break;
+      }
       case 'cancelVote':
         send({ type: 'CANCEL_VOTE' });
         break;
     }
-  }, [send, uiStore]);
+  }, [send, uiStore, roomConfig?.blindGrandTichuEnabled, mySeatFromRoom, hostSeat]);
 
   // REQ-F-GA16, GA17: Confirmation dialog callbacks
   const handleConfirmStartVote = useCallback(() => {
@@ -1100,6 +1154,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // PreGamePhase container so it doesn't overlap the opponent info boxes.
   // NOTE: Must be above early returns to respect Rules of Hooks
   const isPreGame =
+    phase === GamePhase.BlindGrandTichuDecision ||
     phase === GamePhase.GrandTichuDecision ||
     phase === GamePhase.CardPassing;
   const passPhaseRef = useRef<HTMLDivElement>(null);
@@ -1183,6 +1238,17 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       south: roomPlayers.find((p) => p.seat === 'south')?.name ?? 'South',
       west: roomPlayers.find((p) => p.seat === 'west')?.name ?? 'West',
     } as Record<Seat, string>;
+    const previousGameScore = savedGameOver?.roomCode === roomCode && (
+      <ScorePanel
+        scores={savedGameOver.finalScores}
+        roundHistory={savedGameOver.roundHistory}
+        tichuCalls={[]}
+        targetScore={roomConfig?.targetScore ?? 1000}
+        seatNames={preRoomSeatNames}
+        mySeat={savedGameOver.mySeat}
+        compact={isMobileLayout}
+      />
+    );
     return (
       <>
         <PreRoomView
@@ -1216,6 +1282,24 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           layoutTier={layoutTier}
         />
         {/* Chat available in pre-room — full layout: side panel; mobile: overlay */}
+        {/* Previous game summary remains available until the next game starts. */}
+        {previousGameScore && (
+          isMobileLayout ? (
+            <div style={{
+              position: 'fixed',
+              top: 'var(--space-4)',
+              right: 'calc(var(--space-4) + 56px)',
+              zIndex: 30,
+              pointerEvents: 'auto',
+            }}>
+              {previousGameScore}
+            </div>
+          ) : (
+            <div data-debug-area="Previous Game Score Panel" style={{ position: 'fixed', top: 'calc(40px * var(--scale))', right: 'calc(28px * var(--scale))', zIndex: 30 }}>
+              {previousGameScore}
+            </div>
+          )
+        )}
         {isMobileLayout ? (
           <div style={{
             position: 'fixed',
@@ -1261,13 +1345,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           />
         )}
         {/* Game summary overlay — shown after server auto-returns to pre-game */}
-        {savedGameOver && (
+        {savedGameOver && showGameOverModal && (
           <GameEndPhase
             winner={savedGameOver.winner}
             finalScores={savedGameOver.finalScores}
             roundHistory={savedGameOver.roundHistory}
             mySeat={savedGameOver.mySeat}
-            onDismiss={() => setSavedGameOver(null)}
+            onDismiss={() => setShowGameOverModal(false)}
           />
         )}
         {/* Host transfer notification dialog */}
@@ -1306,7 +1390,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           finalScores={gameStore.gameOverInfo.finalScores}
           roundHistory={gameStore.roundHistory}
           mySeat={gameStore.mySeat!}
-          onDismiss={() => setSavedGameOver(null)}
+          onDismiss={() => setShowGameOverModal(false)}
         />
         <ConnectionStatus status={status} />
       </>
@@ -1334,6 +1418,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     dragonGiftedTo: null, // Animation handled via uiStore, not view
     receivedCards: gameStore.receivedCards,
     lastDogPlay: null, // Animation handled via uiStore, not view
+    blindGrandTichuDecided: gameStore.blindGrandTichuDecided,
     grandTichuDecided: gameStore.grandTichuDecided, // REQ-F-GT02
     cardPassConfirmed: gameStore.cardPassConfirmed,
     vacatedSeats: gameStore.vacatedSeats,
@@ -1365,7 +1450,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // Player can select cards to pass once they have 14 cards (decided GT or in card passing phase)
   const canSelectPassCards =
     phase === GamePhase.CardPassing ||
-    (phase === GamePhase.GrandTichuDecision &&
+    ((phase === GamePhase.GrandTichuDecision || phase === GamePhase.BlindGrandTichuDecision) &&
       gameStore.myHand.length >= 14);
 
   // Build tichu calls array for ScorePanel
@@ -1519,6 +1604,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             isSpectator={isSpectator}
             isPreGame={false}
             votingEnabled={votingEnabled}
+            blindGrandTichuEnabled={roomConfig?.blindGrandTichuEnabled ?? false}
             activeVote={uiStore.activeVote}
             mySeat={mySeatFromRoom}
             onAction={handleMenuAction}
@@ -2088,7 +2174,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             <div style={{ display: 'flex', alignItems: 'flex-end', width: '100%', paddingLeft: '5vw', paddingRight: '5vw', pointerEvents: 'none' }}>
               {/* Left: Call Tichu button */}
               <div style={{ width: 'var(--mobile-btn-narrow-width)', flexShrink: 0, pointerEvents: 'auto' }}>
-                {(phase === 'playing' || phase === 'cardPassing' || (phase === 'grandTichuDecision' && mySeat && gameStore.grandTichuDecided.includes(mySeat))) && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (
+                {(phase === 'playing' || phase === 'cardPassing' || ((phase === 'grandTichuDecision' || phase === 'blindGrandTichuDecision') && mySeat && gameStore.grandTichuDecided.includes(mySeat))) && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (
                   <button
                     onClick={handleTichu}
                     style={{
@@ -2118,6 +2204,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   <PreGamePhase
                     phase={phase}
                     mySeat={mySeat!}
+                    onBlindGrandTichuDecision={handleBlindGrandTichuDecision}
                     onGrandTichuDecision={handleGrandTichuDecision}
                     passSelection={passSelection}
                     activeCardId={activePassCardId}
@@ -2127,6 +2214,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     passConfirmed={passConfirmed}
                     onCancelPass={handleCancelPass}
                     seatNames={seatNames}
+                    blindGrandTichuDecided={view.blindGrandTichuDecided}
                     grandTichuDecided={view.grandTichuDecided}
                     myTichuCall={gameStore.myTichuCall}
                   />
@@ -2134,6 +2222,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   <PreGamePhase
                     phase={phase!}
                     mySeat={mySeat!}
+                    onBlindGrandTichuDecision={() => {}}
                     onGrandTichuDecision={() => {}}
                     passSelection={new Map()}
                     activeCardId={null}
@@ -2250,6 +2339,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   <PreGamePhase
                     phase={phase}
                     mySeat={mySeat!}
+                    onBlindGrandTichuDecision={handleBlindGrandTichuDecision}
                     onGrandTichuDecision={handleGrandTichuDecision}
                     passSelection={passSelection}
                     activeCardId={activePassCardId}
@@ -2259,6 +2349,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     passConfirmed={passConfirmed}
                     onCancelPass={handleCancelPass}
                     seatNames={seatNames}
+                    blindGrandTichuDecided={view.blindGrandTichuDecided}
                     grandTichuDecided={view.grandTichuDecided}
                     myTichuCall={gameStore.myTichuCall}
                   />
@@ -2271,6 +2362,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   <PreGamePhase
                     phase={phase!}
                     mySeat={mySeat!}
+                    onBlindGrandTichuDecision={() => {}}
                     onGrandTichuDecision={() => {}}
                     passSelection={new Map()}
                     activeCardId={null}
@@ -2292,16 +2384,17 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           {isMobileLayout && !isPreGame && !showReceivedCards && gameStore.myTichuCall !== 'none' && (() => {
             const myTichuFailed = mySeat ? tichuFailedSeats.has(mySeat) : false;
             const myTichuSucceeded = mySeat ? tichuSucceededSeats.has(mySeat) : false;
-            const label = gameStore.myTichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu';
+            const label = formatTichuCall(gameStore.myTichuCall);
+            const callColors = getTichuCallColors(gameStore.myTichuCall);
             return (
               <div style={{
                 pointerEvents: 'auto',
                 background: myTichuFailed ? '#666'
                   : myTichuSucceeded ? '#43a047'
-                  : gameStore.myTichuCall === 'grandTichu' ? 'var(--color-grand-tichu-badge)' : '#d32f2f',
+                  : callColors.background,
                 color: myTichuFailed ? 'white'
                   : myTichuSucceeded ? 'white'
-                  : gameStore.myTichuCall === 'grandTichu' ? '#1a1a1a' : 'white',
+                  : callColors.color,
                 fontWeight: 800,
                 fontSize: 'var(--font-sm)',
                 textTransform: 'uppercase',
@@ -2358,7 +2451,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   onTichu={handleTichu}
                   onBomb={() => setBombPopupOpen((prev) => !prev)}
                   layoutTier={layoutTier}
-                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing' || (gameStore.phase === 'grandTichuDecision' && mySeat != null && gameStore.grandTichuDecided.includes(mySeat)))}
+                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing' || ((gameStore.phase === 'grandTichuDecision' || gameStore.phase === 'blindGrandTichuDecision') && mySeat != null && gameStore.grandTichuDecided.includes(mySeat)))}
                   canBombProp={phase === 'playing' && !gameStore.gameHalted && handBombs.length > 0}
                   bombSlotRef={bombActionBarRef}
                 />
@@ -2387,7 +2480,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   onTichu={handleTichu}
                   onBomb={handleBomb}
                   layoutTier={layoutTier}
-                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing' || (gameStore.phase === 'grandTichuDecision' && mySeat != null && gameStore.grandTichuDecided.includes(mySeat)))}
+                  canCallTichuProp={!gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (gameStore.phase === 'playing' || gameStore.phase === 'cardPassing' || ((gameStore.phase === 'grandTichuDecision' || gameStore.phase === 'blindGrandTichuDecision') && mySeat != null && gameStore.grandTichuDecided.includes(mySeat)))}
                   layout="split"
                   playerSeat={
                     <PlayerSeat
@@ -2414,10 +2507,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
           {/* Mobile mode: show player's active Tichu call banner above cards during pre-game / received cards */}
           {isMobileLayout && (isPreGame || showReceivedCards) && gameStore.myTichuCall !== 'none' && (
+            (() => {
+              const callColors = getTichuCallColors(gameStore.myTichuCall);
+              return (
             <div style={{
               pointerEvents: 'auto',
-              background: gameStore.myTichuCall === 'grandTichu' ? 'var(--color-grand-tichu-badge)' : '#d32f2f',
-              color: gameStore.myTichuCall === 'grandTichu' ? '#1a1a1a' : 'white',
+              background: callColors.background,
+              color: callColors.color,
               fontWeight: 800,
               fontSize: 'var(--font-base)',
               textTransform: 'uppercase',
@@ -2427,8 +2523,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               textAlign: 'center',
               whiteSpace: 'nowrap',
             }}>
-              {gameStore.myTichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}
+              {formatTichuCall(gameStore.myTichuCall)}
             </div>
+              );
+            })()
           )}
 
           {/* Card hand row: [Tichu btn] [cards] [Bomb btn] — buttons offset from hand edges */}
@@ -2437,7 +2535,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             {/* Left: Tichu button — full layout only (mobile renders above) */}
             {!isMobileLayout && (
               <div style={{ flexShrink: 0 }}>
-                {(phase === 'playing' || phase === 'cardPassing' || (phase === 'grandTichuDecision' && mySeat && gameStore.grandTichuDecided.includes(mySeat))) && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (
+                {(phase === 'playing' || phase === 'cardPassing' || ((phase === 'grandTichuDecision' || phase === 'blindGrandTichuDecision') && mySeat && gameStore.grandTichuDecided.includes(mySeat))) && !gameStore.gameHalted && gameStore.myTichuCall === 'none' && !gameStore.hasPlayedCards && view.finishOrder.length === 0 && (
                   <button
                     onClick={handleTichu}
                     style={{
@@ -2747,6 +2845,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         isSpectator={isSpectator}
         isPreGame={false}
         votingEnabled={votingEnabled}
+        blindGrandTichuEnabled={roomConfig?.blindGrandTichuEnabled ?? false}
         onAction={(action) => {
           setDrawerOpen(false);
           handleMenuAction(action);
@@ -2833,10 +2932,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             }}
           >
             <h3 style={{ margin: '0 0 var(--space-3)', color: 'var(--color-warning, #f59e0b)' }}>
-              Your partner already called {partnerCallConfirm.partnerCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}
+              Your partner already called {formatTichuCall(partnerCallConfirm.partnerCall)}
             </h3>
             <p style={{ margin: '0 0 var(--space-4)', color: 'var(--color-text)' }}>
-              Are you sure you want to call {partnerCallConfirm.type === 'grandTichu' ? 'Grand Tichu' : 'Tichu'}?
+              Are you sure you want to call {formatTichuCall(partnerCallConfirm.type)}?
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
               <button
@@ -2867,7 +2966,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   fontWeight: 600,
                 }}
               >
-                Call {partnerCallConfirm.type === 'grandTichu' ? 'Grand Tichu' : 'Tichu'} Anyway
+                Call {formatTichuCall(partnerCallConfirm.type)} Anyway
               </button>
             </div>
           </div>

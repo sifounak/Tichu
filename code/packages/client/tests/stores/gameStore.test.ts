@@ -12,6 +12,8 @@ function makeView(overrides: Partial<ClientGameView> = {}): ClientGameView {
       turnTimerSeconds: null,
       spectatorsAllowed: true,
       isPrivate: false,
+      spectatorChatEnabled: false,
+      blindGrandTichuEnabled: false,
     },
     phase: GamePhase.Playing,
     scores: { northSouth: 0, eastWest: 0 } as Record<Team, number>,
@@ -33,6 +35,7 @@ function makeView(overrides: Partial<ClientGameView> = {}): ClientGameView {
     dragonGiftedTo: null,
     receivedCards: { north: null, east: null, south: null, west: null },
     lastDogPlay: null,
+    blindGrandTichuDecided: [],
     grandTichuDecided: [],
     ...overrides,
   };

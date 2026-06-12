@@ -11,6 +11,7 @@ export interface LeaderboardEntry {
   gamesWon: number;
   winRate: number;
   tichuSuccessRate: number;
+  blindGrandTichuSuccessRate: number;
   grandTichuSuccessRate: number;
 }
 
@@ -23,6 +24,8 @@ export interface PlayerProfile {
   winRate: number;
   tichuCalls: number;
   tichuSuccesses: number;
+  blindGrandTichuCalls: number;
+  blindGrandTichuSuccesses: number;
   grandTichuCalls: number;
   grandTichuSuccesses: number;
   totalRoundsPlayed: number;
@@ -150,6 +153,10 @@ export function getLeaderboard(
         THEN CAST(ps.tichu_successes AS REAL) / ps.tichu_calls
         ELSE 0
       END as tichuSuccessRate,
+      CASE WHEN ps.blind_grand_tichu_calls > 0
+        THEN CAST(ps.blind_grand_tichu_successes AS REAL) / ps.blind_grand_tichu_calls
+        ELSE 0
+      END as blindGrandTichuSuccessRate,
       CASE WHEN ps.grand_tichu_calls > 0
         THEN CAST(ps.grand_tichu_successes AS REAL) / ps.grand_tichu_calls
         ELSE 0
@@ -209,6 +216,8 @@ export function getPlayerProfile(
       ps.win_rate as winRate,
       ps.tichu_calls as tichuCalls,
       ps.tichu_successes as tichuSuccesses,
+      ps.blind_grand_tichu_calls as blindGrandTichuCalls,
+      ps.blind_grand_tichu_successes as blindGrandTichuSuccesses,
       ps.grand_tichu_calls as grandTichuCalls,
       ps.grand_tichu_successes as grandTichuSuccesses,
       ps.total_rounds_played as totalRoundsPlayed,

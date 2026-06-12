@@ -15,6 +15,7 @@ export interface GameActionsDrawerProps {
   isSpectator: boolean;
   isPreGame: boolean;
   votingEnabled: boolean;
+  blindGrandTichuEnabled?: boolean;
   onAction: (action: MenuAction) => void;
   activeVote: { initiatorSeat: Seat } | null;
   mySeat: Seat | null;
@@ -36,6 +37,7 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
   isSpectator,
   isPreGame,
   votingEnabled,
+  blindGrandTichuEnabled = false,
   onAction,
   activeVote,
   isOnCooldown,
@@ -105,6 +107,17 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
       items.push({
         action: { type: 'toggleVoting' },
         label: votingEnabled ? 'Disable Voting' : 'Enable Voting',
+      });
+      items.push({
+        action: { type: 'toggleBlindGrand' },
+        label: blindGrandTichuEnabled ? 'Disable Blind Grand' : 'Enable Blind Grand',
+      });
+    } else {
+      items.push({
+        action: { type: 'toggleBlindGrand' },
+        label: blindGrandTichuEnabled ? 'Disable Blind Grand' : 'Enable Blind Grand',
+        disabled: !votingEnabled,
+        hint: !votingEnabled ? 'Voting disabled by host' : undefined,
       });
     }
   }

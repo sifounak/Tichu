@@ -76,6 +76,7 @@ function makeMinimalAccumulator(gameId: number, opts: {
   handAfterPass?: number[];
   tichuCall?: boolean;
   tichuCallSuccess?: boolean;
+  blindGrandTichuCall?: boolean;
   grandTichuCall?: boolean;
   finishPosition?: number;
 } = {}): GameEventAccumulator {
@@ -85,6 +86,7 @@ function makeMinimalAccumulator(gameId: number, opts: {
   for (const seat of ['north', 'east', 'south', 'west'] as const) {
     const pr = createBlankPlayerRound(gameId, 1, seat,
       seat === 'north' ? (opts.northUserId ?? 'user1') : null);
+    pr.blindGrandTichuCall = seat === 'north' ? (opts.blindGrandTichuCall ?? false) : false;
     pr.grandTichuCall = seat === 'north' ? (opts.grandTichuCall ?? false) : false;
     pr.tichuCall = seat === 'north' ? (opts.tichuCall ?? false) : false;
     pr.tichuCallSuccess = seat === 'north' ? (opts.tichuCallSuccess ?? null) : null;
@@ -221,6 +223,22 @@ describe('Stats Cache', () => {
       const row = getCacheRow(database, 'user1');
       expect(row!.grand_tichu_calls).toBe(1);
       expect(row!.grand_tichu_successes).toBe(1);
+    });
+
+    it('should compute blind grand tichu stats', () => {
+      const gameId = insertTestGame(database, { northUserId: 'user1' });
+      const acc = makeMinimalAccumulator(gameId, {
+        blindGrandTichuCall: true,
+        tichuCallSuccess: true,
+        finishPosition: 1,
+      });
+      writeEventData(database, gameId, acc);
+
+      rebuildStatsCache(database);
+
+      const row = getCacheRow(database, 'user1');
+      expect(row!.blind_grand_tichu_calls).toBe(1);
+      expect(row!.blind_grand_tichu_successes).toBe(1);
     });
 
     it('should detect dragon in hand after pass', () => {

@@ -24,6 +24,11 @@
   box-shadow: 0 0 40px rgba(245, 158, 11, 0.5);
 }
 
+.blindGrand {
+  background: #ff00c8;
+  box-shadow: 0 0 40px rgba(255, 0, 200, 0.55);
+}
+
 .seatLabel {
   font-size: var(--font-md);
   font-weight: 600;

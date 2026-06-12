@@ -44,6 +44,7 @@ export interface GameStore {
   gameOverInfo: { winner: string; finalScores: Record<Team, number> } | null;
   // REQ-F-GT02: Seats that have made their Grand Tichu decision (call or pass)
   grandTichuDecided: Seat[];
+  blindGrandTichuDecided: Seat[];
   /** Seats that have confirmed their card pass */
   cardPassConfirmed: Seat[];
   /** Seats vacated by players who left mid-game */
@@ -98,6 +99,7 @@ const initialState = {
   latestRoundScore: null as RoundScore | null,
   gameOverInfo: null as { winner: string; finalScores: Record<Team, number> } | null,
   grandTichuDecided: [] as Seat[],
+  blindGrandTichuDecided: [] as Seat[],
   cardPassConfirmed: [] as Seat[],
   vacatedSeats: [] as Seat[],
   choosingSeat: false,
@@ -139,6 +141,7 @@ export const useGameStore = create<GameStore>()((set) => ({
         : null,
       gameOverInfo: view.winner !== null ? { winner: view.winner, finalScores: view.scores } : null,
       grandTichuDecided: view.grandTichuDecided,
+      blindGrandTichuDecided: view.blindGrandTichuDecided,
       cardPassConfirmed: view.cardPassConfirmed,
       vacatedSeats: view.vacatedSeats ?? [],
       choosingSeat: view.choosingSeat ?? false,

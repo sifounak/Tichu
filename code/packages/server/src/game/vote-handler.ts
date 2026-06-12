@@ -8,7 +8,7 @@ import type { Seat } from '@tichu/shared';
 import type { Broadcaster } from '../ws/broadcaster.js';
 
 /** REQ-F-PV22: Vote types */
-export type PlayerVoteType = 'kick' | 'restartGame' | 'restartRound';
+export type PlayerVoteType = 'kick' | 'restartGame' | 'restartRound' | 'enableBlindGrand' | 'disableBlindGrand';
 
 /** State for an active player-initiated vote session */
 interface PlayerVoteSession {
@@ -151,6 +151,39 @@ export class VoteHandler {
       type: 'VOTE_STARTED',
       voteId: session.voteId,
       voteType: 'restartRound',
+      initiatorSeat,
+      timeoutMs: session.timeoutMs,
+    });
+
+    if (eligibleVoters.length <= 1) {
+      if (eligibleVoters.length === 1) {
+        session.votes.set(eligibleVoters[0], true);
+        this.broadcastVoteUpdate(roomCode);
+      }
+      this.resolveVote(roomCode);
+      return true;
+    }
+
+    session.timeoutHandle = setTimeout(() => {
+      this.resolveVote(roomCode);
+    }, this.voteTimeoutMs);
+
+    return true;
+  }
+
+  /** Start a Blind Grand Tichu setting vote. */
+  startBlindGrandVote(roomCode: string, initiatorSeat: Seat, enabled: boolean, humanSeats: Seat[], excludedSeats: Seat[] = []): boolean {
+    if (this.sessions.has(roomCode)) return false;
+
+    const eligibleVoters = humanSeats.filter(s => !excludedSeats.includes(s));
+    const voteType: PlayerVoteType = enabled ? 'enableBlindGrand' : 'disableBlindGrand';
+    const session = this.createSession(voteType, initiatorSeat, eligibleVoters);
+    this.sessions.set(roomCode, session);
+
+    this.broadcaster.broadcastToRoom(roomCode, {
+      type: 'VOTE_STARTED',
+      voteId: session.voteId,
+      voteType,
       initiatorSeat,
       timeoutMs: session.timeoutMs,
     });
@@ -336,6 +369,10 @@ export class VoteHandler {
       message = passed ? '' : 'Vote Failed!'; // Kick success message set by GameManager (needs player name)
     } else if (session.voteType === 'restartRound') {
       message = passed ? 'Restarting round!' : 'Restart round vote failed!';
+    } else if (session.voteType === 'enableBlindGrand') {
+      message = passed ? 'Blind Grand enabled!' : 'Enable Blind Grand vote failed!';
+    } else if (session.voteType === 'disableBlindGrand') {
+      message = passed ? 'Blind Grand disabled!' : 'Disable Blind Grand vote failed!';
     } else {
       message = passed ? 'Restarting game!' : 'Restart game vote failed!';
     }

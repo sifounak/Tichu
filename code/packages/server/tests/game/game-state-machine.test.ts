@@ -73,6 +73,12 @@ function passAllGrandTichu(actor: ReturnType<typeof createTestActor>) {
   }
 }
 
+function passAllBlindGrandTichu(actor: ReturnType<typeof createTestActor>) {
+  for (const seat of SEATS_IN_ORDER) {
+    actor.send({ type: 'BLIND_GRAND_TICHU_PASS', seat });
+  }
+}
+
 /** Pass cards for all players (each passes their first 3 cards to others) */
 function passAllCards(actor: ReturnType<typeof createTestActor>) {
   const ctx = actor.getSnapshot().context;
@@ -188,6 +194,90 @@ describe('GameStateMachine', () => {
       actor.start();
       startGame(actor);
       expect(actor.getSnapshot().value).toBe('grandTichuDecision');
+      actor.stop();
+    });
+  });
+
+  describe('Blind Grand Tichu Decision', () => {
+    it('starts with no visible cards when enabled', () => {
+      const actor = createTestActor({ blindGrandTichuEnabled: true });
+      actor.start();
+      startGame(actor);
+      expect(actor.getSnapshot().value).toBe('blindGrandTichuDecision');
+      const round = actor.getSnapshot().context.currentRound!;
+      for (const seat of SEATS_IN_ORDER) {
+        expect(round.players[seat].hand.length).toBe(0);
+      }
+      actor.stop();
+    });
+
+    it('reveals only first 8 after passing Blind Grand', () => {
+      const actor = createTestActor({ blindGrandTichuEnabled: true });
+      actor.start();
+      startGame(actor);
+      actor.send({ type: 'BLIND_GRAND_TICHU_PASS', seat: 'north' });
+      const round = actor.getSnapshot().context.currentRound!;
+      expect(round.players.north.hand.length).toBe(8);
+      expect(round.players.east.hand.length).toBe(0);
+      actor.stop();
+    });
+
+    it('does not allow Grand Tichu decisions before that seat decides Blind Grand', () => {
+      const actor = createTestActor({ blindGrandTichuEnabled: true });
+      actor.start();
+      startGame(actor);
+
+      actor.send({ type: 'GRAND_TICHU_PASS', seat: 'north' });
+
+      const ctx = actor.getSnapshot().context;
+      expect(ctx.grandTichuDecisions.has('north')).toBe(false);
+      expect(ctx.currentRound!.players.north.hand.length).toBe(0);
+      actor.stop();
+    });
+
+    it('reveals all 14 and skips Grand Tichu after calling Blind Grand', () => {
+      const actor = createTestActor({ blindGrandTichuEnabled: true });
+      actor.start();
+      startGame(actor);
+      actor.send({ type: 'BLIND_GRAND_TICHU_CALL', seat: 'north' });
+      const ctx = actor.getSnapshot().context;
+      expect(ctx.currentRound!.players.north.hand.length).toBe(14);
+      expect(ctx.currentRound!.players.north.tipiCall).toBe('blindGrandTichu');
+      expect(ctx.grandTichuDecisions.has('north')).toBe(true);
+      actor.stop();
+    });
+
+    it('lets a Blind Grand caller confirm pass while others are still deciding', () => {
+      const actor = createTestActor({ blindGrandTichuEnabled: true });
+      actor.start();
+      startGame(actor);
+      actor.send({ type: 'BLIND_GRAND_TICHU_CALL', seat: 'north' });
+      const hand = actor.getSnapshot().context.currentRound!.players.north.hand;
+      actor.send({
+        type: 'CARDS_PASSED',
+        seat: 'north',
+        cards: { north: hand[0], east: hand[0], south: hand[1], west: hand[2] },
+      });
+      expect(actor.getSnapshot().context.cardPassDecisions.has('north')).toBe(true);
+      expect(actor.getSnapshot().value).toBe('blindGrandTichuDecision');
+      actor.stop();
+    });
+
+    it('lets a Blind Grand caller cancel an early card pass while others are still deciding', () => {
+      const actor = createTestActor({ blindGrandTichuEnabled: true });
+      actor.start();
+      startGame(actor);
+      actor.send({ type: 'BLIND_GRAND_TICHU_CALL', seat: 'north' });
+      const hand = actor.getSnapshot().context.currentRound!.players.north.hand;
+      actor.send({
+        type: 'CARDS_PASSED',
+        seat: 'north',
+        cards: { north: hand[0], east: hand[0], south: hand[1], west: hand[2] },
+      });
+      actor.send({ type: 'CARDS_PASS_CANCELLED', seat: 'north' });
+
+      expect(actor.getSnapshot().context.cardPassDecisions.has('north')).toBe(false);
+      expect(actor.getSnapshot().value).toBe('blindGrandTichuDecision');
       actor.stop();
     });
   });

@@ -68,7 +68,7 @@ interface PreRoomViewProps {
 function makeDummyView(mySeat: Seat): ClientGameView {
   return {
     gameId: '',
-    config: { targetScore: 1000, turnTimerSeconds: null, spectatorsAllowed: true, isPrivate: false, spectatorChatEnabled: false },
+    config: { targetScore: 1000, turnTimerSeconds: null, spectatorsAllowed: true, isPrivate: false, spectatorChatEnabled: false, blindGrandTichuEnabled: false },
     phase: 'playing' as any,
     scores: { northSouth: 0, eastWest: 0 },
     roundHistory: [],
@@ -86,6 +86,7 @@ function makeDummyView(mySeat: Seat): ClientGameView {
     dragonGiftedTo: null,
     receivedCards: { north: null, east: null, south: null, west: null },
     lastDogPlay: null,
+    blindGrandTichuDecided: [],
     grandTichuDecided: [],
     cardPassConfirmed: [],
     vacatedSeats: [],
@@ -241,6 +242,13 @@ export function PreRoomView({
         break;
       case 'toggleVoting':
         send({ type: 'TOGGLE_VOTING' });
+        break;
+      case 'toggleBlindGrand':
+        if (isHost) {
+          send({ type: 'FORCE_SET_BLIND_GRAND', enabled: !(config?.blindGrandTichuEnabled ?? false) });
+        } else {
+          send({ type: 'PRE_GAME_BLIND_GRAND_VOTE', enabled: !(config?.blindGrandTichuEnabled ?? false) });
+        }
         break;
       case 'cancelVote':
         send({ type: 'CANCEL_VOTE' });
@@ -661,6 +669,7 @@ export function PreRoomView({
             isSpectator={isSpectator}
             isPreGame={true}
             votingEnabled={votingEnabled}
+            blindGrandTichuEnabled={config?.blindGrandTichuEnabled ?? false}
             activeVote={uiStore.activeVote}
             mySeat={mySeat}
             onAction={handleMenuAction}
@@ -1096,6 +1105,7 @@ export function PreRoomView({
         isSpectator={isSpectator}
         isPreGame={true}
         votingEnabled={votingEnabled}
+        blindGrandTichuEnabled={config?.blindGrandTichuEnabled ?? false}
         onAction={(action) => {
           setDrawerOpen(false);
           handleMenuAction(action);

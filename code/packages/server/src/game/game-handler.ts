@@ -13,6 +13,7 @@ import type { RoomManager } from '../room/room-manager.js';
 /** Game message types that should be routed to GameManager */
 const GAME_MESSAGE_TYPES = [
   'GRAND_TICHU_DECISION',
+  'BLIND_GRAND_TICHU_DECISION',
   'TICHU_DECLARATION',
   'PASS_CARDS',
   'CANCEL_PASS_CARDS',
@@ -25,6 +26,7 @@ const GAME_MESSAGE_TYPES = [
   'START_KICK_VOTE',
   'START_RESTART_GAME_VOTE',
   'START_RESTART_ROUND_VOTE',
+  'START_BLIND_GRAND_VOTE',
   'PLAYER_VOTE',
 ] as const;
 

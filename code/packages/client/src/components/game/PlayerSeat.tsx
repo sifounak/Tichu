@@ -212,10 +212,11 @@ export const PlayerSeat = memo(function PlayerSeat({
       {/* REQ-F-DI04: Tichu/Grand Tichu call indicator — red banner above box */}
       {tichuCall !== 'none' && (() => {
         const tichuSucceeded = finishOrder === 1;
-        const label = tichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu';
+        const label = tichuCall === 'blindGrandTichu' ? 'Blind Grand' : tichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu';
+        const callClass = tichuCall === 'blindGrandTichu' ? styles.blindGrandTichu : tichuCall === 'grandTichu' ? styles.grandTichu : styles.tichu;
         return (
           <div
-            className={`${styles.tichuBanner} ${tichuCall === 'grandTichu' ? styles.grandTichu : styles.tichu} ${tichuFailed ? styles.tichuFailed : tichuSucceeded ? styles.tichuSucceeded : ''}`}
+            className={`${styles.tichuBanner} ${callClass} ${tichuFailed ? styles.tichuFailed : tichuSucceeded ? styles.tichuSucceeded : ''}`}
             aria-label={tichuFailed ? `${label} failed` : tichuSucceeded ? `${label} succeeded` : `${label} called`}
           >
             {tichuFailed ? <>😩 <span className={styles.tichuStrike}>{label}</span> 😩</> : tichuSucceeded ? `🥳 ${label} 🥳` : label}

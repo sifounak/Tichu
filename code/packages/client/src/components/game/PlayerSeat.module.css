@@ -325,6 +325,11 @@
   color: #1a1a1a;
 }
 
+.blindGrandTichu {
+  background: #ff00c8;
+  color: white;
+}
+
 /* Tichu call succeeded — bright green banner */
 .tichuSucceeded {
   background: #43a047;

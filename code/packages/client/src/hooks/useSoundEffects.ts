@@ -11,6 +11,7 @@ export type SoundEvent =
   | 'bomb'
   | 'tichu'
   | 'grandTichu'
+  | 'blindGrandTichu'
   | 'chat'
   | 'yourTurn';
 
@@ -23,6 +24,7 @@ const SOUND_FILES: Record<SoundEvent, string> = {
   bomb: `${BASE_PATH}/sounds/bomb.mp3`,
   tichu: `${BASE_PATH}/sounds/tichu.mp3`,
   grandTichu: `${BASE_PATH}/sounds/grand-tichu.mp3`,
+  blindGrandTichu: `${BASE_PATH}/sounds/blind-grand.mp3`,
   chat: `${BASE_PATH}/sounds/chat.mp3`,
   yourTurn: `${BASE_PATH}/sounds/your-turn.mp3`,
 };

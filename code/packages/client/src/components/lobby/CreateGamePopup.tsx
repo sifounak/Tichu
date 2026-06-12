@@ -14,6 +14,7 @@ export interface CreateGameConfig {
   isPrivate: boolean;
   spectatorsAllowed: boolean;
   spectatorChatEnabled: boolean;
+  blindGrandTichuEnabled: boolean;
 }
 
 interface CreateGamePopupProps {
@@ -28,6 +29,7 @@ const DEFAULTS: CreateGameConfig = {
   isPrivate: false,
   spectatorsAllowed: true,
   spectatorChatEnabled: false,
+  blindGrandTichuEnabled: false,
 };
 
 export function CreateGamePopup({ onCancel, onCreate }: CreateGamePopupProps) {

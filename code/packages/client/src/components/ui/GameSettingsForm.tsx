@@ -10,6 +10,7 @@ export interface GameSettingsValues {
   isPrivate: boolean;
   spectatorsAllowed: boolean;
   spectatorChatEnabled: boolean;
+  blindGrandTichuEnabled: boolean;
 }
 
 interface GameSettingsFormProps {
@@ -27,6 +28,7 @@ export function GameSettingsForm({ config, onChange, readOnly }: GameSettingsFor
         <span>Timer: {config.turnTimerSeconds ? `${config.turnTimerSeconds}s` : 'Off'}</span>
         <span>Spectators: {config.spectatorsAllowed ? 'Yes' : 'No'}</span>
         <span>Spectator Chat: {config.spectatorChatEnabled ? 'Yes' : 'No'}</span>
+        <span>Blind Grand: {config.blindGrandTichuEnabled ? 'Yes' : 'No'}</span>
         <span>{config.isPrivate ? 'Private Room' : 'Public Room'}</span>
       </div>
     );
@@ -99,6 +101,15 @@ export function GameSettingsForm({ config, onChange, readOnly }: GameSettingsFor
             onChange={(e) => onChange({ isPrivate: e.target.checked })}
           />
           <span className={styles.checkboxLabel}>Private</span>
+        </label>
+
+        <label className={styles.checkboxRow}>
+          <input
+            type="checkbox"
+            checked={config.blindGrandTichuEnabled}
+            onChange={(e) => onChange({ blindGrandTichuEnabled: e.target.checked })}
+          />
+          <span className={styles.checkboxLabel}>Allow Blind Grand</span>
         </label>
       </div>
     </div>

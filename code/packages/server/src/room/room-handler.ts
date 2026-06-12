@@ -75,12 +75,14 @@ export class RoomHandler {
     router.on('DECLINE_SEAT', (ws) => this.handleDeclineSeat(ws));
     // REQ-F-VI09: Pre-game kick vote messages
     router.on('PRE_GAME_KICK_VOTE', (ws, msg) => this.handlePreGameKickVote(ws, msg as ClientMessage & { type: 'PRE_GAME_KICK_VOTE' }));
+    router.on('PRE_GAME_BLIND_GRAND_VOTE', (ws, msg) => this.handlePreGameBlindGrandVote(ws, msg as ClientMessage & { type: 'PRE_GAME_BLIND_GRAND_VOTE' }));
     router.on('PRE_GAME_VOTE', (ws, msg) => this.handlePreGameVote(ws, msg as ClientMessage & { type: 'PRE_GAME_VOTE' }));
 
     // REQ-F-GA35-38, GA51-52: Host force actions, transfer host, cancel vote, toggle voting
     router.on('FORCE_KICK', (ws, msg) => this.handleForceKick(ws, msg as ClientMessage & { type: 'FORCE_KICK' }));
     router.on('FORCE_RESTART_ROUND', (ws) => this.handleForceRestartRound(ws));
     router.on('FORCE_RESTART_GAME', (ws) => this.handleForceRestartGame(ws));
+    router.on('FORCE_SET_BLIND_GRAND', (ws, msg) => this.handleForceSetBlindGrand(ws, msg as ClientMessage & { type: 'FORCE_SET_BLIND_GRAND' }));
     router.on('TRANSFER_HOST', (ws, msg) => this.handleTransferHost(ws, msg as ClientMessage & { type: 'TRANSFER_HOST' }));
     router.on('CANCEL_VOTE', (ws) => this.handleCancelVote(ws));
     router.on('TOGGLE_VOTING', (ws) => this.handleToggleVoting(ws));
@@ -375,6 +377,8 @@ export class RoomHandler {
         if (targetSeat) {
           this.tryStartSeatQueue(roomCode, [targetSeat]);
         }
+      } else if ((voteType === 'enableBlindGrand' || voteType === 'disableBlindGrand') && passed) {
+        this.applyBlindGrandSetting(roomCode, voteType === 'enableBlindGrand');
       }
     };
   }
@@ -433,6 +437,37 @@ export class RoomHandler {
       .map(p => p.seat) as Seat[];
 
     this.preGameVoteHandler.startKickVote(info.roomCode, initiatorSeat, msg.targetSeat, humanSeats);
+  }
+
+  private handlePreGameBlindGrandVote(ws: WebSocket, msg: ClientMessage & { type: 'PRE_GAME_BLIND_GRAND_VOTE' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (!room) return;
+    if (room.gameInProgress) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Use in-game vote during active games');
+      return;
+    }
+    const initiatorSeat = info.seat;
+    if (!initiatorSeat) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Must be seated to start a vote');
+      return;
+    }
+    if (!room.votingEnabled && initiatorSeat !== room.hostSeat) {
+      this.broadcaster.sendError(ws, 'VOTING_DISABLED', 'Voting has been disabled by the host');
+      return;
+    }
+    if (this.preGameVoteHandler.hasActiveVote(info.roomCode)) {
+      this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
+      return;
+    }
+
+    const humanSeats = room.players.filter(p => !p.isBot).map(p => p.seat) as Seat[];
+    this.preGameVoteHandler.startBlindGrandVote(info.roomCode, initiatorSeat, msg.enabled, humanSeats);
   }
 
   // REQ-F-VI09: Handle pre-game vote cast
@@ -564,6 +599,19 @@ export class RoomHandler {
     this.restartGame(info.roomCode);
   }
 
+  private handleForceSetBlindGrand(ws: WebSocket, msg: ClientMessage & { type: 'FORCE_SET_BLIND_GRAND' }): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room');
+      return;
+    }
+    if (!this.roomManager.isHost(info.userId)) {
+      this.broadcaster.sendError(ws, 'NOT_HOST', 'Only the host can change Blind Grand');
+      return;
+    }
+    this.applyBlindGrandSetting(info.roomCode, msg.enabled);
+  }
+
   /** REQ-F-GA38: Host transfers host role to another human player. */
   private handleTransferHost(ws: WebSocket, msg: ClientMessage & { type: 'TRANSFER_HOST' }): void {
     const info = this.connections.getClientInfo(ws);
@@ -685,6 +733,10 @@ export class RoomHandler {
 
     try {
       this.roomManager.configureRoom(info.roomCode, msg.config);
+      if (typeof msg.config.blindGrandTichuEnabled === 'boolean') {
+        const game = this.gameStore.getGameByRoom(info.roomCode);
+        game?.setBlindGrandTichuEnabled(msg.config.blindGrandTichuEnabled);
+      }
       this.broadcastRoomUpdate(info.roomCode);
 
       // SC-05: Broadcast system chat message when spectator chat is toggled
@@ -1071,6 +1123,9 @@ export class RoomHandler {
           this.restartRound(rc);
         }, 2000);
       },
+      (rc, enabled) => {
+        this.applyBlindGrandSetting(rc, enabled);
+      },
     );
 
     // REQ-F-PW01: Wire game-end callback for persistence + auto-return to pre-game
@@ -1150,6 +1205,27 @@ export class RoomHandler {
 
     // Broadcast updated state to all players
     game.broadcastState();
+  }
+
+  private applyBlindGrandSetting(roomCode: string, enabled: boolean): void {
+    try {
+      this.roomManager.configureRoom(roomCode, { blindGrandTichuEnabled: enabled });
+      const game = this.gameStore.getGameByRoom(roomCode);
+      if (game) {
+        game.setBlindGrandTichuEnabled(enabled);
+      }
+      this.broadcastRoomUpdate(roomCode);
+      const text = enabled
+        ? 'Blind Grand has been enabled'
+        : 'Blind Grand has been disabled';
+      this.broadcaster.broadcastToRoom(roomCode, {
+        type: 'CHAT_RECEIVED',
+        from: null,
+        text,
+      } as import('@tichu/shared').ServerMessage);
+    } catch {
+      // Invalid room/state; callers already operate on live rooms, so ignore stale races.
+    }
   }
 
   /** REQ-F-ST06: Persist accumulated event data on game abandonment. */

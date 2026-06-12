@@ -31,7 +31,7 @@ export function getTrickPoints(tricks: GameCard[][]): number {
  * REQ-F-SC03: Last player redistribution — last player's tricks go to first-out player,
  *   last player's remaining hand points go to the opposing team.
  * REQ-F-GF08: Tichu +100/-100
- * REQ-F-GF09: Grand Tichu +200/-200
+ * REQ-F-GF09: Grand Tichu +200/-200; Blind Grand Tichu +500/-500
  *
  * @param finishOrder - Seats in the order they went out (index 0 = first out)
  * @param tricksByPlayer - Cards won in tricks by each player
@@ -112,7 +112,7 @@ export function scoreRound(
 
     const team = getTeam(seat);
     const isFirstOut = seat === firstOut;
-    const bonus = call === 'grandTichu' ? 200 : 100;
+    const bonus = call === 'blindGrandTichu' ? 500 : call === 'grandTichu' ? 200 : 100;
 
     tichuBonuses[team] += isFirstOut ? bonus : -bonus;
   }

@@ -16,7 +16,7 @@ import styles from './VoteOverlay.module.css';
 export interface VoteOverlayProps {
   activeVote: {
     voteId: string;
-    voteType: 'kick' | 'restartGame' | 'restartRound';
+    voteType: 'kick' | 'restartGame' | 'restartRound' | 'enableBlindGrand' | 'disableBlindGrand';
     initiatorSeat: Seat;
     targetSeat?: Seat;
     votes: Record<string, boolean | null>;
@@ -65,8 +65,9 @@ export const VoteOverlay = memo(function VoteOverlay({
   const isKickTarget = voteType === 'kick' && targetSeat === mySeat;
 
   // Determine button labels
-  const approveLabel = voteType === 'kick' ? 'Kick' : 'Restart';
-  const rejectLabel = voteType === 'kick' ? "Don't Kick" : "Don't Restart";
+  const isBlindGrandVote = voteType === 'enableBlindGrand' || voteType === 'disableBlindGrand';
+  const approveLabel = voteType === 'kick' ? 'Kick' : isBlindGrandVote ? (voteType === 'enableBlindGrand' ? 'Enable' : 'Disable') : 'Restart';
+  const rejectLabel = voteType === 'kick' ? "Don't Kick" : isBlindGrandVote ? 'No Change' : "Don't Restart";
 
   // Build dialog message
   let dialogMessage: string;
@@ -76,6 +77,10 @@ export const VoteOverlay = memo(function VoteOverlay({
     dialogMessage = `${initiatorName} has started a vote to kick ${targetName}`;
   } else if (voteType === 'restartRound') {
     dialogMessage = `${initiatorName} has started a vote to restart the round`;
+  } else if (voteType === 'enableBlindGrand') {
+    dialogMessage = `${initiatorName} has started a vote to enable Blind Grand next round`;
+  } else if (voteType === 'disableBlindGrand') {
+    dialogMessage = `${initiatorName} has started a vote to disable Blind Grand next round`;
   } else {
     dialogMessage = `${initiatorName} has started a vote to restart the game`;
   }
