@@ -142,6 +142,50 @@ describe('Graceful restart integration', () => {
     expect(restoredHostRoom).toBe(roomCode);
   });
 
+  it('restores the in-game voting toggle from the room state', async () => {
+    app = createApp({ port: 0, host: '127.0.0.1', databasePath: TEST_DB });
+    await app.start();
+
+    const roomManager = app.roomHandler.roomManager;
+    const startWs = createMockWs();
+
+    const hostUserId = 'host-user-1';
+    const room = roomManager.createRoom(hostUserId, 'Alice');
+    const roomCode = room.roomCode;
+    roomManager.joinRoom('user-2', roomCode, 'Bob');
+    roomManager.addBot(roomCode, 'east');
+    roomManager.addBot(roomCode, 'west');
+    roomManager.toggleVoting(hostUserId);
+
+    const manager = app.gameStore.createGame(roomCode, room.config);
+    for (const seat of SEATS_IN_ORDER) {
+      manager.seatPlayer(seat);
+    }
+    manager.registerBot('east');
+    manager.registerBot('west');
+    roomManager.startGame(roomCode);
+    manager.setRoomState(room.hostSeat, room.votingEnabled);
+    manager.handleMessage(startWs, 'south', { type: 'START_GAME' } as ClientMessage);
+
+    await app.serializeAndShutdown();
+
+    app = createApp({ port: 0, host: '127.0.0.1', databasePath: TEST_DB });
+    await app.start();
+
+    const restoredGame = app.gameStore.getGameByRoom(roomCode);
+    expect(restoredGame).toBeDefined();
+    expect(app.roomHandler.roomManager.getRoom(roomCode)!.votingEnabled).toBe(false);
+
+    const voteWs = createMockWs();
+    restoredGame!.handleMessage(voteWs, 'north', { type: 'START_RESTART_GAME_VOTE' } as ClientMessage);
+
+    expect(voteWs.send).toHaveBeenCalledWith(JSON.stringify({
+      type: 'ERROR',
+      code: 'VOTING_DISABLED',
+      message: 'Voting has been disabled by the host',
+    }));
+  });
+
   it('clears saved state from DB after restore (no double-restore)', async () => {
     // 1. Start app and create a game
     app = createApp({ port: 0, host: '127.0.0.1', databasePath: TEST_DB });

@@ -301,6 +301,10 @@ export function createApp(config: Partial<AppConfig> = {}) {
           manager.wireSeatUserIdResolver((seat) => {
             return roomHandler.roomManager.getUserIdAtSeat(manager.roomCode, seat) ?? null;
           });
+          const restoredRoom = roomHandler.roomManager.getRoom(snapshot.roomCode);
+          if (restoredRoom) {
+            manager.setRoomState(restoredRoom.hostSeat, restoredRoom.votingEnabled);
+          }
           gameStore.restoreGame(manager, { ttlMs: TTL_MS });
           roomHandler.wireGameCallbacks(manager, snapshot.roomCode);
           fastify.log.info(`Restored game ${snapshot.gameId} for room ${snapshot.roomCode}`);

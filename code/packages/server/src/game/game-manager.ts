@@ -1262,6 +1262,8 @@ export class GameManager {
     instance.scoringTimer = null;
     instance.endOfTrickBombTimer = null;
     instance.dogAnimDelayTimer = null;
+    instance._hostSeat = 'south';
+    instance._votingEnabled = true;
     instance.restoredFromSnapshot = true;
     instance.interruptedVote = null;
 

@@ -138,6 +138,27 @@ describe('GameManager serialize/restore', () => {
     restored.destroy();
   });
 
+  it('defaults restored games to voting enabled', () => {
+    const ws = createMockWs();
+    const manager = new GameManager('game-1', 'ROOM1', broadcaster, disconnectHandler, voteHandler);
+    for (const seat of SEATS_IN_ORDER) {
+      manager.seatPlayer(seat);
+    }
+
+    const restored = GameManager.restore(manager.serialize(), broadcaster, disconnectHandler, voteHandler);
+    restored.handleMessage(ws, 'east', { type: 'START_RESTART_GAME_VOTE' } as ClientMessage);
+
+    expect(broadcaster.sendError).not.toHaveBeenCalledWith(
+      ws,
+      'VOTING_DISABLED',
+      'Voting has been disabled by the host',
+    );
+    expect(voteHandler.hasActiveVote('ROOM1')).toBe(true);
+
+    manager.destroy();
+    restored.destroy();
+  });
+
   it('preserves endOfTrickBombWindowEndTime through serialize/restore', () => {
     const manager = new GameManager('game-1', 'ROOM1', broadcaster, disconnectHandler, voteHandler);
     const snapshot = manager.serialize();
