@@ -2,6 +2,7 @@
 # Rename a Tichu account username in the SQLite database.
 #
 # Examples:
+#   ./rename-user.sh /files/.www/tichu/data/tichu.sqlite oldName Alice
 #   bash code/scripts/rename-user.sh --user-id user_abc123 --new-username Alice
 #   bash code/scripts/rename-user.sh --current-username oldName --new-username Alice
 #   DATABASE_PATH=/files/.www/tichu/data/tichu.sqlite bash code/scripts/rename-user.sh --email user@example.com --new-username Alice
@@ -17,6 +18,7 @@ NEW_USERNAME=""
 usage() {
   cat <<'EOF'
 Usage:
+  ./rename-user.sh /path/to/tichu.sqlite oldUserName newUserName
   bash code/scripts/rename-user.sh [--db PATH] (--user-id ID | --current-username NAME | --email EMAIL) --new-username NAME
 
 Options:
@@ -26,6 +28,9 @@ Options:
   --email EMAIL             Identify the user by email
   --new-username NAME       New username/display name
   -h, --help                Show this help
+
+Positional form:
+  The second argument is matched against users.username case-insensitively.
 EOF
 }
 
@@ -82,48 +87,58 @@ validate_username() {
   done
 }
 
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --db)
-      DB_PATH="${2:-}"
-      shift 2
-      ;;
-    --user-id)
-      USER_ID="${2:-}"
-      shift 2
-      ;;
-    --current-username)
-      CURRENT_USERNAME="${2:-}"
-      shift 2
-      ;;
-    --email)
-      EMAIL="${2:-}"
-      shift 2
-      ;;
-    --new-username)
-      NEW_USERNAME="${2:-}"
-      shift 2
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      die "Unknown argument: $1"
-      ;;
-  esac
-done
-
-command -v sqlite3 >/dev/null 2>&1 || die "sqlite3 is not installed or not on PATH."
-[ -n "$DB_PATH" ] || die "Database path is empty."
-[ -f "$DB_PATH" ] || die "Database not found: $DB_PATH"
-validate_username "$NEW_USERNAME"
+if [ "$#" -eq 3 ] && [[ "$1" != -* ]]; then
+  DB_PATH="$1"
+  CURRENT_USERNAME="$2"
+  NEW_USERNAME="$3"
+else
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --db)
+        DB_PATH="${2:-}"
+        shift 2
+        ;;
+      --user-id)
+        USER_ID="${2:-}"
+        shift 2
+        ;;
+      --current-username)
+        CURRENT_USERNAME="${2:-}"
+        shift 2
+        ;;
+      --email)
+        EMAIL="${2:-}"
+        shift 2
+        ;;
+      --new-username)
+        NEW_USERNAME="${2:-}"
+        shift 2
+        ;;
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      *)
+        die "Unknown argument: $1"
+        ;;
+    esac
+  done
+fi
 
 identifier_count=0
 [ -n "$USER_ID" ] && identifier_count=$((identifier_count + 1))
 [ -n "$CURRENT_USERNAME" ] && identifier_count=$((identifier_count + 1))
 [ -n "$EMAIL" ] && identifier_count=$((identifier_count + 1))
+
+if [ "$identifier_count" -gt 1 ]; then
+  die "Provide exactly one of --user-id, --current-username, or --email."
+fi
 [ "$identifier_count" -eq 1 ] || die "Provide exactly one of --user-id, --current-username, or --email."
+
+command -v sqlite3 >/dev/null 2>&1 || die "sqlite3 is not installed or not on PATH."
+[ -n "$DB_PATH" ] || die "Database path is empty."
+[ -f "$DB_PATH" ] || die "Database not found: $DB_PATH"
+validate_username "$NEW_USERNAME"
 
 if [ -n "$USER_ID" ]; then
   where_clause="id = $(sql_quote "$USER_ID")"
