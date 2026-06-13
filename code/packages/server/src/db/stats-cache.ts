@@ -1322,6 +1322,14 @@ export function rebuildPlayerCache(database: Database, userId: string): void {
   writeRelationalStatsToCache(database, userId, relStats);
 }
 
+function parseDbTimestampMs(value: string): number | null {
+  const normalized = value.includes('T')
+    ? value
+    : `${value.replace(' ', 'T')}Z`;
+  const timestamp = Date.parse(normalized);
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
 /**
  * Recompute a player's materialized stats only when raw completed-game data has
  * moved past the cached snapshot. This covers missed incremental updates while
@@ -1354,9 +1362,12 @@ export function refreshPlayerStatsCacheIfStale(database: Database, userId: strin
   const cache = cacheRows[0];
   const isMissing = cache === undefined;
   const gameCountChanged = cache !== undefined && cache.gamesPlayed !== raw.gameCount;
+  const latestEndedAtMs = raw.latestEndedAt === null ? null : parseDbTimestampMs(raw.latestEndedAt);
+  const lastUpdatedAtMs = cache === undefined ? null : parseDbTimestampMs(cache.lastUpdatedAt);
   const hasNewerRawGame = cache !== undefined
-    && raw.latestEndedAt !== null
-    && raw.latestEndedAt > cache.lastUpdatedAt;
+    && latestEndedAtMs !== null
+    && lastUpdatedAtMs !== null
+    && latestEndedAtMs > lastUpdatedAtMs;
 
   if (!isMissing && !gameCountChanged && !hasNewerRawGame) {
     return false;

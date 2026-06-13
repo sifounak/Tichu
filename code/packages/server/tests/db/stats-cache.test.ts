@@ -508,6 +508,50 @@ describe('Stats Cache', () => {
       expect(rebuilt).toBe(false);
       expect(getCacheRow(database, 'user1')!.games_played).toBe(1);
     });
+
+    it('treats ISO game timestamps older than SQLite cache timestamps as fresh', () => {
+      const gameId = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'NS' });
+      writeEventData(database, gameId, makeMinimalAccumulator(gameId));
+      updateCacheAfterGame(database, gameId);
+
+      database.client.prepare(`
+        UPDATE games
+        SET ended_at = '2026-06-12T05:27:15.592Z'
+        WHERE id = ?
+      `).run(gameId);
+      database.client.prepare(`
+        UPDATE stats_cache
+        SET last_updated_at = '2026-06-12 23:41:49'
+        WHERE user_id = 'user1'
+      `).run();
+
+      const rebuilt = refreshPlayerStatsCacheIfStale(database, 'user1');
+
+      expect(rebuilt).toBe(false);
+      expect(getCacheRow(database, 'user1')!.games_won).toBe(1);
+    });
+
+    it('rebuilds when an ISO game timestamp is newer than a SQLite cache timestamp', () => {
+      const gameId = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'NS' });
+      writeEventData(database, gameId, makeMinimalAccumulator(gameId));
+      updateCacheAfterGame(database, gameId);
+
+      database.client.prepare(`
+        UPDATE games
+        SET winner_team = 'EW', ended_at = '2026-06-12T05:27:15.592Z'
+        WHERE id = ?
+      `).run(gameId);
+      database.client.prepare(`
+        UPDATE stats_cache
+        SET last_updated_at = '2026-06-12 05:00:00'
+        WHERE user_id = 'user1'
+      `).run();
+
+      const rebuilt = refreshPlayerStatsCacheIfStale(database, 'user1');
+
+      expect(rebuilt).toBe(true);
+      expect(getCacheRow(database, 'user1')!.games_won).toBe(0);
+    });
   });
 
   // ─── REQ-F-MC05: Cache Disposability ─────────────────────────────
