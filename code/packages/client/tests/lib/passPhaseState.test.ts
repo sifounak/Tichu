@@ -3,6 +3,12 @@ import { GamePhase } from '@tichu/shared';
 import { shouldResetPassStateForPhaseTransition } from '@/lib/passPhaseState';
 
 describe('shouldResetPassStateForPhaseTransition', () => {
+  it('does not reset while the initial game phase is still unknown', () => {
+    expect(shouldResetPassStateForPhaseTransition(null, null)).toBe(false);
+    expect(shouldResetPassStateForPhaseTransition(null, GamePhase.GrandTichuDecision)).toBe(false);
+    expect(shouldResetPassStateForPhaseTransition(GamePhase.Playing, null)).toBe(false);
+  });
+
   it('preserves pass selections when blind grand decisions advance to grand tichu decisions', () => {
     expect(
       shouldResetPassStateForPhaseTransition(

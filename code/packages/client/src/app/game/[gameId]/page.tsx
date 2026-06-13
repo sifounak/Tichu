@@ -49,6 +49,13 @@ import { ActionSpinner } from '@/components/game/ActionSpinner';
 import { GameSettingsForm } from '@/components/ui/GameSettingsForm';
 import { isOnCooldown, getCooldownRemaining } from '@/stores/uiStore';
 import { shouldResetPassStateForPhaseTransition } from '@/lib/passPhaseState';
+import {
+  buildLegacyReceivedCardsDismissKey,
+  buildReceivedCardsDismissKey,
+  clearReceivedCardsDismissals,
+  isReceivedCardsDismissed,
+  markReceivedCardsDismissed,
+} from '@/lib/receivedCardsDismissal';
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/ws';
 
@@ -590,6 +597,24 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   // Show received cards after the exchange
   const [showReceivedCards, setShowReceivedCards] = useState(false);
+  const currentPhase = gameStore.phase;
+  const hasReceivedCards = gameStore.receivedCards
+    ? Object.values(gameStore.receivedCards).some((c) => c !== null)
+    : false;
+  const receivedDismissKey = buildReceivedCardsDismissKey({
+    gameId: gameStore.gameId,
+    roundIndex: gameStore.roundHistory.length,
+    mySeat: gameStore.mySeat,
+    receivedCards: gameStore.receivedCards,
+  });
+  const legacyReceivedDismissKey = buildLegacyReceivedCardsDismissKey(
+    gameStore.gameId,
+    gameStore.roundHistory.length,
+  );
+  const dismissReceivedCards = useCallback(() => {
+    setShowReceivedCards(false);
+    markReceivedCardsDismissed(receivedDismissKey, legacyReceivedDismissKey);
+  }, [receivedDismissKey, legacyReceivedDismissKey]);
 
   // Partner call safeguard confirmation dialog state
   const [partnerCallConfirm, setPartnerCallConfirm] = useState<{
@@ -644,8 +669,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     // REQ-F-AP08: Playing cards disables auto-pass
     uiStore.setAutoPassEnabled(false);
     // Auto-dismiss received cards display when playing
-    if (showReceivedCards) setShowReceivedCards(false);
-  }, [selection, send, uiStore, hasMahjongInSelection, shouldQueueForBombWindow, showReceivedCards, captureSnapshot]);
+    if (showReceivedCards) dismissReceivedCards();
+  }, [selection, send, uiStore, hasMahjongInSelection, shouldQueueForBombWindow, showReceivedCards, dismissReceivedCards, captureSnapshot]);
 
   // REQ-F-BI09: Handle out-of-turn bomb play (selection-based)
   const handleBomb = useCallback(() => {
@@ -659,8 +684,8 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     uiStore.clearSelection();
     // REQ-F-AP08: Playing cards (bomb) disables auto-pass
     uiStore.setAutoPassEnabled(false);
-    if (showReceivedCards) setShowReceivedCards(false);
-  }, [selection, send, uiStore, showReceivedCards, captureSnapshot]);
+    if (showReceivedCards) dismissReceivedCards();
+  }, [selection, send, uiStore, showReceivedCards, dismissReceivedCards, captureSnapshot]);
 
   // REQ-F-BB01: Auto-detect all bombs in hand for the Bomb button
   const handBombs = useMemo(
@@ -678,9 +703,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       }
       // REQ-F-AP08: Playing cards (bomb) disables auto-pass
       uiStore.setAutoPassEnabled(false);
-      if (showReceivedCards) setShowReceivedCards(false);
+      if (showReceivedCards) dismissReceivedCards();
     },
-    [send, uiStore, showReceivedCards, captureSnapshot],
+    [send, uiStore, showReceivedCards, dismissReceivedCards, captureSnapshot],
   );
 
   const [bombPopupOpen, setBombPopupOpen] = useState(false);
@@ -722,9 +747,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       uiStore.clearSelection();
       // REQ-F-AP08: Playing cards disables auto-pass
       uiStore.setAutoPassEnabled(false);
-      if (showReceivedCards) setShowReceivedCards(false);
+      if (showReceivedCards) dismissReceivedCards();
     },
-    [selection.selectedIds, send, uiStore, hasMahjongInSelection, shouldQueueForBombWindow, showReceivedCards],
+    [selection.selectedIds, send, uiStore, hasMahjongInSelection, shouldQueueForBombWindow, showReceivedCards, dismissReceivedCards],
   );
 
   // REQ-F-WP01: Handle wish choice from WishPicker
@@ -742,9 +767,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       uiStore.clearSelection();
       // REQ-F-AP08: Playing cards disables auto-pass
       uiStore.setAutoPassEnabled(false);
-      if (showReceivedCards) setShowReceivedCards(false);
+      if (showReceivedCards) dismissReceivedCards();
     },
-    [send, uiStore, shouldQueueForBombWindow, showReceivedCards],
+    [send, uiStore, shouldQueueForBombWindow, showReceivedCards, dismissReceivedCards],
   );
 
   const handlePass = useCallback(() => {
@@ -804,10 +829,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // showReceivedCards state moved above handlePlay (line ~315)
 
   // Reset card passing state when leaving the card passing phase (e.g. new round)
-  const currentPhase = gameStore.phase;
-  const hasReceivedCards = gameStore.receivedCards
-    ? Object.values(gameStore.receivedCards).some((c) => c !== null)
-    : false;
   const previousPassPhaseRef = useRef<GamePhase | null>(null);
 
   useEffect(() => {
@@ -828,11 +849,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       }
       useUiStore.getState().clearDogAnimation();
       useUiStore.getState().clearDragonGiftAnimation();
-      // Clear all stale received-cards dismiss keys from sessionStorage
-      for (let i = sessionStorage.length - 1; i >= 0; i--) {
-        const key = sessionStorage.key(i);
-        if (key?.startsWith('tichu_received_dismissed_')) sessionStorage.removeItem(key);
-      }
+      clearReceivedCardsDismissals(gameStore.gameId);
     } else if (currentPhase === GamePhase.CardPassing) {
       // Entering card passing — reset pass state but not received cards.
       // If the server already has our pass confirmed (e.g. we confirmed during GT phase),
@@ -842,20 +859,17 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         setPassConfirmed(false);
       }
     }
-  }, [currentPhase]);
+  }, [currentPhase, gameStore.gameId, gameStore.cardPassConfirmed, gameStore.mySeat]);
 
   // When cards are received (phase changed to playing and receivedCards populated), show them.
   // Skip on reconnect: if the player has already played cards, they've moved past this phase.
   // Also skip if the user already dismissed in this round (persisted across browser refreshes).
-  const receivedDismissKey = gameStore.gameId
-    ? `tichu_received_dismissed_${gameStore.gameId}_${gameStore.roundHistory.length}`
-    : null;
   useEffect(() => {
     if (hasReceivedCards && currentPhase === GamePhase.Playing && !gameStore.hasPlayedCards) {
-      if (receivedDismissKey && sessionStorage.getItem(receivedDismissKey)) return;
+      if (isReceivedCardsDismissed(receivedDismissKey, legacyReceivedDismissKey)) return;
       setShowReceivedCards(true);
     }
-  }, [hasReceivedCards, currentPhase, gameStore.hasPlayedCards, receivedDismissKey]);
+  }, [hasReceivedCards, currentPhase, gameStore.hasPlayedCards, receivedDismissKey, legacyReceivedDismissKey]);
 
   const placedCardIds = new Set([...passSelection.values()].map((gc) => gc.id));
 
@@ -2237,7 +2251,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     passConfirmed={false}
                     onCancelPass={() => {}}
                     receivedCards={gameStore.receivedCards}
-                    onDismissReceived={() => { setShowReceivedCards(false); if (receivedDismissKey) sessionStorage.setItem(receivedDismissKey, '1'); }}
+                    onDismissReceived={dismissReceivedCards}
                     seatNames={seatNames}
                   />
                 ) : null}
@@ -2377,7 +2391,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     passConfirmed={false}
                     onCancelPass={() => {}}
                     receivedCards={gameStore.receivedCards}
-                    onDismissReceived={() => { setShowReceivedCards(false); if (receivedDismissKey) sessionStorage.setItem(receivedDismissKey, '1'); }}
+                    onDismissReceived={dismissReceivedCards}
                     seatNames={seatNames}
                   />
                 </div>

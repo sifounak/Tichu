@@ -6,6 +6,10 @@ export function shouldResetPassStateForPhaseTransition(
   previousPhase: NullablePhase,
   currentPhase: NullablePhase,
 ): boolean {
+  if (previousPhase === null || currentPhase === null) {
+    return false;
+  }
+
   if (
     currentPhase === GamePhase.GrandTichuDecision &&
     previousPhase === GamePhase.BlindGrandTichuDecision
