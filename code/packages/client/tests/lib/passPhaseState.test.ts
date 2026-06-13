@@ -18,6 +18,21 @@ describe('shouldResetPassStateForPhaseTransition', () => {
     ).toBe(false);
   });
 
+  it('preserves pass selections when decision broadcasts keep the same phase', () => {
+    expect(
+      shouldResetPassStateForPhaseTransition(
+        GamePhase.BlindGrandTichuDecision,
+        GamePhase.BlindGrandTichuDecision,
+      ),
+    ).toBe(false);
+    expect(
+      shouldResetPassStateForPhaseTransition(
+        GamePhase.GrandTichuDecision,
+        GamePhase.GrandTichuDecision,
+      ),
+    ).toBe(false);
+  });
+
   it('preserves pass selections when grand tichu decisions advance to card passing', () => {
     expect(
       shouldResetPassStateForPhaseTransition(

@@ -10,6 +10,10 @@ export function shouldResetPassStateForPhaseTransition(
     return false;
   }
 
+  if (previousPhase === currentPhase) {
+    return false;
+  }
+
   if (
     currentPhase === GamePhase.GrandTichuDecision &&
     previousPhase === GamePhase.BlindGrandTichuDecision
