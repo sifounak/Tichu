@@ -13,8 +13,9 @@
 
 .teamGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-2);
+  width: 100%;
 }
 
 .teamColumn {
@@ -22,6 +23,7 @@
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  min-width: 0;
 }
 
 .playerName {
@@ -32,6 +34,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+  max-width: calc(132px * var(--scale));
+  min-width: 0;
+  box-sizing: border-box;
   text-align: center;
   padding: calc(2px * var(--scale)) calc(6px * var(--scale));
   border-radius: 3px;
