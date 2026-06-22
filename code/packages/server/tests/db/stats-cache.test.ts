@@ -6,6 +6,7 @@ import { createDatabase, type Database } from '../../src/db/connection.js';
 import { writeEventData } from '../../src/db/event-persistence.js';
 import {
   rebuildStatsCache,
+  refreshLeaderboardStatsCacheIfStale,
   refreshPlayerStatsCacheIfStale,
   updateCacheAfterGame,
   rebuildPlayerCache,
@@ -33,18 +34,20 @@ function insertTestGame(database: Database, opts: {
   finalScoreNS?: number;
   finalScoreEW?: number;
   targetScore?: number;
+  status?: 'in_progress' | 'completed';
 } = {}): number {
   const { client } = database;
   const result = client.prepare(
-    `INSERT INTO games (room_code, started_at, ended_at, winner_team,
+    `INSERT INTO games (room_code, status, started_at, ended_at, winner_team,
       final_score_ns, final_score_ew, target_score, round_count,
       north_user_id, east_user_id, south_user_id, west_user_id,
       north_name, east_name, south_name, west_name)
-    VALUES ('TEST', datetime('now'), datetime('now'), ?,
+    VALUES ('TEST', ?, datetime('now'), datetime('now'), ?,
       ?, ?, ?, 1,
       ?, ?, ?, ?,
       'North', 'East', 'South', 'West')`,
   ).run(
+    opts.status ?? 'completed',
     opts.winnerTeam ?? 'NS',
     opts.finalScoreNS ?? 500,
     opts.finalScoreEW ?? 300,
@@ -177,6 +180,31 @@ describe('Stats Cache', () => {
       expect(row!.win_rate).toBe(1);
       expect(row!.total_rounds_played).toBe(1);
       expect(row!.first_finishes).toBe(1);
+    });
+
+    it('counts completed-round stats for in-progress games without crediting final game results', () => {
+      const gameId = insertTestGame(database, {
+        northUserId: 'user1',
+        winnerTeam: 'NS',
+        status: 'in_progress',
+      });
+      const acc = makeMinimalAccumulator(gameId, {
+        tichuCall: true,
+        tichuCallSuccess: true,
+        finishPosition: 1,
+      });
+      writeEventData(database, gameId, acc);
+
+      rebuildStatsCache(database);
+
+      const row = getCacheRow(database, 'user1');
+      expect(row).toBeDefined();
+      expect(row!.games_played).toBe(0);
+      expect(row!.games_won).toBe(0);
+      expect(row!.total_rounds_played).toBe(1);
+      expect(row!.first_finishes).toBe(1);
+      expect(row!.tichu_calls).toBe(1);
+      expect(row!.tichu_successes).toBe(1);
     });
 
     it('should compute win rate correctly across multiple games', () => {
@@ -463,6 +491,28 @@ describe('Stats Cache', () => {
       expect(getCacheRow(database, 'user1')!.games_won).toBe(1);
     });
 
+    it('rebuilds a missing player cache from an in-progress completed round on stats-page demand', () => {
+      const gameId = insertTestGame(database, {
+        northUserId: 'user1',
+        winnerTeam: 'NS',
+        status: 'in_progress',
+      });
+      writeEventData(database, gameId, makeMinimalAccumulator(gameId, {
+        tichuCall: true,
+        tichuCallSuccess: true,
+      }));
+
+      expect(getCacheRow(database, 'user1')).toBeUndefined();
+
+      const rebuilt = refreshPlayerStatsCacheIfStale(database, 'user1');
+
+      expect(rebuilt).toBe(true);
+      const row = getCacheRow(database, 'user1')!;
+      expect(row.games_played).toBe(0);
+      expect(row.total_rounds_played).toBe(1);
+      expect(row.tichu_calls).toBe(1);
+    });
+
     it('rebuilds stale player cache when a newer game has not been incrementally applied', () => {
       const g1 = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'NS' });
       writeEventData(database, g1, makeMinimalAccumulator(g1));
@@ -555,6 +605,32 @@ describe('Stats Cache', () => {
   });
 
   // ─── REQ-F-MC05: Cache Disposability ─────────────────────────────
+
+  describe('Leaderboard stats freshness', () => {
+    it('rebuilds a missing cache when completed games exist', () => {
+      const gameId = insertTestGame(database, { northUserId: 'user1', winnerTeam: 'NS' });
+      writeEventData(database, gameId, makeMinimalAccumulator(gameId));
+
+      const rebuilt = refreshLeaderboardStatsCacheIfStale(database);
+
+      expect(rebuilt).toBe(true);
+      expect(getCacheRow(database, 'user1')!.games_played).toBe(1);
+    });
+
+    it('does not rebuild only for in-progress games', () => {
+      const gameId = insertTestGame(database, {
+        northUserId: 'user1',
+        winnerTeam: 'NS',
+        status: 'in_progress',
+      });
+      writeEventData(database, gameId, makeMinimalAccumulator(gameId));
+
+      const rebuilt = refreshLeaderboardStatsCacheIfStale(database);
+
+      expect(rebuilt).toBe(false);
+      expect(getCacheRow(database, 'user1')).toBeUndefined();
+    });
+  });
 
   describe('REQ-F-MC05: Cache disposability', () => {
     it('should restore all stats after dropping and rebuilding cache', () => {

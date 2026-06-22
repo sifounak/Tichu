@@ -72,6 +72,7 @@ function syncSchema(client: BetterSqlite3Database): void {
     CREATE TABLE IF NOT EXISTS games (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       room_code TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'completed',
       started_at TEXT NOT NULL DEFAULT (datetime('now')),
       ended_at TEXT NOT NULL DEFAULT (datetime('now')),
       winner_team TEXT NOT NULL,
@@ -474,6 +475,12 @@ function syncSchema(client: BetterSqlite3Database): void {
     } catch {
       // Column already exists
     }
+  }
+
+  try {
+    client.exec(`ALTER TABLE games ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'`);
+  } catch {
+    // Column already exists
   }
 
   // Rename stats_cache.dragon_given_after_opponent_win → captured_dragon_with_bomb.

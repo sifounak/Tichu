@@ -109,6 +109,22 @@ Statuses used: `Defined`, `Correct`, `Incorrect`, `Ambiguous`, `Approximate`, `U
 
 ---
 
+## Issue #25 Round-by-Round Stats Update
+
+Issue #25 implements the round-by-round persistence gap that was explicitly deferred by the issue #21 audit. The entries below trace the new behavior added after the audit commit.
+
+| Req ID | Requirement | Implementation evidence | Test evidence | Status |
+|---|---|---|---|---|
+| REQ-25-RR-01 | Persist a database game shell only after at least one round is complete, and mark it `in_progress` until game over. | `code/packages/server/src/db/schema.ts:33`; `code/packages/server/src/db/connection.ts:75`; `code/packages/server/src/db/game-persistence.ts:119`; `code/packages/server/src/room/room-handler.ts:1137` | `code/packages/server/tests/db/game-persistence.test.ts:207` | Passed |
+| REQ-25-RR-02 | Persist each completed round into `game_rounds` and raw event tables without duplicating previously persisted rounds. | `code/packages/server/src/db/game-persistence.ts:52`; `code/packages/server/src/db/event-persistence.ts:51`; `code/packages/server/src/room/room-handler.ts:1152` | `code/packages/server/tests/db/game-persistence.test.ts:216`; `code/packages/server/tests/db/event-persistence.test.ts` | Passed |
+| REQ-25-RR-03 | Defer `stats_cache` updates while a game is in progress; stats-page reads rebuild a stale/missing player cache on demand from persisted completed-round data. | `code/packages/server/src/game/game-manager.ts:402`; `code/packages/server/src/room/room-handler.ts:1152`; `code/packages/server/src/db/stats-cache.ts:1363` | `code/packages/server/tests/db/stats-cache.test.ts:502` | Passed |
+| REQ-25-RR-04 | Keep final game-history and final-result stats from treating in-progress rows as completed games. | `code/packages/server/src/db/game-persistence.ts:288`; `code/packages/server/src/db/stats-cache.ts:489`; `code/packages/server/src/db/stats-cache.ts:1034` | `code/packages/server/tests/db/game-persistence.test.ts:212`; `code/packages/server/tests/db/stats-cache.test.ts:184` | Passed |
+| REQ-25-RR-05 | On game over, complete the existing progress row instead of inserting a duplicate completed game. | `code/packages/server/src/db/game-persistence.ts:213`; `code/packages/server/src/room/room-handler.ts:1169` | `code/packages/server/tests/db/game-persistence.test.ts:226` | Passed |
+| REQ-25-RR-06 | Reuse an existing in-progress row after restore and mark interrupted progress rows as `abandoned` when the active game is restarted. | `code/packages/server/src/db/game-persistence.ts:132`; `code/packages/server/src/room/room-handler.ts:1228` | Full server suite, including graceful restart and restart-round/game coverage | Passed |
+| REQ-25-RR-07 | Refresh leaderboard cache on demand when completed-game data is newer or the cache is missing. | `code/packages/server/src/auth/auth-routes.ts:161`; `code/packages/server/src/db/stats-cache.ts:1330` | `code/packages/server/tests/db/stats-cache.test.ts:609` | Passed |
+
+---
+
 ## Required Future Test Trace
 
 | Scenario | Requirement coverage | Minimum future test |
@@ -129,7 +145,7 @@ Statuses used: `Defined`, `Correct`, `Incorrect`, `Ambiguous`, `Approximate`, `U
 
 ## Audit Verification
 
-Baseline verification command:
+Baseline verification command from the audit-only commit:
 
 ```bash
 pnpm --filter @tichu/server test -- tests/db/stats-cache.test.ts
@@ -137,4 +153,12 @@ pnpm --filter @tichu/server test -- tests/db/stats-cache.test.ts
 
 Baseline result before docs: 40 tests passed.
 
-Post-docs verification should run the same command because this phase is documentation-only.
+Issue #25 implementation verification:
+
+```bash
+pnpm --filter @tichu/server test -- tests/db/game-persistence.test.ts tests/db/event-persistence.test.ts tests/db/stats-cache.test.ts tests/room/room-handler.test.ts
+pnpm --filter @tichu/server test
+pnpm --filter @tichu/server typecheck
+```
+
+Issue #25 result: focused persistence/stats suite passed 95 tests after deferred in-progress cache refresh; full server suite passed 998 tests; server typecheck passed.

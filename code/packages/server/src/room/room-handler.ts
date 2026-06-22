@@ -15,7 +15,7 @@ import { GameStore } from '../game/game-store.js';
 import type { GameManager } from '../game/game-manager.js';
 import { SeatQueue } from './seat-queue.js';
 import { VoteHandler } from '../game/vote-handler.js';
-import { saveGameResult } from '../db/game-persistence.js';
+import { completeGameProgress, saveGameProgress, saveGameResult } from '../db/game-persistence.js';
 import { writeEventData, deleteRecoveryFile, writeEventDataOnAbandon } from '../db/event-persistence.js';
 import { updateCacheAfterGame } from '../db/stats-cache.js';
 import type { GameResult, RoundResult } from '../db/game-persistence.js';
@@ -38,6 +38,7 @@ export class RoomHandler {
   private readonly preGameVoteHandler: VoteHandler;
   // REQ-F-PW01: Database for game persistence
   private readonly database: Database | null;
+  private readonly progressGameIds = new Map<string, number>();
 
   constructor(
     router: MessageRouter,
@@ -1133,14 +1134,44 @@ export class RoomHandler {
     // REQ-F-PW01: Wire game-end callback for persistence + auto-return to pre-game
     const db = this.database;
     const gameRef = game;
+    game.wireRoundCompleteCallback((context: GameMachineContext, accumulator, roundNumber) => {
+      if (!db) return;
+
+      const room = this.roomManager.getRoom(roomCode);
+      const players = room?.players ?? [];
+      const snapshot = this.buildGamePersistenceSnapshot(roomCode, players, context);
+
+      try {
+        const dbGameId = saveGameProgress(
+          db,
+          snapshot.gameResult,
+          snapshot.rounds,
+          this.progressGameIds.get(roomCode),
+        );
+        this.progressGameIds.set(roomCode, dbGameId);
+        writeEventData(db, dbGameId, accumulator, [roundNumber]);
+        deleteRecoveryFile(accumulator.gameId);
+      } catch (err) {
+        console.error(`[PERSIST] Failed to persist completed round ${roundNumber} for room ${roomCode}:`, err);
+      }
+    });
     game.wireGameEndCallback((context: GameMachineContext, joinedAfterSpectating: Set<string>) => {
       // Persist game results if database is available
       if (db) {
         const room = this.roomManager.getRoom(roomCode);
         const players = room?.players ?? [];
-        const dbGameId = this.persistGameResult(db, roomCode, players, context, joinedAfterSpectating);
+        const existingGameId = this.progressGameIds.get(roomCode);
+        const dbGameId = existingGameId ?? this.persistGameResult(db, roomCode, players, context, joinedAfterSpectating);
+        if (existingGameId) {
+          try {
+            const snapshot = this.buildGamePersistenceSnapshot(roomCode, players, context);
+            completeGameProgress(db, existingGameId, snapshot.gameResult, snapshot.rounds);
+          } catch (err) {
+            console.error(`[PERSIST] Failed to complete persisted game ${existingGameId}:`, err);
+          }
+        }
         // REQ-F-ST03/ST04: Write event data and clean up recovery file
-        if (dbGameId !== null) {
+        if (dbGameId !== null && !existingGameId) {
           try {
             const accumulator = gameRef.getEventAccumulator();
             writeEventData(db, dbGameId, accumulator);
@@ -1154,6 +1185,13 @@ export class RoomHandler {
             updateCacheAfterGame(db, dbGameId);
           } catch (err) {
             console.error(`[PERSIST] Failed to update stats cache for game ${dbGameId}:`, err);
+          }
+        }
+        if (dbGameId !== null && existingGameId) {
+          try {
+            updateCacheAfterGame(db, dbGameId);
+          } catch (err) {
+            console.error(`[PERSIST] Failed to update stats cache for completed game ${dbGameId}:`, err);
           }
         }
       }
@@ -1182,8 +1220,19 @@ export class RoomHandler {
     }
 
     // End the current game and reset ready states so players must re-ready
+    const progressGameId = this.progressGameIds.get(roomCode);
+    if (progressGameId && this.database) {
+      try {
+        this.database.client.prepare(
+          "UPDATE games SET status = 'abandoned' WHERE id = ? AND status = 'in_progress'",
+        ).run(progressGameId);
+      } catch {
+        // Progress cleanup must not block restart.
+      }
+    }
     this.roomManager.endGame(roomCode);
     this.gameStore.destroyGameByRoom(roomCode);
+    this.progressGameIds.delete(roomCode);
     this.roomManager.resetReady(roomCode);
     this.reReadyBots(roomCode);
 
@@ -1261,6 +1310,16 @@ export class RoomHandler {
     context: GameMachineContext,
     _joinedAfterSpectating?: Set<string>,
   ): number | null {
+    const { gameResult, rounds } = this.buildGamePersistenceSnapshot(roomCode, players, context);
+    const dbGameId = saveGameResult(database, gameResult, rounds);
+    return dbGameId;
+  }
+
+  private buildGamePersistenceSnapshot(
+    roomCode: string,
+    players: RoomPlayer[],
+    context: GameMachineContext,
+  ): { gameResult: GameResult; rounds: RoundResult[] } {
     const winnerTeam = context.winner === 'northSouth' ? 'NS' as const : 'EW' as const;
 
     // Build player map: seat → { userId, name }
@@ -1312,8 +1371,7 @@ export class RoomHandler {
       };
     });
 
-    const dbGameId = saveGameResult(database, gameResult, rounds);
-    return dbGameId;
+    return { gameResult, rounds };
   }
 
   // ─── Seat Queue (REQ-F-SP07–SP10, SP27, SP28, SP31, SP32) ───────────

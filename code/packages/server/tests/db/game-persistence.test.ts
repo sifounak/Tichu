@@ -1,7 +1,15 @@
 // Verifies: REQ-F-AU03
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { saveGameResult, getPlayerGameHistory, getGameRounds } from '../../src/db/game-persistence.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import {
+  completeGameProgress,
+  saveGameProgress,
+  saveGameResult,
+  getPlayerGameHistory,
+  getGameRounds,
+} from '../../src/db/game-persistence.js';
+import { createDatabase } from '../../src/db/connection.js';
 import type { Database } from '../../src/db/connection.js';
 import type { GameResult, RoundResult } from '../../src/db/game-persistence.js';
 
@@ -168,6 +176,70 @@ describe('game-persistence', () => {
       expect(roundValuesArg[1].roundNumber).toBe(2);
     });
 
+  });
+
+  describe('round-by-round progress persistence', () => {
+    const testDbPath = './data/test-game-progress.sqlite';
+    let realDb: Database;
+
+    beforeEach(() => {
+      if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
+      realDb = createDatabase(testDbPath);
+      for (const [id, name] of [
+        ['user1', 'Alice'],
+        ['user2', 'Bob'],
+        ['user3', 'Carol'],
+        ['user4', 'Dave'],
+      ]) {
+        realDb.client.prepare('INSERT INTO users (id, display_name) VALUES (?, ?)').run(id, name);
+      }
+    });
+
+    afterEach(() => {
+      realDb.close();
+      if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
+    });
+
+    it('persists completed rounds once, hides in-progress games from history, then completes the same row', () => {
+      const gameResult = makeGameResult({ roundCount: 1, finalScoreNS: 100, finalScoreEW: 50 });
+      const round1 = makeRound({ roundNumber: 1, totalNS: 100, totalEW: 50 });
+
+      const gameId = saveGameProgress(realDb, gameResult, [round1]);
+      expect(realDb.client.prepare('SELECT status FROM games WHERE id = ?').get(gameId)).toEqual({
+        status: 'in_progress',
+      });
+      expect(
+        realDb.client.prepare('SELECT COUNT(*) AS n FROM games WHERE status = ?').get('completed'),
+      ).toEqual({ n: 0 });
+
+      const round2 = makeRound({ roundNumber: 2, totalNS: 80, totalEW: 120 });
+      saveGameProgress(
+        realDb,
+        { ...gameResult, roundCount: 2, finalScoreNS: 180, finalScoreEW: 170 },
+        [round1, round2],
+        gameId,
+      );
+      expect(
+        realDb.client.prepare('SELECT COUNT(*) AS n FROM game_rounds WHERE game_id = ?').get(gameId),
+      ).toEqual({ n: 2 });
+
+      completeGameProgress(
+        realDb,
+        gameId,
+        { ...gameResult, roundCount: 2, finalScoreNS: 180, finalScoreEW: 170 },
+        [round1, round2],
+      );
+
+      expect(realDb.client.prepare('SELECT status FROM games WHERE id = ?').get(gameId)).toEqual({
+        status: 'completed',
+      });
+      expect(
+        realDb.client.prepare('SELECT COUNT(*) AS n FROM games WHERE status = ?').get('completed'),
+      ).toEqual({ n: 1 });
+      expect(
+        realDb.client.prepare('SELECT COUNT(*) AS n FROM game_rounds WHERE game_id = ?').get(gameId),
+      ).toEqual({ n: 2 });
+    });
   });
 
   describe('getPlayerGameHistory', () => {

@@ -48,10 +48,22 @@ function getRecoveryPath(gameId: number): string {
  * @param dbGameId - The database game ID (from games table insert)
  * @param accumulator - The in-memory accumulated event data
  */
-export function writeEventData(database: Database, dbGameId: number, accumulator: GameEventAccumulator): void {
+export function writeEventData(
+  database: Database,
+  dbGameId: number,
+  accumulator: GameEventAccumulator,
+  roundNumbers?: number[],
+): void {
   const { db } = database;
+  const roundFilter = roundNumbers ? new Set(roundNumbers) : null;
   db.transaction((tx: any) => {
     for (const round of accumulator.rounds) {
+      if (roundFilter && !roundFilter.has(round.roundNumber)) continue;
+      const existingRound = database.client.prepare(
+        'SELECT 1 FROM player_rounds WHERE game_id = ? AND round_number = ? LIMIT 1',
+      ).get(dbGameId, round.roundNumber);
+      if (existingRound) continue;
+
       // Update game_rounds with score-at-start fields (REQ-F-SC02)
       tx.run(sql`UPDATE game_rounds SET
         score_ns_at_start = ${round.scoreNSAtStart},

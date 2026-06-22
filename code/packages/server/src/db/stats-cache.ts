@@ -35,6 +35,7 @@ function getOpponentSeats(seat: Seat): [Seat, Seat] {
 
 interface GameRow {
   id: number;
+  status: string;
   winner_team: string;
   final_score_ns: number;
   final_score_ew: number;
@@ -364,7 +365,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
 
   // ── Load games metadata for the games this user participated in ──
   const userGames = db.all(sql`
-    SELECT id, winner_team, final_score_ns, final_score_ew, target_score,
+    SELECT id, status, winner_team, final_score_ns, final_score_ew, target_score,
            north_user_id, east_user_id, south_user_id, west_user_id
     FROM games
     WHERE id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
@@ -485,7 +486,10 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
   // ═══════════════════════════════════════════════════════════════════════
 
   // REQ-F-SA01: gamesPlayed = count of games with ≥1 player_rounds row for this user.
-  stats.gamesPlayed = userGames.length;
+  const completedUserGames = new Set(
+    userGames.filter(g => g.status === 'completed').map(g => g.id),
+  );
+  stats.gamesPlayed = completedUserGames.size;
 
   for (const game of userGames) {
     // SA02/SA03/SA13: these credits are gated on final-occupancy.
@@ -495,7 +499,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     const scoreDiff = Math.abs(game.final_score_ns - game.final_score_ew);
     const myTeamWon = game.winner_team === myTeamStr;
 
-    if (finalSeat !== null) {
+    if (completedUserGames.has(game.id) && finalSeat !== null) {
       // REQ-F-SA02: gamesWon only when final occupant AND team won.
       // REQ-F-SA03: largestWinDiff / largestLossDiff gated on final occupancy.
       if (myTeamWon) {
@@ -509,7 +513,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
       // does not trigger for reconnects.
       const minRound = Math.min(...myRoundsInGame);
       if (minRound > 1) stats.gamesJoinedAfterSpectating++;
-    } else {
+    } else if (completedUserGames.has(game.id)) {
       // REQ-F-SA12: user participated but is not the final occupant → forfeited,
       // regardless of team outcome. (SA15: disjoint from gamesWon by construction.)
       stats.gamesForfeited++;
@@ -1024,11 +1028,12 @@ function computeRelationalStatsForUser(database: Database, userId: string): Rela
 
   // Get all games for this user
   const userGames = db.all(sql`
-    SELECT id, winner_team, final_score_ns, final_score_ew,
+    SELECT id, status, winner_team, final_score_ns, final_score_ew,
            north_user_id, east_user_id, south_user_id, west_user_id
     FROM games
-    WHERE north_user_id = ${userId} OR east_user_id = ${userId}
-       OR south_user_id = ${userId} OR west_user_id = ${userId}
+    WHERE status = 'completed'
+      AND (north_user_id = ${userId} OR east_user_id = ${userId}
+       OR south_user_id = ${userId} OR west_user_id = ${userId})
   `) as GameRow[];
 
   if (userGames.length === 0) return results;
@@ -1320,6 +1325,41 @@ export function rebuildPlayerCache(database: Database, userId: string): void {
 
   const relStats = computeRelationalStatsForUser(database, userId);
   writeRelationalStatsToCache(database, userId, relStats);
+}
+
+export function refreshLeaderboardStatsCacheIfStale(database: Database): boolean {
+  const { db } = database;
+
+  const rawRows = db.all(sql`
+    SELECT COUNT(*) as completedGames, MAX(ended_at) as latestEndedAt
+    FROM games
+    WHERE status = 'completed'
+  `) as { completedGames: number; latestEndedAt: string | null }[];
+  const raw = rawRows[0];
+  if (!raw || raw.completedGames === 0) {
+    return false;
+  }
+
+  const cacheRows = db.all(sql`
+    SELECT COUNT(*) as cacheRows, MAX(last_updated_at) as latestCacheAt
+    FROM stats_cache
+  `) as { cacheRows: number; latestCacheAt: string | null }[];
+  const cache = cacheRows[0];
+  const isMissing = !cache || cache.cacheRows === 0;
+  const latestEndedAtMs = raw.latestEndedAt === null ? null : parseDbTimestampMs(raw.latestEndedAt);
+  const latestCacheAtMs = cache?.latestCacheAt === null || cache?.latestCacheAt === undefined
+    ? null
+    : parseDbTimestampMs(cache.latestCacheAt);
+  const hasNewerCompletedGame = latestEndedAtMs !== null
+    && latestCacheAtMs !== null
+    && latestEndedAtMs > latestCacheAtMs;
+
+  if (!isMissing && !hasNewerCompletedGame) {
+    return false;
+  }
+
+  rebuildStatsCache(database);
+  return true;
 }
 
 function parseDbTimestampMs(value: string): number | null {

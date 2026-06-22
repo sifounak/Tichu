@@ -30,6 +30,7 @@ export const users = sqliteTable('users', {
 export const games = sqliteTable('games', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   roomCode: text('room_code').notNull(),
+  status: text('status').notNull().default('completed'),
   startedAt: text('started_at').notNull().default(sql`(datetime('now'))`),
   endedAt: text('ended_at').notNull().default(sql`(datetime('now'))`),
   winnerTeam: text('winner_team').notNull(),

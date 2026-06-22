@@ -95,6 +95,7 @@ export class GameManager {
   private choosingSeats = new Set<Seat>();
   /** REQ-F-PW01: Callback invoked when game reaches gameOver state */
   private onGameEnd?: (context: GameMachineContext, joinedAfterSpectating: Set<string>) => void;
+  private onRoundComplete?: (context: GameMachineContext, accumulator: GameEventAccumulator, roundNumber: number) => void;
   /** REQ-F-SO15: Track players who joined as spectators then were promoted mid-game */
   private readonly joinedAfterSpectating = new Set<string>();
   /** Track all human users who have occupied seats during this game */
@@ -396,6 +397,12 @@ export class GameManager {
    *  Called by room-handler to register persistence logic. */
   wireGameEndCallback(onGameEnd: (context: GameMachineContext, joinedAfterSpectating: Set<string>) => void): void {
     this.onGameEnd = onGameEnd;
+  }
+
+  wireRoundCompleteCallback(
+    onRoundComplete: (context: GameMachineContext, accumulator: GameEventAccumulator, roundNumber: number) => void,
+  ): void {
+    this.onRoundComplete = onRoundComplete;
   }
 
   /**
@@ -806,6 +813,13 @@ export class GameManager {
         this.eventCapture.finalizeRound();
         // REQ-F-ST02: Serialize recovery file at round end
         this.writeRecoveryFile();
+        if (this.onRoundComplete) {
+          try {
+            this.onRoundComplete(this.context, this.eventCapture.getAccumulator(), round.roundNumber);
+          } catch {
+            // Stats persistence failure must not crash the game server
+          }
+        }
       }
       this.broadcastState();
       if (this.scoringTimer) clearTimeout(this.scoringTimer);

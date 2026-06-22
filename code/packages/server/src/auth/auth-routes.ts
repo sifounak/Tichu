@@ -9,7 +9,7 @@ import { ensureGuestUser, getUserById } from './guest.js';
 import { registerAccount, loginAccount, verifyToken } from './account.js';
 import { getPlayerGameHistory, getGameRounds } from '../db/game-persistence.js';
 import { getLeaderboard, getRecentGames, getPlayerProfile, getPlayerPartners, getPlayerOpponents, getPlayerRelationships } from '../db/queries.js';
-import { refreshPlayerStatsCacheIfStale } from '../db/stats-cache.js';
+import { refreshLeaderboardStatsCacheIfStale, refreshPlayerStatsCacheIfStale } from '../db/stats-cache.js';
 
 export function registerAuthRoutes(fastify: FastifyInstance, database: Database, jwtSecret: string): void {
   // ─── Guest session ──────────────────────────────────────────────────
@@ -158,6 +158,7 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
     if (isNaN(limit) || isNaN(minGames)) {
       return reply.status(400).send({ error: 'limit and minGames must be numbers' });
     }
+    refreshLeaderboardStatsCacheIfStale(database);
     const leaderboard = await getLeaderboard(database, limit, minGames);
     return { leaderboard };
   });
