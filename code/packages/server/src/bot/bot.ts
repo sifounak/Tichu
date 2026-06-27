@@ -253,6 +253,7 @@ export class Bot implements BotStrategy {
    * - REQ-F-PASS06: Dog routing — opponent GT/T → Dog to opponent
    * - REQ-F-PASS07: Dog routing — strong hand → Dog to partner/right, weak → left
    * - REQ-F-PASS08: Track passedToRight for Mahjong wish
+   * - Partner GT/T support: pass strongest support card and keep Dog from displacing it
    */
   chooseCardsToPass(hand: GameCard[], seat: Seat): Record<Seat, GameCard> {
     this.mySeat = seat;
@@ -267,9 +268,9 @@ export class Bot implements BotStrategy {
     // REQ-F-PASS01: Use M1 strength definition (2+ power cards)
     const isStrongHand = hasStrength(hand);
     const partnerCall = this.lastRoundState?.players[partner]?.tipiCall ?? 'none';
-    const partnerBlindGrand = partnerCall === 'blindGrandTichu';
+    const partnerNeedsTichuSupport = this.isAnyTichuCall(partnerCall);
 
-    const defaultPartnerCard = partnerBlindGrand
+    const defaultPartnerCard = partnerNeedsTichuSupport
       ? this.selectStrongestPartnerPassCard(hand, sorted)
       : this.selectDefaultPartnerPassCard(
         hand,
@@ -316,7 +317,7 @@ export class Bot implements BotStrategy {
         // Weak hand — Dog to left opponent
         dogRecipient = leftOpp;
       }
-      if (partnerBlindGrand && dogRecipient === partner) {
+      if (partnerNeedsTichuSupport && dogRecipient === partner) {
         dogRecipient = null;
       }
     }
@@ -870,11 +871,11 @@ export class Bot implements BotStrategy {
    * 1. Following on opponent's Ace → prefer (singleton-killer)
    * 2. Phoenix completes a combination eliminating 3+ cards → prefer (wild)
    * Never play when:
-   * - REQ-F-PHX01a: On single rank R unless all ranks above R accounted for (cascading)
+   * - REQ-F-PHX01a: On single rank R unless all ranks above R have been played
    * - REQ-F-PHX02a: In low multi-card (trick rank < 7) with < 4 cards, unless going out
    *
    * Acceptable when:
-   * - REQ-F-PHX03a: Over single rank R when all ranks above R accounted for (cascading)
+   * - REQ-F-PHX03a: Over single rank R when all ranks above R have been played
    * - REQ-F-PHX05: In straight (rank >= 10 or length >= 5)
    * - REQ-F-PHX06: In consecutive pairs
    * - REQ-F-PHX07: In triple (rank >= 8)
@@ -908,24 +909,10 @@ export class Bot implements BotStrategy {
           return 'acceptable';
         }
 
-        // Exception (b): Phoenix is second-to-last card and remaining card
-        // guarantees going out next (Dragon or Ace)
-        if (remainingAfterPhoenix.length === 1) {
-          const lastCard2 = remainingAfterPhoenix[0];
-          if (isDragon(lastCard2.card) ||
-            (lastCard2.card.kind === 'standard' && lastCard2.card.rank === 14)) {
-            return 'acceptable';
-          }
-        }
-
-        // REQ-F-PHX13: Hard floor — never below Queen (rank 12)
-        if (lastRank < 12) {
-          return 'never';
-        }
-
-        // REQ-F-PHX12: Must be played over the highest unaccounted standard rank
-        const highestUnaccounted = this.cardTracker.getHighestUnaccountedStandardRank();
-        if (highestUnaccounted !== null && lastRank < highestUnaccounted) {
+        // REQ-F-PHX12: Below Ace, Phoenix single is only justified when all
+        // higher standard cards have already been played, making rank+0.5 the
+        // highest non-Dragon single.
+        if (lastRank < 14 && !this.cardTracker.allRanksAbovePlayed(lastRank)) {
           return 'never';
         }
 

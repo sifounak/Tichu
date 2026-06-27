@@ -517,6 +517,65 @@ describe('Bot', () => {
       expect(result.south.card.kind).not.toBe('dog');
     });
 
+    it('passes strongest card to partner who called Grand Tichu', () => {
+      const bot = new Bot();
+      const hand = [
+        card('dragon'),
+        card('phoenix'),
+        card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 13, 'jade', 1301),
+        card('standard', 3, 'jade', 301), card('standard', 4, 'pagoda', 402),
+        card('standard', 5, 'star', 503), card('standard', 6, 'sword', 604),
+        card('standard', 7, 'jade', 701), card('standard', 8, 'pagoda', 802),
+        card('standard', 9, 'star', 903), card('standard', 10, 'sword', 1004),
+        card('standard', 11, 'jade', 1101),
+      ];
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'grandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.setContext(roundState, { northSouth: 0, eastWest: 0 }, 1000);
+
+      const result = bot.chooseCardsToPass(hand, 'north');
+
+      expect(result.south.card.kind).toBe('dragon');
+      expect(result.south.card.kind).not.toBe('dog');
+    });
+
+    it('passes a power card to partner who called Tichu instead of a low non-breaking card', () => {
+      const bot = new Bot();
+      const hand = [
+        card('phoenix'),
+        card('dog'),
+        card('standard', 14, 'jade', 1401),
+        card('standard', 13, 'jade', 1301),
+        card('standard', 3, 'jade', 301), card('standard', 4, 'pagoda', 402),
+        card('standard', 5, 'star', 503), card('standard', 6, 'sword', 604),
+        card('standard', 7, 'jade', 701), card('standard', 8, 'pagoda', 802),
+        card('standard', 9, 'star', 903), card('standard', 10, 'sword', 1004),
+        card('standard', 11, 'jade', 1101), card('standard', 12, 'pagoda', 1202),
+      ];
+      const roundState = makeRoundState({
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      bot.setContext(roundState, { northSouth: 0, eastWest: 0 }, 1000);
+
+      const result = bot.chooseCardsToPass(hand, 'north');
+
+      expect(result.south.card.kind).toBe('phoenix');
+      expect(result.south.card.kind).not.toBe('dog');
+    });
+
     it('keeps Dog when weak hand passes partner a strong card and retains control', () => {
       const bot = new Bot();
       const hand = [
@@ -1385,8 +1444,8 @@ describe('Bot', () => {
       expect(decision.action).toBe('pass');
     });
 
-    // Verifies: REQ-F-PHX03a — Phoenix on Queen accepted when all Aces+Kings accounted
-    it('accepts Phoenix on Queen when all Aces and Kings accounted for', () => {
+    // Verifies: REQ-F-PHX03a — Phoenix on Queen accepted when all Aces+Kings played
+    it('accepts Phoenix on Queen when all Aces and Kings have been played', () => {
       const bot = new Bot();
       const phoenixCard = card('phoenix');
       const c3 = card('standard', 3, 'jade', 301);
@@ -1431,8 +1490,55 @@ describe('Bot', () => {
       });
 
       const decision = bot.choosePlay(ctx);
-      // Should play — all ranks above Queen are accounted for
+      // Should play — all ranks above Queen have been played
       expect(decision.action).toBe('play');
+    });
+
+    it('avoids Phoenix on Queen when an Ace is still in the bot hand', () => {
+      const bot = new Bot();
+      const phoenixCard = card('phoenix');
+      const ownAce = card('standard', 14, 'jade', 1401);
+      const hand = [phoenixCard, ownAce, card('standard', 3, 'jade', 301)];
+
+      const playedAces = [
+        card('standard', 14, 'pagoda', 1402),
+        card('standard', 14, 'star', 1403),
+        card('standard', 14, 'sword', 1404),
+      ];
+      const kings = [
+        card('standard', 13, 'jade', 1301),
+        card('standard', 13, 'pagoda', 1302),
+        card('standard', 13, 'star', 1303),
+        card('standard', 13, 'sword', 1304),
+      ];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 12, 'jade', 1201)], 12) },
+      ]);
+
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [playedAces], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [kings], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 12.5);
+      const ctx = makePlayContext({
+        hand,
+        currentTrick: trick,
+        validPlays: [phoenixPlay],
+        canPass: true,
+        roundState: rs,
+        seat: 'north',
+      });
+
+      const decision = bot.choosePlay(ctx);
+      expect(decision.action).toBe('pass');
     });
   });
 
@@ -1536,7 +1642,7 @@ describe('Bot', () => {
       expect(result).toBe('never');
     });
 
-    it('returns never for Phoenix single on 10 (below Queen floor)', () => {
+    it('returns never for Phoenix single on 10 while higher cards remain unplayed', () => {
       const phoenixCard = card('phoenix');
       const c5 = card('standard', 5, 'jade', 501);
       const hand = [phoenixCard, c5];
@@ -1552,6 +1658,42 @@ describe('Bot', () => {
       const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 10.5);
       const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
       expect(result).toBe('never');
+    });
+
+    it('returns acceptable for Phoenix single on 10 when every higher standard card has been played', () => {
+      const phoenixCard = card('phoenix');
+      const c5 = card('standard', 5, 'jade', 501);
+      const hand = [phoenixCard, c5];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single,
+          [card('standard', 10, 'jade', 1001)], 10) },
+      ]);
+
+      const playedHighCards: GameCard[] = [];
+      for (const rank of [11, 12, 13, 14]) {
+        playedHighCards.push(
+          card('standard', rank, 'jade', rank * 100 + 1),
+          card('standard', rank, 'pagoda', rank * 100 + 2),
+          card('standard', rank, 'star', rank * 100 + 3),
+          card('standard', rank, 'sword', rank * 100 + 4),
+        );
+      }
+
+      const rs = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [playedHighCards], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+      const bot = setupBot(hand, rs);
+
+      const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 10.5);
+      const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
+      expect(result).toBe('acceptable');
     });
 
     it('returns acceptable for Phoenix single on Ace when Aces are highest unaccounted', () => {
@@ -1608,7 +1750,7 @@ describe('Bot', () => {
       expect(result).toBe('acceptable');
     });
 
-    it('returns acceptable for Phoenix second-to-last with Dragon remaining', () => {
+    it('returns never for Phoenix second-to-last with Dragon remaining when higher cards remain unplayed', () => {
       const phoenixCard = card('phoenix');
       const dragonCard = card('dragon');
       const hand = [phoenixCard, dragonCard];
@@ -1623,7 +1765,7 @@ describe('Bot', () => {
 
       const phoenixPlay = makeCombo(CombinationType.Single, [phoenixCard], 5.5);
       const result = (bot as any).evaluatePhoenixPlay(phoenixPlay, trick, hand);
-      expect(result).toBe('acceptable');
+      expect(result).toBe('never');
     });
 
     it('returns never for Phoenix second-to-last with low single remaining', () => {

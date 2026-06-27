@@ -312,6 +312,19 @@ export class CardTracker {
   }
 
   /**
+   * Check if every standard rank strictly above `rank` has been fully played.
+   * This is stricter than "accounted for": cards in our own hand still count
+   * as unplayed high singles, so Phoenix + 0.5 is not the highest single.
+   */
+  allRanksAbovePlayed(rank: number): boolean {
+    for (let r = rank + 1; r <= 14; r++) {
+      const played = this.playedByRank.get(r)?.count ?? 0;
+      if (played < 4) return false;
+    }
+    return true;
+  }
+
+  /**
    * REQ-F-PHX12: Get the highest standard rank (14 down to 2) that has
    * unaccounted cards (not played and not in own hand). Returns null if
    * all standard ranks are fully accounted for.

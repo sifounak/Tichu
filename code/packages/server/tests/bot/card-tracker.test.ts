@@ -532,6 +532,50 @@ describe('CardTracker', () => {
     });
   });
 
+  describe('allRanksAbovePlayed', () => {
+    it('returns true for rank 14 (Ace) because no standard ranks are higher', () => {
+      tracker.update(makeRoundState(), 'north', []);
+      expect(tracker.allRanksAbovePlayed(14)).toBe(true);
+    });
+
+    it('returns false when higher cards are only in the bot hand', () => {
+      const ace1 = card('standard', 14, 'jade', 5101);
+      const ace2 = card('standard', 14, 'pagoda', 5102);
+      const ace3 = card('standard', 14, 'star', 5103);
+      const ace4 = card('standard', 14, 'sword', 5104);
+      tracker.update(makeRoundState(), 'north', [ace1, ace2, ace3, ace4]);
+      expect(tracker.allRanksAboveAccountedFor(13)).toBe(true);
+      expect(tracker.allRanksAbovePlayed(13)).toBe(false);
+    });
+
+    it('returns true when every higher standard card has been played', () => {
+      const aces = [
+        card('standard', 14, 'jade', 5201),
+        card('standard', 14, 'pagoda', 5202),
+        card('standard', 14, 'star', 5203),
+        card('standard', 14, 'sword', 5204),
+      ];
+      const kings = [
+        card('standard', 13, 'jade', 5211),
+        card('standard', 13, 'pagoda', 5212),
+        card('standard', 13, 'star', 5213),
+        card('standard', 13, 'sword', 5214),
+      ];
+      const rs = makeRoundState({
+        players: {
+          north: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [], tricksWon: [aces], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          south: { hand: [], tricksWon: [kings], tipiCall: 'none', hasPlayed: true, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      tracker.update(rs, 'north', []);
+
+      expect(tracker.allRanksAbovePlayed(12)).toBe(true);
+    });
+  });
+
   // Verifies: REQ-F-PHX12 (highest unaccounted standard rank)
   describe('getHighestUnaccountedStandardRank', () => {
     it('returns 14 (Ace) when no cards have been played', () => {
