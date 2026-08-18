@@ -928,23 +928,14 @@ export class GameManager {
         const hand = round.players[seat].hand;
         const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
         const validPlays = getValidPlays(hand, round.currentTrick, wish);
-        if (validPlays.length === 0) {
-          const trickCardCount = round.currentTrick.plays[0].combination.cards.length;
-          // Auto-pass only when player has fewer cards than the trick requires:
-          // - Trick has N cards (N < 4): auto-pass if player has < N cards
-          // - Trick has N cards (N >= 4): auto-pass if player has <= 3 cards (can't bomb)
-          const shouldAutoPass = trickCardCount >= 4
-            ? hand.length <= 3
-            : hand.length < trickCardCount;
-          if (shouldAutoPass) {
-            this.autoPassTimer = setTimeout(() => {
-              if (this.destroyed) return;
-              // REQ-F-CP02/CP17: Record pre-play context for auto-pass
-              this.recordPrePlayForAction(seat, null, 'automation');
-              this.actor.send({ type: 'PASS_TURN', seat });
-              this.broadcastState();
-            }, 500);
-          }
+        if (validPlays.length === 0 && hand.length < 4) {
+          this.autoPassTimer = setTimeout(() => {
+            if (this.destroyed) return;
+            // REQ-F-CP02/CP17: Record pre-play context for auto-pass
+            this.recordPrePlayForAction(seat, null, 'automation');
+            this.actor.send({ type: 'PASS_TURN', seat });
+            this.broadcastState();
+          }, 500);
         }
       }
     } else if (state === 'awaitingDragonGift' && round?.dragonGiftPending) {

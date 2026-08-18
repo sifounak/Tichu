@@ -86,8 +86,7 @@ export const TurnTimer = memo(function TurnTimer({
 
   if (!dims || totalSeconds <= 0) return null;
 
-  // The inset value matches the CSS inset: calc(-5px * var(--scale))
-  // We draw the ring at a 5px offset from the seat edges
+  // Draw the ring at a 5px offset from the seat edges.
   const padding = 5;
   const svgW = dims.w + padding * 2;
   const svgH = dims.h + padding * 2;
@@ -103,6 +102,8 @@ export const TurnTimer = memo(function TurnTimer({
   return (
     <svg
       className={`${styles.ring} ${styles[stage]}`}
+      width={svgW}
+      height={svgH}
       viewBox={`0 0 ${svgW} ${svgH}`}
       aria-hidden="true"
     >

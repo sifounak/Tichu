@@ -8,7 +8,7 @@
 
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { GamePhase, detectAllBombs, CombinationType } from '@tichu/shared';
+import { GamePhase, detectAllBombs, CombinationType, canFulfillWish } from '@tichu/shared';
 import type { ClientGameView, ServerMessage, Seat, Rank, GameCard, TichuCall, CardId, Combination, GameConfig, Team, RoundScore } from '@tichu/shared';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
@@ -1110,17 +1110,35 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     }
   }, [gameStore.currentTrick, autoPassEnabled, uiStore]);
 
-  // Play "your turn" sound when the action bar becomes available to the player
-  // Suppress when auto-pass is active — the turn will pass automatically before
-  // the player can react, so the sound is just noise.
+  // Play "your turn" sound when the action bar becomes available to the player.
+  // Suppress turns that will pass automatically before the player can react.
   const wasMyTurnRef = useRef(false);
   useEffect(() => {
     const actionBarVisible = phase === 'playing' && !isSpectator && isMyTurnForSelection && !gameStore.gameHalted;
-    if (actionBarVisible && !wasMyTurnRef.current && !autoPassEnabled) {
+    const currentTrick = gameStore.currentTrick;
+    const willServerAutoPassForTooFewCards =
+      !!currentTrick &&
+      currentTrick.plays.length > 0 &&
+      selection.canPass &&
+      !selection.hasAnyValidPlay &&
+      gameStore.myHand.length < 4;
+
+    if (actionBarVisible && !wasMyTurnRef.current && !autoPassEnabled && !willServerAutoPassForTooFewCards) {
       playSound('yourTurn');
     }
     wasMyTurnRef.current = actionBarVisible;
-  }, [phase, isSpectator, isMyTurnForSelection, gameStore.gameHalted, playSound, autoPassEnabled]);
+  }, [
+    phase,
+    isSpectator,
+    isMyTurnForSelection,
+    gameStore.gameHalted,
+    gameStore.currentTrick,
+    gameStore.myHand.length,
+    playSound,
+    autoPassEnabled,
+    selection.canPass,
+    selection.hasAnyValidPlay,
+  ]);
 
   // REQ-F-AP05: Auto-send PASS_TURN when auto-pass is enabled and it's the player's turn
   useEffect(() => {
@@ -1452,13 +1470,15 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   const isMyTurn = gameStore.currentTurn === mySeat;
 
-  // Must satisfy wish: active wish, my turn, not leading (trick exists), and I can't pass
+  const trickTop = gameStore.currentTrick && gameStore.currentTrick.plays.length > 0
+    ? gameStore.currentTrick.plays[gameStore.currentTrick.plays.length - 1].combination
+    : null;
+
+  // Must satisfy wish: active wish, my turn, and I can legally play the wished rank.
+  // This includes leading after Dog, where currentTrick is null but the wish remains active.
   const mustSatisfyWish = isMyTurn &&
-    gameStore.mahjongWish !== null &&
-    !gameStore.wishFulfilled &&
-    gameStore.currentTrick !== null &&
-    gameStore.currentTrick.plays.length > 0 &&
-    !selection.canPass;
+    activeWish !== null &&
+    canFulfillWish(gameStore.myHand, activeWish, trickTop);
 
   // REQ-F-AP01/AP02: Show auto-pass toggle during playing phase for active (non-finished) players
   const showAutoPass = phase === 'playing'

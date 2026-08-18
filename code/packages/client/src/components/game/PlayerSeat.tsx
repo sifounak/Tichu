@@ -148,7 +148,11 @@ export const PlayerSeat = memo(function PlayerSeat({
         role={kickVoteTarget ? 'button' : undefined}
         style={kickVoteTarget ? { cursor: 'pointer' } : undefined}
       >
-        {timerActive && <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />}
+        {timerActive && (
+          <div className={styles.timerOverlay}>
+            <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />
+          </div>
+        )}
         {customContent}
       </div>
     );
@@ -167,7 +171,11 @@ export const PlayerSeat = memo(function PlayerSeat({
       onMouseLeave={dragonHoverTarget ? () => setHovered(false) : undefined}
     >
       {/* REQ-F-TT02: Depleting SVG border ring overlay */}
-      {timerActive && <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />}
+      {timerActive && (
+        <div className={styles.timerOverlay}>
+          <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />
+        </div>
+      )}
       <span className={styles.name}>{name}</span>
       <div className={styles.seatRow}>
         {/* Avatar — REQ-F-ES01: Empty circle for empty seats */}
