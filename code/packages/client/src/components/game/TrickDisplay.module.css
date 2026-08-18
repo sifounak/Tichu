@@ -1,7 +1,7 @@
 .trickDisplay {
   position: relative;
   width: 100%;
-  height: var(--trick-area-size);
+  height: min(var(--trick-area-size), var(--center-available-height, var(--trick-area-size)));
   display: flex;
   align-items: center;
   justify-content: center;

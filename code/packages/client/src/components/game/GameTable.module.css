@@ -45,6 +45,7 @@
   transform: translateY(-50%);
   left: calc(calc(74px * var(--scale)) + 25%);
   right: calc(calc(74px * var(--scale)) + 25%);
+  height: min(var(--trick-area-size), var(--center-available-height, var(--trick-area-size)));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -238,6 +239,7 @@
   top: auto;
   left: auto;
   right: auto;
+  height: auto;
   transform: none;
   overflow: visible;
   z-index: auto;

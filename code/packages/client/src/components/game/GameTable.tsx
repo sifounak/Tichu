@@ -209,6 +209,21 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const tableRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (isMobile) return;
+    const getVisualBounds = (root: Element): { top: number; bottom: number } => {
+      const elements = [root, ...Array.from(root.querySelectorAll('*'))];
+      return elements.reduce(
+        (bounds, el) => {
+          const rect = el.getBoundingClientRect();
+          if (rect.width === 0 && rect.height === 0) return bounds;
+          return {
+            top: Math.min(bounds.top, rect.top),
+            bottom: Math.max(bounds.bottom, rect.bottom),
+          };
+        },
+        { top: Number.POSITIVE_INFINITY, bottom: Number.NEGATIVE_INFINITY },
+      );
+    };
+
     function updateCenterY() {
       const table = tableRef.current;
       if (!table) return;
@@ -216,10 +231,15 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
       const playerBox = document.querySelector('[data-debug-area="Bottom Panel"] [data-seat]') ??
                          document.querySelector('[data-debug-area="Action Bar"] [data-seat]');
       if (partnerBox && playerBox) {
-        const partnerBottom = partnerBox.getBoundingClientRect().bottom;
-        const playerTop = playerBox.getBoundingClientRect().top;
-        const centerY = (partnerBottom + playerTop) / 2;
+        const partnerBottom = getVisualBounds(partnerBox).bottom;
+        const playerTop = getVisualBounds(playerBox).top;
+        const safeGap = 24;
+        const availableTop = partnerBottom + safeGap;
+        const availableBottom = playerTop - safeGap;
+        const availableHeight = Math.max(0, availableBottom - availableTop);
+        const centerY = (availableTop + availableBottom) / 2;
         table.style.setProperty('--center-y', `${centerY}px`);
+        table.style.setProperty('--center-available-height', `${availableHeight}px`);
       }
     }
     updateCenterY();
