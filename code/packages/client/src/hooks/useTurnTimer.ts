@@ -21,7 +21,8 @@ const INACTIVE: TurnTimerState = {
 function computeRemaining(startedAt: number, durationMs: number, clockOffsetMs: number): number {
   // Adjust server timestamp to local time by subtracting clock offset
   const localEndTime = startedAt + durationMs - clockOffsetMs;
-  return Math.max(0, Math.ceil((localEndTime - Date.now()) / 1000));
+  const remainingMs = Math.min(durationMs, Math.max(0, localEndTime - Date.now()));
+  return Math.ceil(remainingMs / 1000);
 }
 
 function getStage(remaining: number, total: number): TimerStage {

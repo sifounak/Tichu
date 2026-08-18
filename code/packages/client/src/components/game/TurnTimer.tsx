@@ -96,7 +96,7 @@ export const TurnTimer = memo(function TurnTimer({
   const borderRadius = 12 + padding;
 
   const { d, perimeter } = buildRingPath(svgW, svgH, borderRadius, 3);
-  const ratio = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
+  const ratio = totalSeconds > 0 ? Math.min(1, Math.max(0, remainingSeconds / totalSeconds)) : 0;
   const visible = ratio * perimeter;
 
   return (

@@ -2198,6 +2198,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
               passConfirmed={hostPassConfirmed}
               turnTimerStartedAt={view.turnTimerStartedAt}
               turnTimerDurationMs={view.turnTimerDurationMs}
+              serverClockOffsetMs={gameStore.serverClockOffsetMs}
               tichuFailed={hostPlayer.tichuCall !== 'none' && view.finishOrder.length > 0 && view.finishOrder[0] !== view.mySeat}
             />
           );
@@ -2535,6 +2536,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                       isMe={true}
                       turnTimerStartedAt={view.turnTimerStartedAt}
                       turnTimerDurationMs={view.turnTimerDurationMs}
+                      serverClockOffsetMs={gameStore.serverClockOffsetMs}
                       tichuFailed={gameStore.myTichuCall !== 'none' && view.finishOrder.length > 0 && view.finishOrder[0] !== mySeat}
                     />
                   }
