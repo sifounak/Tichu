@@ -181,7 +181,13 @@
   bottom: calc(-40px * var(--scale));
   left: 50%;
   transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(8px * var(--scale));
+  height: calc(32px * var(--scale));
   font-size: calc(26px * var(--scale));
+  line-height: calc(32px * var(--scale));
   font-weight: 700;
   color: #4a9eff;
   white-space: nowrap;
@@ -459,13 +465,19 @@
 
 /* REQ-F-TT01: Timer countdown badge — pill shape next to turn label */
 .timerBadge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: calc(22px * var(--scale));
+  min-width: calc(30px * var(--scale));
   font-size: calc(20px * var(--scale));
+  line-height: 1;
   font-weight: 700;
   color: white;
-  padding: calc(1px * var(--scale)) calc(8px * var(--scale));
+  padding: 0 calc(8px * var(--scale));
   border-radius: calc(8px * var(--scale));
-  line-height: calc(22px * var(--scale));
   vertical-align: middle;
 }
 
@@ -484,8 +496,8 @@
 
 /* REQ-F-TT04: Badge pulse synced at 1s */
 @keyframes timerBadgePulse {
-  0%, 100% { box-shadow: 0 0 calc(8px * var(--scale)) rgba(231, 76, 60, 0.5); transform: scale(1); }
-  50% { box-shadow: 0 0 calc(14px * var(--scale)) rgba(231, 76, 60, 0.8); transform: scale(1.08); }
+  0%, 100% { box-shadow: 0 0 calc(8px * var(--scale)) rgba(231, 76, 60, 0.5); }
+  50% { box-shadow: 0 0 calc(14px * var(--scale)) rgba(231, 76, 60, 0.8); }
 }
 
 /* REQ-F-TT04: Turn label turns red and pulses in red stage — synced at 1s */
