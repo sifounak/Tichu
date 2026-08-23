@@ -1,5 +1,6 @@
 // Verifies: REQ-NF-U01, REQ-F-DI01, REQ-F-DI05
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { render, screen, waitFor } from '@testing-library/react';
 import { GamePhase } from '@tichu/shared';
 import type { ClientGameView, Seat, Team } from '@tichu/shared';
@@ -109,6 +110,13 @@ describe('GameTable', () => {
     );
 
     await waitFor(() => expect(container.querySelector('svg')).toBeInTheDocument());
+  });
+
+  it('keeps the play-area timer overlay above play-area contents', () => {
+    const gameTableCss = readFileSync('src/components/game/GameTable.module.css', 'utf8');
+
+    expect(gameTableCss).toMatch(/\.playAreaTimerOverlay\s*\{[^}]*z-index:\s*3;/s);
+    expect(gameTableCss).toMatch(/\.center\s*>\s*:not\(\.playAreaTimerOverlay\)\s*\{/);
   });
 
   it('does not show the active play-area glow for spectators', () => {

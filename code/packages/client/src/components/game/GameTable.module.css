@@ -55,13 +55,13 @@
 .playAreaTimerOverlay {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 3;
   pointer-events: none;
   overflow: hidden;
   border-radius: inherit;
 }
 
-.center > * {
+.center > :not(.playAreaTimerOverlay) {
   position: relative;
   z-index: 1;
 }
