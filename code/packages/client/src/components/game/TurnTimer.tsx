@@ -1,7 +1,7 @@
 // REQ-F-TT02: Depleting SVG border ring around PlayerSeat
 'use client';
 
-import { memo, useLayoutEffect, useState, type RefObject } from 'react';
+import { memo, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 import type { TimerStage } from '@/hooks/useTurnTimer';
 import styles from './TurnTimer.module.css';
 
@@ -68,7 +68,7 @@ export const TurnTimer = memo(function TurnTimer({
   stage,
   seatRef,
 }: TurnTimerProps) {
-  const [dims, setDims] = useState<{ w: number; h: number; radius: number; borderWidth: number; strokeWidth: number } | null>(null);
+  const [dims, setDims] = useState<{ w: number; h: number; radius: number; strokeWidth: number } | null>(null);
 
   useLayoutEffect(() => {
     const el = seatRef.current;
@@ -77,12 +77,12 @@ export const TurnTimer = memo(function TurnTimer({
     const measure = () => {
       const styles = getComputedStyle(el);
       const scale = Number.parseFloat(styles.getPropertyValue('--scale')) || 1;
+      const borderWidth = Number.parseFloat(styles.borderTopWidth) || 0;
       setDims({
         w: el.offsetWidth,
         h: el.offsetHeight,
         radius: Number.parseFloat(styles.borderTopLeftRadius) || 0,
-        borderWidth: Number.parseFloat(styles.borderTopWidth) || 0,
-        strokeWidth: 6 * scale,
+        strokeWidth: borderWidth > 0 ? borderWidth : 6 * scale,
       });
     };
     measure();
@@ -98,9 +98,9 @@ export const TurnTimer = memo(function TurnTimer({
   const svgH = dims.h;
   const halfStroke = dims.strokeWidth / 2;
 
-  // For elements with a CSS border, center the countdown stroke on that same
-  // border path. Overflow clipping keeps the extra thickness growing inward.
-  const pathInset = dims.borderWidth > 0 ? dims.borderWidth / 2 : halfStroke;
+  // Center the countdown stroke on the target's border path. For PlayerSeat,
+  // strokeWidth equals the real CSS border width, so it exactly replaces it.
+  const pathInset = halfStroke;
   const borderRadius = Math.max(0, dims.radius - pathInset);
 
   const { d, perimeter } = buildRingPath(svgW, svgH, borderRadius, pathInset);
@@ -113,6 +113,7 @@ export const TurnTimer = memo(function TurnTimer({
       width={svgW}
       height={svgH}
       viewBox={`0 0 ${svgW} ${svgH}`}
+      style={{ '--timer-stroke-width': `${dims.strokeWidth}px` } as CSSProperties}
       aria-hidden="true"
     >
       {/* Dim track (full ring outline) */}

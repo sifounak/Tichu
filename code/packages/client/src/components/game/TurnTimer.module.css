@@ -18,13 +18,13 @@
 .track {
   fill: none;
   stroke: var(--timer-color-dim);
-  stroke-width: calc(6 * var(--scale));
+  stroke-width: var(--timer-stroke-width);
 }
 
 .active {
   fill: none;
   stroke: var(--timer-color);
-  stroke-width: calc(6 * var(--scale));
+  stroke-width: var(--timer-stroke-width);
   stroke-linecap: round;
   transition: stroke-dasharray 1s linear;
   filter: drop-shadow(0 0 calc(4px * var(--scale)) var(--timer-glow));
@@ -37,11 +37,9 @@
 
 @keyframes timerRingPulse {
   0%, 100% {
-    stroke-width: calc(6 * var(--scale));
     filter: drop-shadow(0 0 calc(6px * var(--scale)) rgba(231, 76, 60, 0.6));
   }
   50% {
-    stroke-width: calc(8 * var(--scale));
     filter: drop-shadow(0 0 calc(10px * var(--scale)) rgba(231, 76, 60, 0.9));
   }
 }
