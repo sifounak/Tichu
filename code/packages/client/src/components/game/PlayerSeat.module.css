@@ -443,13 +443,13 @@
 
 /* REQ-F-TT03: Timer amber stage — amber border glow (inset) */
 .timerAmber {
-  border-color: #ec4899;
+  border-color: transparent;
   box-shadow: inset 0 0 28px rgba(236, 72, 153, 0.5), inset 0 0 12px rgba(236, 72, 153, 0.3);
 }
 
 /* REQ-F-TT03: Timer red stage — red border glow (inset) */
 .timerRed {
-  border-color: #e74c3c;
+  border-color: transparent;
   box-shadow: inset 0 0 28px rgba(231, 76, 60, 0.5), inset 0 0 12px rgba(231, 76, 60, 0.3);
 }
 

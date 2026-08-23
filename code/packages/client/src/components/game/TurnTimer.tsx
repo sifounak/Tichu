@@ -9,7 +9,7 @@ export interface TurnTimerProps {
   remainingSeconds: number;
   totalSeconds: number;
   stage: TimerStage;
-  /** Ref to the parent .seat div for measuring dimensions */
+  /** Ref to the target element for measuring the border path */
   seatRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -68,7 +68,7 @@ export const TurnTimer = memo(function TurnTimer({
   stage,
   seatRef,
 }: TurnTimerProps) {
-  const [dims, setDims] = useState<{ w: number; h: number; radius: number; strokeWidth: number } | null>(null);
+  const [dims, setDims] = useState<{ w: number; h: number; radius: number; borderWidth: number; strokeWidth: number } | null>(null);
 
   useLayoutEffect(() => {
     const el = seatRef.current;
@@ -81,7 +81,8 @@ export const TurnTimer = memo(function TurnTimer({
         w: el.offsetWidth,
         h: el.offsetHeight,
         radius: Number.parseFloat(styles.borderTopLeftRadius) || 0,
-        strokeWidth: 5 * scale,
+        borderWidth: Number.parseFloat(styles.borderTopWidth) || 0,
+        strokeWidth: 6 * scale,
       });
     };
     measure();
@@ -93,14 +94,16 @@ export const TurnTimer = memo(function TurnTimer({
 
   if (!dims || totalSeconds <= 0) return null;
 
-  // Draw the ring inside the target, with the stroke's outer edge on the target edge.
   const svgW = dims.w;
   const svgH = dims.h;
   const halfStroke = dims.strokeWidth / 2;
 
-  const borderRadius = Math.max(0, dims.radius - halfStroke);
+  // For elements with a CSS border, center the countdown stroke on that same
+  // border path. Overflow clipping keeps the extra thickness growing inward.
+  const pathInset = dims.borderWidth > 0 ? dims.borderWidth / 2 : halfStroke;
+  const borderRadius = Math.max(0, dims.radius - pathInset);
 
-  const { d, perimeter } = buildRingPath(svgW, svgH, borderRadius, halfStroke);
+  const { d, perimeter } = buildRingPath(svgW, svgH, borderRadius, pathInset);
   const ratio = totalSeconds > 0 ? Math.min(1, Math.max(0, remainingSeconds / totalSeconds)) : 0;
   const visible = ratio * perimeter;
 
