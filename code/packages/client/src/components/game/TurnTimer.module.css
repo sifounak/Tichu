@@ -2,12 +2,12 @@
 
 .ring {
   position: absolute;
-  top: calc(-5px * var(--scale));
-  left: calc(-5px * var(--scale));
+  top: 0;
+  left: 0;
   display: block;
   pointer-events: none;
   z-index: 1;
-  overflow: visible;
+  overflow: hidden;
 }
 
 /* REQ-F-TT03: Stage color classes for the ring stroke */

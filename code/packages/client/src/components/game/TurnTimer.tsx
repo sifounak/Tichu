@@ -86,16 +86,15 @@ export const TurnTimer = memo(function TurnTimer({
 
   if (!dims || totalSeconds <= 0) return null;
 
-  // Draw the ring at a 5px offset from the seat edges.
-  const padding = 5;
-  const svgW = dims.w + padding * 2;
-  const svgH = dims.h + padding * 2;
+  // Draw the ring inside the seat so it never changes surrounding layout.
+  const inset = 5;
+  const svgW = dims.w;
+  const svgH = dims.h;
 
-  // Match seat border-radius: var(--space-3) = 12px (before scaling)
-  // The actual rendered radius includes the padding offset
-  const borderRadius = 12 + padding;
+  // Match seat border-radius: var(--space-3) = 12px (before scaling).
+  const borderRadius = 12;
 
-  const { d, perimeter } = buildRingPath(svgW, svgH, borderRadius, 3);
+  const { d, perimeter } = buildRingPath(svgW, svgH, borderRadius, inset);
   const ratio = totalSeconds > 0 ? Math.min(1, Math.max(0, remainingSeconds / totalSeconds)) : 0;
   const visible = ratio * perimeter;
 
