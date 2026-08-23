@@ -26,13 +26,31 @@
   z-index: 1;
 }
 
-.seat > .timerOverlay {
+.timerProgressActive::before {
+  content: '';
   position: absolute;
   inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  overflow: hidden;
+  width: var(--timer-progress, 0%);
   border-radius: inherit;
+  background: var(--timer-progress-color);
+  opacity: 0.36;
+  pointer-events: none;
+  transition:
+    width 1s linear,
+    background-color var(--duration-fast) var(--easing-smooth);
+  z-index: 0;
+}
+
+.timerProgressBlue {
+  --timer-progress-color: #7cc7ff;
+}
+
+.timerProgressPink {
+  --timer-progress-color: #f472b6;
+}
+
+.timerProgressRed {
+  --timer-progress-color: #ef4444;
 }
 
 .seatRow {
@@ -437,19 +455,19 @@
 
 /* REQ-F-TT03: Timer blue stage — no glow, let the SVG ring be the indicator */
 .timerNoGlow {
-  border-color: transparent;
+  border-color: var(--color-border);
   box-shadow: none;
 }
 
 /* REQ-F-TT03: Timer amber stage — amber border glow (inset) */
 .timerAmber {
-  border-color: transparent;
+  border-color: var(--color-border);
   box-shadow: inset 0 0 28px rgba(236, 72, 153, 0.5), inset 0 0 12px rgba(236, 72, 153, 0.3);
 }
 
 /* REQ-F-TT03: Timer red stage — red border glow (inset) */
 .timerRed {
-  border-color: transparent;
+  border-color: var(--color-border);
   box-shadow: inset 0 0 28px rgba(231, 76, 60, 0.5), inset 0 0 12px rgba(231, 76, 60, 0.3);
 }
 

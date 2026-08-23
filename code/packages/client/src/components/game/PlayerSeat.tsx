@@ -1,10 +1,9 @@
 // REQ-F-DI01: Player seat showing avatar, card count, Tichu indicator, pass status
 'use client';
 
-import { memo, useRef, useState } from 'react';
+import { memo, useState, type CSSProperties } from 'react';
 import type { Seat, TichuCall } from '@tichu/shared';
 import { Card } from '../cards/Card';
-import { TurnTimer } from './TurnTimer';
 import { useTurnTimer } from '@/hooks/useTurnTimer';
 import styles from './PlayerSeat.module.css';
 
@@ -57,8 +56,8 @@ export interface PlayerSeatProps {
   turnTimerDurationMs?: number | null;
   /** Clock offset for correcting server timestamps */
   serverClockOffsetMs?: number;
-  /** Whether to draw the depleting timer ring on this seat */
-  showTimerRing?: boolean;
+  /** Whether to draw the timer progress fill on this seat */
+  showTimerProgress?: boolean;
   /** True when another player went out first, breaking this player's Tichu call */
   tichuFailed?: boolean;
 }
@@ -99,14 +98,12 @@ export const PlayerSeat = memo(function PlayerSeat({
   turnTimerStartedAt,
   turnTimerDurationMs,
   serverClockOffsetMs,
-  showTimerRing = true,
+  showTimerProgress = true,
   tichuFailed,
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
   const name = emptySeat ? 'Empty Seat' : (displayName ?? SEAT_LABELS[seat]);
   const [hovered, setHovered] = useState(false);
-  const seatRef = useRef<HTMLDivElement>(null);
-
   // REQ-F-TT06: Client-side turn timer countdown
   const timer = useTurnTimer(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
 
@@ -116,6 +113,9 @@ export const PlayerSeat = memo(function PlayerSeat({
 
   // REQ-F-TT03: Timer stage determines seat glow class when active
   const timerActive = isCurrentTurn && timer.isActive;
+  const timerProgressPercent = timerActive && timer.totalSeconds > 0
+    ? Math.min(100, Math.max(0, (timer.remainingSeconds / timer.totalSeconds) * 100))
+    : 0;
   const timerGlowClass = timerActive
     ? timer.stage === 'red' ? `${styles.timerRed} ${styles.timerRedPulse}`
       : timer.stage === 'amber' ? styles.timerAmber
@@ -136,26 +136,30 @@ export const PlayerSeat = memo(function PlayerSeat({
     passConfirmed && styles.passConfirmed,
     emptySeat && styles.emptySeat,
     vacated && styles.vacated,
+    showTimerProgress && timerActive && styles.timerProgressActive,
+    showTimerProgress && timerActive && (
+      timer.stage === 'red' ? styles.timerProgressRed
+        : timer.stage === 'amber' ? styles.timerProgressPink
+        : styles.timerProgressBlue
+    ),
   ].filter(Boolean).join(' ');
+  const seatStyle = {
+    ...(kickVoteTarget || isClickableDragon ? { cursor: 'pointer' } : {}),
+    '--timer-progress': `${timerProgressPercent}%`,
+  } as CSSProperties;
 
   // Custom content mode — same .seat container, custom inner content
   // Preserves kickVoteTarget click handling so pre-game kick vote works
   if (customContent) {
     return (
       <div
-        ref={seatRef}
         className={className}
         data-seat={seat}
         aria-label={kickVoteTarget ? `Kick ${name}` : `${name}'s seat`}
         onClick={kickVoteTarget ? onSeatClick : undefined}
         role={kickVoteTarget ? 'button' : undefined}
-        style={kickVoteTarget ? { cursor: 'pointer' } : undefined}
+        style={seatStyle}
       >
-        {showTimerRing && timerActive && (
-          <div className={styles.timerOverlay}>
-            <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />
-          </div>
-        )}
         {customContent}
       </div>
     );
@@ -163,22 +167,15 @@ export const PlayerSeat = memo(function PlayerSeat({
 
   return (
     <div
-      ref={seatRef}
       className={className}
       data-seat={seat}
       aria-label={kickVoteTarget ? `Kick ${name}` : isClickableDragon ? `Give Dragon trick to ${name}` : `${name}'s seat`}
       onClick={kickVoteTarget ? onSeatClick : isClickableDragon ? onSeatClick : undefined}
       role={kickVoteTarget || isClickableDragon ? 'button' : undefined}
-      style={kickVoteTarget || isClickableDragon ? { cursor: 'pointer' } : undefined}
+      style={seatStyle}
       onMouseEnter={dragonHoverTarget ? () => setHovered(true) : undefined}
       onMouseLeave={dragonHoverTarget ? () => setHovered(false) : undefined}
     >
-      {/* REQ-F-TT02: Depleting SVG border ring overlay */}
-      {showTimerRing && timerActive && (
-        <div className={styles.timerOverlay}>
-          <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />
-        </div>
-      )}
       <span className={styles.name}>{name}</span>
       <div className={styles.seatRow}>
         {/* Avatar — REQ-F-ES01: Empty circle for empty seats */}

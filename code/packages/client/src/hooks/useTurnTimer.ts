@@ -27,9 +27,8 @@ function computeRemaining(startedAt: number, durationMs: number, clockOffsetMs: 
 
 function getStage(remaining: number, total: number): TimerStage {
   if (total <= 0) return 'blue';
-  const ratio = remaining / total;
-  if (ratio > 0.5) return 'blue';
-  if (ratio > 0.17) return 'amber';
+  if (remaining > 15) return 'blue';
+  if (remaining > 5) return 'amber';
   return 'red';
 }
 

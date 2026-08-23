@@ -1,13 +1,12 @@
 // REQ-NF-U01: Responsive game table — CSS Grid with 4 seats + center trick area
 'use client';
 
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, type CSSProperties } from 'react';
 import type { ClientGameView, Seat } from '@tichu/shared';
 import type { LayoutTier } from '@/hooks/useLayoutTier';
 import { useUiStore } from '@/stores/uiStore';
 import { useTurnTimer } from '@/hooks/useTurnTimer';
 import { PlayerSeat } from './PlayerSeat';
-import { TurnTimer } from './TurnTimer';
 import { WaitingForReconnectOverlay } from './WaitingForReconnectOverlay';
 import { TrickDisplay } from './TrickDisplay';
 import styles from './GameTable.module.css';
@@ -66,7 +65,6 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
 
 export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onTransferHostTarget, onAddBot, compassLayout, layoutTier = 'full' }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled, waitingForReconnect } = view;
-  const centerRef = useRef<HTMLDivElement>(null);
   const timer = useTurnTimer(view.turnTimerStartedAt, view.turnTimerDurationMs, serverClockOffsetMs);
   const dogAnimation = useUiStore((s) => s.dogAnimation);
   const dragonGiftAnimation = useUiStore((s) => s.dragonGiftAnimation);
@@ -131,7 +129,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           turnTimerStartedAt={view.turnTimerStartedAt}
           turnTimerDurationMs={view.turnTimerDurationMs}
           serverClockOffsetMs={serverClockOffsetMs}
-          showTimerRing={false}
+          showTimerProgress={false}
           tichuFailed={view.myTichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
         />
       );
@@ -210,6 +208,17 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const isMobile = layoutTier !== 'full';
   const dragonGiftPending = dragonGiftTargets && dragonGiftTargets.size > 0;
   const showPlayAreaTimer = !!isMyTurn && timer.isActive && !dragonGiftPending && !centerContent && !hideCenter;
+  const playAreaTimerProgress = showPlayAreaTimer && timer.totalSeconds > 0
+    ? Math.min(100, Math.max(0, (timer.remainingSeconds / timer.totalSeconds) * 100))
+    : 0;
+  const playAreaTimerClass = showPlayAreaTimer
+    ? timer.stage === 'red' ? styles.timerProgressRed
+      : timer.stage === 'amber' ? styles.timerProgressPink
+      : styles.timerProgressBlue
+    : '';
+  const playAreaStyle = {
+    '--timer-progress': `${playAreaTimerProgress}%`,
+  } as CSSProperties;
 
   // Full layout: vertically center play area + opponents between partner box bottom and player box top
   const tableRef = useRef<HTMLDivElement>(null);
@@ -270,23 +279,13 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         </div>
       ) : !hideCenter ? (
         <div
-          ref={centerRef}
-          className={`${styles.center} ${dragonGiftPending ? '' : isMyTurn ? styles.playAreaActive : isTrickLeader ? styles.playAreaLeader : ''} ${canPlay ? styles.clickableTrick : ''}`}
+          className={`${styles.center} ${dragonGiftPending ? '' : isMyTurn ? styles.playAreaActive : isTrickLeader ? styles.playAreaLeader : ''} ${canPlay ? styles.clickableTrick : ''} ${showPlayAreaTimer ? styles.timerProgressActive : ''} ${playAreaTimerClass}`}
+          style={playAreaStyle}
           onClick={canPlay ? onPlay : undefined}
           role={canPlay ? 'button' : undefined}
           aria-label={canPlay ? 'Play selected cards' : undefined}
           data-debug-area="Center / Trick"
         >
-          {showPlayAreaTimer && (
-            <div className={styles.playAreaTimerOverlay}>
-              <TurnTimer
-                remainingSeconds={timer.remainingSeconds}
-                totalSeconds={timer.totalSeconds}
-                stage={timer.stage}
-                seatRef={centerRef}
-              />
-            </div>
-          )}
           <TrickDisplay
             trick={currentTrick}
             mahjongWish={mahjongWish}
