@@ -58,6 +58,8 @@ export interface PlayerSeatProps {
   serverClockOffsetMs?: number;
   /** Whether to draw the timer progress fill on this seat */
   showTimerProgress?: boolean;
+  /** Which side of the seat should show the vertical timer progress bar */
+  timerProgressSide?: 'left' | 'right';
   /** True when another player went out first, breaking this player's Tichu call */
   tichuFailed?: boolean;
 }
@@ -99,6 +101,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   turnTimerDurationMs,
   serverClockOffsetMs,
   showTimerProgress = true,
+  timerProgressSide = 'right',
   tichuFailed,
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
@@ -145,6 +148,9 @@ export const PlayerSeat = memo(function PlayerSeat({
     emptySeat && styles.emptySeat,
     vacated && styles.vacated,
     showTimerProgress && timerActive && styles.timerProgressActive,
+    showTimerProgress && timerActive && (
+      timerProgressSide === 'left' ? styles.timerProgressLeft : styles.timerProgressRight
+    ),
     showTimerProgress && timerActive && (
       timer.stage === 'red' ? styles.timerProgressRed
         : timer.stage === 'amber' ? styles.timerProgressPink

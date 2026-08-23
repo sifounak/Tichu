@@ -72,6 +72,15 @@ describe('PlayerSeat', () => {
     expect(playerSeatCss).toMatch(/\.timerRed\s*\{[^}]*border-color:\s*#4a9eff;/s);
   });
 
+  it('uses an outside vertical timer progress bar', () => {
+    const playerSeatCss = readFileSync('src/components/game/PlayerSeat.module.css', 'utf8');
+
+    expect(playerSeatCss).toMatch(/\.timerProgressActive::before\s*\{[^}]*top:\s*0;[^}]*bottom:\s*0;[^}]*width:\s*calc\(8px \* var\(--scale\)\);/s);
+    expect(playerSeatCss).toMatch(/\.timerProgressActive::after\s*\{[^}]*bottom:\s*0;[^}]*height:\s*var\(--timer-progress,\s*0%\);/s);
+    expect(playerSeatCss).toMatch(/\.timerProgressLeft::before,\s*\.timerProgressLeft::after\s*\{[^}]*right:\s*calc\(100% \+ 6px \* var\(--scale\)\);/s);
+    expect(playerSeatCss).toMatch(/\.timerProgressRight::before,\s*\.timerProgressRight::after\s*\{[^}]*left:\s*calc\(100% \+ 6px \* var\(--scale\)\);/s);
+  });
+
   it('highlights own seat', () => {
     const { container } = render(<PlayerSeat {...baseProps} isMe />);
     expect(container.querySelector('[class*="me"]')).toBeTruthy();

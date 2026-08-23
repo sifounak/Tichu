@@ -29,23 +29,43 @@
 .timerProgressActive::before {
   content: '';
   position: absolute;
-  left: 0;
-  right: auto;
+  top: 0;
   bottom: 0;
-  width: var(--timer-progress, 0%);
-  height: calc(8px * var(--scale));
-  border-bottom-left-radius: inherit;
-  border-bottom-right-radius: inherit;
+  width: calc(8px * var(--scale));
+  border-radius: calc(4px * var(--scale));
+  background: var(--timer-progress-color);
+  opacity: 0.18;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.timerProgressActive::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: calc(8px * var(--scale));
+  height: var(--timer-progress, 0%);
+  border-radius: calc(4px * var(--scale));
   background: var(--timer-progress-color);
   opacity: 0.9;
   pointer-events: none;
   transition:
-    width 1s linear,
+    height 1s linear,
     background-color var(--duration-fast) var(--easing-smooth);
   z-index: 0;
 }
 
-.timerProgressSnap::before {
+.timerProgressLeft::before,
+.timerProgressLeft::after {
+  right: calc(100% + 6px * var(--scale));
+}
+
+.timerProgressRight::before,
+.timerProgressRight::after {
+  left: calc(100% + 6px * var(--scale));
+}
+
+.timerProgressSnap::after {
   transition: background-color var(--duration-fast) var(--easing-smooth);
 }
 

@@ -186,6 +186,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         turnTimerStartedAt={view.turnTimerStartedAt}
         turnTimerDurationMs={view.turnTimerDurationMs}
         serverClockOffsetMs={serverClockOffsetMs}
+        timerProgressSide={seat === seatPositions.right ? 'left' : 'right'}
         tichuFailed={other.tichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
       />
     );

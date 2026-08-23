@@ -119,6 +119,12 @@ describe('GameTable', () => {
     expect(gameTableCss).toMatch(/\.center\s*>\s*:not\(\.playAreaTimerOverlay\)\s*\{/);
   });
 
+  it('keeps the visible play-area border inside the timer target bounds', () => {
+    const trickDisplayCss = readFileSync('src/components/game/TrickDisplay.module.css', 'utf8');
+
+    expect(trickDisplayCss).toMatch(/\.playArea\s*\{[^}]*box-sizing:\s*border-box;/s);
+  });
+
   it('does not show the active play-area glow for spectators', () => {
     const { container } = render(
       <GameTable
@@ -130,5 +136,21 @@ describe('GameTable', () => {
 
     const center = container.querySelector('[data-debug-area="Center / Trick"]');
     expect(center?.className).not.toContain('playAreaActive');
+  });
+
+  it('puts the right opponent timer bar on the left side of that seat', () => {
+    const now = Date.now();
+    const { container } = render(
+      <GameTable
+        view={makeView({
+          currentTurn: 'west' as Seat,
+          turnTimerStartedAt: now,
+          turnTimerDurationMs: 30_000,
+        })}
+      />,
+    );
+
+    const rightOpponentSeat = container.querySelector('[data-seat="west"]');
+    expect(rightOpponentSeat?.className).toContain('timerProgressLeft');
   });
 });
