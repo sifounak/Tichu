@@ -1,6 +1,6 @@
 // Verifies: REQ-NF-U01, REQ-F-DI01, REQ-F-DI05
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { GamePhase } from '@tichu/shared';
 import type { ClientGameView, Seat, Team } from '@tichu/shared';
 import { GameTable } from '@/components/game/GameTable';
@@ -94,6 +94,21 @@ describe('GameTable', () => {
     );
 
     expect(container.querySelector('svg')).toBeNull();
+  });
+
+  it('shows the play-area timer ring for the current seated player', async () => {
+    const now = Date.now();
+    const { container } = render(
+      <GameTable
+        view={makeView({
+          currentTurn: 'south' as Seat,
+          turnTimerStartedAt: now,
+          turnTimerDurationMs: 30_000,
+        })}
+      />,
+    );
+
+    await waitFor(() => expect(container.querySelector('svg')).toBeInTheDocument());
   });
 
   it('does not show the active play-area glow for spectators', () => {

@@ -211,10 +211,11 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
 
   const isMobile = layoutTier !== 'full';
   const dragonGiftPending = dragonGiftTargets && dragonGiftTargets.size > 0;
-  const showPlayAreaTimer = !isSpectator && !!isMyTurn && timer.isActive && !dragonGiftPending && !centerContent && !hideCenter;
+  const isCurrentPlayerTurn = !isSpectator && currentTurn === mySeat;
+  const showPlayAreaTimer = isCurrentPlayerTurn && timer.isActive && !dragonGiftPending && !centerContent && !hideCenter;
   const playAreaStateClass = dragonGiftPending
     ? ''
-    : !isSpectator && isMyTurn ? styles.playAreaActive
+    : isCurrentPlayerTurn ? styles.playAreaActive
     : isTrickLeader ? styles.playAreaLeader
     : '';
 

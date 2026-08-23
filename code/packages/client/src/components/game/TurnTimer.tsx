@@ -51,24 +51,48 @@ export const TurnTimer = memo(function TurnTimer({
   const [dims, setDims] = useState<{ w: number; h: number; radius: number; strokeWidth: number } | null>(null);
 
   useLayoutEffect(() => {
-    const el = targetRef.current;
-    if (!el) return;
+    let observer: ResizeObserver | null = null;
+    let frameId: number | null = null;
+    let cancelled = false;
 
-    const measure = () => {
-      const styles = getComputedStyle(el);
-      const scale = Number.parseFloat(styles.getPropertyValue('--scale')) || 1;
-      setDims({
-        w: el.offsetWidth,
-        h: el.offsetHeight,
-        radius: Number.parseFloat(styles.borderTopLeftRadius) || 0,
-        strokeWidth: 6 * scale,
-      });
+    const schedule = (callback: () => void) => {
+      frameId = window.requestAnimationFrame(callback);
     };
 
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
+    const attach = () => {
+      if (cancelled) return;
+      const el = targetRef.current;
+      if (!el) {
+        schedule(attach);
+        return;
+      }
+
+      const measure = () => {
+        if (cancelled) return;
+        const styles = getComputedStyle(el);
+        const scale = Number.parseFloat(styles.getPropertyValue('--scale')) || 1;
+        setDims({
+          w: el.offsetWidth,
+          h: el.offsetHeight,
+          radius: Number.parseFloat(styles.borderTopLeftRadius) || 0,
+          strokeWidth: 6 * scale,
+        });
+      };
+
+      measure();
+      observer = new ResizeObserver(measure);
+      observer.observe(el);
+    };
+
+    attach();
+
+    return () => {
+      cancelled = true;
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      observer?.disconnect();
+    };
   }, [targetRef]);
 
   if (!dims || totalSeconds <= 0) return null;
