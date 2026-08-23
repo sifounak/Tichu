@@ -95,4 +95,17 @@ describe('GameTable', () => {
 
     expect(container.querySelector('svg')).toBeNull();
   });
+
+  it('does not show the active play-area glow for spectators', () => {
+    const { container } = render(
+      <GameTable
+        view={makeView()}
+        isMyTurn
+        isSpectator
+      />,
+    );
+
+    const center = container.querySelector('[data-debug-area="Center / Trick"]');
+    expect(center?.className).not.toContain('playAreaActive');
+  });
 });

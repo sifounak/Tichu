@@ -212,6 +212,11 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
   const isMobile = layoutTier !== 'full';
   const dragonGiftPending = dragonGiftTargets && dragonGiftTargets.size > 0;
   const showPlayAreaTimer = !isSpectator && !!isMyTurn && timer.isActive && !dragonGiftPending && !centerContent && !hideCenter;
+  const playAreaStateClass = dragonGiftPending
+    ? ''
+    : !isSpectator && isMyTurn ? styles.playAreaActive
+    : isTrickLeader ? styles.playAreaLeader
+    : '';
 
   // Full layout: vertically center play area + opponents between partner box bottom and player box top
   const tableRef = useRef<HTMLDivElement>(null);
@@ -273,7 +278,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
       ) : !hideCenter ? (
         <div
           ref={centerRef}
-          className={`${styles.center} ${dragonGiftPending ? '' : isMyTurn ? styles.playAreaActive : isTrickLeader ? styles.playAreaLeader : ''} ${canPlay ? styles.clickableTrick : ''}`}
+          className={`${styles.center} ${playAreaStateClass} ${canPlay ? styles.clickableTrick : ''}`}
           onClick={canPlay ? onPlay : undefined}
           role={canPlay ? 'button' : undefined}
           aria-label={canPlay ? 'Play selected cards' : undefined}
