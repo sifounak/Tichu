@@ -12,7 +12,7 @@
 
 /* REQ-F-TT03: Stage color classes for the ring stroke */
 .blue { --timer-color: #4a9eff; --timer-color-dim: rgba(74, 158, 255, 0.15); --timer-glow: rgba(74, 158, 255, 0.4); }
-.amber { --timer-color: #f39c12; --timer-color-dim: rgba(243, 156, 18, 0.15); --timer-glow: rgba(243, 156, 18, 0.4); }
+.amber { --timer-color: #ec4899; --timer-color-dim: rgba(236, 72, 153, 0.16); --timer-glow: rgba(236, 72, 153, 0.45); }
 .red { --timer-color: #e74c3c; --timer-color-dim: rgba(231, 76, 60, 0.15); --timer-glow: rgba(231, 76, 60, 0.6); }
 
 .track {

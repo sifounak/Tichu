@@ -52,6 +52,15 @@
   z-index: 1;
 }
 
+.playAreaTimerOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
 /* Right opponent — vertically centered between partner box and player box */
 .right {
   position: absolute;

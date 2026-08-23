@@ -57,6 +57,8 @@ export interface PlayerSeatProps {
   turnTimerDurationMs?: number | null;
   /** Clock offset for correcting server timestamps */
   serverClockOffsetMs?: number;
+  /** Whether to draw the depleting timer ring on this seat */
+  showTimerRing?: boolean;
   /** True when another player went out first, breaking this player's Tichu call */
   tichuFailed?: boolean;
 }
@@ -97,6 +99,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   turnTimerStartedAt,
   turnTimerDurationMs,
   serverClockOffsetMs,
+  showTimerRing = true,
   tichuFailed,
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
@@ -148,7 +151,7 @@ export const PlayerSeat = memo(function PlayerSeat({
         role={kickVoteTarget ? 'button' : undefined}
         style={kickVoteTarget ? { cursor: 'pointer' } : undefined}
       >
-        {timerActive && (
+        {showTimerRing && timerActive && (
           <div className={styles.timerOverlay}>
             <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />
           </div>
@@ -171,7 +174,7 @@ export const PlayerSeat = memo(function PlayerSeat({
       onMouseLeave={dragonHoverTarget ? () => setHovered(false) : undefined}
     >
       {/* REQ-F-TT02: Depleting SVG border ring overlay */}
-      {timerActive && (
+      {showTimerRing && timerActive && (
         <div className={styles.timerOverlay}>
           <TurnTimer remainingSeconds={timer.remainingSeconds} totalSeconds={timer.totalSeconds} stage={timer.stage} seatRef={seatRef} />
         </div>

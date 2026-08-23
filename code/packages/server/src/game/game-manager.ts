@@ -890,6 +890,7 @@ export class GameManager {
     // When a Dog was just played, delay all actions (bots + timer) so the client
     // can finish the dog animation before the next play proceeds.
     if (state === 'playing' && round?.lastDogPlay) {
+      this.timer.stop();
       // Match client-side dog block time: (0.25 + 1.00 + 0.40 + 0.85) × 1000 = 2500ms
       // at normal animation speed, so bots/players cannot act while Dog is displayed.
       const DOG_ANIM_DELAY_MS = 2500;
@@ -939,8 +940,7 @@ export class GameManager {
         }
       }
     } else if (state === 'awaitingDragonGift' && round?.dragonGiftPending) {
-      // REQ-F-TT05: Start timer for Dragon gift selection
-      this.timer.start(round.dragonGiftPending.from);
+      this.timer.stop();
       this.broadcastState();
     } else {
       this.timer.stop();

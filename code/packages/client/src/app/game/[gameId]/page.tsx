@@ -2537,6 +2537,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                       turnTimerStartedAt={view.turnTimerStartedAt}
                       turnTimerDurationMs={view.turnTimerDurationMs}
                       serverClockOffsetMs={gameStore.serverClockOffsetMs}
+                      showTimerRing={false}
                       tichuFailed={gameStore.myTichuCall !== 'none' && view.finishOrder.length > 0 && view.finishOrder[0] !== mySeat}
                     />
                   }

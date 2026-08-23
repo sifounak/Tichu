@@ -68,14 +68,21 @@ export const TurnTimer = memo(function TurnTimer({
   stage,
   seatRef,
 }: TurnTimerProps) {
-  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+  const [dims, setDims] = useState<{ w: number; h: number; radius: number; strokeWidth: number } | null>(null);
 
   useLayoutEffect(() => {
     const el = seatRef.current;
     if (!el) return;
 
     const measure = () => {
-      setDims({ w: el.offsetWidth, h: el.offsetHeight });
+      const styles = getComputedStyle(el);
+      const scale = Number.parseFloat(styles.getPropertyValue('--scale')) || 1;
+      setDims({
+        w: el.offsetWidth,
+        h: el.offsetHeight,
+        radius: Number.parseFloat(styles.borderTopLeftRadius) || 0,
+        strokeWidth: 5 * scale,
+      });
     };
     measure();
 
@@ -86,15 +93,14 @@ export const TurnTimer = memo(function TurnTimer({
 
   if (!dims || totalSeconds <= 0) return null;
 
-  // Draw the ring inside the seat so it never changes surrounding layout.
-  const inset = 5;
+  // Draw the ring inside the target, with the stroke's outer edge on the target edge.
   const svgW = dims.w;
   const svgH = dims.h;
+  const halfStroke = dims.strokeWidth / 2;
 
-  // Match seat border-radius: var(--space-3) = 12px (before scaling).
-  const borderRadius = 12;
+  const borderRadius = Math.max(0, dims.radius - halfStroke);
 
-  const { d, perimeter } = buildRingPath(svgW, svgH, borderRadius, inset);
+  const { d, perimeter } = buildRingPath(svgW, svgH, borderRadius, halfStroke);
   const ratio = totalSeconds > 0 ? Math.min(1, Math.max(0, remainingSeconds / totalSeconds)) : 0;
   const visible = ratio * perimeter;
 

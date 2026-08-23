@@ -7,7 +7,7 @@ import { VoteHandler } from '../../src/game/vote-handler.js';
 import type { Broadcaster } from '../../src/ws/broadcaster.js';
 import type { WebSocket } from 'ws';
 import type { Seat, GameCard, ClientMessage, GameConfig, Rank } from '@tichu/shared';
-import { SEATS_IN_ORDER } from '@tichu/shared';
+import { SEATS_IN_ORDER, isDog } from '@tichu/shared';
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,26 @@ function advanceToPlaying(manager: GameManager, ws: WebSocket): void {
     manager.handleMessage(ws, seat, { type: 'GRAND_TICHU_DECISION', call: false } as ClientMessage);
   }
 
-  // Now in cardPassing phase (no separate Tichu decision phase)
+  const round = manager.context.currentRound!;
+  const passes = {} as Record<Seat, Record<Seat, GameCard>>;
+  for (const seat of SEATS_IN_ORDER) {
+    const targets = SEATS_IN_ORDER.filter((target) => target !== seat);
+    const hand = round.players[seat].hand;
+    passes[seat] = {
+      [targets[0]]: hand[0],
+      [targets[1]]: hand[1],
+      [targets[2]]: hand[2],
+    } as Record<Seat, GameCard>;
+  }
+
+  for (const seat of SEATS_IN_ORDER) {
+    manager.handleMessage(ws, seat, { type: 'PASS_CARDS', cards: passes[seat] } as ClientMessage);
+  }
+}
+
+function getLastTimerInfo(broadcaster: Broadcaster): { startTime: number | null; durationMs: number | null } {
+  const calls = (broadcaster.broadcastGameState as ReturnType<typeof vi.fn>).mock.calls;
+  return calls.at(-1)?.[6] as { startTime: number | null; durationMs: number | null };
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -233,6 +252,102 @@ describe('GameManager', () => {
         [],      // disconnectedSeats
         null,    // kickDialog
       );
+    });
+  });
+
+  describe('turn timer', () => {
+    it('clears stale timer during Dog animation and starts fresh for the recipient', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+
+      const {
+        manager: timerManager,
+        broadcaster: timerBroadcaster,
+        disconnectHandler: timerDisconnectHandler,
+      } = createTestManager({ turnTimerSeconds: 30 });
+      const timerWs = createMockWs();
+
+      try {
+        advanceToPlaying(timerManager, timerWs);
+        expect(timerManager.stateValue).toBe('playing');
+
+        const round = timerManager.context.currentRound!;
+        const leader = round.currentTurn!;
+        const existingDog = SEATS_IN_ORDER
+          .flatMap((seat) => round.players[seat].hand)
+          .find((card) => isDog(card.card));
+        const dogCard = existingDog ?? ({ id: 10_000, card: { kind: 'dog' } } as GameCard);
+
+        for (const seat of SEATS_IN_ORDER) {
+          round.players[seat].hand = round.players[seat].hand.filter((card) => card.id !== dogCard.id);
+        }
+        round.players[leader].hand.unshift(dogCard);
+
+        vi.advanceTimersByTime(20_000);
+        (timerBroadcaster.broadcastGameState as ReturnType<typeof vi.fn>).mockClear();
+
+        timerManager.handleMessage(timerWs, leader, { type: 'PLAY_CARDS', cardIds: [dogCard.id] } as ClientMessage);
+
+        expect(timerManager.context.currentRound!.lastDogPlay).not.toBeNull();
+        expect(getLastTimerInfo(timerBroadcaster)).toEqual({ startTime: null, durationMs: 30_000 });
+
+        vi.advanceTimersByTime(2_499);
+        expect(getLastTimerInfo(timerBroadcaster)).toEqual({ startTime: null, durationMs: 30_000 });
+
+        vi.advanceTimersByTime(1);
+
+        const restartedTimer = getLastTimerInfo(timerBroadcaster);
+        expect(timerManager.context.currentRound!.lastDogPlay).toBeNull();
+        expect(restartedTimer.durationMs).toBe(30_000);
+        expect(restartedTimer.startTime).toBe(Date.now());
+      } finally {
+        timerManager.destroy();
+        timerDisconnectHandler.dispose();
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not run the play timer while waiting for a Dragon gift decision', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+
+      const {
+        manager: timerManager,
+        broadcaster: timerBroadcaster,
+        disconnectHandler: timerDisconnectHandler,
+      } = createTestManager({ turnTimerSeconds: 30 });
+      const timerWs = createMockWs();
+
+      try {
+        advanceToPlaying(timerManager, timerWs);
+
+        const round = timerManager.context.currentRound!;
+        const leader = round.currentTurn!;
+        const dragonCard = { id: 10_001, card: { kind: 'dragon' } } as GameCard;
+
+        for (const seat of SEATS_IN_ORDER) {
+          round.players[seat].hand = round.players[seat].hand.filter((card) => card.id !== dragonCard.id);
+        }
+        round.players[leader].hand.unshift(dragonCard);
+
+        timerManager.handleMessage(timerWs, leader, { type: 'PLAY_CARDS', cardIds: [dragonCard.id] } as ClientMessage);
+        for (let i = 0; i < 3 && timerManager.stateValue === 'playing'; i++) {
+          const passer = timerManager.context.currentRound!.currentTurn!;
+          timerManager.handleMessage(timerWs, passer, { type: 'PASS_TURN' } as ClientMessage);
+        }
+
+        expect(timerManager.stateValue).toBe('awaitingEndOfTrickBomb');
+        (timerBroadcaster.broadcastGameState as ReturnType<typeof vi.fn>).mockClear();
+
+        vi.advanceTimersByTime(2_500);
+
+        expect(timerManager.stateValue).toBe('awaitingDragonGift');
+        expect(getLastTimerInfo(timerBroadcaster)).toEqual({ startTime: null, durationMs: 30_000 });
+      } finally {
+        timerManager.destroy();
+        timerDisconnectHandler.dispose();
+        vi.useRealTimers();
+      }
     });
   });
 
