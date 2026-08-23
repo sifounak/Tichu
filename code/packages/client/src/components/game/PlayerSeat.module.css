@@ -29,11 +29,15 @@
 .timerProgressActive::before {
   content: '';
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: auto;
+  bottom: 0;
   width: var(--timer-progress, 0%);
-  border-radius: inherit;
+  height: calc(8px * var(--scale));
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
   background: var(--timer-progress-color);
-  opacity: 0.36;
+  opacity: 0.9;
   pointer-events: none;
   transition:
     width 1s linear,

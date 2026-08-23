@@ -1,0 +1,47 @@
+/* REQ-F-TT02: Depleting SVG border ring for active turn surfaces */
+
+.ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.blue { --timer-color: #4a9eff; --timer-color-dim: rgba(74, 158, 255, 0.15); --timer-glow: rgba(74, 158, 255, 0.4); }
+.amber { --timer-color: #ec4899; --timer-color-dim: rgba(236, 72, 153, 0.16); --timer-glow: rgba(236, 72, 153, 0.45); }
+.red { --timer-color: #e74c3c; --timer-color-dim: rgba(231, 76, 60, 0.15); --timer-glow: rgba(231, 76, 60, 0.6); }
+
+.track {
+  fill: none;
+  stroke: var(--timer-color-dim);
+  stroke-width: calc(6 * var(--scale));
+}
+
+.active {
+  fill: none;
+  stroke: var(--timer-color);
+  stroke-width: calc(6 * var(--scale));
+  stroke-linecap: round;
+  transition: stroke-dasharray 1s linear;
+  filter: drop-shadow(0 0 calc(4px * var(--scale)) var(--timer-glow));
+}
+
+.red .active {
+  animation: timerRingPulse 1s ease-in-out infinite;
+}
+
+@keyframes timerRingPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 calc(6px * var(--scale)) rgba(231, 76, 60, 0.6));
+  }
+  50% {
+    filter: drop-shadow(0 0 calc(10px * var(--scale)) rgba(231, 76, 60, 0.9));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .red .active { animation: none; }
+}

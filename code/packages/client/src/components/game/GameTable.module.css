@@ -52,36 +52,18 @@
   z-index: 1;
 }
 
+.playAreaTimerOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
 .center > * {
   position: relative;
   z-index: 1;
-}
-
-.timerProgressActive::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  width: var(--timer-progress, 0%);
-  border-radius: inherit;
-  background: var(--timer-progress-color);
-  opacity: 0.26;
-  pointer-events: none;
-  transition:
-    width 1s linear,
-    background-color var(--duration-fast) var(--easing-smooth);
-  z-index: 0;
-}
-
-.timerProgressBlue {
-  --timer-progress-color: #7cc7ff;
-}
-
-.timerProgressPink {
-  --timer-progress-color: #f472b6;
-}
-
-.timerProgressRed {
-  --timer-progress-color: #ef4444;
 }
 
 /* Right opponent — vertically centered between partner box and player box */
