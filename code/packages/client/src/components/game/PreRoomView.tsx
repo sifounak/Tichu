@@ -1120,6 +1120,7 @@ export function PreRoomView({
         view={dummyView}
         hideCenter={false}
         compassLayout={isSpectator}
+        isSpectator={isSpectator}
         renderSeatOverride={renderSeat}
         centerContent={centerContent}
         bottomContent={isSpectator ? renderSeat('south') : undefined}

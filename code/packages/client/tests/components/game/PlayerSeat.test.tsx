@@ -64,6 +64,14 @@ describe('PlayerSeat', () => {
     expect(container.querySelector('[class*="active"]')).toBeTruthy();
   });
 
+  it('keeps the blue current-turn border when the turn timer is active', () => {
+    const playerSeatCss = readFileSync('src/components/game/PlayerSeat.module.css', 'utf8');
+
+    expect(playerSeatCss).toMatch(/\.timerNoGlow\s*\{[^}]*border-color:\s*#4a9eff;/s);
+    expect(playerSeatCss).toMatch(/\.timerAmber\s*\{[^}]*border-color:\s*#4a9eff;/s);
+    expect(playerSeatCss).toMatch(/\.timerRed\s*\{[^}]*border-color:\s*#4a9eff;/s);
+  });
+
   it('highlights own seat', () => {
     const { container } = render(<PlayerSeat {...baseProps} isMe />);
     expect(container.querySelector('[class*="me"]')).toBeTruthy();

@@ -32,6 +32,26 @@ function getStage(remaining: number, total: number): TimerStage {
   return 'red';
 }
 
+function getTimerKey(
+  turnTimerStartedAt: number | null | undefined,
+  turnTimerDurationMs: number | null | undefined,
+  serverClockOffsetMs: number,
+): string {
+  return `${turnTimerStartedAt ?? 'none'}:${turnTimerDurationMs ?? 'none'}:${serverClockOffsetMs}`;
+}
+
+function getInitialRemaining(
+  turnTimerStartedAt: number | null | undefined,
+  turnTimerDurationMs: number | null | undefined,
+  serverClockOffsetMs: number,
+): number {
+  if (turnTimerStartedAt == null || turnTimerDurationMs == null || turnTimerDurationMs <= 0) {
+    return 0;
+  }
+
+  return computeRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
+}
+
 /**
  * REQ-F-TT06: Computes a local countdown from server-provided timer timestamps.
  *
@@ -43,28 +63,36 @@ export function useTurnTimer(
   turnTimerDurationMs: number | null | undefined,
   serverClockOffsetMs: number = 0,
 ): TurnTimerState {
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const timerKey = getTimerKey(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
+  const [timerState, setTimerState] = useState(() => ({
+    key: timerKey,
+    remainingSeconds: getInitialRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs),
+  }));
+
+  const remainingSeconds = timerState.key === timerKey
+    ? timerState.remainingSeconds
+    : getInitialRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
 
   useEffect(() => {
     if (turnTimerStartedAt == null || turnTimerDurationMs == null || turnTimerDurationMs <= 0) {
-      setRemainingSeconds(0);
+      setTimerState({ key: timerKey, remainingSeconds: 0 });
       return;
     }
 
     // Compute immediately on mount / value change
     const initial = computeRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
-    setRemainingSeconds(initial);
+    setTimerState({ key: timerKey, remainingSeconds: initial });
 
     if (initial <= 0) return;
 
     const interval = setInterval(() => {
       const remaining = computeRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
-      setRemainingSeconds(remaining);
+      setTimerState({ key: timerKey, remainingSeconds: remaining });
       if (remaining <= 0) clearInterval(interval);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs]);
+  }, [turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs, timerKey]);
 
   if (turnTimerStartedAt == null || turnTimerDurationMs == null || turnTimerDurationMs <= 0) {
     return INACTIVE;

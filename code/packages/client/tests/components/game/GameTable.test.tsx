@@ -79,4 +79,20 @@ describe('GameTable', () => {
     render(<GameTable view={makeView()} />);
     expect(screen.getByText('Tichu')).toBeInTheDocument(); // West called Tichu
   });
+
+  it('does not show the play-area timer ring for spectators', () => {
+    const now = Date.now();
+    const { container } = render(
+      <GameTable
+        view={makeView({
+          turnTimerStartedAt: now,
+          turnTimerDurationMs: 30_000,
+        })}
+        isMyTurn
+        isSpectator
+      />,
+    );
+
+    expect(container.querySelector('svg')).toBeNull();
+  });
 });

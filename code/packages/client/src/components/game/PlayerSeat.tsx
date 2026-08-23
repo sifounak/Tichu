@@ -1,7 +1,7 @@
 // REQ-F-DI01: Player seat showing avatar, card count, Tichu indicator, pass status
 'use client';
 
-import { memo, useState, type CSSProperties } from 'react';
+import { memo, useRef, useState, type CSSProperties } from 'react';
 import type { Seat, TichuCall } from '@tichu/shared';
 import { Card } from '../cards/Card';
 import { useTurnTimer } from '@/hooks/useTurnTimer';
@@ -116,6 +116,14 @@ export const PlayerSeat = memo(function PlayerSeat({
   const timerProgressPercent = timerActive && timer.totalSeconds > 0
     ? Math.min(100, Math.max(0, (timer.remainingSeconds / timer.totalSeconds) * 100))
     : 0;
+  const previousTimerProgressRef = useRef(timerProgressPercent);
+  const previousTimerStartedAtRef = useRef(turnTimerStartedAt ?? null);
+  const timerProgressShouldSnap = timerActive && (
+    previousTimerStartedAtRef.current !== (turnTimerStartedAt ?? null) ||
+    timerProgressPercent > previousTimerProgressRef.current
+  );
+  previousTimerProgressRef.current = timerProgressPercent;
+  previousTimerStartedAtRef.current = turnTimerStartedAt ?? null;
   const timerGlowClass = timerActive
     ? timer.stage === 'red' ? `${styles.timerRed} ${styles.timerRedPulse}`
       : timer.stage === 'amber' ? styles.timerAmber
@@ -142,6 +150,7 @@ export const PlayerSeat = memo(function PlayerSeat({
         : timer.stage === 'amber' ? styles.timerProgressPink
         : styles.timerProgressBlue
     ),
+    showTimerProgress && timerProgressShouldSnap && styles.timerProgressSnap,
   ].filter(Boolean).join(' ');
   const seatStyle = {
     ...(kickVoteTarget || isClickableDragon ? { cursor: 'pointer' } : {}),

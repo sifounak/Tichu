@@ -2145,6 +2145,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         endOfTrickBombWindowEndTime={gameStore.endOfTrickBombWindowEndTime}
         serverClockOffsetMs={gameStore.serverClockOffsetMs}
         compassLayout={isSpectator}
+        isSpectator={isSpectator}
         layoutTier={layoutTier}
         onChooseSeat={gameStore.choosingSeat ? handleChooseSeat : undefined}
         onKickTarget={(seat: Seat) => {

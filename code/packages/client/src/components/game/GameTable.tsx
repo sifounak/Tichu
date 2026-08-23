@@ -52,6 +52,8 @@ export interface GameTableProps {
   onAddBot?: (seat: Seat) => void;
   /** Fixed spectator orientation (south-facing player camera) */
   compassLayout?: boolean;
+  /** Spectators observe turns but do not get a personal play-area timer */
+  isSpectator?: boolean;
   /** Current layout tier for responsive behavior */
   layoutTier?: LayoutTier;
 }
@@ -64,7 +66,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onTransferHostTarget, onAddBot, compassLayout, layoutTier = 'full' }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onTransferHostTarget, onAddBot, compassLayout, isSpectator = false, layoutTier = 'full' }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled, waitingForReconnect } = view;
   const centerRef = useRef<HTMLDivElement>(null);
   const timer = useTurnTimer(view.turnTimerStartedAt, view.turnTimerDurationMs, serverClockOffsetMs);
@@ -209,7 +211,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
 
   const isMobile = layoutTier !== 'full';
   const dragonGiftPending = dragonGiftTargets && dragonGiftTargets.size > 0;
-  const showPlayAreaTimer = !!isMyTurn && timer.isActive && !dragonGiftPending && !centerContent && !hideCenter;
+  const showPlayAreaTimer = !isSpectator && !!isMyTurn && timer.isActive && !dragonGiftPending && !centerContent && !hideCenter;
 
   // Full layout: vertically center play area + opponents between partner box bottom and player box top
   const tableRef = useRef<HTMLDivElement>(null);
