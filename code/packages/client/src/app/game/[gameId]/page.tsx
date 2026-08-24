@@ -17,6 +17,8 @@ import { useCardSelection } from '@/hooks/useCardSelection';
 import { useLayoutTier } from '@/hooks/useLayoutTier';
 import { useNavigationBlock } from '@/hooks/useNavigationBlock';
 import { useSoundEffects } from '@/hooks/useSoundEffects';
+import { useTurnTimer } from '@/hooks/useTurnTimer';
+import { useTurnTimerAudio } from '@/hooks/useTurnTimerAudio';
 import { useGameStore } from '@/stores/gameStore';
 import { useRoomStore } from '@/stores/roomStore';
 import { useUiStore } from '@/stores/uiStore';
@@ -1099,6 +1101,22 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   // REQ-F-AP01–AP12: Auto-pass until next trick
   const autoPassEnabled = uiStore.autoPassEnabled;
+  const turnTimer = useTurnTimer(gameStore.turnTimerStartedAt, gameStore.turnTimerDurationMs, gameStore.serverClockOffsetMs);
+  const timerAudioEnabled =
+    phase === 'playing' &&
+    !isSpectator &&
+    isMyTurnForSelection &&
+    !gameStore.gameHalted &&
+    !gameStore.dragonGiftPending;
+
+  useTurnTimerAudio({
+    enabled: timerAudioEnabled,
+    remainingSeconds: turnTimer.remainingSeconds,
+    totalSeconds: turnTimer.totalSeconds,
+    turnTimerStartedAt: gameStore.turnTimerStartedAt,
+    turnTimerDurationMs: gameStore.turnTimerDurationMs,
+    playSound,
+  });
 
   // REQ-F-AP04: Reset auto-pass when trick is won (currentTrick transitions to null)
   const prevTrickRef = useRef(gameStore.currentTrick);

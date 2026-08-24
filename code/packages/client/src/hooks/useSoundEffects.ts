@@ -13,7 +13,9 @@ export type SoundEvent =
   | 'grandTichu'
   | 'blindGrandTichu'
   | 'chat'
-  | 'yourTurn';
+  | 'yourTurn'
+  | 'timerCountdown'
+  | 'timerOutOfTime';
 
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
@@ -27,6 +29,8 @@ const SOUND_FILES: Record<SoundEvent, string> = {
   blindGrandTichu: `${BASE_PATH}/sounds/blind-grand.mp3`,
   chat: `${BASE_PATH}/sounds/chat.mp3`,
   yourTurn: `${BASE_PATH}/sounds/your-turn.mp3`,
+  timerCountdown: `${BASE_PATH}/sounds/timer-countdown-beep.mp3`,
+  timerOutOfTime: `${BASE_PATH}/sounds/timer-out-of-time.mp3`,
 };
 
 const STORAGE_KEY_MUTED = 'tichu_sound_muted';
