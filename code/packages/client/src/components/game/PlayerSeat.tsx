@@ -117,7 +117,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   // REQ-F-TT03: Timer stage determines seat glow class when active
   const timerActive = isCurrentTurn && timer.isActive;
   const timerProgressPercent = timerActive && timer.totalSeconds > 0
-    ? Math.min(100, Math.max(0, (timer.remainingSeconds / timer.totalSeconds) * 100))
+    ? Math.min(100, Math.max(0, timer.progressRatio * 100))
     : 0;
   const previousTimerProgressRef = useRef(timerProgressPercent);
   const previousTimerStartedAtRef = useRef(turnTimerStartedAt ?? null);

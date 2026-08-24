@@ -289,8 +289,8 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           {showPlayAreaTimer && (
             <div className={styles.playAreaTimerOverlay}>
               <TurnTimer
-                remainingSeconds={timer.remainingSeconds}
                 totalSeconds={timer.totalSeconds}
+                progressRatio={timer.progressRatio}
                 stage={timer.stage}
                 targetRef={centerRef}
               />

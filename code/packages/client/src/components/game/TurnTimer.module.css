@@ -25,7 +25,7 @@
   stroke: var(--timer-color);
   stroke-width: calc(6 * var(--scale));
   stroke-linecap: round;
-  transition: stroke-dasharray 1s linear;
+  transition: stroke-dasharray 100ms linear;
   filter: drop-shadow(0 0 calc(4px * var(--scale)) var(--timer-glow));
 }
 

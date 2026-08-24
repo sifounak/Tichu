@@ -352,7 +352,7 @@ export const TrickDisplay = memo(function TrickDisplay({
         bombWindowRafRef.current = requestAnimationFrame(tick);
       }
     };
-    bombWindowRafRef.current = requestAnimationFrame(tick);
+    tick();
     return () => cancelAnimationFrame(bombWindowRafRef.current);
   }, [endOfTrickBombWindowEndTime, serverClockOffsetMs]);
 
@@ -517,7 +517,7 @@ export const TrickDisplay = memo(function TrickDisplay({
       )}
 
       {/* End-of-trick bomb window banner */}
-      {bombWindowRemaining !== null && bombWindowRemaining > 0 && (
+      {bombWindowRemaining !== null && (
         <div className={styles.endOfTrickBombBanner}>
           Pausing for end-of-trick bombs: {(bombWindowRemaining / 1000).toFixed(1)}...
         </div>

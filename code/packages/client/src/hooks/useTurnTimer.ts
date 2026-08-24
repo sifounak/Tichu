@@ -5,24 +5,29 @@ import { useState, useEffect } from 'react';
 export type TimerStage = 'blue' | 'amber' | 'red';
 
 export interface TurnTimerState {
+  remainingMs: number;
+  totalMs: number;
   remainingSeconds: number;
   totalSeconds: number;
+  progressRatio: number;
   isActive: boolean;
   stage: TimerStage;
 }
 
 const INACTIVE: TurnTimerState = {
+  remainingMs: 0,
+  totalMs: 0,
   remainingSeconds: 0,
   totalSeconds: 0,
+  progressRatio: 0,
   isActive: false,
   stage: 'blue',
 };
 
-function computeRemaining(startedAt: number, durationMs: number, clockOffsetMs: number): number {
+function computeRemainingMs(startedAt: number, durationMs: number, clockOffsetMs: number): number {
   // Adjust server timestamp to local time by subtracting clock offset
   const localEndTime = startedAt + durationMs - clockOffsetMs;
-  const remainingMs = Math.min(durationMs, Math.max(0, localEndTime - Date.now()));
-  return Math.ceil(remainingMs / 1000);
+  return Math.min(durationMs, Math.max(0, localEndTime - Date.now()));
 }
 
 function getStage(remaining: number, total: number): TimerStage {
@@ -49,14 +54,14 @@ function getInitialRemaining(
     return 0;
   }
 
-  return computeRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
+  return computeRemainingMs(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
 }
 
 /**
  * REQ-F-TT06: Computes a local countdown from server-provided timer timestamps.
  *
- * Runs a 1-second interval that derives remaining time from
- * `Date.now() - turnTimerStartedAt`. Resets when turnTimerStartedAt changes.
+ * Runs a short interval that derives remaining time from server timestamps.
+ * Resets when turnTimerStartedAt changes.
  */
 export function useTurnTimer(
   turnTimerStartedAt: number | null | undefined,
@@ -66,30 +71,30 @@ export function useTurnTimer(
   const timerKey = getTimerKey(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
   const [timerState, setTimerState] = useState(() => ({
     key: timerKey,
-    remainingSeconds: getInitialRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs),
+    remainingMs: getInitialRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs),
   }));
 
-  const remainingSeconds = timerState.key === timerKey
-    ? timerState.remainingSeconds
+  const remainingMs = timerState.key === timerKey
+    ? timerState.remainingMs
     : getInitialRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
 
   useEffect(() => {
     if (turnTimerStartedAt == null || turnTimerDurationMs == null || turnTimerDurationMs <= 0) {
-      setTimerState({ key: timerKey, remainingSeconds: 0 });
+      setTimerState({ key: timerKey, remainingMs: 0 });
       return;
     }
 
     // Compute immediately on mount / value change
-    const initial = computeRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
-    setTimerState({ key: timerKey, remainingSeconds: initial });
+    const initial = computeRemainingMs(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
+    setTimerState({ key: timerKey, remainingMs: initial });
 
     if (initial <= 0) return;
 
     const interval = setInterval(() => {
-      const remaining = computeRemaining(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
-      setTimerState({ key: timerKey, remainingSeconds: remaining });
+      const remaining = computeRemainingMs(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
+      setTimerState({ key: timerKey, remainingMs: remaining });
       if (remaining <= 0) clearInterval(interval);
-    }, 1000);
+    }, 100);
 
     return () => clearInterval(interval);
   }, [turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs, timerKey]);
@@ -98,12 +103,18 @@ export function useTurnTimer(
     return INACTIVE;
   }
 
+  const totalMs = turnTimerDurationMs;
+  const progressRatio = Math.min(1, Math.max(0, remainingMs / totalMs));
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
   const totalSeconds = Math.ceil(turnTimerDurationMs / 1000);
 
   return {
+    remainingMs,
+    totalMs,
     remainingSeconds,
     totalSeconds,
-    isActive: remainingSeconds > 0,
+    progressRatio,
+    isActive: true,
     stage: getStage(remainingSeconds, totalSeconds),
   };
 }

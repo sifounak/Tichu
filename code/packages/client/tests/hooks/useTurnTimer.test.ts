@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { useTurnTimer } from '@/hooks/useTurnTimer';
 
 describe('useTurnTimer', () => {
@@ -25,8 +25,39 @@ describe('useTurnTimer', () => {
     rerender({ startedAt: nextStartedAt });
 
     expect(result.current.remainingSeconds).toBe(30);
+    expect(result.current.remainingMs).toBe(30_000);
     expect(result.current.totalSeconds).toBe(30);
+    expect(result.current.totalMs).toBe(30_000);
+    expect(result.current.progressRatio).toBe(1);
     expect(result.current.isActive).toBe(true);
     expect(result.current.stage).toBe('blue');
+  });
+
+  it('shows zero and empty progress when the timer runs out', () => {
+    const startedAt = Date.now();
+    const { result } = renderHook(() => useTurnTimer(startedAt, 30_000, 0));
+
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+
+    expect(result.current.remainingSeconds).toBe(0);
+    expect(result.current.remainingMs).toBe(0);
+    expect(result.current.progressRatio).toBe(0);
+    expect(result.current.isActive).toBe(true);
+    expect(result.current.stage).toBe('red');
+  });
+
+  it('uses millisecond progress before the displayed second changes', () => {
+    const startedAt = Date.now();
+    const { result } = renderHook(() => useTurnTimer(startedAt, 30_000, 0));
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(result.current.remainingSeconds).toBe(30);
+    expect(result.current.remainingMs).toBe(29_500);
+    expect(result.current.progressRatio).toBeCloseTo(29_500 / 30_000);
   });
 });

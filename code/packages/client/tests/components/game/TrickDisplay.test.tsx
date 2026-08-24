@@ -162,4 +162,18 @@ describe('TrickDisplay', () => {
     expect(layout.scale).toBeLessThan(1);
     expect(Math.abs(layout.centerOffsetPx)).toBeLessThan(1);
   });
+
+  it('shows zero when the end-of-trick bomb window countdown expires', async () => {
+    render(
+      <TrickDisplay
+        trick={singleTrick}
+        mahjongWish={null}
+        wishFulfilled={false}
+        mySeat="south"
+        endOfTrickBombWindowEndTime={Date.now() - 1}
+      />,
+    );
+
+    expect(await screen.findByText('Pausing for end-of-trick bombs: 0.0...')).toBeInTheDocument();
+  });
 });

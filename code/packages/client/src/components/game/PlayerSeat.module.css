@@ -50,7 +50,7 @@
   opacity: 0.9;
   pointer-events: none;
   transition:
-    height 1s linear,
+    height 100ms linear,
     background-color var(--duration-fast) var(--easing-smooth);
   z-index: 0;
 }

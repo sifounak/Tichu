@@ -6,8 +6,8 @@ import type { TimerStage } from '@/hooks/useTurnTimer';
 import styles from './TurnTimer.module.css';
 
 export interface TurnTimerProps {
-  remainingSeconds: number;
   totalSeconds: number;
+  progressRatio: number;
   stage: TimerStage;
   targetRef: RefObject<HTMLDivElement | null>;
 }
@@ -43,8 +43,8 @@ function buildRingPath(w: number, h: number, r: number, inset: number): { d: str
 }
 
 export const TurnTimer = memo(function TurnTimer({
-  remainingSeconds,
   totalSeconds,
+  progressRatio,
   stage,
   targetRef,
 }: TurnTimerProps) {
@@ -104,7 +104,7 @@ export const TurnTimer = memo(function TurnTimer({
     Math.max(0, dims.radius - halfStroke),
     halfStroke,
   );
-  const ratio = Math.min(1, Math.max(0, remainingSeconds / totalSeconds));
+  const ratio = Math.min(1, Math.max(0, progressRatio));
   const visible = ratio * perimeter;
 
   return (
