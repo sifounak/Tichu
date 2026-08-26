@@ -133,6 +133,11 @@ export function PreRoomView({
   const [confirmTargetSeat, setConfirmTargetSeat] = useState<Seat | null>(null);
   const uiStore = useUiStore();
   const votingEnabled = useRoomStore((s) => s.votingEnabled);
+  const autopilotEnabled = mySeat
+    ? (players.find((p) => p.seat === mySeat)?.isAutopilot ?? false)
+    : false;
+  const formatPlayerName = (player: { name: string; isAutopilot?: boolean }) =>
+    player.isAutopilot ? `(Bot) ${player.name}` : player.name;
 
   // REQ-F-SC02: Countdown timer for seat offer / queue status
   const [countdown, setCountdown] = useState(0);
@@ -246,11 +251,14 @@ export function PreRoomView({
       case 'toggleBlindGrand':
         setConfirmAction({ type: 'blindGrand', enabled: !(config?.blindGrandTichuEnabled ?? false) });
         break;
+      case 'toggleAutopilot':
+        send({ type: autopilotEnabled ? 'DISABLE_AUTOPILOT' : 'ENABLE_AUTOPILOT' });
+        break;
       case 'cancelVote':
         send({ type: 'CANCEL_VOTE' });
         break;
     }
-  }, [config?.blindGrandTichuEnabled, send]);
+  }, [autopilotEnabled, config?.blindGrandTichuEnabled, send]);
 
   // Confirmation dialog callbacks
   const handleConfirmStartVote = useCallback(() => {
@@ -285,10 +293,10 @@ export function PreRoomView({
   // Build seat→name mapping for VoteOverlay
   const SEAT_LABELS: Record<string, string> = { north: 'North', east: 'East', south: 'South', west: 'West' };
   const seatNames = {
-    north: players.find(p => p.seat === 'north')?.name ?? SEAT_LABELS.north,
-    east: players.find(p => p.seat === 'east')?.name ?? SEAT_LABELS.east,
-    south: players.find(p => p.seat === 'south')?.name ?? SEAT_LABELS.south,
-    west: players.find(p => p.seat === 'west')?.name ?? SEAT_LABELS.west,
+    north: (players.find(p => p.seat === 'north') ? formatPlayerName(players.find(p => p.seat === 'north')!) : SEAT_LABELS.north),
+    east: (players.find(p => p.seat === 'east') ? formatPlayerName(players.find(p => p.seat === 'east')!) : SEAT_LABELS.east),
+    south: (players.find(p => p.seat === 'south') ? formatPlayerName(players.find(p => p.seat === 'south')!) : SEAT_LABELS.south),
+    west: (players.find(p => p.seat === 'west') ? formatPlayerName(players.find(p => p.seat === 'west')!) : SEAT_LABELS.west),
   } as Record<Seat, string>;
 
   const handleConfigChange = (updates: Record<string, unknown>) => {
@@ -297,7 +305,8 @@ export function PreRoomView({
 
   // Find player name for a given seat
   const getPlayerName = (seat: Seat) => {
-    return players.find((p) => p.seat === seat)?.name;
+    const player = players.find((p) => p.seat === seat);
+    return player ? formatPlayerName(player) : undefined;
   };
 
   const handleSwapSeat = (seat: Seat) => {
@@ -324,7 +333,7 @@ export function PreRoomView({
       return (
         <PlayerSeat
           seat={seat}
-          displayName={player.name}
+          displayName={formatPlayerName(player)}
           cardCount={0}
           tichuCall={'none'}
           hasPlayed={false}
@@ -339,14 +348,14 @@ export function PreRoomView({
           onSeatClick={handleSeatClick}
           customContent={isHost ? (
             <div className={styles.botSeatContent}>
-              <span className={styles.botName}>{player.name}</span>
+              <span className={styles.botName}>{formatPlayerName(player)}</span>
               <button onClick={() => handleKickPlayer(seat)} className={styles.removeBtn}>
                 Kick
               </button>
             </div>
           ) : (
             <div className={styles.botSeatContent}>
-              <span className={styles.botName}>{player.name}</span>
+              <span className={styles.botName}>{formatPlayerName(player)}</span>
               <div className={styles.seatAvatar}>
                 {player.name[0].toUpperCase()}
               </div>
@@ -672,6 +681,7 @@ export function PreRoomView({
             blindGrandTichuEnabled={config?.blindGrandTichuEnabled ?? false}
             activeVote={uiStore.activeVote}
             mySeat={mySeat}
+            autopilotEnabled={autopilotEnabled}
             onAction={handleMenuAction}
             isOnCooldown={isOnCooldown}
             getCooldownRemaining={getCooldownRemaining}
@@ -1106,6 +1116,7 @@ export function PreRoomView({
         isPreGame={true}
         votingEnabled={votingEnabled}
         blindGrandTichuEnabled={config?.blindGrandTichuEnabled ?? false}
+        autopilotEnabled={autopilotEnabled}
         onAction={(action) => {
           setDrawerOpen(false);
           handleMenuAction(action);
@@ -1167,7 +1178,7 @@ export function PreRoomView({
         </div>
       )}
       {/* REQ-F-VI13: Pre-game vote overlay */}
-      {uiStore.activeVote && (
+      {uiStore.activeVote && !autopilotEnabled && (
         <VoteOverlay
           activeVote={uiStore.activeVote}
           mySeat={mySeat ?? 'south'}
@@ -1175,7 +1186,7 @@ export function PreRoomView({
           seatNames={seatNames}
           onVote={(voteId, vote) => send({ type: 'PRE_GAME_VOTE', voteId, vote })}
           readOnly={isSpectator}
-          canCancel={!isSpectator && (isHost || (mySeat != null && uiStore.activeVote?.initiatorSeat === mySeat))}
+          canCancel={!isSpectator && !autopilotEnabled && (isHost || (mySeat != null && uiStore.activeVote?.initiatorSeat === mySeat))}
           onCancelVote={() => send({ type: 'CANCEL_VOTE' })}
         />
       )}

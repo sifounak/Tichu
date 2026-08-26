@@ -104,6 +104,9 @@ export interface GameSnapshot {
   timerState: TimerSnapshot | null;
   botSeats: Seat[];
   botStates: Record<string, BotSnapshot>;
+  autopilotSeats?: Seat[];
+  autopilotBotStates?: Record<string, BotSnapshot>;
+  consecutiveTimeouts?: Record<string, number>;
   config: GameConfig;
 }
 
@@ -111,7 +114,7 @@ export interface RoomSnapshot {
   roomCode: string;
   roomName: string;
   hostSeat: Seat;
-  players: Array<{ seat: Seat; name: string; isBot: boolean }>;
+  players: Array<{ seat: Seat; name: string; isBot: boolean; isAutopilot?: boolean }>;
   spectators?: RoomSpectator[];
   config: RoomConfig;
   gameInProgress: boolean;

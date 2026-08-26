@@ -29,6 +29,7 @@ export function projectGameState(
   endOfTrickBombWindowEndTime?: number | null,
   waitingForReconnect?: Seat | null,
   disconnectedSeats?: Seat[],
+  autopilotSeats: Seat[] = [],
   kickDialog?: { targetSeat: Seat } | null,
 ): ClientGameView {
   const round = context.currentRound;
@@ -85,6 +86,8 @@ export function projectGameState(
       waitingForReconnect: waitingForReconnect ?? null,
       // REQ-F-DC01: Currently disconnected seats
       disconnectedSeats: disconnectedSeats ?? [],
+      autopilotSeats,
+      myAutopilotActive: autopilotSeats.includes(forSeat),
       // REQ-F-KM01: Active kick dialog (null hides from spectators per REQ-F-UI03)
       kickDialog: kickDialog ?? null,
     };
@@ -150,6 +153,8 @@ export function projectGameState(
     waitingForReconnect: waitingForReconnect ?? null,
     // REQ-F-DC01: Currently disconnected seats
     disconnectedSeats: disconnectedSeats ?? [],
+    autopilotSeats,
+    myAutopilotActive: autopilotSeats.includes(forSeat),
     // REQ-F-KM01: Active kick dialog
     kickDialog: kickDialog ?? null,
   };
@@ -187,6 +192,7 @@ export function projectSpectatorView(
   endOfTrickBombWindowEndTime?: number | null,
   waitingForReconnect?: Seat | null,
   disconnectedSeats?: Seat[],
+  autopilotSeats: Seat[] = [],
   _kickDialog?: { targetSeat: Seat } | null,
 ): ClientGameView {
   const round = context.currentRound;
@@ -234,6 +240,8 @@ export function projectSpectatorView(
       serverTime: Date.now(),
       waitingForReconnect: waitingForReconnect ?? null,
       disconnectedSeats: disconnectedSeats ?? [],
+      autopilotSeats,
+      myAutopilotActive: false,
       // REQ-F-UI03: Spectators do not see kick dialog
       kickDialog: null,
     };
@@ -285,6 +293,8 @@ export function projectSpectatorView(
     waitingForReconnect: waitingForReconnect ?? null,
     // REQ-F-DC01: Currently disconnected seats
     disconnectedSeats: disconnectedSeats ?? [],
+    autopilotSeats,
+    myAutopilotActive: false,
     // REQ-F-UI03: Spectators do not see kick dialog
     kickDialog: null,
   };

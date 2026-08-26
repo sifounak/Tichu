@@ -250,6 +250,7 @@ describe('GameManager', () => {
         null,    // endOfTrickBombWindowEndTime
         null,    // waitingForReconnect
         [],      // disconnectedSeats
+        [],      // autopilotSeats
         null,    // kickDialog
       );
     });
@@ -307,7 +308,7 @@ describe('GameManager', () => {
       }
     });
 
-    it('does not run the play timer while waiting for a Dragon gift decision', () => {
+    it('runs the turn timer while waiting for a Dragon gift decision and auto-resolves on timeout', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
 
@@ -342,7 +343,42 @@ describe('GameManager', () => {
         vi.advanceTimersByTime(2_500);
 
         expect(timerManager.stateValue).toBe('awaitingDragonGift');
-        expect(getLastTimerInfo(timerBroadcaster)).toEqual({ startTime: null, durationMs: 30_000 });
+        expect(getLastTimerInfo(timerBroadcaster)).toEqual({ startTime: Date.now(), durationMs: 30_000 });
+
+        vi.advanceTimersByTime(30_000);
+
+        expect(timerManager.stateValue).not.toBe('awaitingDragonGift');
+        expect(timerManager.context.currentRound!.dragonGiftPending).toBeNull();
+        expect(timerManager.context.currentRound!.dragonGiftedTo).not.toBeNull();
+      } finally {
+        timerManager.destroy();
+        timerDisconnectHandler.dispose();
+        vi.useRealTimers();
+      }
+    });
+
+    it('enables autopilot on the third consecutive timeout', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+
+      const {
+        manager: timerManager,
+        broadcaster: timerBroadcaster,
+        disconnectHandler: timerDisconnectHandler,
+      } = createTestManager({ turnTimerSeconds: 30 });
+      const timerWs = createMockWs();
+
+      try {
+        advanceToPlaying(timerManager, timerWs);
+        const seat = timerManager.context.currentRound!.currentTurn!;
+        (timerManager as unknown as { consecutiveTimeouts: Map<Seat, number> }).consecutiveTimeouts.set(seat, 2);
+        (timerBroadcaster.broadcastGameState as ReturnType<typeof vi.fn>).mockClear();
+
+        vi.advanceTimersByTime(30_000);
+
+        expect(timerManager.getAutopilotSeats()).toContain(seat);
+        const lastCall = (timerBroadcaster.broadcastGameState as ReturnType<typeof vi.fn>).mock.calls.at(-1);
+        expect(lastCall?.[10]).toContain(seat);
       } finally {
         timerManager.destroy();
         timerDisconnectHandler.dispose();

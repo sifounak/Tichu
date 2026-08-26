@@ -83,6 +83,8 @@ export class GameManager {
   private voteHandler!: VoteHandler;
   private kickDialogHandler!: KickDialogHandler;
   private botRunner!: BotRunner;
+  private autopilotSeats = new Set<Seat>();
+  private consecutiveTimeouts = new Map<Seat, number>();
   private destroyed = false;
   private autoPassTimer: ReturnType<typeof setTimeout> | null = null;
   private scoringTimer: ReturnType<typeof setTimeout> | null = null;
@@ -112,6 +114,7 @@ export class GameManager {
   private _votingEnabled = true;
   /** REQ-F-KM04: Callback for kick-dialog-triggered seat vacation */
   private onKickDialogKick?: (roomCode: string, seat: Seat) => void;
+  private onAutopilotChanged?: (roomCode: string, seat: Seat, enabled: boolean) => void;
   /** REQ-F-VI05: Snapshot of a vote interrupted by a threshold crossing during the vote. */
   private interruptedVote: { voteType: import('./vote-handler.js').PlayerVoteType; initiatorSeat: Seat; targetSeat?: Seat } | null = null;
 
@@ -151,6 +154,9 @@ export class GameManager {
     // REQ-F-VI05: After kick resolved, restart interrupted vote (unless vote was to kick that player)
     this.kickDialogHandler.onKick = (rc, seat) => {
       this.vacatedSeats.add(seat);
+      this.autopilotSeats.delete(seat);
+      this.consecutiveTimeouts.delete(seat);
+      this.botRunner.disableAutopilot(seat);
       this.broadcastState();
       this.onKickDialogKick?.(rc, seat);
       this.restartInterruptedVoteIfApplicable(seat);
@@ -280,7 +286,9 @@ export class GameManager {
         this.handleStartBlindGrandVote(ws, seat, message.enabled);
         return;
       case 'PLAYER_VOTE':
+        if (this.autopilotSeats.has(seat)) return;
         this.voteHandler.handleVote(this.roomCode, seat, message.voteId, message.vote);
+        this.resetTimeoutsForManualDecision(seat);
         return;
 
       default:
@@ -301,6 +309,7 @@ export class GameManager {
       return;
     }
 
+    this.resetTimeoutsForManualDecision(seat);
     // State change triggers broadcast via the subscription
     this.broadcastState();
   }
@@ -443,6 +452,9 @@ export class GameManager {
   /** Mark a seat as vacated (player left mid-game). Game pauses until filled. */
   handleSeatVacated(seat: Seat): void {
     this.vacatedSeats.add(seat);
+    this.autopilotSeats.delete(seat);
+    this.consecutiveTimeouts.delete(seat);
+    this.botRunner.disableAutopilot(seat);
     // If seat was a bot, remove it so it stops making moves
     if (this.botRunner.isBot(seat)) {
       this.botRunner.removeBot(seat);
@@ -487,6 +499,7 @@ export class GameManager {
       undefined,
       waitingForReconnect,
       disconnectedSeats,
+      [...this.autopilotSeats],
       null, // REQ-F-UI03: Spectators do not see kick dialog
     );
     this.broadcaster.send(ws, { type: 'GAME_STATE', state: view });
@@ -552,6 +565,72 @@ export class GameManager {
     this.broadcastState();
   }
 
+  wireAutopilotChangedCallback(callback: (roomCode: string, seat: Seat, enabled: boolean) => void): void {
+    this.onAutopilotChanged = callback;
+  }
+
+  setAutopilot(seat: Seat, enabled: boolean): void {
+    if (this.botRunner.isBot(seat) || this.vacatedSeats.has(seat)) return;
+
+    if (enabled) {
+      if (this.autopilotSeats.has(seat)) return;
+      this.autopilotSeats.add(seat);
+      this.botRunner.enableAutopilot(seat, new Bot());
+      if (this.isSeatAwaitingAction(seat)) {
+        this.timer.stop();
+      }
+      this.voteHandler.removeEligibleVoter(this.roomCode, seat);
+      this.onAutopilotChanged?.(this.roomCode, seat, true);
+      if (this.destroyed) return;
+      this.broadcastState();
+      this.onStateChange(null);
+      return;
+    }
+
+    if (!this.autopilotSeats.has(seat)) return;
+    this.autopilotSeats.delete(seat);
+    this.botRunner.disableAutopilot(seat);
+    this.consecutiveTimeouts.delete(seat);
+    if (!this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+      this.voteHandler.addEligibleVoter(this.roomCode, seat);
+    }
+    this.onAutopilotChanged?.(this.roomCode, seat, false);
+    if (this.destroyed) return;
+    this.broadcastState();
+    if (!this.voteHandler.hasActiveVote(this.roomCode)) {
+      this.onStateChange(null);
+    }
+  }
+
+  isAutopilot(seat: Seat): boolean {
+    return this.autopilotSeats.has(seat);
+  }
+
+  getAutopilotSeats(): Seat[] {
+    return [...this.autopilotSeats];
+  }
+
+  private resetTimeoutsForManualDecision(seat: Seat): void {
+    this.consecutiveTimeouts.delete(seat);
+  }
+
+  private incrementTimeouts(seat: Seat): number {
+    const next = (this.consecutiveTimeouts.get(seat) ?? 0) + 1;
+    this.consecutiveTimeouts.set(seat, next);
+    return next;
+  }
+
+  private isSeatAwaitingAction(seat: Seat): boolean {
+    const round = this.context.currentRound;
+    if (!round) return false;
+    if (this.stateValue === 'playing') return round.currentTurn === seat;
+    if (this.stateValue === 'awaitingDragonGift') return round.dragonGiftPending?.from === seat;
+    if (this.stateValue === 'blindGrandTichuDecision') return !this.context.blindGrandTichuDecisions.has(seat);
+    if (this.stateValue === 'grandTichuDecision') return !this.context.grandTichuDecisions.has(seat);
+    if (this.stateValue === 'cardPassing') return !this.context.cardPassDecisions.has(seat);
+    return false;
+  }
+
   /** REQ-F-PV03, REQ-F-PV25, REQ-F-PV28: Start a kick vote with validation */
   private handleStartKickVote(ws: WebSocket, initiatorSeat: Seat, targetSeat: Seat): void {
     // REQ-F-GA53: Non-host players cannot start votes when voting is disabled
@@ -570,7 +649,7 @@ export class GameManager {
       return;
     }
     // Only human players can initiate
-    if (this.botRunner.isBot(initiatorSeat)) {
+    if (this.botRunner.isBot(initiatorSeat) || this.autopilotSeats.has(initiatorSeat)) {
       this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
       return;
     }
@@ -578,7 +657,7 @@ export class GameManager {
     // REQ-F-KM12: Dismiss kick dialog when vote starts
     this.kickDialogHandler.dismissForVote(this.roomCode);
 
-    const humanSeats = this.getHumanSeats();
+    const humanSeats = this.getVoteEligibleHumanSeats();
     // REQ-F-VI01: Exclude 2+ min disconnected from eligible voters
     const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
     const started = this.voteHandler.startKickVote(this.roomCode, initiatorSeat, targetSeat, humanSeats, excludedSeats);
@@ -601,7 +680,7 @@ export class GameManager {
       return;
     }
     // Only human players can initiate
-    if (this.botRunner.isBot(initiatorSeat)) {
+    if (this.botRunner.isBot(initiatorSeat) || this.autopilotSeats.has(initiatorSeat)) {
       this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
       return;
     }
@@ -609,7 +688,7 @@ export class GameManager {
     // REQ-F-KM12: Dismiss kick dialog when vote starts
     this.kickDialogHandler.dismissForVote(this.roomCode);
 
-    const humanSeats = this.getHumanSeats();
+    const humanSeats = this.getVoteEligibleHumanSeats();
     // REQ-F-VI01: Exclude 2+ min disconnected from eligible voters
     const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
     const started = this.voteHandler.startRestartGameVote(this.roomCode, initiatorSeat, humanSeats, excludedSeats);
@@ -630,7 +709,7 @@ export class GameManager {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
       return;
     }
-    if (this.botRunner.isBot(initiatorSeat)) {
+    if (this.botRunner.isBot(initiatorSeat) || this.autopilotSeats.has(initiatorSeat)) {
       this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
       return;
     }
@@ -638,7 +717,7 @@ export class GameManager {
     // REQ-F-KM12: Dismiss kick dialog when vote starts
     this.kickDialogHandler.dismissForVote(this.roomCode);
 
-    const humanSeats = this.getHumanSeats();
+    const humanSeats = this.getVoteEligibleHumanSeats();
     // REQ-F-VI01: Exclude 2+ min disconnected from eligible voters
     const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
     const started = this.voteHandler.startRestartRoundVote(this.roomCode, initiatorSeat, humanSeats, excludedSeats);
@@ -658,14 +737,14 @@ export class GameManager {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
       return;
     }
-    if (this.botRunner.isBot(initiatorSeat)) {
+    if (this.botRunner.isBot(initiatorSeat) || this.autopilotSeats.has(initiatorSeat)) {
       this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Bots cannot start votes');
       return;
     }
 
     this.kickDialogHandler.dismissForVote(this.roomCode);
 
-    const humanSeats = this.getHumanSeats();
+    const humanSeats = this.getVoteEligibleHumanSeats();
     const excludedSeats = this.disconnectHandler.getSeatsOverThreshold(this.roomCode);
     const started = this.voteHandler.startBlindGrandVote(this.roomCode, initiatorSeat, enabled, humanSeats, excludedSeats);
     if (started) {
@@ -679,11 +758,16 @@ export class GameManager {
     return allSeats.filter(s => !this.botRunner.isBot(s) && !this.vacatedSeats.has(s));
   }
 
+  private getVoteEligibleHumanSeats(): Seat[] {
+    return this.getHumanSeats().filter(s => !this.autopilotSeats.has(s));
+  }
+
   /** REQ-F-KM14: Get connected human seats (excludes bots, vacated, and disconnected). */
   private getConnectedHumanSeats(): Seat[] {
     const allSeats: Seat[] = ['north', 'east', 'south', 'west'];
     return allSeats.filter(s =>
       !this.botRunner.isBot(s) &&
+      !this.autopilotSeats.has(s) &&
       !this.vacatedSeats.has(s) &&
       !this.disconnectHandler.isDisconnected(this.roomCode, s)
     );
@@ -705,26 +789,26 @@ export class GameManager {
     // - awaitingDragonGift: waiting for dragon gift decision
     if (state === 'blindGrandTichuDecision') {
       for (const seat of SEATS_IN_ORDER) {
-        if (!this.context.blindGrandTichuDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+        if (!this.context.blindGrandTichuDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat) && !this.autopilotSeats.has(seat)) {
           return seat;
         }
       }
     } else if (state === 'grandTichuDecision') {
       // Check each undecided seat to see if any are disconnected
       for (const seat of SEATS_IN_ORDER) {
-        if (!this.context.grandTichuDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+        if (!this.context.grandTichuDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat) && !this.autopilotSeats.has(seat)) {
           return seat;
         }
       }
     } else if (state === 'cardPassing') {
       for (const seat of SEATS_IN_ORDER) {
-        if (!this.context.cardPassDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+        if (!this.context.cardPassDecisions.has(seat) && this.disconnectHandler.isDisconnected(this.roomCode, seat) && !this.autopilotSeats.has(seat)) {
           return seat;
         }
       }
     } else if (state === 'awaitingDragonGift' && round.dragonGiftPending) {
       const seat = round.dragonGiftPending.from;
-      if (this.disconnectHandler.isDisconnected(this.roomCode, seat)) {
+      if (this.disconnectHandler.isDisconnected(this.roomCode, seat) && !this.autopilotSeats.has(seat)) {
         return seat;
       }
     }
@@ -745,7 +829,7 @@ export class GameManager {
     const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
     // REQ-F-KM01: Include kick dialog in state broadcast
     const kickDialog = this.kickDialogHandler.getActiveDialog(this.roomCode);
-    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
+    this.broadcaster.broadcastGameState(this.roomCode, this.context, this.stateValue, [...this.vacatedSeats], [...this.choosingSeats], activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, [...this.autopilotSeats], kickDialog);
   }
 
   /** Send current game state to a specific player (projected per-seat view) */
@@ -756,7 +840,7 @@ export class GameManager {
     const waitingForReconnect = this.computeWaitingForReconnect();
     const disconnectedSeats = this.disconnectHandler.getDisconnectedSeats(this.roomCode);
     const kickDialog = this.kickDialogHandler.getActiveDialog(this.roomCode);
-    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
+    const view = projectGameState(this.context, this.stateValue, seat, [...this.vacatedSeats], [...this.choosingSeats], activeVote, timerInfo, this.endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, [...this.autopilotSeats], kickDialog);
     this.broadcaster.sendToPlayer(this.roomCode, seat, {
       type: 'GAME_STATE',
       state: view,
@@ -854,11 +938,11 @@ export class GameManager {
       const activePlayers = round
         ? SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null)
         : [];
-      const onlyBots = activePlayers.length > 0 && activePlayers.every((s) => this.botRunner.isBot(s));
+      const onlyBots = activePlayers.length > 0 && activePlayers.every((s) => this.botRunner.isAutomated(s));
 
       if (onlyBots) {
         const lastPlay = round?.currentTrick?.plays.at(-1);
-        const lastPlayWasHuman = !!lastPlay && !this.botRunner.isBot(lastPlay.seat);
+        const lastPlayWasHuman = !!lastPlay && !this.botRunner.isAutomated(lastPlay.seat);
         const timeoutDelayMs = lastPlayWasHuman ? 800 : 0;
 
         // Let bots decide synchronously, then timeout after any human-to-bot handoff pause.
@@ -904,7 +988,7 @@ export class GameManager {
         if (r) {
           r.lastDogPlay = null;
         }
-        if (r?.currentTurn) {
+        if (r?.currentTurn && !this.botRunner.isAutomated(r.currentTurn)) {
           this.timer.start(r.currentTurn);
           this.turnStartTimes.set(r.currentTurn, new Date().toISOString());
         }
@@ -916,16 +1000,20 @@ export class GameManager {
 
     // Manage turn timer
     if (state === 'playing' && round?.currentTurn) {
-      this.timer.start(round.currentTurn);
-      // REQ-F-CP02: Track turn start time for pre-play enrichment timing
-      this.turnStartTimes.set(round.currentTurn, new Date().toISOString());
-      // REQ-F-TT05: Broadcast immediately so clients receive timer data
-      // (bot runner only broadcasts after bot actions, not for human turns)
-      this.broadcastState();
+      if (this.botRunner.isAutomated(round.currentTurn)) {
+        this.timer.stop();
+      } else {
+        this.timer.start(round.currentTurn);
+        // REQ-F-CP02: Track turn start time for pre-play enrichment timing
+        this.turnStartTimes.set(round.currentTurn, new Date().toISOString());
+        // REQ-F-TT05: Broadcast immediately so clients receive timer data
+        // (bot runner only broadcasts after bot actions, not for human turns)
+        this.broadcastState();
+      }
 
       // Auto-pass for human players who have no valid plays
       const seat = round.currentTurn;
-      if (!this.botRunner.isBot(seat) && round.currentTrick && round.currentTrick.plays.length > 0) {
+      if (!this.botRunner.isAutomated(seat) && round.currentTrick && round.currentTrick.plays.length > 0) {
         const hand = round.players[seat].hand;
         const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
         const validPlays = getValidPlays(hand, round.currentTrick, wish);
@@ -940,7 +1028,13 @@ export class GameManager {
         }
       }
     } else if (state === 'awaitingDragonGift' && round?.dragonGiftPending) {
-      this.timer.stop();
+      const seat = round.dragonGiftPending.from;
+      if (this.botRunner.isAutomated(seat)) {
+        this.timer.stop();
+      } else {
+        this.timer.start(seat);
+        this.turnStartTimes.set(seat, new Date().toISOString());
+      }
       this.broadcastState();
     } else {
       this.timer.stop();
@@ -962,6 +1056,20 @@ export class GameManager {
     const state = this.stateValue;
     const round = this.context.currentRound;
 
+    if (state === 'awaitingDragonGift' && round?.dragonGiftPending && round.dragonGiftPending.from !== seat) return;
+    if (state !== 'awaitingDragonGift' && (state !== 'playing' || !round || round.currentTurn !== seat)) return;
+
+    const timeoutCount = this.incrementTimeouts(seat);
+    if (timeoutCount >= 3 && !this.autopilotSeats.has(seat) && !this.botRunner.isBot(seat)) {
+      this.setAutopilot(seat, true);
+      return;
+    }
+
+    if (this.autopilotSeats.has(seat)) {
+      this.botRunner.onStateChange(() => this.broadcastState());
+      return;
+    }
+
     // Dragon gift timeout — auto-gift to optimal opponent
     if (state === 'awaitingDragonGift' && round?.dragonGiftPending) {
       const recipient = this.pickDragonGiftRecipient(round, round.dragonGiftPending.from);
@@ -970,7 +1078,7 @@ export class GameManager {
       return;
     }
 
-    if (state !== 'playing' || !round || round.currentTurn !== seat) return;
+    if (state !== 'playing' || !round) return;
 
     const hand = round.players[seat].hand;
     const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
@@ -1147,6 +1255,9 @@ export class GameManager {
       timerState: this.timer.serialize(),
       botSeats: this.botRunner.getBotSeats(),
       botStates: this.botRunner.serialize(),
+      autopilotSeats: serializeSet(this.autopilotSeats),
+      autopilotBotStates: this.botRunner.serializeAutopilot(),
+      consecutiveTimeouts: Object.fromEntries(this.consecutiveTimeouts),
       config: this.context.config,
     };
   }
@@ -1191,6 +1302,9 @@ export class GameManager {
     };
     instance.kickDialogHandler.onKick = (rc, seat) => {
       instance.vacatedSeats.add(seat);
+      instance.autopilotSeats.delete(seat);
+      instance.consecutiveTimeouts.delete(seat);
+      instance.botRunner.disableAutopilot(seat);
       instance.broadcastState();
       instance.onKickDialogKick?.(rc, seat);
       instance.restartInterruptedVoteIfApplicable(seat);
@@ -1235,6 +1349,7 @@ export class GameManager {
       instance.actor,
       instance.moveHandler,
     );
+    instance.botRunner.restoreAutopilot(snapshot.autopilotBotStates ?? {});
 
     // Restore turn timer (created but NOT started)
     if (snapshot.timerState) {
@@ -1252,6 +1367,15 @@ export class GameManager {
     // Restore Sets
     instance.vacatedSeats = deserializeSet(snapshot.vacatedSeats);
     instance.choosingSeats = deserializeSet(snapshot.choosingSeats);
+    instance.autopilotSeats = deserializeSet(snapshot.autopilotSeats ?? []);
+    instance.consecutiveTimeouts = new Map(
+      Object.entries(snapshot.consecutiveTimeouts ?? {}).map(([seat, count]) => [seat as Seat, count]),
+    );
+    for (const seat of instance.autopilotSeats) {
+      if (!instance.botRunner.isAutopilot(seat)) {
+        instance.botRunner.enableAutopilot(seat, new Bot());
+      }
+    }
     (instance as unknown as { joinedAfterSpectating: Set<string> }).joinedAfterSpectating = deserializeSet(snapshot.joinedAfterSpectating);
     (instance as unknown as { humanParticipants: Set<string> }).humanParticipants =
       new Set(snapshot.humanParticipants ?? []);
@@ -1297,7 +1421,7 @@ export class GameManager {
     if (!round || !round.currentTurn) return;
 
     // If it's a human's turn and timers are configured, start a fresh timer
-    if (this.timer.isEnabled()) {
+    if (this.timer.isEnabled() && !this.botRunner.isAutomated(round.currentTurn)) {
       this.timer.start(round.currentTurn);
     }
 

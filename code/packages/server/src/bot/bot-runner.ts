@@ -61,6 +61,9 @@ export class BotRunner {
   /** Bot strategy instances keyed by seat */
   private readonly bots = new Map<Seat, BotStrategy>();
 
+  /** Temporary bot strategy instances controlling human seats on autopilot */
+  private readonly autopilotBots = new Map<Seat, BotStrategy>();
+
   /** Pending delay timers (for cleanup) */
   private readonly pendingTimers = new Set<ReturnType<typeof setTimeout>>();
 
@@ -90,6 +93,7 @@ export class BotRunner {
   /** Remove a bot from a seat (e.g., when a human reconnects) */
   removeBot(seat: Seat): void {
     this.bots.delete(seat);
+    this.clearQueuedSeatWork(seat);
   }
 
   /** Check if a seat is occupied by a bot */
@@ -97,9 +101,31 @@ export class BotRunner {
     return this.bots.has(seat);
   }
 
+  enableAutopilot(seat: Seat, strategy: BotStrategy = new Bot()): void {
+    if (this.bots.has(seat)) return;
+    this.autopilotBots.set(seat, strategy);
+  }
+
+  disableAutopilot(seat: Seat): void {
+    this.autopilotBots.delete(seat);
+    this.clearQueuedSeatWork(seat);
+  }
+
+  isAutopilot(seat: Seat): boolean {
+    return this.autopilotBots.has(seat);
+  }
+
+  isAutomated(seat: Seat): boolean {
+    return this.bots.has(seat) || this.autopilotBots.has(seat);
+  }
+
   /** Get all bot seats */
   getBotSeats(): Seat[] {
     return Array.from(this.bots.keys());
+  }
+
+  getAutopilotSeats(): Seat[] {
+    return Array.from(this.autopilotBots.keys());
   }
 
   /**
@@ -108,7 +134,7 @@ export class BotRunner {
    * @param onAfterAction — called after each bot action so the game can broadcast updated state
    */
   onStateChange(onAfterAction?: () => void): void {
-    if (this.disposed || this.bots.size === 0) return;
+    if (this.disposed || this.getAutomatedEntries().length === 0) return;
 
     this.afterActionCallback = onAfterAction ?? null;
 
@@ -148,6 +174,7 @@ export class BotRunner {
     this.grandTichuTimers.clear();
     this.playingTurnTimers.clear();
     this.bots.clear();
+    this.autopilotBots.clear();
   }
 
   // ─── Serialization ──────────────────────────────────────────────────────────
@@ -159,6 +186,16 @@ export class BotRunner {
   serialize(): Record<string, BotSnapshot> {
     const result: Record<string, BotSnapshot> = {};
     for (const [seat, strategy] of this.bots) {
+      if (strategy instanceof Bot) {
+        result[seat] = strategy.serialize();
+      }
+    }
+    return result;
+  }
+
+  serializeAutopilot(): Record<string, BotSnapshot> {
+    const result: Record<string, BotSnapshot> = {};
+    for (const [seat, strategy] of this.autopilotBots) {
       if (strategy instanceof Bot) {
         result[seat] = strategy.serialize();
       }
@@ -183,13 +220,20 @@ export class BotRunner {
     return runner;
   }
 
+  restoreAutopilot(botStates: Record<string, BotSnapshot>): void {
+    for (const [seat, snapshot] of Object.entries(botStates)) {
+      const bot = Bot.restore(snapshot);
+      this.enableAutopilot(seat as Seat, bot);
+    }
+  }
+
   /** Check if all active (non-finished) players are bots */
   private onlyBotsRemain(): boolean {
     const snapshot = this.actor.getSnapshot();
     const round = snapshot.context.currentRound;
     if (!round) return false;
     const activePlayers = SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null);
-    return activePlayers.length > 0 && activePlayers.every((s) => this.bots.has(s));
+    return activePlayers.length > 0 && activePlayers.every((s) => this.isAutomated(s));
   }
 
   /** Check if a new trick is about to start (previous trick just ended) */
@@ -222,10 +266,10 @@ export class BotRunner {
     if (!trick) return false;
 
     const lastPass = trick.passes.at(-1);
-    if (lastPass) return !this.bots.has(lastPass);
+    if (lastPass) return !this.isAutomated(lastPass);
 
     const lastPlay = trick.plays.at(-1);
-    return !!lastPlay && !this.bots.has(lastPlay.seat);
+    return !!lastPlay && !this.isAutomated(lastPlay.seat);
   }
 
   private isStillCurrentTurn(seat: Seat): boolean {
@@ -298,6 +342,15 @@ export class BotRunner {
     this.pendingTimers.add(timer);
   }
 
+  private clearQueuedSeatWork(seat: Seat): void {
+    this.grandTichuTimers.delete(seat);
+    this.playingTurnTimers.delete(seat);
+  }
+
+  private getAutomatedEntries(): Array<[Seat, BotStrategy]> {
+    return [...this.bots.entries(), ...this.autopilotBots.entries()];
+  }
+
   /** Send an event to the game actor, then broadcast updated state */
   private send(event: GameEvent): void {
     if (this.disposed) return;
@@ -313,7 +366,7 @@ export class BotRunner {
   // ─── Phase Handlers ──────────────────────────────────────────────────────
 
   private handleGrandTichuPhase(context: GameMachineContext): void {
-    for (const [seat, bot] of this.bots) {
+    for (const [seat, bot] of this.getAutomatedEntries()) {
       if (context.grandTichuDecisions.has(seat)) continue;
 
       const round = context.currentRound;
@@ -348,7 +401,7 @@ export class BotRunner {
   }
 
   private handleCardPassingPhase(context: GameMachineContext): void {
-    for (const [seat, bot] of this.bots) {
+    for (const [seat, bot] of this.getAutomatedEntries()) {
       const round = context.currentRound;
       if (!round) continue;
       this.provideContext(bot, round, context);
@@ -371,18 +424,12 @@ export class BotRunner {
     if (!round || !round.currentTurn) return;
 
     const seat = round.currentTurn;
-    const bot = this.bots.get(seat);
+    const bot = this.bots.get(seat) ?? this.autopilotBots.get(seat);
     if (!bot) return;
     if (this.playingTurnTimers.has(seat)) return;
 
     this.provideContext(bot, round, context);
     const player = round.players[seat];
-
-    // Call regular Tichu right before first play — delays the announcement
-    // so opponents can't plan around it until the last moment.
-    const callTichu = !player.hasPlayed &&
-      player.tipiCall === 'none' &&
-      bot.chooseRegularTichu(player.hand);
 
     const activeWish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
     const validPlays = getValidPlays(player.hand, round.currentTrick, activeWish);
@@ -400,6 +447,13 @@ export class BotRunner {
 
     // Decide what to do synchronously so we can pick the right delay
     const decision = bot.choosePlay(playContext);
+
+    // Call regular Tichu only when the bot is about to play its first cards.
+    // If the bot passes, reassess on its next turn with the newer public information.
+    const callTichu = decision.action === 'play' &&
+      !player.hasPlayed &&
+      player.tipiCall === 'none' &&
+      bot.chooseRegularTichu(player.hand);
 
     // REQ-F-WR01: Include wish inline with PLAY_CARDS to avoid race condition
     let wish: Rank | undefined;
@@ -447,7 +501,7 @@ export class BotRunner {
   }
 
   private handleBlindGrandTichuPhase(context: GameMachineContext): void {
-    for (const [seat, bot] of this.bots) {
+    for (const [seat, bot] of this.getAutomatedEntries()) {
       if (context.blindGrandTichuDecisions.has(seat)) continue;
       const round = context.currentRound;
       if (round) this.provideContext(bot, round, context);
@@ -508,7 +562,7 @@ export class BotRunner {
     if (!round?.dragonGiftPending) return;
 
     const seat = round.dragonGiftPending.from;
-    const bot = this.bots.get(seat);
+    const bot = this.bots.get(seat) ?? this.autopilotBots.get(seat);
     if (!bot) return;
 
     // Find opponents who haven't finished
@@ -555,7 +609,7 @@ export class BotRunner {
     }
 
     // Each bot checks if it should bomb
-    for (const [seat, _bot] of this.bots) {
+    for (const [seat, _bot] of this.getAutomatedEntries()) {
       if (round.players[seat].finishOrder !== null) continue; // Skip finished
       const botTeam = getTeam(seat);
       if (botTeam === winnerTeam) continue; // Don't bomb own team's trick

@@ -227,6 +227,28 @@ export class VoteHandler {
     }
   }
 
+  removeEligibleVoter(roomCode: string, seat: Seat): void {
+    const session = this.sessions.get(roomCode);
+    if (!session || !session.eligibleVoters.includes(seat)) return;
+
+    session.eligibleVoters = session.eligibleVoters.filter(s => s !== seat);
+    session.votes.delete(seat);
+    this.broadcastVoteUpdate(roomCode);
+
+    if (session.eligibleVoters.length === 0 || session.votes.size >= session.eligibleVoters.length) {
+      this.resolveVote(roomCode);
+    }
+  }
+
+  addEligibleVoter(roomCode: string, seat: Seat): void {
+    const session = this.sessions.get(roomCode);
+    if (!session || session.eligibleVoters.includes(seat)) return;
+    if (session.voteType === 'kick' && session.targetSeat === seat) return;
+
+    session.eligibleVoters.push(seat);
+    this.broadcastVoteUpdate(roomCode);
+  }
+
   /** REQ-F-PV25: Check if a vote session is active for a room */
   hasActiveVote(roomCode: string): boolean {
     return this.sessions.has(roomCode);
@@ -360,7 +382,8 @@ export class VoteHandler {
     clearTimeout(session.timeoutHandle);
 
     // REQ-F-PV13/PV14: Unanimous — all eligible voters must approve
-    const allApproved = session.eligibleVoters.every(seat => session.votes.get(seat) === true);
+    const allApproved = session.eligibleVoters.length > 0 &&
+      session.eligibleVoters.every(seat => session.votes.get(seat) === true);
     const passed = allApproved;
 
     // Build result message

@@ -126,6 +126,25 @@ describe('GameManager serialize/restore', () => {
     restored.destroy();
   });
 
+  it('preserves autopilot seats through serialize/restore', () => {
+    const manager = new GameManager('game-1', 'ROOM1', broadcaster, disconnectHandler, voteHandler);
+    for (const seat of SEATS_IN_ORDER) {
+      manager.seatPlayer(seat);
+    }
+    manager.setAutopilot('north', true);
+
+    const snapshot = manager.serialize();
+    expect(snapshot.autopilotSeats).toContain('north');
+    expect(snapshot.botSeats).not.toContain('north');
+
+    const restored = GameManager.restore(snapshot, broadcaster, disconnectHandler, voteHandler);
+    expect(restored.getAutopilotSeats()).toContain('north');
+    expect(restored.isAutopilot('north')).toBe(true);
+
+    manager.destroy();
+    restored.destroy();
+  });
+
   it('sets restoredFromSnapshot flag on restore', () => {
     const manager = new GameManager('game-1', 'ROOM1', broadcaster, disconnectHandler, voteHandler);
     const snapshot = manager.serialize();

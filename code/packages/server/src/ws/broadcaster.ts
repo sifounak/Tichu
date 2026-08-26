@@ -50,14 +50,14 @@ export class Broadcaster {
    * Each player receives their own view with hidden opponent hands.
    * REQ-F-SP06: Spectators (seat === null) receive a spectator-projected view.
    */
-  broadcastGameState(roomCode: string, context: GameMachineContext, machineState: string, vacatedSeats: readonly Seat[] = [], choosingSeats: readonly Seat[] = [], activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound' | 'enableBlindGrand' | 'disableBlindGrand'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null, timerInfo?: { startTime: number | null; durationMs: number | null }, endOfTrickBombWindowEndTime?: number | null, waitingForReconnect?: Seat | null, disconnectedSeats?: Seat[], kickDialog?: { targetSeat: Seat } | null): number {
+  broadcastGameState(roomCode: string, context: GameMachineContext, machineState: string, vacatedSeats: readonly Seat[] = [], choosingSeats: readonly Seat[] = [], activeVote?: { voteId: string; voteType: 'kick' | 'restartGame' | 'restartRound' | 'enableBlindGrand' | 'disableBlindGrand'; initiatorSeat: Seat; targetSeat?: Seat; votes: Record<string, boolean | null>; timeoutMs: number } | null, timerInfo?: { startTime: number | null; durationMs: number | null }, endOfTrickBombWindowEndTime?: number | null, waitingForReconnect?: Seat | null, disconnectedSeats?: Seat[], autopilotSeats: Seat[] = [], kickDialog?: { targetSeat: Seat } | null): number {
     const clients = this.connections.getClientsInRoom(roomCode);
     let sent = 0;
     // REQ-F-SP05, REQ-NF-SP02: Compute spectator view once (lazy, shared across all spectators)
     let spectatorView: ReturnType<typeof projectSpectatorView> | null = null;
     for (const { ws, info } of clients) {
       if (info.seat) {
-        const view = projectGameState(context, machineState, info.seat, vacatedSeats, choosingSeats, activeVote, timerInfo, endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
+        const view = projectGameState(context, machineState, info.seat, vacatedSeats, choosingSeats, activeVote, timerInfo, endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, autopilotSeats, kickDialog);
         const message: ServerMessage = { type: 'GAME_STATE', state: view };
         if (this.send(ws, message)) {
           sent++;
@@ -65,7 +65,7 @@ export class Broadcaster {
       } else {
         // Spectator — send projected view with no hand data
         if (!spectatorView) {
-          spectatorView = projectSpectatorView(context, machineState, vacatedSeats, activeVote, timerInfo, endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, kickDialog);
+          spectatorView = projectSpectatorView(context, machineState, vacatedSeats, activeVote, timerInfo, endOfTrickBombWindowEndTime, waitingForReconnect, disconnectedSeats, autopilotSeats, kickDialog);
         }
         const message: ServerMessage = { type: 'GAME_STATE', state: spectatorView };
         if (this.send(ws, message)) {

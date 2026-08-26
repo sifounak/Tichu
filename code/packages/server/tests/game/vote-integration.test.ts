@@ -143,6 +143,48 @@ describe('Vote Integration (M3)', () => {
       voteHandler.dispose();
     });
 
+    it('removes autopilot voters from an active vote and recalculates resolution', () => {
+      const voteHandler = new VoteHandler(broadcaster);
+      let passed: boolean | null = null;
+      voteHandler.onVoteResult = (_roomCode, _voteType, votePassed) => {
+        passed = votePassed;
+      };
+
+      voteHandler.startRestartGameVote(room, 'north', ['north', 'east', 'south']);
+      const vote = voteHandler.getActiveVote(room);
+      expect(vote).not.toBeNull();
+
+      voteHandler.handleVote(room, 'north', vote!.voteId, true);
+      voteHandler.removeEligibleVoter(room, 'east');
+      expect(voteHandler.hasActiveVote(room)).toBe(true);
+
+      voteHandler.removeEligibleVoter(room, 'south');
+
+      expect(voteHandler.hasActiveVote(room)).toBe(false);
+      expect(passed).toBe(true);
+      expect(broadcaster.broadcastToRoom).toHaveBeenCalledWith(room, expect.objectContaining({
+        type: 'VOTE_RESULT',
+        passed: true,
+      }));
+
+      voteHandler.dispose();
+    });
+
+    it('adds a returning autopilot voter back to an unresolved vote', () => {
+      const voteHandler = new VoteHandler(broadcaster);
+
+      voteHandler.startRestartGameVote(room, 'north', ['north', 'east', 'south']);
+      voteHandler.removeEligibleVoter(room, 'south');
+      voteHandler.addEligibleVoter(room, 'south');
+
+      const activeVote = voteHandler.getActiveVote(room);
+      expect(activeVote).not.toBeNull();
+      expect(Object.keys(activeVote!.votes)).toEqual(expect.arrayContaining(['north', 'east', 'south']));
+      expect(activeVote!.votes.south).toBeNull();
+
+      voteHandler.dispose();
+    });
+
     // Verifies: REQ-F-VI01
     it('excludes 2+ min disconnected from restart round vote', () => {
       const voteHandler = new VoteHandler(broadcaster);

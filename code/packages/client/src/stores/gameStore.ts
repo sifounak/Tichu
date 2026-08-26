@@ -49,6 +49,10 @@ export interface GameStore {
   cardPassConfirmed: Seat[];
   /** Seats vacated by players who left mid-game */
   vacatedSeats: Seat[];
+  /** Human seats currently being played by autopilot */
+  autopilotSeats: Seat[];
+  /** True when this player's seat is currently being played by autopilot */
+  myAutopilotActive: boolean;
   /** True when this player must choose which vacated seat to take */
   choosingSeat: boolean;
   /** REQ-F-ES02: True when game is halted due to empty seats */
@@ -102,6 +106,8 @@ const initialState = {
   blindGrandTichuDecided: [] as Seat[],
   cardPassConfirmed: [] as Seat[],
   vacatedSeats: [] as Seat[],
+  autopilotSeats: [] as Seat[],
+  myAutopilotActive: false,
   choosingSeat: false,
   gameHalted: false,
   waitingForReconnect: null as Seat | null,
@@ -144,6 +150,8 @@ export const useGameStore = create<GameStore>()((set) => ({
       blindGrandTichuDecided: view.blindGrandTichuDecided,
       cardPassConfirmed: view.cardPassConfirmed,
       vacatedSeats: view.vacatedSeats ?? [],
+      autopilotSeats: view.autopilotSeats ?? [],
+      myAutopilotActive: view.myAutopilotActive ?? false,
       choosingSeat: view.choosingSeat ?? false,
       gameHalted: view.gameHalted ?? false,
       waitingForReconnect: view.waitingForReconnect ?? null,

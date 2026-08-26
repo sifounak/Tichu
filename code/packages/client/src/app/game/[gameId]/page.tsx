@@ -1024,6 +1024,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
   // Voting state from room store
   const votingEnabled = useRoomStore((s) => s.votingEnabled);
+  const autopilotEnabled = mySeatFromRoom
+    ? (gameStore.myAutopilotActive || (roomPlayers.find((p) => p.seat === mySeatFromRoom)?.isAutopilot ?? false))
+    : false;
 
   // REQ-F-GA07-10: In-game menu action handler
   const handleMenuAction = useCallback((action: MenuAction) => {
@@ -1055,11 +1058,14 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         setConfirmAction({ type: 'blindGrand', enabled });
         break;
       }
+      case 'toggleAutopilot':
+        send({ type: autopilotEnabled ? 'DISABLE_AUTOPILOT' : 'ENABLE_AUTOPILOT' });
+        break;
       case 'cancelVote':
         send({ type: 'CANCEL_VOTE' });
         break;
     }
-  }, [send, uiStore, roomConfig?.blindGrandTichuEnabled, mySeatFromRoom, hostSeat]);
+  }, [send, uiStore, roomConfig?.blindGrandTichuEnabled, autopilotEnabled]);
 
   // REQ-F-GA16, GA17: Confirmation dialog callbacks
   const handleConfirmStartVote = useCallback(() => {
@@ -1531,15 +1537,24 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // Build seat→name mapping from room store players
   const SEAT_LABELS: Record<string, string> = { north: 'North', east: 'East', south: 'South', west: 'West' };
   const vacated = gameStore.vacatedSeats;
+  const formatPlayerName = (seat: Seat) => {
+    const player = roomPlayers.find((p) => p.seat === seat);
+    if (!player) return undefined;
+    return player.isAutopilot ? `(Bot) ${player.name}` : player.name;
+  };
   const seatNames = {
-    north: vacated.includes('north') ? '(Empty)' : roomPlayers.find((p) => p.seat === 'north')?.name ?? SEAT_LABELS.north,
-    east: vacated.includes('east') ? '(Empty)' : roomPlayers.find((p) => p.seat === 'east')?.name ?? SEAT_LABELS.east,
-    south: vacated.includes('south') ? '(Empty)' : roomPlayers.find((p) => p.seat === 'south')?.name ?? SEAT_LABELS.south,
-    west: vacated.includes('west') ? '(Empty)' : roomPlayers.find((p) => p.seat === 'west')?.name ?? SEAT_LABELS.west,
+    north: vacated.includes('north') ? '(Empty)' : formatPlayerName('north') ?? SEAT_LABELS.north,
+    east: vacated.includes('east') ? '(Empty)' : formatPlayerName('east') ?? SEAT_LABELS.east,
+    south: vacated.includes('south') ? '(Empty)' : formatPlayerName('south') ?? SEAT_LABELS.south,
+    west: vacated.includes('west') ? '(Empty)' : formatPlayerName('west') ?? SEAT_LABELS.west,
   } as Record<Seat, string>;
 
   const handleLeaveGame = () => {
     send({ type: 'LEAVE_ROOM' });
+  };
+
+  const handleDisableAutopilot = () => {
+    send({ type: 'DISABLE_AUTOPILOT' });
   };
 
   const serverRestarting = uiStore.serverRestarting;
@@ -1664,6 +1679,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             blindGrandTichuEnabled={roomConfig?.blindGrandTichuEnabled ?? false}
             activeVote={uiStore.activeVote}
             mySeat={mySeatFromRoom}
+            autopilotEnabled={autopilotEnabled}
             onAction={handleMenuAction}
             isOnCooldown={isOnCooldown}
             getCooldownRemaining={getCooldownRemaining}
@@ -1918,7 +1934,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
             {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
-              {uiStore.activeVote && (mySeatFromRoom === hostSeat || (mySeatFromRoom && uiStore.activeVote.initiatorSeat === mySeatFromRoom)) ? (
+              {uiStore.activeVote && !autopilotEnabled && (mySeatFromRoom === hostSeat || (mySeatFromRoom && uiStore.activeVote.initiatorSeat === mySeatFromRoom)) ? (
                 <button
                   onClick={() => send({ type: 'CANCEL_VOTE' })}
                   style={{
@@ -2592,7 +2608,40 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
 
           {/* Card hand row: [Tichu btn] [cards] [Bomb btn] — buttons offset from hand edges */}
           {/* Mobile: card_height = 20vw, card_width = 14vw (0.7 ratio); overlap 50%-60%, max hand 90vw */}
-          <div data-debug-area="Card Hand Row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', maxWidth: '100%', gap: 'calc(16px * var(--scale))', '--card-width': layoutTier === 'mobile' ? '14vw' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? '20vw' : 'var(--card-height-lg)', '--card-font-size': layoutTier === 'mobile' ? 'calc(14vw * 0.235)' : 'var(--card-font-size-lg)', '--card-suit-size': layoutTier === 'mobile' ? 'calc(14vw * 0.282)' : 'var(--card-suit-size-lg)', '--card-border-radius': layoutTier === 'mobile' ? 'calc(14vw * 0.082)' : 'var(--card-border-radius-lg)', '--card-overlap-desktop': layoutTier === 'mobile' ? (gameStore.myHand.length > 1 ? `clamp(calc(14vw * 0.5), calc(14vw - (90vw - 14vw) / ${gameStore.myHand.length - 1}), calc(14vw * 0.6))` : '0px') : 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
+          <div data-debug-area="Card Hand Row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', maxWidth: '100%', gap: 'calc(16px * var(--scale))', position: 'relative', '--card-width': layoutTier === 'mobile' ? '14vw' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? '20vw' : 'var(--card-height-lg)', '--card-font-size': layoutTier === 'mobile' ? 'calc(14vw * 0.235)' : 'var(--card-font-size-lg)', '--card-suit-size': layoutTier === 'mobile' ? 'calc(14vw * 0.282)' : 'var(--card-suit-size-lg)', '--card-border-radius': layoutTier === 'mobile' ? 'calc(14vw * 0.082)' : 'var(--card-border-radius-lg)', '--card-overlap-desktop': layoutTier === 'mobile' ? (gameStore.myHand.length > 1 ? `clamp(calc(14vw * 0.5), calc(14vw - (90vw - 14vw) / ${gameStore.myHand.length - 1}), calc(14vw * 0.6))` : '0px') : 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
+            {autopilotEnabled && (
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 80,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 'var(--space-3)',
+                padding: 'var(--space-4)',
+                background: 'rgba(0, 0, 0, 0.72)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--card-border-radius)',
+                color: 'var(--color-text-primary)',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontWeight: 700 }}>A bot will play on your behalf until you get back.</div>
+                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <LeaveConfirmDialog
+                    title="Leave Game?"
+                    subtitle="This will count as a forfeit if you leave."
+                    onConfirm={() => { confirmNavigation(); handleLeaveGame(); }}
+                    onClose={cancelNavigation}
+                  >
+                    {(openDialog) => (
+                      <button type="button" onClick={openDialog}>Leave Game</button>
+                    )}
+                  </LeaveConfirmDialog>
+                  <button type="button" onClick={handleDisableAutopilot}>I'm Back</button>
+                </div>
+              </div>
+            )}
             {/* Left: Tichu button — full layout only (mobile renders above) */}
             {!isMobileLayout && (
               <div style={{ flexShrink: 0 }}>
@@ -2856,7 +2905,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       {/* Disconnect overlay removed — vacated seats shown inline on player info boxes */}
 
       {/* REQ-F-PV05/PV07: Vote overlay dialog — REQ-F-VI06: spectators see read-only */}
-      {uiStore.activeVote && (
+      {uiStore.activeVote && !autopilotEnabled && (
         <VoteOverlay
           activeVote={uiStore.activeVote}
           mySeat={mySeat ?? 'south'}
@@ -2864,7 +2913,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           seatNames={seatNames}
           onVote={(voteId, vote) => send({ type: 'PLAYER_VOTE', voteId, vote })}
           readOnly={isSpectator}
-          canCancel={!isSpectator && (mySeatFromRoom === hostSeat || (mySeatFromRoom != null && uiStore.activeVote?.initiatorSeat === mySeatFromRoom))}
+          canCancel={!isSpectator && !autopilotEnabled && (mySeatFromRoom === hostSeat || (mySeatFromRoom != null && uiStore.activeVote?.initiatorSeat === mySeatFromRoom))}
           onCancelVote={() => send({ type: 'CANCEL_VOTE' })}
         />
       )}
@@ -2907,6 +2956,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         isPreGame={false}
         votingEnabled={votingEnabled}
         blindGrandTichuEnabled={roomConfig?.blindGrandTichuEnabled ?? false}
+        autopilotEnabled={autopilotEnabled}
         onAction={(action) => {
           setDrawerOpen(false);
           handleMenuAction(action);

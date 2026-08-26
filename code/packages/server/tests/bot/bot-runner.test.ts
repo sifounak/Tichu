@@ -430,6 +430,94 @@ describe('BotRunner', () => {
       expect(getContext(actor).currentRound!.players[botSeat].hand.length).toBeLessThan(startingHandSize);
     });
 
+    it('should not call Tichu when the bot intends to pass on its first turn', async () => {
+      actor = createTestActor();
+      advanceToPlaying(actor);
+      playOpeningMahjong(actor);
+
+      const botSeat = getContext(actor).currentRound!.currentTurn!;
+      const chooseRegularTichu = vi.fn().mockReturnValue(true);
+      const bot: BotStrategy = {
+        chooseGrandTichu: () => false,
+        chooseRegularTichu,
+        chooseCardsToPass: vi.fn(),
+        choosePlay: vi.fn().mockReturnValue({ action: 'pass' }),
+        chooseDragonGiftRecipient: vi.fn().mockReturnValue('east'),
+        chooseMahjongWish: vi.fn().mockReturnValue(null),
+      };
+      runner = new BotRunner(actor, INSTANT_CONFIG, new MoveHandler(actor));
+      runner.addBot(botSeat, bot);
+
+      runner.onStateChange();
+      await flushTimers();
+
+      const round = getContext(actor).currentRound!;
+      expect(chooseRegularTichu).not.toHaveBeenCalled();
+      expect(round.players[botSeat].tipiCall).toBe('none');
+      expect(round.currentTrick?.passes).toContain(botSeat);
+    });
+
+    it('reassesses Tichu after an earlier pass before calling on a later play', async () => {
+      actor = createTestActor();
+      advanceToPlaying(actor);
+      const leadSeat = playOpeningMahjong(actor);
+
+      const botSeat = getContext(actor).currentRound!.currentTurn!;
+      let choosePlayCalls = 0;
+      let sawNewPublicInfo = false;
+      const chooseRegularTichu = vi.fn(() => sawNewPublicInfo);
+      const choosePlay = vi.fn((ctx: BotPlayContext): BotPlayDecision => {
+        choosePlayCalls++;
+        if (choosePlayCalls === 1) return { action: 'pass' };
+
+        sawNewPublicInfo = (ctx.currentTrick?.plays.length ?? 0) > 0 ||
+          ctx.roundState.players[leadSeat].tricksWon.length > 0;
+        const single = ctx.validPlays.find((play) =>
+          play.cards.length === 1 && play.cards[0].card.kind === 'standard',
+        );
+        return { action: 'play', cards: (single ?? ctx.validPlays[0]).cards };
+      });
+      const bot: BotStrategy = {
+        chooseGrandTichu: () => false,
+        chooseRegularTichu,
+        chooseCardsToPass: vi.fn(),
+        choosePlay,
+        chooseDragonGiftRecipient: vi.fn().mockReturnValue('east'),
+        chooseMahjongWish: vi.fn().mockReturnValue(null),
+      };
+      runner = new BotRunner(actor, INSTANT_CONFIG, new MoveHandler(actor));
+      runner.addBot(botSeat, bot);
+
+      runner.onStateChange();
+      await flushTimers();
+      expect(chooseRegularTichu).not.toHaveBeenCalled();
+
+      while (getState(actor) === 'playing' && getContext(actor).currentRound!.currentTrick) {
+        const turn = getContext(actor).currentRound!.currentTurn!;
+        actor.send({ type: 'PASS_TURN', seat: turn });
+      }
+      if (getState(actor) === 'awaitingEndOfTrickBomb') {
+        actor.send({ type: 'END_OF_TRICK_BOMB_TIMEOUT' });
+      }
+
+      const leader = getContext(actor).currentRound!.currentTurn!;
+      expect(leader).toBe(leadSeat);
+      const leadCard = getContext(actor).currentRound!.players[leader].hand.find(
+        (gc) => gc.card.kind === 'standard',
+      )!;
+      actor.send({ type: 'PLAY_CARDS', seat: leader, cards: [leadCard] });
+      expect(getContext(actor).currentRound!.currentTurn).toBe(botSeat);
+
+      runner.onStateChange();
+      await flushTimers();
+
+      const round = getContext(actor).currentRound!;
+      expect(choosePlay).toHaveBeenCalledTimes(2);
+      expect(chooseRegularTichu).toHaveBeenCalledTimes(1);
+      expect(round.players[botSeat].tipiCall).toBe('tichu');
+      expect(round.players[botSeat].hasPlayed).toBe(true);
+    });
+
     it('should pause before bot-only fast play begins after the final human play', () => {
       actor = createTestActor();
       advanceToPlaying(actor);

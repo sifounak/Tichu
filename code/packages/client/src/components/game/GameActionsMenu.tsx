@@ -26,6 +26,7 @@ export type MenuAction =
   | { type: 'gameSettings' }
   | { type: 'toggleVoting' }
   | { type: 'toggleBlindGrand' }
+  | { type: 'toggleAutopilot' }
   | { type: 'cancelVote' };
 
 interface MenuItem {
@@ -34,6 +35,7 @@ interface MenuItem {
   disabled?: boolean;
   hint?: string;
   destructive?: boolean;
+  checked?: boolean;
 }
 
 export interface GameActionsMenuProps {
@@ -44,6 +46,7 @@ export interface GameActionsMenuProps {
   blindGrandTichuEnabled?: boolean;
   activeVote: { initiatorSeat: Seat } | null;
   mySeat: Seat | null;
+  autopilotEnabled?: boolean;
   onAction: (action: MenuAction) => void;
   /** REQ-F-GA59: Check cooldown for a given key */
   isOnCooldown?: (key: string) => boolean;
@@ -58,6 +61,7 @@ export const GameActionsMenu = memo(function GameActionsMenu({
   blindGrandTichuEnabled = false,
   activeVote,
   mySeat,
+  autopilotEnabled = false,
   onAction,
   isOnCooldown,
   getCooldownRemaining,
@@ -106,6 +110,12 @@ export const GameActionsMenu = memo(function GameActionsMenu({
   const items: MenuItem[] = [];
 
   if (!isSpectator) {
+    items.push({
+      action: { type: 'toggleAutopilot' },
+      label: 'Use Autopilot',
+      checked: autopilotEnabled,
+    });
+
     // Kick Player — always first for players
     // REQ-F-GA59: Kick cooldown is per-target, checked at target selection (not menu item level)
     const kickDisabled = !isHost && !votingEnabled;
@@ -237,13 +247,14 @@ export const GameActionsMenu = memo(function GameActionsMenu({
               key={item.action.type}
               ref={(el) => { if (el) itemsRef.current[i] = el; }}
               className={`${styles.menuItem} ${item.disabled ? styles.menuItemDisabled : ''} ${item.destructive ? styles.menuItemDestructive : ''}`}
-              role="menuitem"
+              role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
               disabled={item.disabled}
+              aria-checked={item.checked}
               onClick={() => !item.disabled && handleItemClick(item.action)}
               onKeyDown={(e) => handleKeyDown(e, i)}
               tabIndex={open ? 0 : -1}
             >
-              <span className={styles.menuItemLabel}>{item.label}</span>
+              <span className={styles.menuItemLabel}>{item.checked !== undefined ? (item.checked ? '[x] ' : '[ ] ') : ''}{item.label}</span>
               {item.hint && <span className={styles.menuItemHint}>{item.hint}</span>}
             </button>
           ))}

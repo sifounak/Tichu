@@ -222,6 +222,10 @@ export interface ClientGameView {
   waitingForReconnect?: Seat | null;
   /** REQ-F-DC01: Seats currently disconnected */
   disconnectedSeats?: Seat[];
+  /** Human seats currently being played by autopilot */
+  autopilotSeats?: Seat[];
+  /** True when this player's seat is currently being played by autopilot */
+  myAutopilotActive?: boolean;
   /** REQ-F-KM01: Active kick dialog (target seat that players are being asked about), null when no dialog */
   kickDialog?: { targetSeat: Seat } | null;
 }

@@ -19,6 +19,7 @@ export interface GameActionsDrawerProps {
   onAction: (action: MenuAction) => void;
   activeVote: { initiatorSeat: Seat } | null;
   mySeat: Seat | null;
+  autopilotEnabled?: boolean;
   isOnCooldown?: (key: string) => boolean;
   getCooldownRemaining?: (key: string) => number;
 }
@@ -28,6 +29,7 @@ interface DrawerItem {
   label: string;
   disabled?: boolean;
   hint?: string;
+  checked?: boolean;
 }
 
 export const GameActionsDrawer = memo(function GameActionsDrawer({
@@ -40,6 +42,7 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
   blindGrandTichuEnabled = false,
   onAction,
   activeVote,
+  autopilotEnabled = false,
   isOnCooldown,
   getCooldownRemaining,
 }: GameActionsDrawerProps) {
@@ -79,6 +82,12 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
   const items: DrawerItem[] = [];
 
   if (!isSpectator) {
+    items.push({
+      action: { type: 'toggleAutopilot' },
+      label: 'Use Autopilot',
+      checked: autopilotEnabled,
+    });
+
     // REQ-F-GA59: Kick cooldown is per-target, checked at target selection (not menu item level)
     const kickDisabled = !isHost && !votingEnabled;
     const kickHint = kickDisabled ? 'Voting disabled by host' : undefined;
@@ -151,11 +160,12 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
             <button
               key={item.action.type}
               className={`${styles.drawerItem} ${item.disabled ? styles.drawerItemDisabled : ''}`}
-              role="menuitem"
+              role={item.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
               disabled={item.disabled}
+              aria-checked={item.checked}
               onClick={() => !item.disabled && handleItemClick(item.action)}
             >
-              <span className={styles.drawerItemLabel}>{item.label}</span>
+              <span className={styles.drawerItemLabel}>{item.checked !== undefined ? (item.checked ? '[x] ' : '[ ] ') : ''}{item.label}</span>
               {item.hint && <span className={styles.drawerItemHint}>{item.hint}</span>}
             </button>
           ))}

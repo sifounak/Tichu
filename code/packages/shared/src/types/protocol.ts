@@ -75,6 +75,8 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('PASS_TURN'), ...messageIdField }),
   z.object({ type: z.literal('DECLARE_WISH'), rank: rankSchema.nullable(), ...messageIdField }),
   z.object({ type: z.literal('GIFT_DRAGON'), to: seatSchema, ...messageIdField }),
+  z.object({ type: z.literal('ENABLE_AUTOPILOT'), ...messageIdField }),
+  z.object({ type: z.literal('DISABLE_AUTOPILOT'), ...messageIdField }),
 
   // Mid-game seat choice (when joining with 2+ vacated seats)
   z.object({ type: z.literal('CHOOSE_SEAT'), seat: seatSchema, ...messageIdField }),
@@ -127,7 +129,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ROOM_JOINED'), roomCode: z.string(), seat: seatSchema.nullable() }),
   // REQ-F-SP16: ROOM_UPDATE includes spectatorCount and readyPlayers
   // REQ-F-GA52: ROOM_UPDATE includes votingEnabled for non-host vote toggle
-  z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), spectatorNames: z.array(z.string()).optional(), readyPlayers: z.array(seatSchema), votingEnabled: z.boolean().optional() }),
+  z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean(), isAutopilot: z.boolean().optional() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), spectatorNames: z.array(z.string()).optional(), readyPlayers: z.array(seatSchema), votingEnabled: z.boolean().optional() }),
   z.object({ type: z.literal('ROOM_LEFT') }),
   z.object({ type: z.literal('KICKED'), message: z.string() }),
   // REQ-F-ES05: LOBBY_LIST includes hasEmptySeats for "Join (In Progress)" button

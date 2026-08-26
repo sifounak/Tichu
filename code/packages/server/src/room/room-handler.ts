@@ -87,6 +87,8 @@ export class RoomHandler {
     router.on('TRANSFER_HOST', (ws, msg) => this.handleTransferHost(ws, msg as ClientMessage & { type: 'TRANSFER_HOST' }));
     router.on('CANCEL_VOTE', (ws) => this.handleCancelVote(ws));
     router.on('TOGGLE_VOTING', (ws) => this.handleToggleVoting(ws));
+    router.on('ENABLE_AUTOPILOT', (ws) => this.handleSetAutopilot(ws, true));
+    router.on('DISABLE_AUTOPILOT', (ws) => this.handleSetAutopilot(ws, false));
   }
 
   private handleCreateRoom(ws: WebSocket, msg: ClientMessage & { type: 'CREATE_ROOM' }): void {
@@ -268,6 +270,7 @@ export class RoomHandler {
 
         // REQ-F-SP07: Start seat queue when player leaves and spectators exist
         this.tryStartSeatQueue(rc, [seat]);
+        this.closeRoomIfNoActiveHumans(rc, 'All active players have left. The room has been closed.');
       } else {
         // REQ-F-ES15: Room destroyed (all players left) — notify spectators and return to lobby
         for (const spectatorId of spectatorsBefore) {
@@ -412,6 +415,10 @@ export class RoomHandler {
       this.broadcaster.sendError(ws, 'VOTING_DISABLED', 'Voting has been disabled by the host');
       return;
     }
+    if (room.players.find(p => p.seat === initiatorSeat)?.isAutopilot) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Autopilot players cannot start votes');
+      return;
+    }
 
     // REQ-F-VI14: Cannot kick self
     if (initiatorSeat === msg.targetSeat) {
@@ -434,7 +441,7 @@ export class RoomHandler {
 
     // Get all human seats for eligible voters
     const humanSeats = room.players
-      .filter(p => !p.isBot)
+      .filter(p => !p.isBot && !p.isAutopilot)
       .map(p => p.seat) as Seat[];
 
     this.preGameVoteHandler.startKickVote(info.roomCode, initiatorSeat, msg.targetSeat, humanSeats);
@@ -462,12 +469,16 @@ export class RoomHandler {
       this.broadcaster.sendError(ws, 'VOTING_DISABLED', 'Voting has been disabled by the host');
       return;
     }
+    if (room.players.find(p => p.seat === initiatorSeat)?.isAutopilot) {
+      this.broadcaster.sendError(ws, 'INVALID_VOTE', 'Autopilot players cannot start votes');
+      return;
+    }
     if (this.preGameVoteHandler.hasActiveVote(info.roomCode)) {
       this.broadcaster.sendError(ws, 'VOTE_ACTIVE', 'A vote is already in progress');
       return;
     }
 
-    const humanSeats = room.players.filter(p => !p.isBot).map(p => p.seat) as Seat[];
+    const humanSeats = room.players.filter(p => !p.isBot && !p.isAutopilot).map(p => p.seat) as Seat[];
     this.preGameVoteHandler.startBlindGrandVote(info.roomCode, initiatorSeat, msg.enabled, humanSeats);
   }
 
@@ -475,6 +486,9 @@ export class RoomHandler {
   private handlePreGameVote(ws: WebSocket, msg: ClientMessage & { type: 'PRE_GAME_VOTE' }): void {
     const info = this.connections.getClientInfo(ws);
     if (!info?.roomCode || !info.seat) return;
+
+    const room = this.roomManager.getRoom(info.roomCode);
+    if (room?.players.find(p => p.seat === info.seat)?.isAutopilot) return;
 
     this.preGameVoteHandler.handleVote(info.roomCode, info.seat, msg.voteId, msg.vote);
   }
@@ -1013,6 +1027,9 @@ export class RoomHandler {
               this.connections.assignToRoom(playerWs, roomCode, player.seat);
             }
           }
+          if (player.isAutopilot) {
+            game.setAutopilot(player.seat, true);
+          }
         } else {
           game.registerBot(player.seat);
         }
@@ -1025,6 +1042,7 @@ export class RoomHandler {
       const hostUserId = this.roomManager.getUserIdAtSeat(roomCode, room.hostSeat);
       const hostWs = hostUserId ? this.connections.getSocketByUserId(hostUserId) : triggerWs;
       game.handleMessage(hostWs ?? triggerWs, room.hostSeat, { type: 'START_GAME' });
+      this.closeRoomIfNoActiveHumans(roomCode, 'All active players have left. The room has been closed.');
     } catch (err) {
       this.roomManager.endGame(roomCode);
       this.gameStore.destroyGameByRoom(roomCode);
@@ -1037,15 +1055,28 @@ export class RoomHandler {
    * Called for both fresh games (startGameInternal) and restored games (app.ts restoreActiveGames).
    */
   wireGameCallbacks(game: GameManager, roomCode: string): void {
+    game.wireAutopilotChangedCallback((rc, seat, enabled) => {
+      const room = this.roomManager.getRoom(rc);
+      const player = room?.players.find(p => p.seat === seat);
+      if (player && !player.isBot) {
+        player.isAutopilot = enabled;
+      }
+      this.broadcastRoomUpdate(rc);
+      this.closeRoomIfNoActiveHumans(rc, 'All active players have left. The room has been closed.');
+    });
+
     // REQ-F-ES04: Wire kick callback — when disconnect vote resolves to kick, vacate seats and start queue
     game.wireKickCallback((rc, seats) => {
       // Check if any humans are still seated or in grace (excluding the seats being released)
       const room = this.roomManager.getRoom(rc);
       const disconnectedSeats = game.getDisconnectHandler().getDisconnectedSeats(rc);
       const hasHumanSeated = room?.players.some(
-        p => !p.isBot && !seats.includes(p.seat),
+        p => !p.isBot && !p.isAutopilot && !seats.includes(p.seat),
       ) ?? false;
-      const hasHumanInGrace = disconnectedSeats.some(s => !seats.includes(s));
+      const hasHumanInGrace = disconnectedSeats.some(s => {
+        const player = room?.players.find(p => p.seat === s);
+        return !seats.includes(s) && !!player && !player.isBot && !player.isAutopilot;
+      });
 
       if (!hasHumanSeated && !hasHumanInGrace) {
         // No humans left — destroy room and game
@@ -1278,6 +1309,30 @@ export class RoomHandler {
       } as import('@tichu/shared').ServerMessage);
     } catch {
       // Invalid room/state; callers already operate on live rooms, so ignore stale races.
+    }
+  }
+
+  private handleSetAutopilot(ws: WebSocket, enabled: boolean): void {
+    const info = this.connections.getClientInfo(ws);
+    if (!info?.roomCode || !info.seat) {
+      this.broadcaster.sendError(ws, 'NOT_IN_ROOM', 'Not in a room with a seat');
+      return;
+    }
+
+    try {
+      const { roomCode, seat } = this.roomManager.setAutopilot(info.userId, enabled);
+      const game = this.gameStore.getGameByRoom(roomCode);
+      if (game) {
+        game.setAutopilot(seat, enabled);
+      } else if (enabled) {
+        this.preGameVoteHandler.removeEligibleVoter(roomCode, seat);
+      } else {
+        this.preGameVoteHandler.addEligibleVoter(roomCode, seat);
+      }
+      this.broadcastRoomUpdate(roomCode);
+      this.closeRoomIfNoActiveHumans(roomCode, 'All active players have left. The room has been closed.');
+    } catch (err) {
+      this.broadcaster.sendError(ws, 'AUTOPILOT_FAILED', (err as Error).message);
     }
   }
 
@@ -1543,6 +1598,30 @@ export class RoomHandler {
     queue.startQueue(vacatedSeats, spectatorIds);
   }
 
+  private closeRoomIfNoActiveHumans(roomCode: string, message: string): void {
+    const room = this.roomManager.getRoom(roomCode);
+    if (!room?.gameInProgress) return;
+
+    const hasActiveHuman = room.players.some(
+      p => !p.isBot && p.isConnected && !p.isAutopilot,
+    );
+    if (hasActiveHuman) return;
+
+    const clients = this.connections.getClientsInRoom(roomCode);
+    for (const { ws } of clients) {
+      this.broadcaster.send(ws, { type: 'ROOM_CLOSED', message });
+      this.connections.removeFromRoom(ws);
+    }
+    const queue = this.seatQueues.get(roomCode);
+    if (queue) {
+      queue.cleanup();
+      this.seatQueues.delete(roomCode);
+    }
+    this.savePassStatsBeforeDestroy(roomCode, room.players);
+    this.gameStore.destroyGameByRoom(roomCode);
+    this.roomManager.forceDestroyRoom(roomCode);
+  }
+
   // REQ-F-ES07: Handle spectator claiming a seat (with optional specific seat choice)
   private handleClaimSeat(ws: WebSocket, msg?: ClientMessage & { type: 'CLAIM_SEAT' }): void {
     const info = this.connections.getClientInfo(ws);
@@ -1628,6 +1707,7 @@ export class RoomHandler {
         name: p.name,
         isBot: p.isBot,
         isConnected: p.isConnected,
+        isAutopilot: p.isAutopilot ?? false,
       })),
       hostSeat: room.hostSeat,
       config: room.config,

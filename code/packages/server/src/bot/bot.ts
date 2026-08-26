@@ -258,8 +258,8 @@ export class Bot implements BotStrategy {
   chooseCardsToPass(hand: GameCard[], seat: Seat): Record<Seat, GameCard> {
     this.mySeat = seat;
     const partner = getPartner(seat);
-    const leftOpp = getNextSeat(seat); // clockwise = left-hand opponent
-    const rightOpp = getRightOpponent(seat);
+    const rightOpp = getNextSeat(seat); // Direction of play.
+    const leftOpp = getRightOpponent(seat);
     const sorted = sortByStrength(hand);
 
     const hasDragon = hand.some((gc) => isDragon(gc.card));
@@ -382,7 +382,7 @@ export class Bot implements BotStrategy {
         ?? sorted.find((gc) => !usedIds.has(gc.id))!;
     }
 
-    // REQ-F-PASS03: Apply parity convention: odd → left, even → right
+    // REQ-F-PASS03: Apply "Low Odd Left, Low Even Right" convention.
     let leftCard: GameCard;
     let rightCard: GameCard;
 
@@ -596,17 +596,20 @@ export class Bot implements BotStrategy {
       this.planCreated = true;
     }
 
-    if (validPlays.length === 0) {
+    const strategicPlays = this.filterDisallowedPhoenixFollows(validPlays, currentTrick, hand);
+    const strategicContext = { ...context, validPlays: strategicPlays };
+
+    if (strategicPlays.length === 0) {
       return { action: 'pass' };
     }
 
-    if (this.shouldWaitForBlindGrandPartner(context)) {
+    if (this.shouldWaitForBlindGrandPartner(strategicContext)) {
       return { action: 'pass' };
     }
 
     // Separate bombs from non-bombs
-    const bombs = validPlays.filter((c) => c.isBomb);
-    const nonBombs = validPlays.filter((c) => !c.isBomb);
+    const bombs = strategicPlays.filter((c) => c.isBomb);
+    const nonBombs = strategicPlays.filter((c) => !c.isBomb);
 
     // Strategy guide: play bombs late, when Tichu callers have 1-5 cards
     if (bombs.length > 0 && currentTrick && !isPartnerWinning(currentTrick, seat)) {
@@ -619,22 +622,22 @@ export class Bot implements BotStrategy {
     // because endgame handles those scenarios with more nuance)
     const endgamePhase = getEndgamePhase(roundState, seat);
     if (endgamePhase !== 'normal') {
-      const endgameDecision = this.chooseEndgamePlay(context, nonBombs.length > 0 ? nonBombs : validPlays, endgamePhase);
+      const endgameDecision = this.chooseEndgamePlay(strategicContext, nonBombs.length > 0 ? nonBombs : strategicPlays, endgamePhase);
       if (endgameDecision) return endgameDecision;
     }
 
     // 1-2 prevention mode (for 4-player situations where endgame hasn't triggered)
     if (this.shouldPreventOneTwo(roundState, seat)) {
-      return this.chooseOneTwoPreventionPlay(context, nonBombs.length > 0 ? nonBombs : validPlays);
+      return this.chooseOneTwoPreventionPlay(strategicContext, nonBombs.length > 0 ? nonBombs : strategicPlays);
     }
 
     // Leading
     if (!currentTrick) {
-      return this.chooseLeadPlay(validPlays, hand, roundState, seat);
+      return this.chooseLeadPlay(strategicPlays, hand, roundState, seat);
     }
 
     // Following
-    return this.chooseFollowPlay(context, nonBombs.length > 0 ? nonBombs : validPlays);
+    return this.chooseFollowPlay(strategicContext, nonBombs.length > 0 ? nonBombs : strategicPlays);
   }
 
   // ─── Dragon Gift ──────────────────────────────────────────────────────────
@@ -674,7 +677,7 @@ export class Bot implements BotStrategy {
       if (gc.card.kind === 'standard') haveRanks.add(gc.card.rank);
     }
     const hasAce = haveRanks.has(14);
-    const rightOpp = getRightOpponent(this.mySeat);
+    const rightOpp = getNextSeat(this.mySeat);
 
     // Get right opponent's call status
     let rightOppCall: string = 'none';
@@ -859,6 +862,15 @@ export class Bot implements BotStrategy {
     return this.toDecision(sorted[0]);
   }
 
+  private filterDisallowedPhoenixFollows(
+    plays: Combination[],
+    currentTrick: import('@tichu/shared').TrickState | null,
+    hand: GameCard[],
+  ): Combination[] {
+    if (!currentTrick) return plays;
+    return plays.filter((combo) => this.evaluatePhoenixPlay(combo, currentTrick, hand) !== 'never');
+  }
+
   // ─── Phoenix Strategy ────────────────────────────────────────────────────
 
   // REQ-F-PHX01: Hand-dependent Phoenix evaluation per turn
@@ -871,11 +883,11 @@ export class Bot implements BotStrategy {
    * 1. Following on opponent's Ace → prefer (singleton-killer)
    * 2. Phoenix completes a combination eliminating 3+ cards → prefer (wild)
    * Never play when:
-   * - REQ-F-PHX01a: On single rank R unless all ranks above R have been played
+   * - REQ-F-PHX01a: On single rank R unless no higher standard rank is still unplayed
    * - REQ-F-PHX02a: In low multi-card (trick rank < 7) with < 4 cards, unless going out
    *
    * Acceptable when:
-   * - REQ-F-PHX03a: Over single rank R when all ranks above R have been played
+   * - REQ-F-PHX03a: Over single rank R when no higher standard rank is still unplayed
    * - REQ-F-PHX05: In straight (rank >= 10 or length >= 5)
    * - REQ-F-PHX06: In consecutive pairs
    * - REQ-F-PHX07: In triple (rank >= 8)
@@ -902,12 +914,6 @@ export class Bot implements BotStrategy {
         const lastRank = lastCard.card.kind === 'standard' ? lastCard.card.rank
           : lastCard.card.kind === 'mahjong' ? 1 : 0;
 
-        const remainingAfterPhoenix = hand.filter((gc) => !isPhoenix(gc.card));
-
-        // Exception (a): Phoenix is last card — always acceptable
-        if (remainingAfterPhoenix.length === 0) {
-          return 'acceptable';
-        }
 
         // REQ-F-PHX12: Below Ace, Phoenix single is only justified when all
         // higher standard cards have already been played, making rank+0.5 the
@@ -1193,7 +1199,11 @@ export class Bot implements BotStrategy {
     roundState: RoundState,
     seat: Seat,
   ): BotPlayDecision {
-    const ranked = rankCombinationsForLead(validPlays);
+    const maxPartnerTichuLeadCards = this.getPartnerTichuLeadMaxCards(roundState, seat);
+    const leadPlays = maxPartnerTichuLeadCards === null
+      ? validPlays
+      : validPlays.filter((combo) => combo.cards.length <= maxPartnerTichuLeadCards);
+    const ranked = rankCombinationsForLead(leadPlays);
 
     // REQ-F-BOMB02: Bomb-proof exit planning when 2-3 cards remain
     const bombProofPlay = this.getBombProofExitPlay(ranked, hand);
@@ -1206,7 +1216,7 @@ export class Bot implements BotStrategy {
       if (this.lastLeadSeat !== null && this.lastLeadSeat !== seat) {
         this.ptsConsecutiveLeads = 0;
       }
-      const ptsLead = this.choosePTSLeadPlay(validPlays, hand, roundState, seat);
+      const ptsLead = this.choosePTSLeadPlay(leadPlays, hand, roundState, seat);
       if (ptsLead) {
         this.lastLeadSeat = seat;
         return ptsLead;
@@ -1230,12 +1240,12 @@ export class Bot implements BotStrategy {
 
     // REQ-F-PHX10/PHX11: Prefer Phoenix in multi-card combos over holding for singleton
     if (hand.some((gc) => isPhoenix(gc.card))) {
-      const phoenixMultiCombos = validPlays.filter(
+      const phoenixMultiCombos = leadPlays.filter(
         (c) =>
           c.cards.length > 1 &&
           !c.isBomb &&
           c.cards.some((gc) => isPhoenix(gc.card)) &&
-          !this.shouldAvoidPhoenixLead(c, hand, validPlays),
+          !this.shouldAvoidPhoenixLead(c, hand, leadPlays),
       );
       if (phoenixMultiCombos.length > 0) {
         // Prefer the largest combo (clears most cards), then lowest rank
@@ -1260,22 +1270,22 @@ export class Bot implements BotStrategy {
         // REQ-F-MC01: Skip planned singles whose card appears in a multi-card combo
         if (planned.cards.length === 1 && planned.cards[0].card.kind === 'standard') {
           const cardId = planned.cards[0].id;
-          const hasMulti = validPlays.some(
+          const hasMulti = leadPlays.some(
             (c) => c.cards.length > 1 && !c.isBomb && c.cards.some((gc) => gc.id === cardId),
           );
           if (hasMulti) continue;
         }
-        const match = validPlays.find((vp) =>
+        const match = leadPlays.find((vp) =>
           vp.cards.length === planned.cards.length &&
           vp.cards.every((c) => planned.cards.some((p) => p.id === c.id)),
         );
-        if (match && !this.shouldAvoidPhoenixLead(match, hand, validPlays)) {
+        if (match && !this.shouldAvoidPhoenixLead(match, hand, leadPlays)) {
           return this.toDecision(match);
         }
       }
     }
 
-    const openingLead = this.chooseConservativeOpeningLead(ranked, hand, validPlays, roundState);
+    const openingLead = this.chooseConservativeOpeningLead(ranked, hand, leadPlays, roundState);
     if (openingLead) return this.toDecision(openingLead);
 
     // Can go out? Always do it (unless PTS05 suppresses).
@@ -1297,7 +1307,7 @@ export class Bot implements BotStrategy {
     // REQ-F-DEF01: Keep Aces as singletons, skip Ace pairs
     // REQ-F-DEF06: Prefer combos where we have a high follow-up of same type
     for (const combo of ranked) {
-      if (this.shouldAvoidPhoenixLead(combo, hand, validPlays)) continue;
+      if (this.shouldAvoidPhoenixLead(combo, hand, leadPlays)) continue;
       // Skip Dragon singleton (save it)
       if (combo.cards.length === 1 && isDragon(combo.cards[0].card)) continue;
       // REQ-F-DEF02/DEF03: Skip Ace singletons unless needed for control or disruption
@@ -1317,7 +1327,7 @@ export class Bot implements BotStrategy {
       // REQ-F-MC01: Skip singles whose card appears in ANY multi-card combo in validPlays
       if (combo.type === CombinationType.Single && combo.cards[0].card.kind === 'standard') {
         const cardId = combo.cards[0].id;
-        const hasMultiCardCombo = validPlays.some(
+        const hasMultiCardCombo = leadPlays.some(
           (c) => c.cards.length > 1 && !c.isBomb && c.cards.some((gc) => gc.id === cardId),
         );
         if (hasMultiCardCombo) continue;
@@ -1343,8 +1353,19 @@ export class Bot implements BotStrategy {
     }
 
     return this.toDecision(
-      ranked.find((combo) => !this.shouldAvoidPhoenixLead(combo, hand, validPlays)) ?? ranked[0],
+      ranked.find((combo) => !this.shouldAvoidPhoenixLead(combo, hand, leadPlays)) ?? ranked[0],
     );
+  }
+
+  private getPartnerTichuLeadMaxCards(roundState: RoundState, seat: Seat): number | null {
+    if (roundState.finishOrder.length > 0) return null;
+
+    const partner = getPartner(seat);
+    const partnerState = roundState.players[partner];
+    if (partnerState.finishOrder !== null) return null;
+    if (!this.isAnyTichuCall(partnerState.tipiCall)) return null;
+
+    return partnerState.hand.length;
   }
 
   private chooseConservativeOpeningLead(

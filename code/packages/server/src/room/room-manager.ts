@@ -78,6 +78,7 @@ export class RoomManager {
         name: playerName,
         isBot: false,
         isConnected: true,
+        isAutopilot: false,
       }],
       spectators: [],
       config: {
@@ -120,6 +121,7 @@ export class RoomManager {
       name: playerName,
       isBot: false,
       isConnected: true,
+      isAutopilot: false,
     });
 
     this.assignUser(userId, roomCode, freeSeat);
@@ -203,6 +205,7 @@ export class RoomManager {
       name: 'Bot',
       isBot: true,
       isConnected: true,
+      isAutopilot: false,
     });
 
     return room;
@@ -314,6 +317,22 @@ export class RoomManager {
 
     room.votingEnabled = !room.votingEnabled;
     return { roomCode, votingEnabled: room.votingEnabled };
+  }
+
+  setAutopilot(userId: string, enabled: boolean): { roomCode: string; seat: Seat } {
+    const roomCode = this.userToRoom.get(userId);
+    const seat = this.userToSeat.get(userId);
+    if (!roomCode || !seat) throw new Error('Not in a room.');
+
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Room not found.');
+
+    const player = room.players.find(p => p.seat === seat);
+    if (!player) throw new Error('No player at that seat.');
+    if (player.isBot) throw new Error('Bots cannot use autopilot.');
+
+    player.isAutopilot = enabled;
+    return { roomCode, seat };
   }
 
   /** Reassign a user from one seat to another (used for mid-game seat choice) */
@@ -541,6 +560,7 @@ export class RoomManager {
       name: spectator.name,
       isBot: false,
       isConnected: true,
+      isAutopilot: false,
     });
     this.assignUser(userId, roomCode, seat);
 
@@ -629,6 +649,7 @@ export class RoomManager {
           seat: p.seat,
           name: p.name,
           isBot: p.isBot,
+          isAutopilot: p.isAutopilot ?? false,
         })),
         spectators: room.spectators.map(s => ({ ...s, isConnected: false })),
         config: room.config,
@@ -654,6 +675,7 @@ export class RoomManager {
           seat: p.seat,
           name: p.name,
           isBot: p.isBot,
+          isAutopilot: p.isAutopilot ?? false,
           // Humans start disconnected; bots are always "connected"
           isConnected: p.isBot,
         })),
