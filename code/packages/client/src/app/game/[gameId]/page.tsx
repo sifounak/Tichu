@@ -197,6 +197,18 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // Sound effects for game events
   const { playSound } = useSoundEffects();
   const hasReceivedGameStateRef = useRef(false);
+  const lastTimerOutSoundKeyRef = useRef<string | null>(null);
+  const playTimerOutOfTimeOnce = useCallback((seat?: Seat | null, startedAt?: number | null, durationMs?: number | null) => {
+    const state = useGameStore.getState();
+    const key = [
+      seat ?? state.currentTurn ?? 'unknown',
+      startedAt ?? state.turnTimerStartedAt ?? 'none',
+      durationMs ?? state.turnTimerDurationMs ?? 'none',
+    ].join(':');
+    if (lastTimerOutSoundKeyRef.current === key) return;
+    lastTimerOutSoundKeyRef.current = key;
+    playSound('timerOutOfTime');
+  }, [playSound]);
 
   // Check if any human player still has cards (used for Dog animation & bomb window)
   const anyHumanActive = useMemo(() => {
@@ -473,7 +485,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         uiStore.setServerRestarting(true);
       } else if (msg.type === 'TURN_TIMEOUT') {
         if (msg.seat === mySeatFromRoom) {
-          playSound('timerOutOfTime');
+          playTimerOutOfTimeOnce(msg.seat);
         }
       } else if (msg.type === 'ERROR') {
         if (msg.code === 'JOIN_ROOM_FAILED' && !useRoomStore.getState().roomCode) {
@@ -500,7 +512,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         gameStore.applyServerMessage(msg);
       }
     },
-    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers, confirmNavigation, playSound, mySeatFromRoom],
+    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers, confirmNavigation, playSound, mySeatFromRoom, playTimerOutOfTimeOnce],
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
@@ -1118,6 +1130,13 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     isMyTurnForSelection &&
     !gameStore.gameHalted &&
     !gameStore.dragonGiftPending;
+  const playTurnTimerSound = useCallback((event: Parameters<typeof playSound>[0]) => {
+    if (event === 'timerOutOfTime') {
+      playTimerOutOfTimeOnce(gameStore.mySeat, gameStore.turnTimerStartedAt, gameStore.turnTimerDurationMs);
+      return;
+    }
+    playSound(event);
+  }, [gameStore.mySeat, gameStore.turnTimerDurationMs, gameStore.turnTimerStartedAt, playSound, playTimerOutOfTimeOnce]);
 
   useTurnTimerAudio({
     enabled: timerAudioEnabled,
@@ -1125,8 +1144,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     totalSeconds: turnTimer.totalSeconds,
     turnTimerStartedAt: gameStore.turnTimerStartedAt,
     turnTimerDurationMs: gameStore.turnTimerDurationMs,
-    playSound,
-    playOutOfTime: false,
+    playSound: playTurnTimerSound,
   });
 
   // REQ-F-AP04: Reset auto-pass when trick is won (currentTrick transitions to null)
