@@ -1,4 +1,4 @@
-import type { GameCard, Seat } from '@tichu/shared';
+import type { GameCard, Seat, TrickState } from '@tichu/shared';
 
 const DISMISS_PREFIX = 'tichu_received_dismissed_v2_';
 const LEGACY_DISMISS_PREFIX = 'tichu_received_dismissed_';
@@ -97,4 +97,19 @@ export function clearReceivedCardsDismissals(gameId: string | null): void {
       // Ignore blocked storage.
     }
   }
+}
+
+export function hasTakenTurnAfterReceivingCards(params: {
+  mySeat: Seat | null;
+  hasPlayedCards: boolean;
+  currentTrick: TrickState | null;
+}): boolean {
+  const { mySeat, hasPlayedCards, currentTrick } = params;
+  if (!mySeat) return false;
+  if (hasPlayedCards) return true;
+
+  return Boolean(
+    currentTrick?.plays.some((play) => play.seat === mySeat) ||
+    currentTrick?.passes.includes(mySeat),
+  );
 }

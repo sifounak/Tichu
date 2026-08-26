@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { CardId, GameCard, Seat } from '@tichu/shared';
+import type { CardId, Combination, GameCard, Seat, TrickState } from '@tichu/shared';
 import {
   buildLegacyReceivedCardsDismissKey,
   buildReceivedCardsDismissKey,
   clearReceivedCardsDismissals,
+  hasTakenTurnAfterReceivingCards,
   isReceivedCardsDismissed,
   markReceivedCardsDismissed,
 } from '@/lib/receivedCardsDismissal';
@@ -18,6 +19,24 @@ const emptyReceived = {
   south: null,
   west: null,
 } satisfies Record<Seat, GameCard | null>;
+
+const singleCombination = {
+  type: 'single',
+  cards: [makeCard(1)],
+  rank: 2,
+  points: 0,
+  isBomb: false,
+} as Combination;
+
+function makeTrick(overrides: Partial<TrickState> = {}): TrickState {
+  return {
+    plays: [],
+    passes: [],
+    leadSeat: 'north',
+    currentWinner: 'north',
+    ...overrides,
+  };
+}
 
 describe('receivedCardsDismissal', () => {
   beforeEach(() => {
@@ -91,5 +110,44 @@ describe('receivedCardsDismissal', () => {
 
     expect(isReceivedCardsDismissed(current, legacy)).toBe(false);
     expect(isReceivedCardsDismissed(other)).toBe(true);
+  });
+
+  it('detects that the player has taken a turn by playing cards', () => {
+    expect(hasTakenTurnAfterReceivingCards({
+      mySeat: 'south',
+      hasPlayedCards: true,
+      currentTrick: null,
+    })).toBe(true);
+    expect(hasTakenTurnAfterReceivingCards({
+      mySeat: 'south',
+      hasPlayedCards: false,
+      currentTrick: makeTrick({
+        plays: [{ seat: 'south', combination: singleCombination }],
+      }),
+    })).toBe(true);
+  });
+
+  it('detects that the player has taken a turn by passing', () => {
+    expect(hasTakenTurnAfterReceivingCards({
+      mySeat: 'south',
+      hasPlayedCards: false,
+      currentTrick: makeTrick({ passes: ['south'] }),
+    })).toBe(true);
+  });
+
+  it('does not detect a turn before the player acts', () => {
+    expect(hasTakenTurnAfterReceivingCards({
+      mySeat: null,
+      hasPlayedCards: true,
+      currentTrick: makeTrick({ passes: ['south'] }),
+    })).toBe(false);
+    expect(hasTakenTurnAfterReceivingCards({
+      mySeat: 'south',
+      hasPlayedCards: false,
+      currentTrick: makeTrick({
+        plays: [{ seat: 'west', combination: singleCombination }],
+        passes: ['east'],
+      }),
+    })).toBe(false);
   });
 });

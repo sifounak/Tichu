@@ -55,6 +55,7 @@ import {
   buildLegacyReceivedCardsDismissKey,
   buildReceivedCardsDismissKey,
   clearReceivedCardsDismissals,
+  hasTakenTurnAfterReceivingCards,
   isReceivedCardsDismissed,
   markReceivedCardsDismissed,
 } from '@/lib/receivedCardsDismissal';
@@ -888,6 +889,23 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       setShowReceivedCards(true);
     }
   }, [hasReceivedCards, currentPhase, gameStore.hasPlayedCards, receivedDismissKey, legacyReceivedDismissKey]);
+
+  useEffect(() => {
+    if (!showReceivedCards) return;
+    if (!hasTakenTurnAfterReceivingCards({
+      mySeat: gameStore.mySeat,
+      hasPlayedCards: gameStore.hasPlayedCards,
+      currentTrick: gameStore.currentTrick,
+    })) return;
+
+    dismissReceivedCards();
+  }, [
+    showReceivedCards,
+    gameStore.mySeat,
+    gameStore.hasPlayedCards,
+    gameStore.currentTrick,
+    dismissReceivedCards,
+  ]);
 
   const placedCardIds = new Set([...passSelection.values()].map((gc) => gc.id));
 
