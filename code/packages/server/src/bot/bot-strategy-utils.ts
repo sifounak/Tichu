@@ -598,7 +598,7 @@ export function getOpponentTichuCallers(
   return SEATS_IN_ORDER.filter((s) => {
     if (getTeam(s) === myTeam) return false;
     const call = roundState.players[s].tipiCall;
-    return call === 'tichu' || call === 'grandTichu';
+    return call === 'tichu' || call === 'grandTichu' || call === 'blindGrandTichu';
   });
 }
 

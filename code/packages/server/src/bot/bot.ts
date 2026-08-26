@@ -1787,6 +1787,8 @@ export class Bot implements BotStrategy {
     const selfTichuExitPlay = this.getSelfTichuExitFollowPlay(roundState, seat, hand, plays);
     if (selfTichuExitPlay) return this.toDecision(selfTichuExitPlay);
 
+    const ranked = rankCombinationsForFollow(plays);
+
     // Partner winning — handle overplay and pass logic
     if (partnerWinning && canPass) {
       // REQ-F-PTS05: Suppress go-out when partner called GT/T
@@ -1813,6 +1815,9 @@ export class Bot implements BotStrategy {
 
       return { action: 'pass' };
     }
+
+    const lastChanceTichuFight = this.getLastChanceTichuFightPlay(roundState, seat, currentTrick, ranked);
+    if (lastChanceTichuFight) return this.toDecision(lastChanceTichuFight);
 
     // REQ-F-PTS04: Aggressive follow when partner GT/T and opponent winning
     if (partnerHasCall && !partnerWinning && currentTrick) {
@@ -1849,8 +1854,6 @@ export class Bot implements BotStrategy {
       if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
     }
 
-    const ranked = rankCombinationsForFollow(plays);
-
     // REQ-F-DEF01: When conceding opponent's Tichu, pass more freely
     if (defenseStance === 'concede' && canPass) {
       return { action: 'pass' };
@@ -1864,6 +1867,9 @@ export class Bot implements BotStrategy {
         if (usdBreak) return this.toDecision(usdBreak);
       }
     }
+
+    const tempoDefensePlay = this.getLowSingleTempoDefensePlay(roundState, seat, currentTrick, ranked);
+    if (tempoDefensePlay) return this.toDecision(tempoDefensePlay);
 
     // Strategy guide: "save high cards for later" — if opponent didn't call Tichu
     // and the trick is low value, consider passing to save winners
@@ -1906,6 +1912,52 @@ export class Bot implements BotStrategy {
 
     if (canPass) return { action: 'pass' };
     return this.toDecision(plays[0]);
+  }
+
+  private getLastChanceTichuFightPlay(
+    roundState: RoundState,
+    seat: Seat,
+    currentTrick: import('@tichu/shared').TrickState | null,
+    ranked: Combination[],
+  ): Combination | null {
+    if (!currentTrick || ranked.length === 0) return null;
+    const winner = currentTrick.currentWinner;
+    if (getTeam(winner) === getTeam(seat)) return null;
+    const winnerState = roundState.players[winner];
+    if (!this.isAnyTichuCall(winnerState.tipiCall)) return null;
+    if (winnerState.hand.length < 1 || winnerState.hand.length > 3) return null;
+    return ranked[0];
+  }
+
+  private getLowSingleTempoDefensePlay(
+    roundState: RoundState,
+    seat: Seat,
+    currentTrick: import('@tichu/shared').TrickState | null,
+    ranked: Combination[],
+  ): Combination | null {
+    if (!currentTrick || ranked.length === 0) return null;
+    const winner = currentTrick.currentWinner;
+    if (getTeam(winner) === getTeam(seat)) return null;
+    if (this.uncontestedSingleCounts[winner] < 1) return null;
+    if (this.uncontestedSingleLastRank[winner] > 10) return null;
+
+    const winningPlay = currentTrick.plays.find((p) => p.seat === winner);
+    if (!winningPlay || winningPlay.combination.type !== CombinationType.Single) return null;
+    if (winningPlay.combination.rank > 10) return null;
+
+    const standardSingle = ranked.find((combo) =>
+      !combo.isBomb &&
+      combo.type === CombinationType.Single &&
+      combo.cards[0].card.kind === 'standard',
+    );
+    if (standardSingle) return standardSingle;
+
+    const winnerCards = roundState.players[winner].hand.length;
+    if (winnerCards <= 3) {
+      return ranked.find((combo) => !combo.isBomb) ?? ranked[0];
+    }
+
+    return null;
   }
 
   /**

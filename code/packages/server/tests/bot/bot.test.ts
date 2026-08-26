@@ -2724,13 +2724,14 @@ describe('Bot', () => {
   // ─── Tichu Defense (REQ-F-DEF01) ────────────────────────────────────────
 
   describe('Tichu defense', () => {
-    // Verifies: REQ-F-DEF01 — concede when opponent caller has very few cards
-    it('passes (concedes) when opponent Tichu caller has 1-2 cards and bot is weak', () => {
+    // Verifies: last-chance Tichu defense — spend scarce winner when caller is almost out
+    it('plays instead of conceding when opponent Tichu caller has 1-3 cards and is winning', () => {
       const bot = new Bot();
+      const cA = card('standard', 14, 'jade', 1401);
       const c3 = card('standard', 3, 'jade', 301);
       const c5 = card('standard', 5, 'pagoda', 501);
       const c7 = card('standard', 7, 'star', 701);
-      const hand = [c3, c5, c7]; // Weak hand, no winners
+      const hand = [cA, c3, c5, c7]; // Weak hand with one scarce winner
 
       // East called Tichu and has 2 cards — almost out
       const trick = makeTrick('east', 'east', [
@@ -2748,7 +2749,7 @@ describe('Bot', () => {
       });
 
       const validPlays = [
-        makeCombo(CombinationType.Single, [card('standard', 14, 'jade', 1401)], 14),
+        makeCombo(CombinationType.Single, [cA], 14),
       ];
 
       const ctx = makePlayContext({
@@ -2761,7 +2762,42 @@ describe('Bot', () => {
       });
 
       const decision = bot.choosePlay(ctx);
-      // Weak hand + caller almost out → concede (pass)
+      // Last chance: caller is almost out and currently winning, so spend the winner.
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].id).toBe(cA.id);
+      }
+    });
+
+    it('still concedes when opponent Tichu caller is not in last-chance range', () => {
+      const bot = new Bot();
+      const cJ = card('standard', 11, 'jade', 1101);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [cJ, c3];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 10, 'jade', 1001)], 10) },
+      ]);
+
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array.from({ length: 4 }, (_, i) => card('standard', 2, 'jade', 200 + i)), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: { hand: Array.from({ length: 10 }, (_, i) => card('standard', 3, 'jade', 300 + i)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array.from({ length: 10 }, (_, i) => card('standard', 4, 'jade', 400 + i)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [cJ], 11)],
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      }));
+
       expect(decision.action).toBe('pass');
     });
 
@@ -2803,6 +2839,40 @@ describe('Bot', () => {
       const decision = bot.choosePlay(ctx);
       // Strong hand + caller has many cards → fight (play)
       expect(decision.action).toBe('play');
+    });
+
+    it('treats Blind Grand Tichu caller as opponent Tichu caller for last-chance defense', () => {
+      const bot = new Bot();
+      const cA = card('standard', 14, 'jade', 1401);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [cA, c3];
+
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 10, 'jade', 1001)], 10) },
+      ]);
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 12), card('standard', 13)], tricksWon: [], tipiCall: 'blindGrandTichu', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [cA], 14)],
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      }));
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].id).toBe(cA.id);
+      }
     });
 
     // Verifies: REQ-F-DEF01 — fight when partner also called Tichu
@@ -3266,6 +3336,136 @@ describe('Bot', () => {
       // Should NOT specifically break the pair — normal play logic applies
       // With 1 uncontested, threshold of 2 not met, so USD doesn't trigger
       expect(bot.getUncontestedSingleCounts().east).toBe(1);
+    });
+
+    it('spends King to stop repeated low single tempo after one uncontested low single', () => {
+      const bot = new Bot();
+      const cK = card('standard', 13, 'jade', 1301);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [cK, c3];
+
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 6, 'jade', 60)], 6) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array.from({ length: 6 }, (_, i) => card('standard', 2, 'jade', 200 + i)), tricksWon: [[card('standard', 5, 'jade', 50)]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays: [makeCombo(CombinationType.Single, [cK], 13)],
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].id).toBe(cK.id);
+      }
+    });
+
+    it('keeps Dragon for ordinary low single tempo defense when opponent has more than 3 cards', () => {
+      const bot = new Bot();
+      const dragon = card('dragon');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [dragon, c3];
+
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 6, 'jade', 60)], 6) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array.from({ length: 4 }, (_, i) => card('standard', 2, 'jade', 200 + i)), tricksWon: [[card('standard', 5, 'jade', 50)]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays: [makeCombo(CombinationType.Single, [dragon], 25)],
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      expect(decision.action).toBe('pass');
+    });
+
+    it('spends Dragon on low single tempo defense when opponent has 3 cards', () => {
+      const bot = new Bot();
+      const dragon = card('dragon');
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [dragon, c3];
+
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 6, 'jade', 60)], 6) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array.from({ length: 3 }, (_, i) => card('standard', 2, 'jade', 200 + i)), tricksWon: [[card('standard', 5, 'jade', 50)]], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays: [makeCombo(CombinationType.Single, [dragon], 25)],
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].card.kind).toBe('dragon');
+      }
+    });
+
+    it('keeps smart-pass behavior when there is no prior uncontested low single', () => {
+      const bot = new Bot();
+      const cA = card('standard', 14, 'jade', 1401);
+      const c3 = card('standard', 3, 'jade', 301);
+      const hand = [cA, c3];
+
+      const singleTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 6, 'jade', 60)], 6) },
+      ]);
+      const rs = makeRoundState({
+        currentTrick: singleTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: Array.from({ length: 6 }, (_, i) => card('standard', 2, 'jade', 200 + i)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: singleTrick,
+        validPlays: [makeCombo(CombinationType.Single, [cA], 14)],
+        roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      expect(decision.action).toBe('pass');
     });
 
     // Verifies: REQ-F-USD02 — break pair to contest at 2 uncontested singles < Jack
