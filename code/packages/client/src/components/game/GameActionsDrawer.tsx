@@ -165,7 +165,17 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
               aria-checked={item.checked}
               onClick={() => !item.disabled && handleItemClick(item.action)}
             >
-              <span className={styles.drawerItemLabel}>{item.checked !== undefined ? (item.checked ? '[x] ' : '[ ] ') : ''}{item.label}</span>
+              <span className={styles.drawerItemRow}>
+                <span className={styles.drawerItemLabel}>{item.label}</span>
+                {item.checked !== undefined && (
+                  <span
+                    className={`${styles.toggle} ${item.checked ? styles.toggleChecked : ''}`}
+                    aria-hidden="true"
+                  >
+                    <span className={styles.toggleKnob} />
+                  </span>
+                )}
+              </span>
               {item.hint && <span className={styles.drawerItemHint}>{item.hint}</span>}
             </button>
           ))}

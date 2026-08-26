@@ -10,6 +10,7 @@ export interface UseTurnTimerAudioOptions {
   turnTimerStartedAt: number | null | undefined;
   turnTimerDurationMs: number | null | undefined;
   playSound: (event: SoundEvent) => void;
+  playOutOfTime?: boolean;
 }
 
 function getTimerAudioKey(
@@ -26,6 +27,7 @@ export function useTurnTimerAudio({
   turnTimerStartedAt,
   turnTimerDurationMs,
   playSound,
+  playOutOfTime = true,
 }: UseTurnTimerAudioOptions): void {
   const timerKey = getTimerAudioKey(turnTimerStartedAt, turnTimerDurationMs);
   const previousTimerKeyRef = useRef(timerKey);
@@ -44,7 +46,7 @@ export function useTurnTimerAudio({
     }
 
     if (remainingSeconds <= 0) {
-      if (!playedOutOfTimeRef.current) {
+      if (playOutOfTime && !playedOutOfTimeRef.current) {
         playedOutOfTimeRef.current = true;
         playSound('timerOutOfTime');
       }
@@ -61,6 +63,7 @@ export function useTurnTimerAudio({
   }, [
     enabled,
     playSound,
+    playOutOfTime,
     remainingSeconds,
     timerKey,
     totalSeconds,

@@ -576,9 +576,6 @@ export class GameManager {
       if (this.autopilotSeats.has(seat)) return;
       this.autopilotSeats.add(seat);
       this.botRunner.enableAutopilot(seat, new Bot());
-      if (this.isSeatAwaitingAction(seat)) {
-        this.timer.stop();
-      }
       this.voteHandler.removeEligibleVoter(this.roomCode, seat);
       this.onAutopilotChanged?.(this.roomCode, seat, true);
       if (this.destroyed) return;
@@ -620,15 +617,12 @@ export class GameManager {
     return next;
   }
 
-  private isSeatAwaitingAction(seat: Seat): boolean {
-    const round = this.context.currentRound;
-    if (!round) return false;
-    if (this.stateValue === 'playing') return round.currentTurn === seat;
-    if (this.stateValue === 'awaitingDragonGift') return round.dragonGiftPending?.from === seat;
-    if (this.stateValue === 'blindGrandTichuDecision') return !this.context.blindGrandTichuDecisions.has(seat);
-    if (this.stateValue === 'grandTichuDecision') return !this.context.grandTichuDecisions.has(seat);
-    if (this.stateValue === 'cardPassing') return !this.context.cardPassDecisions.has(seat);
-    return false;
+  private startTurnTimer(seat: Seat): void {
+    if (!this.timer.isEnabled()) return;
+    if (this.timer.getCurrentSeat() === seat && this.timer.isActive()) return;
+
+    this.timer.start(seat);
+    this.turnStartTimes.set(seat, new Date().toISOString());
   }
 
   /** REQ-F-PV03, REQ-F-PV25, REQ-F-PV28: Start a kick vote with validation */
@@ -988,9 +982,8 @@ export class GameManager {
         if (r) {
           r.lastDogPlay = null;
         }
-        if (r?.currentTurn && !this.botRunner.isAutomated(r.currentTurn)) {
-          this.timer.start(r.currentTurn);
-          this.turnStartTimes.set(r.currentTurn, new Date().toISOString());
+        if (r?.currentTurn) {
+          this.startTurnTimer(r.currentTurn);
         }
         this.broadcastState();
         this.botRunner.onStateChange(() => this.broadcastState());
@@ -1000,16 +993,10 @@ export class GameManager {
 
     // Manage turn timer
     if (state === 'playing' && round?.currentTurn) {
-      if (this.botRunner.isAutomated(round.currentTurn)) {
-        this.timer.stop();
-      } else {
-        this.timer.start(round.currentTurn);
-        // REQ-F-CP02: Track turn start time for pre-play enrichment timing
-        this.turnStartTimes.set(round.currentTurn, new Date().toISOString());
-        // REQ-F-TT05: Broadcast immediately so clients receive timer data
-        // (bot runner only broadcasts after bot actions, not for human turns)
-        this.broadcastState();
-      }
+      this.startTurnTimer(round.currentTurn);
+      // REQ-F-TT05: Broadcast immediately so clients receive timer data.
+      // Automated turns still show timer bars, even though bots act before timeout.
+      this.broadcastState();
 
       // Auto-pass for human players who have no valid plays
       const seat = round.currentTurn;
@@ -1029,12 +1016,7 @@ export class GameManager {
       }
     } else if (state === 'awaitingDragonGift' && round?.dragonGiftPending) {
       const seat = round.dragonGiftPending.from;
-      if (this.botRunner.isAutomated(seat)) {
-        this.timer.stop();
-      } else {
-        this.timer.start(seat);
-        this.turnStartTimes.set(seat, new Date().toISOString());
-      }
+      this.startTurnTimer(seat);
       this.broadcastState();
     } else {
       this.timer.stop();
@@ -1060,6 +1042,8 @@ export class GameManager {
     if (state !== 'awaitingDragonGift' && (state !== 'playing' || !round || round.currentTurn !== seat)) return;
 
     const timeoutCount = this.incrementTimeouts(seat);
+    this.broadcaster.sendToPlayer(this.roomCode, seat, { type: 'TURN_TIMEOUT', seat });
+
     if (timeoutCount >= 3 && !this.autopilotSeats.has(seat) && !this.botRunner.isBot(seat)) {
       this.setAutopilot(seat, true);
       return;

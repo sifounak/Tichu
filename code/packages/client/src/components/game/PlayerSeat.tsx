@@ -10,6 +10,7 @@ import styles from './PlayerSeat.module.css';
 export interface PlayerSeatProps {
   seat: Seat;
   displayName?: string;
+  avatarName?: string;
   cardCount: number;
   tichuCall: TichuCall;
   hasPlayed: boolean;
@@ -74,6 +75,7 @@ const SEAT_LABELS: Record<Seat, string> = {
 export const PlayerSeat = memo(function PlayerSeat({
   seat,
   displayName,
+  avatarName,
   cardCount,
   tichuCall,
   hasPassed,
@@ -106,6 +108,7 @@ export const PlayerSeat = memo(function PlayerSeat({
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
   const name = emptySeat ? 'Empty Seat' : (displayName ?? SEAT_LABELS[seat]);
+  const avatarInitial = (avatarName ?? name)[0]?.toUpperCase() ?? '';
   const [hovered, setHovered] = useState(false);
   // REQ-F-TT06: Client-side turn timer countdown
   const timer = useTurnTimer(turnTimerStartedAt, turnTimerDurationMs, serverClockOffsetMs);
@@ -198,7 +201,7 @@ export const PlayerSeat = memo(function PlayerSeat({
           {emptySeat ? null : (
             <>
               {finishOrder !== null && <span className={styles.finishBadge}>#{finishOrder}</span>}
-              <span className={`${styles.initial} ${finishOrder !== null ? styles.initialHidden : ''}`}>{name[0].toUpperCase()}</span>
+              <span className={`${styles.initial} ${finishOrder !== null ? styles.initialHidden : ''}`}>{avatarInitial}</span>
             </>
           )}
         </div>

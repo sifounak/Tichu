@@ -1010,6 +1010,7 @@ export class RoomHandler {
 
       // REQ-F-GA53: Sync room state (host seat, voting toggle) to game manager
       game.setRoomState(room.hostSeat, room.votingEnabled);
+      this.roomManager.recordAutopilotGameStart(roomCode);
 
       // [Stats]: Wire seat→userId resolver so GameEventCapture can populate
       // player_rounds.user_id. Without this, per-user stats compute to zero.
@@ -1056,13 +1057,12 @@ export class RoomHandler {
    */
   wireGameCallbacks(game: GameManager, roomCode: string): void {
     game.wireAutopilotChangedCallback((rc, seat, enabled) => {
-      const room = this.roomManager.getRoom(rc);
-      const player = room?.players.find(p => p.seat === seat);
-      if (player && !player.isBot) {
-        player.isAutopilot = enabled;
+      try {
+        this.roomManager.setAutopilotForSeat(rc, seat, enabled);
+      } catch {
+        // The room may already have removed this player during kick/leave cleanup.
       }
       this.broadcastRoomUpdate(rc);
-      this.closeRoomIfNoActiveHumans(rc, 'All active players have left. The room has been closed.');
     });
 
     // REQ-F-ES04: Wire kick callback — when disconnect vote resolves to kick, vacate seats and start queue
@@ -1071,11 +1071,11 @@ export class RoomHandler {
       const room = this.roomManager.getRoom(rc);
       const disconnectedSeats = game.getDisconnectHandler().getDisconnectedSeats(rc);
       const hasHumanSeated = room?.players.some(
-        p => !p.isBot && !p.isAutopilot && !seats.includes(p.seat),
+        p => !p.isBot && !seats.includes(p.seat),
       ) ?? false;
       const hasHumanInGrace = disconnectedSeats.some(s => {
         const player = room?.players.find(p => p.seat === s);
-        return !seats.includes(s) && !!player && !player.isBot && !player.isAutopilot;
+        return !seats.includes(s) && !!player && !player.isBot;
       });
 
       if (!hasHumanSeated && !hasHumanInGrace) {
@@ -1227,6 +1227,14 @@ export class RoomHandler {
         }
       }
 
+      const expiredAutopilotSeats = this.roomManager.expireAutopilotsAfterCompletedGame(roomCode);
+      for (const seat of expiredAutopilotSeats) {
+        gameRef.setAutopilot(seat, false);
+      }
+      if (expiredAutopilotSeats.length > 0) {
+        this.broadcastRoomUpdate(roomCode);
+      }
+
       // Auto-return all players to pre-game "not ready" state after a short delay.
       // Clients save game-over info locally and show the summary dialog as an overlay
       // on top of the pre-game view. The 2s delay gives clients time to receive and
@@ -1330,7 +1338,6 @@ export class RoomHandler {
         this.preGameVoteHandler.addEligibleVoter(roomCode, seat);
       }
       this.broadcastRoomUpdate(roomCode);
-      this.closeRoomIfNoActiveHumans(roomCode, 'All active players have left. The room has been closed.');
     } catch (err) {
       this.broadcaster.sendError(ws, 'AUTOPILOT_FAILED', (err as Error).message);
     }
@@ -1603,7 +1610,7 @@ export class RoomHandler {
     if (!room?.gameInProgress) return;
 
     const hasActiveHuman = room.players.some(
-      p => !p.isBot && p.isConnected && !p.isAutopilot,
+      p => !p.isBot && p.isConnected,
     );
     if (hasActiveHuman) return;
 

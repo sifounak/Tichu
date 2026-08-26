@@ -161,6 +161,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('DRAGON_GIFTED'), from: seatSchema, to: seatSchema }),
   z.object({ type: z.literal('PLAYER_FINISHED'), seat: seatSchema, order: z.number().int().min(1).max(4) }),
   z.object({ type: z.literal('TURN_CHANGE'), seat: seatSchema }),
+  z.object({ type: z.literal('TURN_TIMEOUT'), seat: seatSchema }),
 
   // Scoring & lifecycle
   z.object({

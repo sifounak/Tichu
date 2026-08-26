@@ -376,6 +376,7 @@ describe('GameManager', () => {
 
         vi.advanceTimersByTime(30_000);
 
+        expect(timerBroadcaster.sendToPlayer).toHaveBeenCalledWith('ROOM1', seat, { type: 'TURN_TIMEOUT', seat });
         expect(timerManager.getAutopilotSeats()).toContain(seat);
         const lastCall = (timerBroadcaster.broadcastGameState as ReturnType<typeof vi.fn>).mock.calls.at(-1);
         expect(lastCall?.[10]).toContain(seat);

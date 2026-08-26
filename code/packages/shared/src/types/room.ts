@@ -9,6 +9,7 @@ export interface RoomPlayer {
   isBot: boolean;
   isConnected: boolean;
   isAutopilot?: boolean;
+  autopilotGameCount?: number;
 }
 
 // REQ-F-SP03: Spectator tracked in FIFO order for seat priority

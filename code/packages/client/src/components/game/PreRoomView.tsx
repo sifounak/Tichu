@@ -298,6 +298,12 @@ export function PreRoomView({
     south: (players.find(p => p.seat === 'south') ? formatPlayerName(players.find(p => p.seat === 'south')!) : SEAT_LABELS.south),
     west: (players.find(p => p.seat === 'west') ? formatPlayerName(players.find(p => p.seat === 'west')!) : SEAT_LABELS.west),
   } as Record<Seat, string>;
+  const seatAvatarNames = {
+    north: players.find(p => p.seat === 'north')?.name ?? SEAT_LABELS.north,
+    east: players.find(p => p.seat === 'east')?.name ?? SEAT_LABELS.east,
+    south: players.find(p => p.seat === 'south')?.name ?? SEAT_LABELS.south,
+    west: players.find(p => p.seat === 'west')?.name ?? SEAT_LABELS.west,
+  } as Record<Seat, string>;
 
   const handleConfigChange = (updates: Record<string, unknown>) => {
     send({ type: 'CONFIGURE_ROOM', config: updates });
@@ -334,6 +340,7 @@ export function PreRoomView({
         <PlayerSeat
           seat={seat}
           displayName={formatPlayerName(player)}
+          avatarName={player.name}
           cardCount={0}
           tichuCall={'none'}
           hasPlayed={false}
@@ -371,6 +378,7 @@ export function PreRoomView({
         <PlayerSeat
           seat={seat}
           displayName={player.name}
+          avatarName={player.name}
           cardCount={0}
           tichuCall={'none'}
           hasPlayed={false}
@@ -1132,6 +1140,7 @@ export function PreRoomView({
         hideCenter={false}
         compassLayout={isSpectator}
         isSpectator={isSpectator}
+        seatAvatarNames={seatAvatarNames}
         renderSeatOverride={renderSeat}
         centerContent={centerContent}
         bottomContent={isSpectator ? renderSeat('south') : undefined}
@@ -1156,6 +1165,7 @@ export function PreRoomView({
           <PlayerSeat
             seat={effectiveSeat}
             displayName={getPlayerName(effectiveSeat)}
+            avatarName={seatAvatarNames[effectiveSeat]}
             cardCount={0}
             tichuCall={'none'}
             hasPlayed={false}
@@ -1170,7 +1180,7 @@ export function PreRoomView({
               <div className={styles.botSeatContent}>
                 <span className={styles.botName}>{getPlayerName(effectiveSeat) ?? effectiveSeat}</span>
                 <div className={styles.seatAvatar}>
-                  {(getPlayerName(effectiveSeat) ?? effectiveSeat)[0].toUpperCase()}
+                  {(seatAvatarNames[effectiveSeat] ?? effectiveSeat)[0].toUpperCase()}
                 </div>
               </div>
             ) : undefined}

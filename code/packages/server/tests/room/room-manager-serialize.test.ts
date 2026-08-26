@@ -33,6 +33,8 @@ describe('RoomManager serialization', () => {
     const room = manager.createRoom('user-1', 'Alice');
     manager.joinRoom('user-2', room.roomCode, 'Bob');
     manager.addBot(room.roomCode, 'east');
+    manager.setAutopilot('user-1', true);
+    manager.recordAutopilotGameStart(room.roomCode);
     manager.setReady(room.roomCode, 'east');
     manager.toggleVoting('user-1');
     const snapshots = manager.serializeActiveRooms();
@@ -40,6 +42,10 @@ describe('RoomManager serialization', () => {
     expect(snapshots[0].roomCode).toBe(room.roomCode);
     expect(snapshots[0].gameInProgress).toBe(false);
     expect(snapshots[0].players).toHaveLength(3);
+    expect(snapshots[0].players.find(p => p.seat === 'south')).toEqual(expect.objectContaining({
+      isAutopilot: true,
+      autopilotGameCount: 1,
+    }));
     expect(snapshots[0].seatToUserId).toHaveProperty('south', 'user-1');
     expect(snapshots[0].seatToUserId).toHaveProperty('north', 'user-2');
     expect(snapshots[0].readySeats).toEqual(['east']);
@@ -68,7 +74,7 @@ describe('RoomManager serialization', () => {
       roomName: "Test Room",
       hostSeat: 'south',
       players: [
-        { seat: 'south', name: 'Alice', isBot: false },
+        { seat: 'south', name: 'Alice', isBot: false, isAutopilot: true, autopilotGameCount: 1 },
         { seat: 'north', name: 'Bot', isBot: true },
         { seat: 'east', name: 'Bot', isBot: true },
         { seat: 'west', name: 'Bob', isBot: false },
@@ -99,6 +105,8 @@ describe('RoomManager serialization', () => {
     const room = manager.getRoom('TEST01')!;
     const alice = room.players.find(p => p.seat === 'south');
     expect(alice!.isConnected).toBe(false);
+    expect(alice!.isAutopilot).toBe(true);
+    expect(alice!.autopilotGameCount).toBe(1);
     expect(manager.getReadySeats('TEST01')).toEqual(['north', 'east']);
     expect(manager.getChatHistory('TEST01')).toEqual(snapshot.chatHistory);
     manager.dispose();

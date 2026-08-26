@@ -243,6 +243,10 @@ describe('serverMessageSchema', () => {
     expect(serverMessageSchema.parse({ type: 'TURN_CHANGE', seat: 'east' })).toBeTruthy();
   });
 
+  it('validates TURN_TIMEOUT message', () => {
+    expect(serverMessageSchema.parse({ type: 'TURN_TIMEOUT', seat: 'east' })).toBeTruthy();
+  });
+
   it('validates ROUND_SCORED message', () => {
     const msg = {
       type: 'ROUND_SCORED',

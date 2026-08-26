@@ -79,6 +79,7 @@ export class RoomManager {
         isBot: false,
         isConnected: true,
         isAutopilot: false,
+        autopilotGameCount: 0,
       }],
       spectators: [],
       config: {
@@ -122,6 +123,7 @@ export class RoomManager {
       isBot: false,
       isConnected: true,
       isAutopilot: false,
+      autopilotGameCount: 0,
     });
 
     this.assignUser(userId, roomCode, freeSeat);
@@ -331,8 +333,58 @@ export class RoomManager {
     if (!player) throw new Error('No player at that seat.');
     if (player.isBot) throw new Error('Bots cannot use autopilot.');
 
-    player.isAutopilot = enabled;
+    this.applyAutopilotState(room, player, enabled);
     return { roomCode, seat };
+  }
+
+  setAutopilotForSeat(roomCode: string, seat: Seat, enabled: boolean): void {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Room not found.');
+
+    const player = room.players.find(p => p.seat === seat);
+    if (!player) throw new Error('No player at that seat.');
+    if (player.isBot) throw new Error('Bots cannot use autopilot.');
+
+    this.applyAutopilotState(room, player, enabled);
+  }
+
+  recordAutopilotGameStart(roomCode: string): void {
+    const room = this.rooms.get(roomCode);
+    if (!room) throw new Error('Room not found.');
+
+    for (const player of room.players) {
+      if (player.isBot || !player.isAutopilot) continue;
+      player.autopilotGameCount = (player.autopilotGameCount ?? 0) + 1;
+    }
+  }
+
+  expireAutopilotsAfterCompletedGame(roomCode: string): Seat[] {
+    const room = this.rooms.get(roomCode);
+    if (!room) return [];
+
+    const expiredSeats: Seat[] = [];
+    for (const player of room.players) {
+      if (player.isBot || !player.isAutopilot) continue;
+      if ((player.autopilotGameCount ?? 1) < 2) continue;
+
+      player.isAutopilot = false;
+      player.autopilotGameCount = 0;
+      expiredSeats.push(player.seat);
+    }
+
+    return expiredSeats;
+  }
+
+  private applyAutopilotState(room: Room, player: Room['players'][number], enabled: boolean): void {
+    if (enabled) {
+      if (player.isAutopilot) return;
+      player.isAutopilot = true;
+      player.autopilotGameCount = room.gameInProgress ? 1 : 0;
+      return;
+    }
+
+    player.isAutopilot = false;
+    player.autopilotGameCount = 0;
   }
 
   /** Reassign a user from one seat to another (used for mid-game seat choice) */
@@ -561,6 +613,7 @@ export class RoomManager {
       isBot: false,
       isConnected: true,
       isAutopilot: false,
+      autopilotGameCount: 0,
     });
     this.assignUser(userId, roomCode, seat);
 
@@ -650,6 +703,7 @@ export class RoomManager {
           name: p.name,
           isBot: p.isBot,
           isAutopilot: p.isAutopilot ?? false,
+          autopilotGameCount: p.autopilotGameCount ?? 0,
         })),
         spectators: room.spectators.map(s => ({ ...s, isConnected: false })),
         config: room.config,
@@ -676,6 +730,7 @@ export class RoomManager {
           name: p.name,
           isBot: p.isBot,
           isAutopilot: p.isAutopilot ?? false,
+          autopilotGameCount: p.autopilotGameCount ?? 0,
           // Humans start disconnected; bots are always "connected"
           isConnected: p.isBot,
         })),

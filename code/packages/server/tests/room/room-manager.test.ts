@@ -373,6 +373,46 @@ describe('RoomManager', () => {
 
   // ─── Fixed seat partnerships (REQ-F-MP05) ─────────────────────────
 
+  describe('autopilot game limit', () => {
+    it('counts a pre-game autopilot player in the next game and expires after the following completed game', () => {
+      const room = manager.createRoom('u1', 'P1');
+      manager.addBot(room.roomCode, 'north');
+      manager.addBot(room.roomCode, 'east');
+      manager.addBot(room.roomCode, 'west');
+
+      manager.setAutopilot('u1', true);
+      expect(room.players[0].isAutopilot).toBe(true);
+      expect(room.players[0].autopilotGameCount).toBe(0);
+
+      manager.recordAutopilotGameStart(room.roomCode);
+      expect(room.players[0].autopilotGameCount).toBe(1);
+      expect(manager.expireAutopilotsAfterCompletedGame(room.roomCode)).toEqual([]);
+      expect(room.players[0].isAutopilot).toBe(true);
+
+      manager.recordAutopilotGameStart(room.roomCode);
+      expect(room.players[0].autopilotGameCount).toBe(2);
+      expect(manager.expireAutopilotsAfterCompletedGame(room.roomCode)).toEqual(['south']);
+      expect(room.players[0].isAutopilot).toBe(false);
+      expect(room.players[0].autopilotGameCount).toBe(0);
+    });
+
+    it('counts in-game autopilot activation as the current game and resets on manual disable', () => {
+      const room = manager.createRoom('u1', 'P1');
+      manager.addBot(room.roomCode, 'north');
+      manager.addBot(room.roomCode, 'east');
+      manager.addBot(room.roomCode, 'west');
+      manager.startGame(room.roomCode);
+
+      manager.setAutopilot('u1', true);
+      expect(room.players[0].isAutopilot).toBe(true);
+      expect(room.players[0].autopilotGameCount).toBe(1);
+
+      manager.setAutopilot('u1', false);
+      expect(room.players[0].isAutopilot).toBe(false);
+      expect(room.players[0].autopilotGameCount).toBe(0);
+    });
+  });
+
   describe('fixed seat partnerships', () => {
     it('should assign seats in N/E/S/W order', () => {
       const room = manager.createRoom('u1', 'P1');

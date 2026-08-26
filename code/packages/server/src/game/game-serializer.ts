@@ -114,7 +114,7 @@ export interface RoomSnapshot {
   roomCode: string;
   roomName: string;
   hostSeat: Seat;
-  players: Array<{ seat: Seat; name: string; isBot: boolean; isAutopilot?: boolean }>;
+  players: Array<{ seat: Seat; name: string; isBot: boolean; isAutopilot?: boolean; autopilotGameCount?: number }>;
   spectators?: RoomSpectator[];
   config: RoomConfig;
   gameInProgress: boolean;

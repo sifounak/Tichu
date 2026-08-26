@@ -471,6 +471,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       } else if (msg.type === 'SERVER_SHUTTING_DOWN') {
         serverRestartSeenRef.current = true;
         uiStore.setServerRestarting(true);
+      } else if (msg.type === 'TURN_TIMEOUT') {
+        if (msg.seat === mySeatFromRoom) {
+          playSound('timerOutOfTime');
+        }
       } else if (msg.type === 'ERROR') {
         if (msg.code === 'JOIN_ROOM_FAILED' && !useRoomStore.getState().roomCode) {
           // Room doesn't exist — redirect to lobby with notification
@@ -496,7 +500,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         gameStore.applyServerMessage(msg);
       }
     },
-    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers, confirmNavigation, playSound],
+    [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers, confirmNavigation, playSound, mySeatFromRoom],
   );
 
   const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
@@ -1122,6 +1126,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     turnTimerStartedAt: gameStore.turnTimerStartedAt,
     turnTimerDurationMs: gameStore.turnTimerDurationMs,
     playSound,
+    playOutOfTime: false,
   });
 
   // REQ-F-AP04: Reset auto-pass when trick is won (currentTrick transitions to null)
@@ -1147,7 +1152,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       !selection.hasAnyValidPlay &&
       gameStore.myHand.length < 4;
 
-    if (actionBarVisible && !wasMyTurnRef.current && !autoPassEnabled && !willServerAutoPassForTooFewCards) {
+    if (actionBarVisible && !wasMyTurnRef.current && !autoPassEnabled && !autopilotEnabled && !willServerAutoPassForTooFewCards) {
       playSound('yourTurn');
     }
     wasMyTurnRef.current = actionBarVisible;
@@ -1160,6 +1165,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     gameStore.myHand.length,
     playSound,
     autoPassEnabled,
+    autopilotEnabled,
     selection.canPass,
     selection.hasAnyValidPlay,
   ]);
@@ -1547,6 +1553,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     east: vacated.includes('east') ? '(Empty)' : formatPlayerName('east') ?? SEAT_LABELS.east,
     south: vacated.includes('south') ? '(Empty)' : formatPlayerName('south') ?? SEAT_LABELS.south,
     west: vacated.includes('west') ? '(Empty)' : formatPlayerName('west') ?? SEAT_LABELS.west,
+  } as Record<Seat, string>;
+  const seatAvatarNames = {
+    north: roomPlayers.find((p) => p.seat === 'north')?.name ?? SEAT_LABELS.north,
+    east: roomPlayers.find((p) => p.seat === 'east')?.name ?? SEAT_LABELS.east,
+    south: roomPlayers.find((p) => p.seat === 'south')?.name ?? SEAT_LABELS.south,
+    west: roomPlayers.find((p) => p.seat === 'west')?.name ?? SEAT_LABELS.west,
   } as Record<Seat, string>;
 
   const handleLeaveGame = () => {
@@ -2175,6 +2187,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         dragonGiftTargets={gameStore.gameHalted ? undefined : dragonGiftTargets}
         onDragonGift={gameStore.gameHalted ? undefined : handleDragonGift}
         seatNames={seatNames}
+        seatAvatarNames={seatAvatarNames}
         mustSatisfyWish={!gameStore.gameHalted && mustSatisfyWish}
         endOfTrickBombWindowEndTime={gameStore.endOfTrickBombWindowEndTime}
         serverClockOffsetMs={gameStore.serverClockOffsetMs}
@@ -2222,6 +2235,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             <PlayerSeat
               seat={view.mySeat}
               displayName={seatNames[view.mySeat]}
+              avatarName={seatAvatarNames[view.mySeat]}
               cardCount={hostPlayer.cardCount}
               tichuCall={hostPlayer.tichuCall}
               hasPlayed={hostPlayer.hasPlayed}
@@ -2239,6 +2253,86 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           );
         })() : undefined}
       />
+
+      {autopilotEnabled && !isSpectator && (
+        <div
+          style={{
+            position: 'fixed',
+            left: '50%',
+            bottom: 'calc(174px * var(--scale))',
+            transform: 'translateX(-50%)',
+            zIndex: 85,
+            width: 'min(calc(440px * var(--scale)), calc(100vw - 32px))',
+            minHeight: 'calc(150px * var(--scale))',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 'var(--space-4)',
+            padding: 'var(--space-6) calc(var(--space-8) * 1.25)',
+            background: 'rgb(0,0,0)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--space-3)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+            color: 'var(--color-text-primary)',
+            textAlign: 'center',
+            pointerEvents: 'auto',
+          }}
+          role="dialog"
+          aria-label="Autopilot active"
+        >
+          <p style={{ margin: 0, fontSize: 'var(--font-xl)', fontWeight: 700 }}>
+            Autopilot is playing for you.
+          </p>
+          <p style={{ margin: 0, fontSize: 'var(--font-base)', color: 'var(--color-text-muted)' }}>
+            A bot will handle your turns until you return.
+          </p>
+          <div style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <LeaveConfirmDialog
+              title="Leave Game?"
+              subtitle="This will count as a forfeit if you leave."
+              onConfirm={() => { confirmNavigation(); handleLeaveGame(); }}
+              onClose={cancelNavigation}
+            >
+              {(openDialog) => (
+                <button
+                  type="button"
+                  onClick={openDialog}
+                  style={{
+                    padding: 'var(--space-3) var(--space-6)',
+                    borderRadius: 'var(--space-2)',
+                    border: '1px solid var(--color-border)',
+                    background: 'rgba(255,255,255,0.1)',
+                    color: 'var(--color-text-primary)',
+                    fontSize: 'var(--font-lg)',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Leave Game
+                </button>
+              )}
+            </LeaveConfirmDialog>
+            <button
+              type="button"
+              onClick={handleDisableAutopilot}
+              style={{
+                padding: 'var(--space-3) var(--space-6)',
+                borderRadius: 'var(--space-2)',
+                border: 'none',
+                background: 'var(--color-gold-accent)',
+                color: 'var(--color-felt-green-dark)',
+                fontSize: 'var(--font-lg)',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              I'm Back
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Bottom panel: pre-game prompt/placeholders above + always-visible hand */}
       {/* REQ-F-SP05: Hide for spectators — they see card counts in PlayerSeat, not actual hands */}
@@ -2490,6 +2584,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
             <PlayerSeat
               seat={mySeat}
               displayName={seatNames[mySeat]}
+              avatarName={seatAvatarNames[mySeat]}
               cardCount={gameStore.myHand.length}
               tichuCall={gameStore.myTichuCall}
               hasPlayed={false}
@@ -2561,6 +2656,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                     <PlayerSeat
                       seat={mySeat!}
                       displayName={seatNames[mySeat!]}
+                      avatarName={seatAvatarNames[mySeat!]}
                       cardCount={gameStore.myHand.length}
                       tichuCall={gameStore.myTichuCall}
                       hasPlayed={false}
@@ -2609,39 +2705,6 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           {/* Card hand row: [Tichu btn] [cards] [Bomb btn] — buttons offset from hand edges */}
           {/* Mobile: card_height = 20vw, card_width = 14vw (0.7 ratio); overlap 50%-60%, max hand 90vw */}
           <div data-debug-area="Card Hand Row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'auto', maxWidth: '100%', gap: 'calc(16px * var(--scale))', position: 'relative', '--card-width': layoutTier === 'mobile' ? '14vw' : 'var(--card-width-lg)', '--card-height': layoutTier === 'mobile' ? '20vw' : 'var(--card-height-lg)', '--card-font-size': layoutTier === 'mobile' ? 'calc(14vw * 0.235)' : 'var(--card-font-size-lg)', '--card-suit-size': layoutTier === 'mobile' ? 'calc(14vw * 0.282)' : 'var(--card-suit-size-lg)', '--card-border-radius': layoutTier === 'mobile' ? 'calc(14vw * 0.082)' : 'var(--card-border-radius-lg)', '--card-overlap-desktop': layoutTier === 'mobile' ? (gameStore.myHand.length > 1 ? `clamp(calc(14vw * 0.5), calc(14vw - (90vw - 14vw) / ${gameStore.myHand.length - 1}), calc(14vw * 0.6))` : '0px') : 'var(--card-overlap-desktop-lg)' } as React.CSSProperties}>
-            {autopilotEnabled && (
-              <div style={{
-                position: 'absolute',
-                inset: 0,
-                zIndex: 80,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 'var(--space-3)',
-                padding: 'var(--space-4)',
-                background: 'rgba(0, 0, 0, 0.72)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--card-border-radius)',
-                color: 'var(--color-text-primary)',
-                textAlign: 'center',
-              }}>
-                <div style={{ fontWeight: 700 }}>A bot will play on your behalf until you get back.</div>
-                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <LeaveConfirmDialog
-                    title="Leave Game?"
-                    subtitle="This will count as a forfeit if you leave."
-                    onConfirm={() => { confirmNavigation(); handleLeaveGame(); }}
-                    onClose={cancelNavigation}
-                  >
-                    {(openDialog) => (
-                      <button type="button" onClick={openDialog}>Leave Game</button>
-                    )}
-                  </LeaveConfirmDialog>
-                  <button type="button" onClick={handleDisableAutopilot}>I'm Back</button>
-                </div>
-              </div>
-            )}
             {/* Left: Tichu button — full layout only (mobile renders above) */}
             {!isMobileLayout && (
               <div style={{ flexShrink: 0 }}>

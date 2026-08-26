@@ -24,6 +24,8 @@ export interface GameTableProps {
   onDragonGift?: (seat: Seat) => void;
   /** Display names keyed by seat */
   seatNames?: Record<Seat, string>;
+  /** Raw display names used for stable avatar initials. */
+  seatAvatarNames?: Record<Seat, string>;
   /** Whether the current player must satisfy an active wish */
   mustSatisfyWish?: boolean;
   /** End-of-trick bomb window end time (epoch ms) for countdown banner */
@@ -66,7 +68,7 @@ function hasPassed(view: ClientGameView, seat: Seat): boolean {
   return view.currentTrick?.passes.includes(seat) ?? false;
 }
 
-export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onTransferHostTarget, onAddBot, compassLayout, isSpectator = false, layoutTier = 'full' }: GameTableProps) {
+export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCenter, hideEmptyTrick, dragonGiftTargets, onDragonGift, seatNames, seatAvatarNames, mustSatisfyWish, endOfTrickBombWindowEndTime, serverClockOffsetMs, isMyTurn, isTrickLeader, myHasPassed, onChooseSeat, renderSeatOverride, centerContent, bottomContent, onKickTarget, onTransferHostTarget, onAddBot, compassLayout, isSpectator = false, layoutTier = 'full' }: GameTableProps) {
   const { mySeat, currentTurn, currentTrick, mahjongWish, wishFulfilled, waitingForReconnect } = view;
   const centerRef = useRef<HTMLDivElement>(null);
   const timer = useTurnTimer(view.turnTimerStartedAt, view.turnTimerDurationMs, serverClockOffsetMs);
@@ -116,6 +118,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         <PlayerSeat
           seat={seat}
           displayName={seatNames?.[seat]}
+          avatarName={seatAvatarNames?.[seat]}
           cardCount={view.myHand.length}
           tichuCall={view.myTichuCall}
           hasPlayed={false}
@@ -161,6 +164,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
       <PlayerSeat
         seat={seat}
         displayName={seatNames?.[seat]}
+        avatarName={seatAvatarNames?.[seat]}
         cardCount={decidedInGT ? 14 : other.cardCount}
         tichuCall={other.tichuCall}
         hasPlayed={other.hasPlayed}

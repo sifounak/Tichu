@@ -104,6 +104,45 @@
   line-height: 1.4;
 }
 
+.drawerItemRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.toggle {
+  margin-left: auto;
+  width: calc(42px * var(--scale));
+  height: calc(24px * var(--scale));
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  padding: calc(2px * var(--scale));
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.toggleChecked {
+  background: var(--color-gold-accent);
+  border-color: var(--color-gold-accent);
+}
+
+.toggleKnob {
+  display: block;
+  width: calc(18px * var(--scale));
+  height: calc(18px * var(--scale));
+  border-radius: 50%;
+  background: var(--color-text-primary);
+  transform: translateX(0);
+  transition: transform 0.15s;
+}
+
+.toggleChecked .toggleKnob {
+  transform: translateX(calc(18px * var(--scale)));
+  background: var(--color-felt-green-dark);
+}
+
 .drawerItemHint {
   font-size: var(--font-sm);
   color: var(--color-text-muted);

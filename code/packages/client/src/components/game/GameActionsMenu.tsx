@@ -254,7 +254,17 @@ export const GameActionsMenu = memo(function GameActionsMenu({
               onKeyDown={(e) => handleKeyDown(e, i)}
               tabIndex={open ? 0 : -1}
             >
-              <span className={styles.menuItemLabel}>{item.checked !== undefined ? (item.checked ? '[x] ' : '[ ] ') : ''}{item.label}</span>
+              <span className={styles.menuItemRow}>
+                <span className={styles.menuItemLabel}>{item.label}</span>
+                {item.checked !== undefined && (
+                  <span
+                    className={`${styles.toggle} ${item.checked ? styles.toggleChecked : ''}`}
+                    aria-hidden="true"
+                  >
+                    <span className={styles.toggleKnob} />
+                  </span>
+                )}
+              </span>
               {item.hint && <span className={styles.menuItemHint}>{item.hint}</span>}
             </button>
           ))}
