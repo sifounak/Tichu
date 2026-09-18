@@ -138,6 +138,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
           serverClockOffsetMs={serverClockOffsetMs}
           showTimerProgress={false}
           tichuFailed={view.myTichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
+          compactTichuLabel={isMobile}
         />
       );
     }
@@ -192,6 +193,7 @@ export const GameTable = memo(function GameTable({ view, onPlay, canPlay, hideCe
         serverClockOffsetMs={serverClockOffsetMs}
         timerProgressSide={seat === seatPositions.right ? 'left' : 'right'}
         tichuFailed={other.tichuCall !== 'none' && firstOutSeat !== null && firstOutSeat !== seat}
+        compactTichuLabel={isMobile}
       />
     );
   }

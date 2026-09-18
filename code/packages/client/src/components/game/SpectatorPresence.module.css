@@ -1,0 +1,144 @@
+.container {
+  position: relative;
+  display: inline-block;
+}
+
+.countButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: default;
+  line-height: 1;
+}
+
+.countButtonCompact {
+  gap: calc(6px * var(--scale));
+  border-radius: var(--space-2);
+  padding: calc(4px * var(--scale)) calc(10px * var(--scale));
+  font-size: var(--font-base);
+}
+
+.countButton:focus-visible {
+  outline: 2px solid var(--color-gold-accent);
+  outline-offset: 2px;
+}
+
+.countButton svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+.popover,
+.toast {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 6px);
+  z-index: 40;
+  box-sizing: border-box;
+  background: rgb(0, 0, 0);
+  border: 1px solid var(--color-border);
+  border-radius: var(--card-border-radius);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.popover {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-sm);
+}
+
+.title {
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-1);
+  font-size: var(--font-sm);
+}
+
+.title:last-child {
+  margin-bottom: 0;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: max-content;
+  max-width: min(240px, calc(100vw - 32px));
+  padding: 7px 10px 7px 7px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.38);
+  animation: toastIn 140ms ease-out;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.toastText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--font-sm);
+  font-weight: 700;
+}
+
+.joined {
+  border-color: rgba(244, 196, 48, 0.45);
+}
+
+.joined .avatar,
+.changed .avatar {
+  background: rgba(159, 230, 184, 0.18);
+  border: 1px solid rgba(159, 230, 184, 0.55);
+  color: #9fe6b8;
+}
+
+.left .avatar {
+  background: rgba(185, 190, 200, 0.14);
+  border: 1px solid rgba(185, 190, 200, 0.45);
+  color: #b9bec8;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: toastFade 140ms ease-out;
+  }
+
+  @keyframes toastFade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}

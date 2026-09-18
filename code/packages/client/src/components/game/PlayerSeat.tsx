@@ -63,6 +63,8 @@ export interface PlayerSeatProps {
   timerProgressSide?: 'left' | 'right';
   /** True when another player went out first, breaking this player's Tichu call */
   tichuFailed?: boolean;
+  /** Use compact visible labels for narrow mobile player banners. */
+  compactTichuLabel?: boolean;
 }
 
 const SEAT_LABELS: Record<Seat, string> = {
@@ -105,6 +107,7 @@ export const PlayerSeat = memo(function PlayerSeat({
   showTimerProgress = true,
   timerProgressSide = 'right',
   tichuFailed,
+  compactTichuLabel = false,
 }: PlayerSeatProps) {
   // REQ-F-ES01: Empty seat shows "Empty Seat" label
   const name = emptySeat ? 'Empty Seat' : (displayName ?? SEAT_LABELS[seat]);
@@ -238,12 +241,15 @@ export const PlayerSeat = memo(function PlayerSeat({
       {/* REQ-F-DI04: Tichu/Grand Tichu call indicator — red banner above box */}
       {tichuCall !== 'none' && (() => {
         const tichuSucceeded = finishOrder === 1;
-        const label = tichuCall === 'blindGrandTichu' ? 'Blind Grand' : tichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu';
+        const fullLabel = tichuCall === 'blindGrandTichu' ? 'Blind Grand' : tichuCall === 'grandTichu' ? 'Grand Tichu' : 'Tichu';
+        const label = compactTichuLabel
+          ? tichuCall === 'blindGrandTichu' ? 'Blind' : tichuCall === 'grandTichu' ? 'Grand' : 'Tichu'
+          : fullLabel;
         const callClass = tichuCall === 'blindGrandTichu' ? styles.blindGrandTichu : tichuCall === 'grandTichu' ? styles.grandTichu : styles.tichu;
         return (
           <div
             className={`${styles.tichuBanner} ${callClass} ${tichuFailed ? styles.tichuFailed : tichuSucceeded ? styles.tichuSucceeded : ''}`}
-            aria-label={tichuFailed ? `${label} failed` : tichuSucceeded ? `${label} succeeded` : `${label} called`}
+            aria-label={tichuFailed ? `${fullLabel} failed` : tichuSucceeded ? `${fullLabel} succeeded` : `${fullLabel} called`}
           >
             {tichuFailed ? <>😩 <span className={styles.tichuStrike}>{label}</span> 😩</> : tichuSucceeded ? `🥳 ${label} 🥳` : label}
           </div>

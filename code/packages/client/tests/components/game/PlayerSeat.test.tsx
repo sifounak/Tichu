@@ -47,6 +47,18 @@ describe('PlayerSeat', () => {
     expect(screen.getByLabelText('Grand Tichu called')).toBeInTheDocument();
   });
 
+  it('uses single-word visible Tichu labels in compact mode', () => {
+    const { rerender } = render(<PlayerSeat {...baseProps} tichuCall="grandTichu" compactTichuLabel />);
+    expect(screen.getByText('Grand')).toBeInTheDocument();
+    expect(screen.queryByText('Grand Tichu')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Grand Tichu called')).toBeInTheDocument();
+
+    rerender(<PlayerSeat {...baseProps} tichuCall="blindGrandTichu" compactTichuLabel />);
+    expect(screen.getByText('Blind')).toBeInTheDocument();
+    expect(screen.queryByText('Blind Grand')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Blind Grand called')).toBeInTheDocument();
+  });
+
   it('shows pass indicator', () => {
     render(<PlayerSeat {...baseProps} hasPassed />);
     expect(screen.getByText('Pass')).toBeInTheDocument();

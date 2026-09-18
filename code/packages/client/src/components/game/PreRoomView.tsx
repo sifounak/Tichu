@@ -21,6 +21,7 @@ import { SeatClaimRejectedDialog, type SeatClaimRejection } from './SeatClaimRej
 import { GameActionsMenu, type MenuAction } from './GameActionsMenu';
 import { GameActionsDrawer } from './GameActionsDrawer';
 import { ActionConfirmDialog, type ConfirmDialogAction } from './ActionConfirmDialog';
+import { SpectatorPresence } from './SpectatorPresence';
 import { useUiStore, isOnCooldown, getCooldownRemaining } from '@/stores/uiStore';
 import { useRoomStore } from '@/stores/roomStore';
 import styles from './PreRoomView.module.css';
@@ -623,60 +624,7 @@ export function PreRoomView({
           >
             {urlCopied ? 'Link copied!' : (roomName ?? 'Room')}
           </button>
-          {/* REQ-F-GA05, GA06: Spectator count box with eye icon + tooltip */}
-          <div
-            style={{ position: 'relative' }}
-            onMouseEnter={(e) => {
-              const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
-              if (tip) tip.style.display = 'block';
-            }}
-            onMouseLeave={(e) => {
-              const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
-              if (tip) tip.style.display = 'none';
-            }}
-          >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'var(--color-bg-panel)',
-              border: '1px solid var(--color-border)',
-              borderRadius: '8px',
-              padding: '4px 10px',
-              fontSize: '16px',
-              fontWeight: 600,
-              color: 'var(--color-text-secondary)',
-              cursor: 'default',
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, display: 'block' }}>
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              {spectatorCount}
-            </div>
-            <div data-tooltip style={{
-              display: 'none',
-              position: 'absolute',
-              top: 0,
-              left: 'calc(100% + 6px)',
-              background: 'rgb(0,0,0)',
-              border: '1px solid var(--color-border)',
-              borderRadius: 'var(--card-border-radius)',
-              padding: 'var(--space-2) var(--space-3)',
-              fontSize: 'var(--font-sm)',
-              color: 'var(--color-text-primary)',
-              whiteSpace: 'nowrap',
-              zIndex: 40,
-              boxSizing: 'border-box',
-            }}>
-              <div style={{ fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: spectatorNames.length > 0 ? 'var(--space-1)' : undefined, fontSize: 'var(--font-sm)' }}>
-                {spectatorNames.length > 0 ? 'Spectators' : 'No Spectators'}
-              </div>
-              {spectatorNames.map((name, i) => (
-                <div key={i} style={{ fontWeight: 600 }}>{name}</div>
-              ))}
-            </div>
-          </div>
+          <SpectatorPresence spectatorCount={spectatorCount} spectatorNames={spectatorNames} players={players} />
         </div>
 
         {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}
@@ -874,59 +822,7 @@ export function PreRoomView({
               {urlCopied ? 'Link copied!' : (roomName ?? 'Room')}
             </button>
             {/* Spectator eye icon + count */}
-            <div
-              style={{ position: 'relative' }}
-              onMouseEnter={(e) => {
-                const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
-                if (tip) tip.style.display = 'block';
-              }}
-              onMouseLeave={(e) => {
-                const tip = e.currentTarget.querySelector('[data-tooltip]') as HTMLElement;
-                if (tip) tip.style.display = 'none';
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'calc(6px * var(--scale))',
-                background: 'var(--color-bg-panel)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--space-2)',
-                padding: 'calc(4px * var(--scale)) calc(10px * var(--scale))',
-                fontSize: 'var(--font-base)',
-                fontWeight: 600,
-                color: 'var(--color-text-secondary)',
-                cursor: 'default',
-              }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, display: 'block' }}>
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                {spectatorCount}
-              </div>
-              <div data-tooltip style={{
-                display: 'none',
-                position: 'absolute',
-                top: 0,
-                left: 'calc(100% + 6px)',
-                background: 'rgb(0,0,0)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--card-border-radius)',
-                padding: 'var(--space-2) var(--space-3)',
-                fontSize: 'var(--font-sm)',
-                color: 'var(--color-text-primary)',
-                whiteSpace: 'nowrap',
-                zIndex: 40,
-                boxSizing: 'border-box',
-              }}>
-                <div style={{ fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: spectatorNames.length > 0 ? 'var(--space-1)' : undefined, fontSize: 'var(--font-sm)' }}>
-                  {spectatorNames.length > 0 ? 'Spectators' : 'No Spectators'}
-                </div>
-                {spectatorNames.map((name, i) => (
-                  <div key={i} style={{ fontWeight: 600 }}>{name}</div>
-                ))}
-              </div>
-            </div>
+              <SpectatorPresence spectatorCount={spectatorCount} spectatorNames={spectatorNames} players={players} compact />
           </div>
 
           {/* Row 2: Game Menu + [Spectating] + Leave Game icon buttons side by side */}

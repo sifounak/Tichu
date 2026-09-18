@@ -14,3 +14,5 @@ export { AnimatedScore } from './AnimatedScore';
 export type { AnimatedScoreProps } from './AnimatedScore';
 export { ChatPanel } from './ChatPanel';
 export type { ChatPanelProps, ChatMessage } from './ChatPanel';
+export { SpectatorPresence } from './SpectatorPresence';
+export type { SpectatorPresenceProps } from './SpectatorPresence';
