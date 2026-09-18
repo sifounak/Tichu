@@ -1,0 +1,21 @@
+# Keep default ripgrep searches focused on live code and durable docs.
+# Archived conversations, generated outputs, and planning transcripts remain in Git,
+# but are excluded from everyday text search noise.
+
+conversations/
+results/
+project-memory/archive/
+project-memory/archive/**
+code/results/
+code/.dev-logs/
+
+docs/superpowers/plans/
+docs/superpowers/specs/
+plans/
+
+design-previews/
+*.png
+
+# Accidental path-shaped directories created by tooling.
+C:MATLABClaudeTichudocssuperpowersplans/
+C:MATLABClaudeTichudocssuperpowersspecs/

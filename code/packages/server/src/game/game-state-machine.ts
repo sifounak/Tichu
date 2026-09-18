@@ -328,7 +328,7 @@ export const gameMachine = setup({
       if (!isTrickComplete(round.currentTrick, round)) return false;
       // Dragon gift already pending means bomb window already happened — skip to gift prompt
       if (round.dragonGiftPending) return false;
-      if (isRoundOver(round)) return false;
+      if (isOneTwoFinish(round)) return false;
       // Skip bomb window if no player can form a bomb (need 4+ cards for any bomb)
       const canAnyoneBomb = SEATS_IN_ORDER.some(
         (s) => round.players[s].finishOrder === null && round.players[s].hand.length >= 4,
@@ -358,6 +358,7 @@ export const gameMachine = setup({
     needsDragonGift: ({ context }) => {
       const round = context.currentRound;
       if (!round || !round.dragonGiftPending) return false;
+      if (isRoundOver(round)) return false;
       return true;
     },
 
@@ -770,10 +771,19 @@ export const gameMachine = setup({
         const trick = round.currentTrick!;
         const trickCards = collectTrickCards(trick);
 
-        if (needsDragonGift(trick)) {
-          // Dragon gift still required — awaitingDragonGift fires via always transition
-          round.dragonGiftPending = { trickCards, from: trick.currentWinner };
-          round.currentTurn = trick.currentWinner;
+        if (isOneTwoFinish(round)) {
+          round.players[trick.currentWinner].tricksWon.push(trickCards);
+          round.dragonGiftPending = null;
+        } else if (needsDragonGift(trick)) {
+          const autoRecipient = getAutoGiftRecipient(trick.currentWinner, round);
+          if (autoRecipient) {
+            round.dragonGiftedTo = autoRecipient;
+            round.players[autoRecipient].tricksWon.push(trickCards);
+            round.dragonGiftPending = null;
+          } else {
+            round.dragonGiftPending = { trickCards, from: trick.currentWinner };
+            round.currentTurn = trick.currentWinner;
+          }
         } else {
           round.players[trick.currentWinner].tricksWon.push(trickCards);
         }
@@ -1183,6 +1193,14 @@ function completeTrickAndAdvance(
   const trickCards = collectTrickCards(trick);
   const winner = trick.currentWinner;
 
+  // If a 1-2 finish ended the round, score immediately.
+  // Dragon gift choice is not offered because 1-2 scoring awards all card points.
+  if (isOneTwoFinish(round)) {
+    round.players[winner].tricksWon.push(trickCards);
+    round.dragonGiftPending = null;
+    return { currentRound: round };
+  }
+
   // Check for Dragon gift
   if (needsDragonGift(trick)) {
     // Check auto-gift (only 1 opponent remaining)
@@ -1221,12 +1239,13 @@ function completeTrickAndAdvance(
 }
 
 /** REQ-F-BUG01: Check if round should end (1-2 finish or ≤1 active players) */
+function isOneTwoFinish(round: RoundState): boolean {
+  return round.finishOrder.length >= 2 && getTeam(round.finishOrder[0]) === getTeam(round.finishOrder[1]);
+}
+
 function isRoundOver(round: RoundState): boolean {
   if (countActivePlayers(round) <= 1) return true;
-  if (round.finishOrder.length >= 2) {
-    return getTeam(round.finishOrder[0]) === getTeam(round.finishOrder[1]);
-  }
-  return false;
+  return isOneTwoFinish(round);
 }
 
 function scoreAndFinishRound(
@@ -1240,6 +1259,7 @@ function scoreAndFinishRound(
   const scoringFinishOrder = [...round.finishOrder, ...activePlayers];
 
   round.phase = GamePhase.RoundScoring;
+  round.dragonGiftPending = null;
 
   // Build scoring data
   const tricksWon: Record<Seat, GameCard[][]> = {

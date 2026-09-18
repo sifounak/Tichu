@@ -779,6 +779,38 @@ describe('GameStateMachine', () => {
       expect(snap.value).toBe('playing');
       actor.stop();
     });
+
+    it('skips Dragon gift when Dragon is the second partner out in a 1-2 finish', () => {
+      const actor = createTestActor();
+      actor.start();
+      getToPlayingPhase(actor);
+
+      const round = actor.getSnapshot().context.currentRound!;
+      const dragon: GameCard = { id: 55, card: { kind: 'dragon' } };
+      round.players.north.hand = [];
+      round.players.north.finishOrder = 1;
+      round.players.south.hand = [dragon];
+      round.players.south.finishOrder = null;
+      round.players.east.hand = [{ id: 0, card: { kind: 'standard', suit: 'jade', rank: 2 } }];
+      round.players.west.hand = [{ id: 1, card: { kind: 'standard', suit: 'sword', rank: 3 } }];
+      round.finishOrder = ['north'];
+      round.currentTrick = null;
+      round.currentTurn = 'south';
+      round.dragonGiftPending = null;
+
+      actor.send({ type: 'PLAY_CARDS', seat: 'south', cards: [dragon] });
+
+      const snap = actor.getSnapshot();
+      const finalRound = snap.context.currentRound!;
+      expect(snap.value).toBe('roundScoring');
+      expect(finalRound.dragonGiftPending).toBeNull();
+      expect(finalRound.finishOrder).toEqual(['north', 'south']);
+      expect(snap.context.roundHistory).toHaveLength(1);
+      expect(snap.context.roundHistory[0].oneTwoBonus).toBe('northSouth');
+      expect(snap.context.roundHistory[0].cardPoints.northSouth).toBe(200);
+      expect(snap.context.roundHistory[0].cardPoints.eastWest).toBe(0);
+      actor.stop();
+    });
   });
 
   // Verifies: REQ-F-GF01

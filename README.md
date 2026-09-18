@@ -40,9 +40,7 @@ code/                    # Application source
     server/              # Fastify backend + WebSocket (port 3001)
 documentation/           # Architecture docs, codebase index, deployment guide
 specifications/          # Feature specs + Requirements Traceability Matrices
-conversations/           # Development transcript archive
-results/                 # Milestone test results + coverage reports
-plans/                   # Implementation plans
+project-memory/          # Archived conversations, plans, generated specs/results
 ```
 
 ## Documentation
@@ -51,6 +49,9 @@ plans/                   # Implementation plans
 - [Deployment Guide](documentation/deployment.md) — production setup with systemd + Apache
 - [Architecture Decisions](documentation/decisions/) — rationale for key technology choices
 - [Bot Strategy](documentation/bot-strategy.md) — ExpertBot 12-module strategy system
+
+- [Gameplay Invariants](documentation/gameplay-invariants.md) - compact rules for round ending and Dragon gift behavior
+- [Project Memory](project-memory/README.md) - historical notes kept out of default source search
 
 ## Development Workflow
 
