@@ -22,6 +22,7 @@ import {
   isPhoenix,
   isStandard,
   detectAllBombs,
+  canBeat,
   getTeam,
   SEATS_IN_ORDER,
 } from '@tichu/shared';
@@ -756,8 +757,16 @@ export class GameManager {
     return this.getHumanSeats().filter(s => !this.autopilotSeats.has(s));
   }
 
-  private isSoloHumanControlledGame(): boolean {
-    return this.getVoteEligibleHumanSeats().length === 1;
+  private getSoloHumanControlledSeat(): Seat | null {
+    const humanSeats = this.getVoteEligibleHumanSeats();
+    return humanSeats.length === 1 ? humanSeats[0] : null;
+  }
+
+  private hasLegalEndOfTrickBomb(round: RoundState, seat: Seat): boolean {
+    if (round.players[seat].finishOrder !== null) return false;
+    const topCombination = round.currentTrick?.plays.at(-1)?.combination ?? null;
+    if (!topCombination) return false;
+    return detectAllBombs(round.players[seat].hand).some((bomb) => canBeat(bomb, topCombination));
   }
 
   /** REQ-F-KM14: Get connected human seats (excludes bots, vacated, and disconnected). */
@@ -937,9 +946,12 @@ export class GameManager {
         ? SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null)
         : [];
       const onlyBots = activePlayers.length > 0 && activePlayers.every((s) => this.botRunner.isAutomated(s));
-      const soloHumanGame = this.isSoloHumanControlledGame();
+      const soloHumanSeat = this.getSoloHumanControlledSeat();
+      const soloHumanGame = soloHumanSeat !== null;
+      const soloHumanCanBomb = !!round && soloHumanSeat !== null &&
+        this.hasLegalEndOfTrickBomb(round, soloHumanSeat);
 
-      if (onlyBots || soloHumanGame) {
+      if (onlyBots || (soloHumanGame && !soloHumanCanBomb)) {
         const lastPlay = round?.currentTrick?.plays.at(-1);
         const lastPlayWasHuman = !!lastPlay && !this.botRunner.isAutomated(lastPlay.seat);
         const timeoutDelayMs = onlyBots && lastPlayWasHuman ? 800 : 0;

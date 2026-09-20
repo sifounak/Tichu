@@ -7,7 +7,7 @@ import { VoteHandler } from '../../src/game/vote-handler.js';
 import type { Broadcaster } from '../../src/ws/broadcaster.js';
 import type { WebSocket } from 'ws';
 import type { Seat, GameCard, ClientMessage, GameConfig, Rank } from '@tichu/shared';
-import { SEATS_IN_ORDER, isDog } from '@tichu/shared';
+import { CombinationType, SEATS_IN_ORDER, Suit, isDog } from '@tichu/shared';
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +82,42 @@ function advanceToPlaying(manager: GameManager, ws: WebSocket): void {
 function getLastTimerInfo(broadcaster: Broadcaster): { startTime: number | null; durationMs: number | null } {
   const calls = (broadcaster.broadcastGameState as ReturnType<typeof vi.fn>).mock.calls;
   return calls.at(-1)?.[6] as { startTime: number | null; durationMs: number | null };
+}
+
+function standardCard(id: number, rank: Rank, suit: Suit = Suit.Jade): GameCard {
+  return { id, card: { kind: 'standard', rank, suit } };
+}
+
+function setUpSoloHumanEndOfTrickPass(
+  manager: GameManager,
+  humanHand: GameCard[],
+): void {
+  manager.registerBot('east');
+  manager.registerBot('south');
+  manager.registerBot('west');
+
+  const round = manager.context.currentRound!;
+  const winningCard = standardCard(20_000, 10, Suit.Pagoda);
+  round.players.north.hand = humanHand;
+  round.players.east.hand = [standardCard(20_001, 3, Suit.Jade)];
+  round.players.south.hand = [standardCard(20_002, 4, Suit.Sword)];
+  round.players.west.hand = [standardCard(20_003, 5, Suit.Star)];
+  round.currentTurn = 'north';
+  round.currentTrick = {
+    plays: [{
+      seat: 'east',
+      combination: {
+        type: CombinationType.Single,
+        cards: [winningCard],
+        rank: 10,
+        length: 1,
+        isBomb: false,
+      },
+    }],
+    passes: ['south', 'west'],
+    leadSeat: 'east',
+    currentWinner: 'east',
+  };
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -257,6 +293,77 @@ describe('GameManager', () => {
   });
 
   describe('turn timer', () => {
+    it('keeps the end-of-trick bomb window in solo-human games when the human can bomb', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+
+      const {
+        manager: timerManager,
+        broadcaster: timerBroadcaster,
+        disconnectHandler: timerDisconnectHandler,
+      } = createTestManager({ turnTimerSeconds: 30 });
+      const timerWs = createMockWs();
+
+      try {
+        advanceToPlaying(timerManager, timerWs);
+        setUpSoloHumanEndOfTrickPass(timerManager, [
+          standardCard(30_000, 5, Suit.Jade),
+          standardCard(30_001, 5, Suit.Pagoda),
+          standardCard(30_002, 5, Suit.Star),
+          standardCard(30_003, 5, Suit.Sword),
+        ]);
+        (timerBroadcaster.broadcastGameState as ReturnType<typeof vi.fn>).mockClear();
+
+        timerManager.handleMessage(timerWs, 'north', { type: 'PASS_TURN' } as ClientMessage);
+
+        expect(timerManager.stateValue).toBe('awaitingEndOfTrickBomb');
+        expect(timerManager.serialize().endOfTrickBombWindowEndTime).toBe(Date.now() + 2_500);
+
+        vi.advanceTimersByTime(2_499);
+        expect(timerManager.stateValue).toBe('awaitingEndOfTrickBomb');
+
+        vi.advanceTimersByTime(1);
+        expect(timerManager.stateValue).toBe('playing');
+      } finally {
+        timerManager.destroy();
+        timerDisconnectHandler.dispose();
+        vi.useRealTimers();
+      }
+    });
+
+    it('skips the end-of-trick bomb window in solo-human games when the human cannot bomb', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+
+      const {
+        manager: timerManager,
+        disconnectHandler: timerDisconnectHandler,
+      } = createTestManager({ turnTimerSeconds: 30 });
+      const timerWs = createMockWs();
+
+      try {
+        advanceToPlaying(timerManager, timerWs);
+        setUpSoloHumanEndOfTrickPass(timerManager, [
+          standardCard(31_000, 2, Suit.Jade),
+          standardCard(31_001, 4, Suit.Pagoda),
+          standardCard(31_002, 6, Suit.Star),
+          standardCard(31_003, 8, Suit.Sword),
+        ]);
+
+        timerManager.handleMessage(timerWs, 'north', { type: 'PASS_TURN' } as ClientMessage);
+
+        expect(timerManager.stateValue).toBe('awaitingEndOfTrickBomb');
+        expect(timerManager.serialize().endOfTrickBombWindowEndTime).toBeNull();
+
+        vi.runOnlyPendingTimers();
+        expect(timerManager.stateValue).toBe('playing');
+      } finally {
+        timerManager.destroy();
+        timerDisconnectHandler.dispose();
+        vi.useRealTimers();
+      }
+    });
+
     it('clears stale timer during Dog animation and starts fresh for the recipient', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
