@@ -7,6 +7,7 @@ import { useUiStore } from '@/stores/uiStore';
 
 interface UseBombWindowOptions {
   send: (msg: Record<string, unknown>) => boolean;
+  enabled?: boolean;
 }
 
 /**
@@ -19,8 +20,8 @@ interface UseBombWindowOptions {
  * The window is skipped entirely when:
  * - Animation speed is set to 'off'
  */
-export function useBombWindow({ send }: UseBombWindowOptions) {
-  const { durations, enabled } = useAnimationSettings();
+export function useBombWindow({ send, enabled: bombWindowEnabled = true }: UseBombWindowOptions) {
+  const { durations, enabled: animationsEnabled } = useAnimationSettings();
   const bombWindowActive = useUiStore((s) => s.bombWindowActive);
   const bombWindowEndTime = useUiStore((s) => s.bombWindowEndTime);
   const queuedPlay = useUiStore((s) => s.queuedPlay);
@@ -43,12 +44,12 @@ export function useBombWindow({ send }: UseBombWindowOptions) {
 
   // Start bomb window — only if animations enabled
   const startWindow = useCallback(() => {
-    if (!enabled || durations.bombWindow === 0) return;
+    if (!bombWindowEnabled || !animationsEnabled || durations.bombWindow === 0) return;
     // Clear any existing timer
     if (timerRef.current) clearTimeout(timerRef.current);
     const durationMs = durations.bombWindow * 1000;
     startBombWindow(durationMs);
-  }, [durations, enabled, startBombWindow]);
+  }, [bombWindowEnabled, durations, animationsEnabled, startBombWindow]);
 
   // Timer effect: schedule flush when bomb window is active
   useEffect(() => {
@@ -63,6 +64,12 @@ export function useBombWindow({ send }: UseBombWindowOptions) {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [bombWindowActive, bombWindowEndTime, flushQueuedPlay]);
+
+  useEffect(() => {
+    if (bombWindowEnabled) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    flushQueuedPlay();
+  }, [bombWindowEnabled, flushQueuedPlay]);
 
   // Cancel queued play — returns to normal Play button state
   const cancelQueuedPlay = useCallback(() => {

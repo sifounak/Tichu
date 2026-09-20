@@ -228,6 +228,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     );
   }, [roomPlayers, gameStore.finishOrder]);
 
+  const isSoloHumanGame = useMemo(() => {
+    if (roomPlayers.length < 4) return false;
+    const autopilotSeats = new Set(gameStore.autopilotSeats);
+    return roomPlayers.filter((p) => !p.isBot && !autopilotSeats.has(p.seat)).length === 1;
+  }, [roomPlayers, gameStore.autopilotSeats]);
+
   const handleMessage = useCallback(
     (msg: ServerMessage) => {
       if (msg.type === 'GAME_STATE') {
@@ -573,6 +579,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
   // REQ-F-BW01: Bomb window — 2.5s delay after each play
   const bombWindow = useBombWindow({
     send: send as (msg: Record<string, unknown>) => boolean,
+    enabled: !isSoloHumanGame,
   });
 
   // REQ-F-BW01: Start bomb window at the start of every turn (except leading a new trick).
@@ -588,12 +595,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
       const myCards = gameStore.myHand.length;
       const anyoneCanBomb = myCards >= 4 ||
         gameStore.otherPlayers.some((p) => p.finishOrder === null && p.cardCount >= 4);
-      if (anyoneCanBomb) {
+      if (!isSoloHumanGame && anyoneCanBomb) {
         bombWindow.startWindow();
       }
     }
     prevTurnRef.current = currentTurn ?? null;
-  }, [currentTurn, trickPlayCount, dragonGiftPending, bombWindow.startWindow]);
+  }, [currentTurn, trickPlayCount, dragonGiftPending, isSoloHumanGame, bombWindow.startWindow]);
 
   // Clear bomb window when dragon gift phase starts (no plays allowed during gift selection)
   useEffect(() => {

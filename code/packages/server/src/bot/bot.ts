@@ -104,8 +104,10 @@ export class Bot implements BotStrategy {
   private lastTricksWonCounts: Record<Seat, number> = { north: 0, east: 0, south: 0, west: 0 };
   private lastSeenTrickType: CombinationType | null = null;
 
-  // REQ-F-PTS01-03: Partner Tichu support — lead escalation
+  // REQ-F-PTS01-03: Partner Tichu support — lead cycle
   private ptsConsecutiveLeads = 0;
+  private ptsLeadStep: 0 | 1 | 2 = 0;
+  private ptsAdvancedTrickKeys: string[] = [];
   // Track who led the last trick (for detecting if partner took over)
   private lastLeadSeat: Seat | null = null;
 
@@ -236,10 +238,6 @@ export class Bot implements BotStrategy {
 
   private isGrandLikeTichuCall(call: string): boolean {
     return call === 'grandTichu' || call === 'blindGrandTichu';
-  }
-
-  private partnerHasBlindGrandTichuCall(roundState: RoundState, seat: Seat): boolean {
-    return roundState.players[getPartner(seat)].tipiCall === 'blindGrandTichu';
   }
 
   // REQ-F-PASS01-08: Card passing with strength concentration + parity convention
@@ -571,8 +569,10 @@ export class Bot implements BotStrategy {
       this.uncontestedSingleLastRank = { north: 0, east: 0, south: 0, west: 0 };
       this.lastTricksWonCounts = { north: 0, east: 0, south: 0, west: 0 };
       this.lastSeenTrickType = null;
-      // REQ-F-PTS03: Reset partner Tichu lead escalation
+      // REQ-F-PTS03: Reset partner Tichu support cycle
       this.ptsConsecutiveLeads = 0;
+      this.ptsLeadStep = 0;
+      this.ptsAdvancedTrickKeys = [];
       this.lastLeadSeat = null;
     }
 
@@ -598,12 +598,9 @@ export class Bot implements BotStrategy {
 
     const strategicPlays = this.filterDisallowedPhoenixFollows(validPlays, currentTrick, hand);
     const strategicContext = { ...context, validPlays: strategicPlays };
+    this.updatePartnerTichuSupportProgress(strategicContext);
 
     if (strategicPlays.length === 0) {
-      return { action: 'pass' };
-    }
-
-    if (this.shouldWaitForBlindGrandPartner(strategicContext)) {
       return { action: 'pass' };
     }
 
@@ -620,6 +617,10 @@ export class Bot implements BotStrategy {
 
     // REQ-F-END01-04: Endgame-specific strategy (checked before 1-2 prevention
     // because endgame handles those scenarios with more nuance)
+    if (this.isPartnerTichuBroken(roundState, seat) && this.shouldPreventOneTwo(roundState, seat)) {
+      return this.chooseOneTwoPreventionPlay(strategicContext, nonBombs.length > 0 ? nonBombs : strategicPlays);
+    }
+
     const endgamePhase = getEndgamePhase(roundState, seat);
     if (endgamePhase !== 'normal') {
       const endgameDecision = this.chooseEndgamePlay(strategicContext, nonBombs.length > 0 ? nonBombs : strategicPlays, endgamePhase);
@@ -985,12 +986,10 @@ export class Bot implements BotStrategy {
    * Default: play Dog at first opportunity (Fuegi: risk of never getting another lead)
    */
   private shouldSaveDog(roundState: RoundState, seat: Seat, hand: GameCard[]): boolean {
-    const partner = getPartner(seat);
     const myTeam = getTeam(seat);
 
     // 1. Partner called Tichu → save Dog to bail them out
-    const partnerCall = roundState.players[partner].tipiCall;
-    if (this.isAnyTichuCall(partnerCall)) return true;
+    if (this.hasLivePartnerTichuCall(roundState, seat)) return true;
 
     // 2. Bot has bomb or Dragon → can regain lead later, Dog is more valuable saved
     const hasBomb = hand.some((gc) => {
@@ -1087,36 +1086,69 @@ export class Bot implements BotStrategy {
     return this.isAnyTichuCall(call);
   }
 
+  private hasLivePartnerTichuCall(roundState: RoundState, seat: Seat): boolean {
+    return this.hasPartnerTichuCall(roundState, seat) && !this.isPartnerTichuBroken(roundState, seat);
+  }
+
+  private isPartnerTichuBroken(roundState: RoundState, seat: Seat): boolean {
+    const partner = getPartner(seat);
+    const partnerState = roundState.players[partner];
+    if (!this.isAnyTichuCall(partnerState.tipiCall)) return false;
+
+    const partnerOrder = partnerState.finishOrder;
+    for (const finishedSeat of roundState.finishOrder) {
+      if (getTeam(finishedSeat) === getTeam(seat)) continue;
+      const opponentOrder = roundState.players[finishedSeat].finishOrder;
+      if (opponentOrder === null) continue;
+      if (partnerOrder === null || opponentOrder < partnerOrder) return true;
+    }
+    return false;
+  }
+
   private hasSelfTichuCall(roundState: RoundState, seat: Seat): boolean {
     const call = roundState.players[seat].tipiCall;
     return this.isAnyTichuCall(call);
   }
 
-  private shouldWaitForBlindGrandPartner(context: BotPlayContext): boolean {
-    const { currentTrick, roundState, seat, canPass } = context;
-    if (!currentTrick || !canPass) return false;
-    if (!this.partnerHasBlindGrandTichuCall(roundState, seat)) return false;
-
-    const partner = getPartner(seat);
-    if (roundState.players[partner].finishOrder !== null) return false;
-    return !currentTrick.passes.includes(partner);
+  private getTrickKey(roundState: RoundState, trick: import('@tichu/shared').TrickState): string {
+    const firstPlay = trick.plays[0];
+    const firstCardIds = firstPlay?.combination.cards.map((gc) => gc.id).sort((a, b) => a - b).join(',') ?? '';
+    return `${roundState.roundNumber}:${trick.leadSeat}:${firstCardIds}`;
   }
 
-  // REQ-F-PTS01-03: Partner Tichu lead strategy with escalation
+  private updatePartnerTichuSupportProgress(context: BotPlayContext): void {
+    const { currentTrick, roundState, seat } = context;
+    if (!currentTrick || !this.hasLivePartnerTichuCall(roundState, seat)) return;
+    if (currentTrick.leadSeat !== seat) return;
+
+    const partner = getPartner(seat);
+    if (!currentTrick.passes.includes(partner)) return;
+
+    const trickKey = this.getTrickKey(roundState, currentTrick);
+    if (this.ptsAdvancedTrickKeys.includes(trickKey)) return;
+
+    this.ptsLeadStep = ((this.ptsLeadStep + 1) % 3) as 0 | 1 | 2;
+    this.ptsAdvancedTrickKeys.push(trickKey);
+    if (this.ptsAdvancedTrickKeys.length > 12) {
+      this.ptsAdvancedTrickKeys = this.ptsAdvancedTrickKeys.slice(-12);
+    }
+  }
+
+  // REQ-F-PTS01-03: Partner Tichu lead strategy with support cycle
   /**
    * When partner called GT/T:
    * - PTS01: Play Dog to transfer control
-   * - PTS02: If no Dog, lead lowest single
-   * - PTS03: If bot keeps leading (partner didn't take over), escalate:
-   *   1st re-lead → lowest pair, 2nd → lowest triple, 3rd → lowest straight
+   * - PTS02: Lead low single, low pair, low triple, then repeat
+   * - PTS03: Advance the cycle when partner passes on a support trick
    */
   private choosePTSLeadPlay(
     validPlays: Combination[],
-    _hand: GameCard[],
-    _roundState: RoundState,
-    _seat: Seat,
+    hand: GameCard[],
+    roundState: RoundState,
+    seat: Seat,
   ): BotPlayDecision | null {
     const ranked = rankCombinationsForLead(validPlays);
+    const partnerCards = roundState.players[getPartner(seat)].hand.length;
 
     // REQ-F-PTS01: Play Dog to give partner control
     const dogPlay = ranked.find((c) => c.cards.length === 1 && isDog(c.cards[0].card));
@@ -1125,54 +1157,17 @@ export class Bot implements BotStrategy {
       return this.toDecision(dogPlay);
     }
 
-    // REQ-F-PTS03: Escalate combo type on consecutive leads
-    if (this.ptsConsecutiveLeads >= 1) {
-      // Escalation order: pair → triple → straight → any multi-card
-      const escalationTypes = [
-        CombinationType.Pair,
-        CombinationType.Triple,
-        CombinationType.Straight,
-        CombinationType.PairSequence,
-        CombinationType.FullHouse,
-      ];
-
-      // Start from the appropriate escalation level
-      const startIdx = Math.min(this.ptsConsecutiveLeads - 1, escalationTypes.length - 1);
-
-      for (let i = startIdx; i < escalationTypes.length; i++) {
-        const targetType = escalationTypes[i];
-        // Find lowest combo of target type (ranked is already low-to-high)
-        const match = ranked.find(
-          (c) => c.type === targetType && !c.isBomb &&
-            !c.cards.some((gc) => isDragon(gc.card)),
-        );
-        if (match) {
-          this.ptsConsecutiveLeads++;
-          return this.toDecision(match);
-        }
-      }
-
-      // No combo of escalated type — fall through to lowest single
-    }
-
-    // REQ-F-PTS02: No Dog → lead lowest single
-    const lowestSingle = ranked.find(
-      (c) => c.type === CombinationType.Single &&
-        !isDragon(c.cards[0].card) &&
-        !c.cards.some((gc) => isPhoenix(gc.card)) &&
-        !this.singleBreaksMultiCardCombo(c, validPlays) &&
-        c.rank <= 10,
-    );
-    if (lowestSingle) {
+    const supportPlay = this.getPartnerTichuSupportLead(ranked, hand, validPlays, partnerCards);
+    if (supportPlay) {
       this.ptsConsecutiveLeads++;
-      return this.toDecision(lowestSingle);
+      return this.toDecision(supportPlay);
     }
 
     // Fallback: lead lowest available (excluding Dragon)
     const fallback = ranked.find(
-      (c) => c.cards.length > 1 && !c.cards.some((gc) => isDragon(gc.card)),
+      (c) => c.cards.length <= partnerCards && c.cards.length > 1 && !c.cards.some((gc) => isDragon(gc.card)),
     ) ?? ranked.find(
-      (c) => !c.cards.some((gc) => isDragon(gc.card)) && !this.singleBreaksMultiCardCombo(c, validPlays),
+      (c) => c.cards.length <= partnerCards && !c.cards.some((gc) => isDragon(gc.card)) && !this.singleBreaksMultiCardCombo(c, validPlays),
     );
     if (fallback) {
       this.ptsConsecutiveLeads++;
@@ -1211,10 +1206,12 @@ export class Bot implements BotStrategy {
 
     // REQ-F-PTS01-03: Partner Tichu lead support (BEFORE Dog/shouldSaveDog)
     // PTS overrides shouldSaveDog — when partner called GT/T, play Dog immediately
-    if (this.hasPartnerTichuCall(roundState, seat)) {
+    if (this.hasLivePartnerTichuCall(roundState, seat)) {
       // Reset escalation if partner led last trick (partner took over briefly)
       if (this.lastLeadSeat !== null && this.lastLeadSeat !== seat) {
         this.ptsConsecutiveLeads = 0;
+        this.ptsLeadStep = 0;
+        this.ptsAdvancedTrickKeys = [];
       }
       const ptsLead = this.choosePTSLeadPlay(leadPlays, hand, roundState, seat);
       if (ptsLead) {
@@ -1358,12 +1355,10 @@ export class Bot implements BotStrategy {
   }
 
   private getPartnerTichuLeadMaxCards(roundState: RoundState, seat: Seat): number | null {
-    if (roundState.finishOrder.length > 0) return null;
-
     const partner = getPartner(seat);
     const partnerState = roundState.players[partner];
     if (partnerState.finishOrder !== null) return null;
-    if (!this.isAnyTichuCall(partnerState.tipiCall)) return null;
+    if (!this.hasLivePartnerTichuCall(roundState, seat)) return null;
 
     return partnerState.hand.length;
   }
@@ -1493,7 +1488,6 @@ export class Bot implements BotStrategy {
    */
   private evaluateTichuDefense(roundState: RoundState, seat: Seat): 'fight' | 'concede' {
     const myTeam = getTeam(seat);
-    const partner = getPartner(seat);
     let fightScore = 0;
 
     // Factor 1: Caller's remaining card count
@@ -1534,8 +1528,7 @@ export class Bot implements BotStrategy {
     else if (unaccountedPower <= 1) fightScore -= 1; // Caller likely has the power
 
     // Factor 4: Partner's behavior (if partner is playing aggressively, fight together)
-    const partnerCall = roundState.players[partner].tipiCall;
-    if (this.isAnyTichuCall(partnerCall)) {
+    if (this.hasLivePartnerTichuCall(roundState, seat)) {
       fightScore += 2; // Partner called Tichu — definitely fight
     }
 
@@ -1608,9 +1601,7 @@ export class Bot implements BotStrategy {
     currentTrickRank: number,
   ): Combination | null {
     const myTeam = getTeam(seat);
-    const partner = getPartner(seat);
-    const partnerCall = roundState.players[partner].tipiCall;
-    const partnerHasCall = this.isAnyTichuCall(partnerCall);
+    const partnerHasCall = this.hasLivePartnerTichuCall(roundState, seat);
 
     // REQ-F-USD02: threshold 2, rank < 11 (Jack)
     // REQ-F-USD03: threshold 1, rank < 12 (Queen) when partner GT/T
@@ -1675,7 +1666,7 @@ export class Bot implements BotStrategy {
    * - PTS06 nullification exception applies
    */
   private shouldSuppressGoOut(roundState: RoundState, seat: Seat, hand: GameCard[]): boolean {
-    if (!this.hasPartnerTichuCall(roundState, seat)) return false;
+    if (!this.hasLivePartnerTichuCall(roundState, seat)) return false;
 
     const partner = getPartner(seat);
     // If partner is already out, no need to suppress
@@ -1776,7 +1767,7 @@ export class Bot implements BotStrategy {
     const { currentTrick, seat, roundState, hand, canPass } = context;
     const partnerWinning = isPartnerWinning(currentTrick, seat);
     const opponentCallers = getOpponentTichuCallers(roundState, seat);
-    const partnerHasCall = this.hasPartnerTichuCall(roundState, seat);
+    const partnerHasCall = this.hasLivePartnerTichuCall(roundState, seat);
     const suppressGoOut = this.shouldSuppressGoOut(roundState, seat, hand);
 
     // REQ-F-DEF01: Evaluate Tichu defense stance
@@ -1796,8 +1787,14 @@ export class Bot implements BotStrategy {
         if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
       }
 
+      if (partnerHasCall && currentTrick) {
+        const cautiousOverplay = this.getPartnerTichuCautiousOverplay(currentTrick, ranked);
+        if (cautiousOverplay) return this.toDecision(cautiousOverplay);
+        return { action: 'pass' };
+      }
+
       // REQ-F-PTS07: Low-trick overplay when partner has NOT called GT/T
-      if (!partnerHasCall && currentTrick) {
+      if (currentTrick) {
         const partnerPlay = currentTrick.plays.find((p) => p.seat === currentTrick.currentWinner);
         if (partnerPlay) {
           const partnerRank = partnerPlay.combination.rank;
@@ -1821,7 +1818,15 @@ export class Bot implements BotStrategy {
 
     // REQ-F-PTS04: Aggressive follow when partner GT/T and opponent winning
     if (partnerHasCall && !partnerWinning && currentTrick) {
-      const ranked = rankCombinationsForFollow(plays);
+      const partnerPassedSupportTrick = this.partnerPassedOnMySupportTrick(roundState, seat, currentTrick);
+      const opponentJumpedSupportTrick = this.opponentJumpedBeforePartnerCouldPlay(roundState, seat, currentTrick);
+
+      if (!partnerPassedSupportTrick && !opponentJumpedSupportTrick) {
+        const cautiousOverplay = this.getOpponentLowTichuSupportOverplay(currentTrick, ranked);
+        if (cautiousOverplay) return this.toDecision(cautiousOverplay);
+        if (canPass) return { action: 'pass' };
+      }
+
       // REQ-F-PTS05: Check go-out suppression
       for (const combo of ranked) {
         if (canGoOut(hand, combo) && !suppressGoOut) return this.toDecision(combo);
@@ -1958,6 +1963,145 @@ export class Bot implements BotStrategy {
     }
 
     return null;
+  }
+
+  private getPartnerTichuSupportLead(
+    ranked: Combination[],
+    hand: GameCard[],
+    validPlays: Combination[],
+    partnerCards: number,
+  ): Combination | null {
+    const steps: Array<0 | 1 | 2> = [this.ptsLeadStep, ((this.ptsLeadStep + 1) % 3) as 0 | 1 | 2, ((this.ptsLeadStep + 2) % 3) as 0 | 1 | 2];
+    for (const step of steps) {
+      if (step === 0 && partnerCards >= 1) {
+        const single = this.getLowSupportSingle(ranked, hand, validPlays);
+        if (single) return single;
+      } else if (step === 1 && partnerCards >= 2) {
+        const pair = this.getLowSupportPair(ranked, hand);
+        if (pair) return pair;
+      } else if (step === 2 && partnerCards >= 3) {
+        const triple = this.getLowSupportTriple(ranked);
+        if (triple) return triple;
+      }
+    }
+    return null;
+  }
+
+  private getLowSupportSingle(
+    ranked: Combination[],
+    hand: GameCard[],
+    validPlays: Combination[],
+  ): Combination | null {
+    const natural = ranked.find((combo) =>
+      combo.type === CombinationType.Single &&
+      combo.rank < 9 &&
+      combo.cards[0].card.kind === 'standard' &&
+      !this.singleBreaksMultiCardCombo(combo, validPlays),
+    );
+    if (natural) return natural;
+
+    const lowPairRank = this.getLowestStandardRankWithCount(hand, 2, 8);
+    if (lowPairRank === null) return null;
+
+    return ranked.find((combo) =>
+      combo.type === CombinationType.Single &&
+      combo.rank === lowPairRank &&
+      combo.cards[0].card.kind === 'standard',
+    ) ?? null;
+  }
+
+  private getLowSupportPair(ranked: Combination[], hand: GameCard[]): Combination | null {
+    const natural = ranked.find((combo) =>
+      combo.type === CombinationType.Pair &&
+      combo.rank < 9 &&
+      this.getStandardRankCount(hand, combo.rank) === 2,
+    );
+    if (natural) return natural;
+
+    return ranked.find((combo) =>
+      combo.type === CombinationType.Pair &&
+      combo.rank < 9 &&
+      this.getStandardRankCount(hand, combo.rank) >= 3,
+    ) ?? null;
+  }
+
+  private getLowSupportTriple(ranked: Combination[]): Combination | null {
+    return ranked.find((combo) => combo.type === CombinationType.Triple && combo.rank < 9) ?? null;
+  }
+
+  private getLowestStandardRankWithCount(hand: GameCard[], minCount: number, maxRank: number): number | null {
+    const rankCounts = new Map<number, number>();
+    for (const gc of hand) {
+      if (gc.card.kind !== 'standard') continue;
+      rankCounts.set(gc.card.rank, (rankCounts.get(gc.card.rank) ?? 0) + 1);
+    }
+
+    const ranks = [...rankCounts.entries()]
+      .filter(([, count]) => count >= minCount)
+      .map(([rank]) => rank)
+      .filter((rank) => rank <= maxRank)
+      .sort((a, b) => a - b);
+    return ranks[0] ?? null;
+  }
+
+  private getStandardRankCount(hand: GameCard[], rank: number): number {
+    return hand.filter((gc) => gc.card.kind === 'standard' && gc.card.rank === rank).length;
+  }
+
+  private getPartnerTichuCautiousOverplay(
+    currentTrick: import('@tichu/shared').TrickState,
+    ranked: Combination[],
+  ): Combination | null {
+    const winningPlay = currentTrick.plays.find((play) => play.seat === currentTrick.currentWinner);
+    if (!winningPlay || winningPlay.combination.rank >= 10) return null;
+    return this.getWithinTwoRankOverplay(winningPlay.combination, ranked);
+  }
+
+  private getOpponentLowTichuSupportOverplay(
+    currentTrick: import('@tichu/shared').TrickState,
+    ranked: Combination[],
+  ): Combination | null {
+    const winningPlay = currentTrick.plays.find((play) => play.seat === currentTrick.currentWinner);
+    if (!winningPlay || winningPlay.combination.rank >= 10) return null;
+    return this.getWithinTwoRankOverplay(winningPlay.combination, ranked);
+  }
+
+  private getWithinTwoRankOverplay(winningCombo: Combination, ranked: Combination[]): Combination | null {
+    return ranked.find((combo) =>
+      !combo.isBomb &&
+      combo.rank > winningCombo.rank &&
+      combo.rank - winningCombo.rank <= 2,
+    ) ?? null;
+  }
+
+  private partnerPassedOnMySupportTrick(
+    roundState: RoundState,
+    seat: Seat,
+    currentTrick: import('@tichu/shared').TrickState,
+  ): boolean {
+    if (currentTrick.leadSeat !== seat) return false;
+    if (!this.hasLivePartnerTichuCall(roundState, seat)) return false;
+    return currentTrick.passes.includes(getPartner(seat));
+  }
+
+  private opponentJumpedBeforePartnerCouldPlay(
+    roundState: RoundState,
+    seat: Seat,
+    currentTrick: import('@tichu/shared').TrickState,
+  ): boolean {
+    if (currentTrick.leadSeat !== seat || currentTrick.plays.length < 2) return false;
+    if (!this.hasLivePartnerTichuCall(roundState, seat)) return false;
+
+    const partner = getPartner(seat);
+    if (currentTrick.passes.includes(partner)) return false;
+    if (currentTrick.plays.some((play) => play.seat === partner)) return false;
+    if (getTeam(currentTrick.currentWinner) === getTeam(seat)) return false;
+
+    const openingPlay = currentTrick.plays[0];
+    const winningPlay = currentTrick.plays.find((play) => play.seat === currentTrick.currentWinner);
+    if (!openingPlay || !winningPlay) return false;
+    if (openingPlay.combination.rank > 4) return false;
+    return winningPlay.combination.rank >= 12 && winningPlay.combination.rank - openingPlay.combination.rank >= 8;
   }
 
   /**
@@ -2340,6 +2484,10 @@ export class Bot implements BotStrategy {
     return this.ptsConsecutiveLeads;
   }
 
+  getPtsLeadStep(): 0 | 1 | 2 {
+    return this.ptsLeadStep;
+  }
+
   // ─── Serialization ────────────────────────────────────────────────────────
 
   serialize(): BotSnapshot {
@@ -2362,6 +2510,8 @@ export class Bot implements BotStrategy {
       lastTricksWonCounts: { ...this.lastTricksWonCounts },
       lastSeenTrickType: this.lastSeenTrickType,
       ptsConsecutiveLeads: this.ptsConsecutiveLeads,
+      ptsLeadStep: this.ptsLeadStep,
+      ptsAdvancedTrickKeys: [...this.ptsAdvancedTrickKeys],
       lastLeadSeat: this.lastLeadSeat,
       lastRoundState: this.lastRoundState,
     };
@@ -2387,6 +2537,8 @@ export class Bot implements BotStrategy {
     bot.lastTricksWonCounts = { ...snapshot.lastTricksWonCounts };
     bot.lastSeenTrickType = snapshot.lastSeenTrickType;
     bot.ptsConsecutiveLeads = snapshot.ptsConsecutiveLeads;
+    bot.ptsLeadStep = snapshot.ptsLeadStep ?? 0;
+    bot.ptsAdvancedTrickKeys = [...(snapshot.ptsAdvancedTrickKeys ?? [])];
     bot.lastLeadSeat = snapshot.lastLeadSeat;
     bot.lastRoundState = snapshot.lastRoundState;
     return bot;

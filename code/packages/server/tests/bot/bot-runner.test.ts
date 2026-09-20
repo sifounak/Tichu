@@ -573,6 +573,60 @@ describe('BotRunner', () => {
       expect(afterAction).toHaveBeenCalledTimes(1);
     });
 
+    it('should use a short pass delay in one-human games', () => {
+      actor = createTestActor();
+      advanceToPlaying(actor);
+
+      const round = getContext(actor).currentRound!;
+      const humanSeat: Seat = 'north';
+      const botSeat: Seat = 'east';
+      const humanCard = round.players[humanSeat].hand[0];
+
+      round.currentTurn = botSeat;
+      round.currentTrick = {
+        plays: [{
+          seat: humanSeat,
+          combination: {
+            type: CombinationType.Single,
+            cards: [humanCard],
+            rank: 7,
+            length: 1,
+            isBomb: false,
+          },
+        }],
+        passes: [],
+        leadSeat: humanSeat,
+        currentWinner: humanSeat,
+      };
+
+      const bot: BotStrategy = {
+        chooseGrandTichu: () => false,
+        chooseRegularTichu: () => false,
+        chooseCardsToPass: vi.fn(),
+        choosePlay: () => ({ action: 'pass' }),
+        chooseDragonGiftRecipient: vi.fn().mockReturnValue('north'),
+        chooseMahjongWish: vi.fn().mockReturnValue(null),
+      };
+      const afterAction = vi.fn();
+
+      runner = new BotRunner(
+        actor,
+        { minDelayMs: 1000, maxDelayMs: 1000, soloHumanBotPassDelayMs: 200 },
+        new MoveHandler(actor),
+      );
+      runner.addBot(botSeat, bot);
+      runner.addBot('south', new Bot());
+      runner.addBot('west', new Bot());
+
+      runner.onStateChange(afterAction);
+      vi.advanceTimersByTime(199);
+      expect(afterAction).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1);
+      expect(getContext(actor).currentRound!.currentTrick?.passes).toContain(botSeat);
+      expect(afterAction).toHaveBeenCalledTimes(1);
+    });
+
     it('should use instant timing with INSTANT_CONFIG', async () => {
       actor = createTestActor();
       runner = new BotRunner(actor, INSTANT_CONFIG);

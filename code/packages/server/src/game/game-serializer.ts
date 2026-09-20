@@ -88,6 +88,8 @@ export interface BotSnapshot {
   lastTricksWonCounts: Record<Seat, number>;
   lastSeenTrickType: CombinationType | null;
   ptsConsecutiveLeads: number;
+  ptsLeadStep: 0 | 1 | 2;
+  ptsAdvancedTrickKeys: string[];
   lastLeadSeat: Seat | null;
   lastRoundState: RoundState | null;
 }

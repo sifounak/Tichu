@@ -756,6 +756,10 @@ export class GameManager {
     return this.getHumanSeats().filter(s => !this.autopilotSeats.has(s));
   }
 
+  private isSoloHumanControlledGame(): boolean {
+    return this.getVoteEligibleHumanSeats().length === 1;
+  }
+
   /** REQ-F-KM14: Get connected human seats (excludes bots, vacated, and disconnected). */
   private getConnectedHumanSeats(): Seat[] {
     const allSeats: Seat[] = ['north', 'east', 'south', 'west'];
@@ -933,13 +937,14 @@ export class GameManager {
         ? SEATS_IN_ORDER.filter((s) => round.players[s].finishOrder === null)
         : [];
       const onlyBots = activePlayers.length > 0 && activePlayers.every((s) => this.botRunner.isAutomated(s));
+      const soloHumanGame = this.isSoloHumanControlledGame();
 
-      if (onlyBots) {
+      if (onlyBots || soloHumanGame) {
         const lastPlay = round?.currentTrick?.plays.at(-1);
         const lastPlayWasHuman = !!lastPlay && !this.botRunner.isAutomated(lastPlay.seat);
-        const timeoutDelayMs = lastPlayWasHuman ? 800 : 0;
+        const timeoutDelayMs = onlyBots && lastPlayWasHuman ? 800 : 0;
 
-        // Let bots decide synchronously, then timeout after any human-to-bot handoff pause.
+        // Let bots decide first, then timeout after any human-to-bot handoff pause.
         this.botRunner.onStateChange(() => this.broadcastState());
         this.broadcastState();
         this.endOfTrickBombTimer = setTimeout(() => {

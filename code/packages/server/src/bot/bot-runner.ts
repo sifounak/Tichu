@@ -27,6 +27,8 @@ export interface BotRunnerConfig {
   postTichuPlayDelayMs?: number;
   /** Pause before bot-only fast play starts after a human play */
   postHumanBotOnlyDelayMs?: number;
+  /** Short pause for bot passes in one-human games */
+  soloHumanBotPassDelayMs?: number;
 }
 
 /** Default timing config — artificial thinking delay for readability */
@@ -38,6 +40,7 @@ const DEFAULT_CONFIG: BotRunnerConfig = {
   postHumanTichuDelayMs: 1000,
   postTichuPlayDelayMs: 1000,
   postHumanBotOnlyDelayMs: 800,
+  soloHumanBotPassDelayMs: 200,
 };
 
 /** Fast config for testing */
@@ -48,6 +51,7 @@ export const INSTANT_CONFIG: BotRunnerConfig = {
   postHumanTichuDelayMs: 0,
   postTichuPlayDelayMs: 0,
   postHumanBotOnlyDelayMs: 0,
+  soloHumanBotPassDelayMs: 0,
 };
 
 /**
@@ -236,6 +240,11 @@ export class BotRunner {
     return activePlayers.length > 0 && activePlayers.every((s) => this.isAutomated(s));
   }
 
+  /** Check if exactly one seat is human-controlled in this game */
+  private isSoloHumanGame(): boolean {
+    return SEATS_IN_ORDER.filter((s) => !this.isAutomated(s)).length === 1;
+  }
+
   /** Check if a new trick is about to start (previous trick just ended) */
   private isNewTrickLead(): boolean {
     const snapshot = this.actor.getSnapshot();
@@ -337,6 +346,17 @@ export class BotRunner {
     const timer = setTimeout(() => {
       this.pendingTimers.delete(timer);
       this.grandTichuTimers.delete(seat);
+      if (!this.disposed) action();
+    }, delayMs);
+    this.pendingTimers.add(timer);
+  }
+
+  /** Schedule an action with an exact delay, bypassing the normal thinking delay. */
+  private scheduleFixedDelayAction(action: () => void, delayMs: number): void {
+    if (this.disposed) return;
+
+    const timer = setTimeout(() => {
+      this.pendingTimers.delete(timer);
       if (!this.disposed) action();
     }, delayMs);
     this.pendingTimers.add(timer);
@@ -465,14 +485,18 @@ export class BotRunner {
 
     const isLead = this.isNewTrickLead();
     const fast = this.onlyBotsRemain();
+    const soloHumanGame = this.isSoloHumanGame();
 
     // Pause longer after a trick ends so the sweep animation is visible
     const trickSweepPause = isLead && fast ? 800 : 0;
 
     // Bomb window delay is the sole pacing mechanism for bot plays (no base delay).
-    // 1000ms when humans present, 0 when only bots remain or leading.
-    const bombWindowDelay = (isLead || fast) ? 0 : 1000;
-    const playDelay = Math.max(trickSweepPause, bombWindowDelay);
+    // 1000ms when multiple humans are present, 0 when only bots remain, leading, or solo-human.
+    const bombWindowDelay = (isLead || fast || soloHumanGame) ? 0 : 1000;
+    const soloHumanPassDelay = soloHumanGame && decision.action === 'pass'
+      ? this.getTimingConfig().soloHumanBotPassDelayMs
+      : 0;
+    const playDelay = Math.max(trickSweepPause, bombWindowDelay, soloHumanPassDelay);
 
     const actionDelay = this.computeFirstPlayingActionDelay(round, seat, callTichu, playDelay);
     this.playingTurnTimers.add(seat);
@@ -626,9 +650,11 @@ export class BotRunner {
       const validBomb = bombs.find((b) => canBeat(b, topCombo));
       if (!validBomb) continue;
 
-      // Instant when only bots remain, otherwise random delay for human observation
-      const delay = this.onlyBotsRemain() ? 0 : 500 + Math.random() * 1500;
-      this.scheduleAction(() => {
+      // Instant in bot-only or solo-human games, otherwise random delay for human observation
+      const fastBomb = this.onlyBotsRemain() || this.isSoloHumanGame();
+      const delay = fastBomb ? 0 : 500 + Math.random() * 1500;
+      const schedule = fastBomb ? this.scheduleFixedDelayAction.bind(this) : this.scheduleAction.bind(this);
+      schedule(() => {
         this.send({ type: 'PLAY_CARDS', seat, cards: validBomb.cards });
       }, delay);
       return; // Only one bot bombs per window
