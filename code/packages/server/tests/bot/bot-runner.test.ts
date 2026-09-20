@@ -573,7 +573,7 @@ describe('BotRunner', () => {
       expect(afterAction).toHaveBeenCalledTimes(1);
     });
 
-    it('should use a short pass delay in one-human games', () => {
+    it('should use a 500 ms pass delay in one-human games', () => {
       actor = createTestActor();
       advanceToPlaying(actor);
 
@@ -611,7 +611,7 @@ describe('BotRunner', () => {
 
       runner = new BotRunner(
         actor,
-        { minDelayMs: 1000, maxDelayMs: 1000, soloHumanBotPassDelayMs: 200 },
+        { minDelayMs: 1000, maxDelayMs: 1000, soloHumanBotPassDelayMs: 500 },
         new MoveHandler(actor),
       );
       runner.addBot(botSeat, bot);
@@ -619,12 +619,68 @@ describe('BotRunner', () => {
       runner.addBot('west', new Bot());
 
       runner.onStateChange(afterAction);
-      vi.advanceTimersByTime(199);
+      vi.advanceTimersByTime(499);
       expect(afterAction).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(1);
       expect(getContext(actor).currentRound!.currentTrick?.passes).toContain(botSeat);
       expect(afterAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep normal play delay in one-human games for non-pass actions', () => {
+      actor = createTestActor();
+      advanceToPlaying(actor);
+
+      const round = getContext(actor).currentRound!;
+      const humanSeat: Seat = 'north';
+      const botSeat: Seat = 'east';
+      const humanCard = round.players[humanSeat].hand[0];
+      const startingHandSize = round.players[botSeat].hand.length;
+
+      round.currentTurn = botSeat;
+      round.currentTrick = {
+        plays: [{
+          seat: humanSeat,
+          combination: {
+            type: CombinationType.Single,
+            cards: [humanCard],
+            rank: 2,
+            length: 1,
+            isBomb: false,
+          },
+        }],
+        passes: [],
+        leadSeat: humanSeat,
+        currentWinner: humanSeat,
+      };
+
+      const bot: BotStrategy = {
+        chooseGrandTichu: () => false,
+        chooseRegularTichu: () => false,
+        chooseCardsToPass: vi.fn(),
+        choosePlay: ({ validPlays }) => ({ action: 'play', cards: validPlays[0].cards }),
+        chooseDragonGiftRecipient: vi.fn().mockReturnValue('north'),
+        chooseMahjongWish: vi.fn().mockReturnValue(null),
+      };
+      const afterAction = vi.fn();
+
+      runner = new BotRunner(
+        actor,
+        { minDelayMs: 1000, maxDelayMs: 1000, soloHumanBotPassDelayMs: 500 },
+        new MoveHandler(actor),
+      );
+      runner.addBot(botSeat, bot);
+      runner.addBot('south', new Bot());
+      runner.addBot('west', new Bot());
+
+      runner.onStateChange(afterAction);
+      vi.advanceTimersByTime(999);
+      expect(afterAction).not.toHaveBeenCalled();
+      expect(getContext(actor).currentRound!.players[botSeat].hand).toHaveLength(startingHandSize);
+
+      vi.advanceTimersByTime(1);
+      expect(afterAction).toHaveBeenCalledTimes(1);
+      expect(getContext(actor).currentRound!.players[botSeat].hand.length).toBeLessThan(startingHandSize);
     });
 
     it('should use instant timing with INSTANT_CONFIG', async () => {

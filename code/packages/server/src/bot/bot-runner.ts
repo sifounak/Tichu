@@ -40,7 +40,7 @@ const DEFAULT_CONFIG: BotRunnerConfig = {
   postHumanTichuDelayMs: 1000,
   postTichuPlayDelayMs: 1000,
   postHumanBotOnlyDelayMs: 800,
-  soloHumanBotPassDelayMs: 200,
+  soloHumanBotPassDelayMs: 500,
 };
 
 /** Fast config for testing */
@@ -491,12 +491,11 @@ export class BotRunner {
     const trickSweepPause = isLead && fast ? 800 : 0;
 
     // Bomb window delay is the sole pacing mechanism for bot plays (no base delay).
-    // 1000ms when multiple humans are present, 0 when only bots remain, leading, or solo-human.
-    const bombWindowDelay = (isLead || fast || soloHumanGame) ? 0 : 1000;
-    const soloHumanPassDelay = soloHumanGame && decision.action === 'pass'
-      ? this.getTimingConfig().soloHumanBotPassDelayMs
-      : 0;
-    const playDelay = Math.max(trickSweepPause, bombWindowDelay, soloHumanPassDelay);
+    // 1000ms when humans are present, 0 when only bots remain or leading.
+    const bombWindowDelay = (isLead || fast) ? 0 : 1000;
+    const playDelay = soloHumanGame && decision.action === 'pass'
+      ? Math.max(trickSweepPause, this.getTimingConfig().soloHumanBotPassDelayMs)
+      : Math.max(trickSweepPause, bombWindowDelay);
 
     const actionDelay = this.computeFirstPlayingActionDelay(round, seat, callTichu, playDelay);
     this.playingTurnTimers.add(seat);
@@ -650,8 +649,8 @@ export class BotRunner {
       const validBomb = bombs.find((b) => canBeat(b, topCombo));
       if (!validBomb) continue;
 
-      // Instant in bot-only or solo-human games, otherwise random delay for human observation
-      const fastBomb = this.onlyBotsRemain() || this.isSoloHumanGame();
+      // Instant when only bots remain, otherwise random delay for human observation
+      const fastBomb = this.onlyBotsRemain();
       const delay = fastBomb ? 0 : 500 + Math.random() * 1500;
       const schedule = fastBomb ? this.scheduleFixedDelayAction.bind(this) : this.scheduleAction.bind(this);
       schedule(() => {
