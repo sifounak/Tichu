@@ -668,7 +668,7 @@ describe('Bot', () => {
   // ─── Play Selection (REQ-F-PLAY06 — Always Optimal) ──────────────────────
 
   describe('choosePlay', () => {
-    it('may overplay by one rank while blind-grand partner has not passed on the trick', () => {
+    it('does not cautious-overplay while blind-grand partner has not passed on the trick', () => {
       const bot = new Bot();
       const c6 = card('standard', 6, 'jade', 601);
       const hand = [c6];
@@ -694,10 +694,7 @@ describe('Bot', () => {
         canPass: true,
       }));
 
-      expect(decision.action).toBe('play');
-      if (decision.action === 'play') {
-        expect(decision.cards[0].id).toBe(601);
-      }
+      expect(decision.action).toBe('pass');
     });
 
     it('tries to win after blind-grand partner has passed on the trick', () => {
@@ -4475,6 +4472,182 @@ describe('Bot', () => {
         currentTrick: trick,
         validPlays: [makeCombo(CombinationType.Single, [c11], 11)],
         roundState: rs,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      expect(decision.action).toBe('pass');
+    });
+
+    it('learns a low trick type after partner passes and fights that type before a blind-grand partner passes again', () => {
+      const bot = new Bot();
+      const c7 = card('standard', 7, 'jade', 701);
+      const c11 = card('standard', 11, 'jade', 1101);
+      const c12 = card('standard', 12, 'jade', 1201);
+      const hand = [c7, c11, c12, card('standard', 3, 'jade', 301)];
+
+      const learningTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      learningTrick.passes = ['south' as Seat];
+      const learningState = makeRoundState({
+        currentTrick: learningTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 8, 'jade', 80)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'blindGrandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 13, 'jade', 130)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: learningTrick,
+        validPlays: [makeCombo(CombinationType.Single, [c7], 7)],
+        roundState: learningState,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      const laterTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 8, 'jade', 81)], 8) },
+      ]);
+      const laterState = makeRoundState({
+        currentTrick: laterTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'blindGrandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 13, 'jade', 130)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: laterTrick,
+        validPlays: [
+          makeCombo(CombinationType.Single, [c11], 11),
+          makeCombo(CombinationType.Single, [c12], 12),
+        ],
+        roundState: laterState,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play' && decision.cards[0].card.kind === 'standard') {
+        expect(decision.cards[0].card.rank).toBe(11);
+      }
+    });
+
+    it('keeps learned Tichu partner trick types independent', () => {
+      const bot = new Bot();
+      const c7 = card('standard', 7, 'jade', 701);
+      const p8a = card('standard', 8, 'jade', 801);
+      const p8b = card('standard', 8, 'pagoda', 802);
+      const hand = [c7, p8a, p8b, card('standard', 3, 'jade', 301)];
+
+      const learningTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 5, 'jade', 50)], 5) },
+      ]);
+      learningTrick.passes = ['south' as Seat];
+      const learningState = makeRoundState({
+        currentTrick: learningTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'blindGrandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 13, 'jade', 130)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: learningTrick,
+        validPlays: [makeCombo(CombinationType.Single, [c7], 7)],
+        roundState: learningState,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      const pairTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        {
+          seat: 'east' as Seat,
+          combination: makeCombo(CombinationType.Pair, [
+            card('standard', 5, 'jade', 501),
+            card('standard', 5, 'pagoda', 502),
+          ], 5),
+        },
+      ]);
+      const pairState = makeRoundState({
+        currentTrick: pairTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 10, 'jade', 100)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'blindGrandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 13, 'jade', 130)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: pairTrick,
+        validPlays: [makeCombo(CombinationType.Pair, [p8a, p8b], 8)],
+        roundState: pairState,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      expect(decision.action).toBe('pass');
+    });
+
+    it('does not learn a bad trick type from partner passing on rank ten or higher', () => {
+      const bot = new Bot();
+      const c12 = card('standard', 12, 'jade', 1201);
+      const c11 = card('standard', 11, 'jade', 1101);
+      const hand = [c12, c11, card('standard', 3, 'jade', 301)];
+
+      const highLearningTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 10, 'jade', 100)], 10) },
+      ]);
+      highLearningTrick.passes = ['south' as Seat];
+      const highLearningState = makeRoundState({
+        currentTrick: highLearningTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 13, 'jade', 130)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'blindGrandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 14, 'jade', 140)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: highLearningTrick,
+        validPlays: [makeCombo(CombinationType.Single, [c12], 12)],
+        roundState: highLearningState,
+        seat: 'north' as Seat,
+        canPass: true,
+      }));
+
+      const laterTrick = makeTrick('east' as Seat, 'east' as Seat, [
+        { seat: 'east' as Seat, combination: makeCombo(CombinationType.Single, [card('standard', 8, 'jade', 80)], 8) },
+      ]);
+      const laterState = makeRoundState({
+        currentTrick: laterTrick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          east: { hand: [card('standard', 13, 'jade', 130)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [card('standard', 9, 'jade', 90)], tricksWon: [], tipiCall: 'blindGrandTichu', hasPlayed: false, finishOrder: null },
+          west: { hand: [card('standard', 14, 'jade', 140)], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        currentTrick: laterTrick,
+        validPlays: [makeCombo(CombinationType.Single, [c11], 11)],
+        roundState: laterState,
         seat: 'north' as Seat,
         canPass: true,
       }));

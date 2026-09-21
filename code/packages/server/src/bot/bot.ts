@@ -110,6 +110,9 @@ export class Bot implements BotStrategy {
   private ptsAdvancedTrickKeys: string[] = [];
   // Track who led the last trick (for detecting if partner took over)
   private lastLeadSeat: Seat | null = null;
+  // REQ-F-PTS08: Remember low trick types a live Tichu partner has passed on.
+  private partnerTichuBadTrickTypes = new Set<CombinationType>();
+  private partnerTichuBadTrickTypeKeys: string[] = [];
 
   // ─── Grand Tichu ──────────────────────────────────────────────────────────
 
@@ -574,6 +577,8 @@ export class Bot implements BotStrategy {
       this.ptsLeadStep = 0;
       this.ptsAdvancedTrickKeys = [];
       this.lastLeadSeat = null;
+      this.partnerTichuBadTrickTypes.clear();
+      this.partnerTichuBadTrickTypeKeys = [];
     }
 
     // REQ-F-STR02: Detect partner strength on first play of round
@@ -584,6 +589,7 @@ export class Bot implements BotStrategy {
 
     // REQ-F-USD01: Track uncontested single wins
     this.updateUncontestedSingleTracking(roundState, seat);
+    this.updatePartnerTichuBadTrickTypeMemory(roundState, seat, currentTrick);
 
     // REQ-F-PTS03: Track who led the current trick for escalation reset
     if (currentTrick && currentTrick.plays.length > 0) {
@@ -1114,6 +1120,58 @@ export class Bot implements BotStrategy {
     const firstPlay = trick.plays[0];
     const firstCardIds = firstPlay?.combination.cards.map((gc) => gc.id).sort((a, b) => a - b).join(',') ?? '';
     return `${roundState.roundNumber}:${trick.leadSeat}:${firstCardIds}`;
+  }
+
+  private isMemoryEligibleTichuSupportType(type: CombinationType): boolean {
+    return type === CombinationType.Single ||
+      type === CombinationType.Pair ||
+      type === CombinationType.Triple ||
+      type === CombinationType.FullHouse ||
+      type === CombinationType.Straight ||
+      type === CombinationType.PairSequence;
+  }
+
+  private updatePartnerTichuBadTrickTypeMemory(
+    roundState: RoundState,
+    seat: Seat,
+    currentTrick: import('@tichu/shared').TrickState | null,
+  ): void {
+    if (!this.hasLivePartnerTichuCall(roundState, seat)) {
+      this.partnerTichuBadTrickTypes.clear();
+      this.partnerTichuBadTrickTypeKeys = [];
+      return;
+    }
+
+    if (!currentTrick || currentTrick.plays.length === 0) return;
+    if (!currentTrick.passes.includes(getPartner(seat))) return;
+
+    const openingPlay = currentTrick.plays[0];
+    const openingCombo = openingPlay?.combination;
+    if (!openingCombo || openingCombo.isBomb) return;
+    if (openingCombo.rank >= 10) return;
+    if (!this.isMemoryEligibleTichuSupportType(openingCombo.type)) return;
+
+    const trickKey = this.getTrickKey(roundState, currentTrick);
+    if (this.partnerTichuBadTrickTypeKeys.includes(trickKey)) return;
+
+    this.partnerTichuBadTrickTypes.add(openingCombo.type);
+    this.partnerTichuBadTrickTypeKeys.push(trickKey);
+    if (this.partnerTichuBadTrickTypeKeys.length > 24) {
+      this.partnerTichuBadTrickTypeKeys = this.partnerTichuBadTrickTypeKeys.slice(-24);
+    }
+  }
+
+  private isPartnerTichuBadTrickType(currentTrick: import('@tichu/shared').TrickState | null): boolean {
+    if (!currentTrick || currentTrick.plays.length === 0) return false;
+    const winningPlay = currentTrick.plays.find((play) => play.seat === currentTrick.currentWinner);
+    if (!winningPlay || winningPlay.combination.isBomb) return false;
+    return this.partnerTichuBadTrickTypes.has(winningPlay.combination.type);
+  }
+
+  private getLivePartnerTichuCall(roundState: RoundState, seat: Seat): 'tichu' | 'grandTichu' | 'blindGrandTichu' | null {
+    if (!this.hasLivePartnerTichuCall(roundState, seat)) return null;
+    const call = roundState.players[getPartner(seat)].tipiCall;
+    return this.isAnyTichuCall(call) ? call as 'tichu' | 'grandTichu' | 'blindGrandTichu' : null;
   }
 
   private updatePartnerTichuSupportProgress(context: BotPlayContext): void {
@@ -1767,7 +1825,8 @@ export class Bot implements BotStrategy {
     const { currentTrick, seat, roundState, hand, canPass } = context;
     const partnerWinning = isPartnerWinning(currentTrick, seat);
     const opponentCallers = getOpponentTichuCallers(roundState, seat);
-    const partnerHasCall = this.hasLivePartnerTichuCall(roundState, seat);
+    const partnerCall = this.getLivePartnerTichuCall(roundState, seat);
+    const partnerHasCall = partnerCall !== null;
     const suppressGoOut = this.shouldSuppressGoOut(roundState, seat, hand);
 
     // REQ-F-DEF01: Evaluate Tichu defense stance
@@ -1788,8 +1847,10 @@ export class Bot implements BotStrategy {
       }
 
       if (partnerHasCall && currentTrick) {
-        const cautiousOverplay = this.getPartnerTichuCautiousOverplay(currentTrick, ranked);
-        if (cautiousOverplay) return this.toDecision(cautiousOverplay);
+        if (partnerCall === 'tichu') {
+          const cautiousOverplay = this.getPartnerTichuCautiousOverplay(currentTrick, ranked);
+          if (cautiousOverplay) return this.toDecision(cautiousOverplay);
+        }
         return { action: 'pass' };
       }
 
@@ -1818,12 +1879,16 @@ export class Bot implements BotStrategy {
 
     // REQ-F-PTS04: Aggressive follow when partner GT/T and opponent winning
     if (partnerHasCall && !partnerWinning && currentTrick) {
+      const partnerPassedCurrentTrick = currentTrick.passes.includes(getPartner(seat));
       const partnerPassedSupportTrick = this.partnerPassedOnMySupportTrick(roundState, seat, currentTrick);
       const opponentJumpedSupportTrick = this.opponentJumpedBeforePartnerCouldPlay(roundState, seat, currentTrick);
+      const learnedBadType = this.isPartnerTichuBadTrickType(currentTrick);
 
-      if (!partnerPassedSupportTrick && !opponentJumpedSupportTrick) {
-        const cautiousOverplay = this.getOpponentLowTichuSupportOverplay(currentTrick, ranked);
-        if (cautiousOverplay) return this.toDecision(cautiousOverplay);
+      if (!partnerPassedCurrentTrick && !partnerPassedSupportTrick && !opponentJumpedSupportTrick && !learnedBadType) {
+        if (partnerCall === 'tichu') {
+          const cautiousOverplay = this.getOpponentLowTichuSupportOverplay(currentTrick, ranked);
+          if (cautiousOverplay) return this.toDecision(cautiousOverplay);
+        }
         if (canPass) return { action: 'pass' };
       }
 
@@ -2513,6 +2578,8 @@ export class Bot implements BotStrategy {
       ptsLeadStep: this.ptsLeadStep,
       ptsAdvancedTrickKeys: [...this.ptsAdvancedTrickKeys],
       lastLeadSeat: this.lastLeadSeat,
+      partnerTichuBadTrickTypes: [...this.partnerTichuBadTrickTypes],
+      partnerTichuBadTrickTypeKeys: [...this.partnerTichuBadTrickTypeKeys],
       lastRoundState: this.lastRoundState,
     };
   }
@@ -2540,6 +2607,8 @@ export class Bot implements BotStrategy {
     bot.ptsLeadStep = snapshot.ptsLeadStep ?? 0;
     bot.ptsAdvancedTrickKeys = [...(snapshot.ptsAdvancedTrickKeys ?? [])];
     bot.lastLeadSeat = snapshot.lastLeadSeat;
+    bot.partnerTichuBadTrickTypes = new Set(snapshot.partnerTichuBadTrickTypes ?? []);
+    bot.partnerTichuBadTrickTypeKeys = [...(snapshot.partnerTichuBadTrickTypeKeys ?? [])];
     bot.lastRoundState = snapshot.lastRoundState;
     return bot;
   }

@@ -91,6 +91,8 @@ export interface BotSnapshot {
   ptsLeadStep: 0 | 1 | 2;
   ptsAdvancedTrickKeys: string[];
   lastLeadSeat: Seat | null;
+  partnerTichuBadTrickTypes: CombinationType[];
+  partnerTichuBadTrickTypeKeys: string[];
   lastRoundState: RoundState | null;
 }
 
