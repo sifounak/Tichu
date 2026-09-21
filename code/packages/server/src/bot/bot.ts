@@ -1838,6 +1838,9 @@ export class Bot implements BotStrategy {
     if (selfTichuExitPlay) return this.toDecision(selfTichuExitPlay);
 
     const ranked = rankCombinationsForFollow(plays);
+    const liveSelfTichu = this.hasLiveSelfTichuCall(roundState, seat);
+    const selfTichuTempoPlay = this.getSelfTichuTempoFollowPlay(roundState, seat, currentTrick, ranked);
+    if (selfTichuTempoPlay) return this.toDecision(selfTichuTempoPlay);
 
     // Partner winning — handle overplay and pass logic
     if (partnerWinning && canPass) {
@@ -1925,7 +1928,7 @@ export class Bot implements BotStrategy {
     }
 
     // REQ-F-DEF01: When conceding opponent's Tichu, pass more freely
-    if (defenseStance === 'concede' && canPass) {
+    if (!liveSelfTichu && defenseStance === 'concede' && canPass) {
       return { action: 'pass' };
     }
 
@@ -1943,7 +1946,7 @@ export class Bot implements BotStrategy {
 
     // Strategy guide: "save high cards for later" — if opponent didn't call Tichu
     // and the trick is low value, consider passing to save winners
-    if (canPass && opponentCallers.length === 0 && currentTrick) {
+    if (!liveSelfTichu && canPass && opponentCallers.length === 0 && currentTrick) {
       const trickRank = currentTrick.plays[currentTrick.plays.length - 1]?.combination.rank ?? 0;
       // If we'd need to play an Ace or Dragon on a low trick, pass instead
       if (trickRank <= 8 && ranked.length > 0) {
@@ -2025,6 +2028,40 @@ export class Bot implements BotStrategy {
     const winnerCards = roundState.players[winner].hand.length;
     if (winnerCards <= 3) {
       return ranked.find((combo) => !combo.isBomb) ?? ranked[0];
+    }
+
+    return null;
+  }
+
+  private hasLiveSelfTichuCall(roundState: RoundState, seat: Seat): boolean {
+    const player = roundState.players[seat];
+    if (!this.isAnyTichuCall(player.tipiCall)) return false;
+    if (player.finishOrder !== null) return false;
+
+    return roundState.finishOrder.length === 0;
+  }
+
+  private getSelfTichuTempoFollowPlay(
+    roundState: RoundState,
+    seat: Seat,
+    currentTrick: import('@tichu/shared').TrickState | null,
+    ranked: Combination[],
+  ): Combination | null {
+    if (!currentTrick || ranked.length === 0) return null;
+    if (!this.hasLiveSelfTichuCall(roundState, seat)) return null;
+
+    const cheapestNonBomb = ranked.find((combo) => !combo.isBomb);
+    if (!cheapestNonBomb) return null;
+
+    const winningPlay = currentTrick.plays.find((play) => play.seat === currentTrick.currentWinner);
+    if (!winningPlay) return null;
+
+    if (getTeam(currentTrick.currentWinner) !== getTeam(seat)) {
+      return cheapestNonBomb;
+    }
+
+    if (currentTrick.currentWinner === getPartner(seat) && winningPlay.combination.rank <= 10) {
+      return cheapestNonBomb;
     }
 
     return null;

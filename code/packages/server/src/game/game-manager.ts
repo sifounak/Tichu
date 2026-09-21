@@ -1015,13 +1015,13 @@ export class GameManager {
       // Automated turns still show timer bars, even though bots act before timeout.
       this.broadcastState();
 
-      // Auto-pass for human players who have no valid plays
+      // Auto-pass for human players only when public card counts prove they cannot follow.
       const seat = round.currentTurn;
       if (!this.botRunner.isAutomated(seat) && round.currentTrick && round.currentTrick.plays.length > 0) {
         const hand = round.players[seat].hand;
-        const wish = round.mahjongWish && !round.wishFulfilled ? round.mahjongWish : null;
-        const validPlays = getValidPlays(hand, round.currentTrick, wish);
-        if (validPlays.length === 0 && hand.length < 4) {
+        const topPlay = round.currentTrick.plays[round.currentTrick.plays.length - 1];
+        const requiredCards = topPlay?.combination.cards.length ?? 0;
+        if (requiredCards > 0 && hand.length < requiredCards && hand.length < 4) {
           this.autoPassTimer = setTimeout(() => {
             if (this.destroyed) return;
             // REQ-F-CP02/CP17: Record pre-play context for auto-pass

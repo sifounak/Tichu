@@ -6,7 +6,7 @@ import { DisconnectHandler } from '../../src/game/disconnect-handler.js';
 import { VoteHandler } from '../../src/game/vote-handler.js';
 import type { Broadcaster } from '../../src/ws/broadcaster.js';
 import type { WebSocket } from 'ws';
-import type { Seat, GameCard, ClientMessage, GameConfig, Rank } from '@tichu/shared';
+import type { Seat, GameCard, ClientMessage, GameConfig, Rank, Combination } from '@tichu/shared';
 import { CombinationType, SEATS_IN_ORDER, Suit, isDog } from '@tichu/shared';
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
@@ -88,6 +88,14 @@ function standardCard(id: number, rank: Rank, suit: Suit = Suit.Jade): GameCard 
   return { id, card: { kind: 'standard', rank, suit } };
 }
 
+function makeCombination(
+  type: CombinationType,
+  cards: GameCard[],
+  rank: number,
+): Combination {
+  return { type, cards, rank, length: cards.length, isBomb: false };
+}
+
 function setUpSoloHumanEndOfTrickPass(
   manager: GameManager,
   humanHand: GameCard[],
@@ -118,6 +126,26 @@ function setUpSoloHumanEndOfTrickPass(
     leadSeat: 'east',
     currentWinner: 'east',
   };
+}
+
+function setUpHumanTurnFollowing(
+  manager: GameManager,
+  humanHand: GameCard[],
+  topCombination: Combination,
+): void {
+  const round = manager.context.currentRound!;
+  round.players.north.hand = humanHand;
+  round.currentTurn = 'north';
+  round.currentTrick = {
+    plays: [{ seat: 'east', combination: topCombination }],
+    passes: [],
+    leadSeat: 'east',
+    currentWinner: 'east',
+  };
+}
+
+function triggerStateChange(manager: GameManager): void {
+  (manager as unknown as { onStateChange: (snapshot: unknown) => void }).onStateChange(null);
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -293,6 +321,105 @@ describe('GameManager', () => {
   });
 
   describe('turn timer', () => {
+    it('immediately auto-passes when public card counts prove the human cannot follow', () => {
+      vi.useFakeTimers();
+      try {
+        advanceToPlaying(manager, ws);
+        const topCards = [
+          standardCard(40_000, 7, Suit.Jade),
+          standardCard(40_001, 7, Suit.Pagoda),
+          standardCard(40_002, 7, Suit.Sword),
+        ];
+        setUpHumanTurnFollowing(
+          manager,
+          [standardCard(40_010, 14, Suit.Jade), standardCard(40_011, 13, Suit.Pagoda)],
+          makeCombination(CombinationType.Triple, topCards, 7),
+        );
+
+        triggerStateChange(manager);
+        vi.advanceTimersByTime(500);
+
+        expect(manager.context.currentRound!.currentTrick!.passes).toContain('north');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not immediately auto-pass when the human has enough cards but no legal play', () => {
+      vi.useFakeTimers();
+      try {
+        advanceToPlaying(manager, ws);
+        const topCards = [
+          standardCard(41_000, 10, Suit.Jade),
+          standardCard(41_001, 10, Suit.Pagoda),
+        ];
+        setUpHumanTurnFollowing(
+          manager,
+          [standardCard(41_010, 2, Suit.Jade), standardCard(41_011, 3, Suit.Pagoda)],
+          makeCombination(CombinationType.Pair, topCards, 10),
+        );
+
+        triggerStateChange(manager);
+        vi.advanceTimersByTime(500);
+
+        expect(manager.context.currentRound!.currentTrick!.passes).not.toContain('north');
+        expect(manager.context.currentRound!.currentTurn).toBe('north');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not immediately auto-pass with four or more cards even when fewer than the trick length', () => {
+      vi.useFakeTimers();
+      try {
+        advanceToPlaying(manager, ws);
+        const topCards = [
+          standardCard(42_000, 10, Suit.Jade),
+          standardCard(42_001, 10, Suit.Pagoda),
+          standardCard(42_002, 10, Suit.Sword),
+          standardCard(42_003, 4, Suit.Jade),
+          standardCard(42_004, 4, Suit.Pagoda),
+        ];
+        setUpHumanTurnFollowing(
+          manager,
+          [
+            standardCard(42_010, 2, Suit.Jade),
+            standardCard(42_011, 3, Suit.Pagoda),
+            standardCard(42_012, 5, Suit.Sword),
+            standardCard(42_013, 6, Suit.Star),
+          ],
+          makeCombination(CombinationType.FullHouse, topCards, 10),
+        );
+
+        triggerStateChange(manager);
+        vi.advanceTimersByTime(500);
+
+        expect(manager.context.currentRound!.currentTrick!.passes).not.toContain('north');
+        expect(manager.context.currentRound!.currentTurn).toBe('north');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not immediately auto-pass while leading or before a trick top exists', () => {
+      vi.useFakeTimers();
+      try {
+        advanceToPlaying(manager, ws);
+        const round = manager.context.currentRound!;
+        round.players.north.hand = [standardCard(43_010, 2, Suit.Jade)];
+        round.currentTurn = 'north';
+        round.currentTrick = null;
+
+        triggerStateChange(manager);
+        vi.advanceTimersByTime(500);
+
+        expect(manager.context.currentRound!.currentTrick).toBeNull();
+        expect(manager.context.currentRound!.currentTurn).toBe('north');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('keeps the end-of-trick bomb window in solo-human games when the human can bomb', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));

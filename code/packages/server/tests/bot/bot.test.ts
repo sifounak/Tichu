@@ -3739,6 +3739,102 @@ describe('Bot', () => {
     });
   });
 
+  describe('self Tichu tempo', () => {
+    it('plays a high winner on a low trick instead of saving it while self Tichu is live', () => {
+      const bot = new Bot();
+      const cA = card('standard', 14, 'jade', 1401);
+      const hand = [cA, card('standard', 3, 'jade', 301), card('standard', 5, 'pagoda', 501)];
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 8, 'jade', 801)], 8) },
+      ]);
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(8).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(8).fill(card('standard', 3)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(8).fill(card('standard', 4)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [cA], 14)],
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      }));
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].id).toBe(cA.id);
+      }
+    });
+
+    it('does not concede an opponent Tichu trick while self Tichu is live', () => {
+      const bot = new Bot();
+      const cJ = card('standard', 11, 'jade', 1101);
+      const hand = [cJ, card('standard', 3, 'jade', 301), card('standard', 5, 'pagoda', 501)];
+      const trick = makeTrick('east', 'east', [
+        { seat: 'east', combination: makeCombo(CombinationType.Single, [card('standard', 10, 'jade', 1001)], 10) },
+      ]);
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          east: { hand: Array.from({ length: 4 }, (_, i) => card('standard', 2, 'jade', 200 + i)), tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          south: { hand: Array(8).fill(card('standard', 3)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          west: { hand: Array(8).fill(card('standard', 4)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [cJ], 11)],
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      }));
+
+      expect(decision.action).toBe('play');
+      if (decision.action === 'play') {
+        expect(decision.cards[0].id).toBe(cJ.id);
+      }
+    });
+
+    it('does not force overplay after self Tichu is already broken by partner', () => {
+      const bot = new Bot();
+      const cA = card('standard', 14, 'jade', 1401);
+      const hand = [cA, card('standard', 3, 'jade', 301), card('standard', 5, 'pagoda', 501)];
+      const trick = makeTrick('south', 'south', [
+        { seat: 'south', combination: makeCombo(CombinationType.Single, [card('standard', 8, 'jade', 801)], 8) },
+      ]);
+      const roundState = makeRoundState({
+        currentTrick: trick,
+        finishOrder: ['south'],
+        players: {
+          north: { hand, tricksWon: [], tipiCall: 'tichu', hasPlayed: false, finishOrder: null },
+          east: { hand: Array(8).fill(card('standard', 2)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+          south: { hand: [], tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: 1 },
+          west: { hand: Array(8).fill(card('standard', 4)), tricksWon: [], tipiCall: 'none', hasPlayed: false, finishOrder: null },
+        },
+      });
+
+      const decision = bot.choosePlay(makePlayContext({
+        hand,
+        validPlays: [makeCombo(CombinationType.Single, [cA], 14)],
+        canPass: true,
+        currentTrick: trick,
+        roundState,
+        seat: 'north',
+      }));
+
+      expect(decision.action).toBe('pass');
+    });
+  });
+
   // ─── Partner Tichu Lead Support (REQ-F-PTS01, PTS02, PTS03) ────────────
 
   describe('partner Tichu lead support', () => {
