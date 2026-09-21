@@ -493,7 +493,7 @@ export class BotRunner {
     // Bomb window delay is the sole pacing mechanism for bot plays (no base delay).
     // 1000ms when humans are present, 0 when only bots remain or leading.
     const bombWindowDelay = (isLead || fast) ? 0 : 1000;
-    const playDelay = soloHumanGame && decision.action === 'pass'
+    const playDelay = soloHumanGame && !fast && decision.action === 'pass'
       ? Math.max(trickSweepPause, this.getTimingConfig().soloHumanBotPassDelayMs)
       : Math.max(trickSweepPause, bombWindowDelay);
 

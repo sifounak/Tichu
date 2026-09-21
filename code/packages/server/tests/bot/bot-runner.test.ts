@@ -627,6 +627,61 @@ describe('BotRunner', () => {
       expect(afterAction).toHaveBeenCalledTimes(1);
     });
 
+    it('should use bot-only fast timing for solo games after the human has finished', () => {
+      actor = createTestActor();
+      advanceToPlaying(actor);
+
+      const round = getContext(actor).currentRound!;
+      const humanSeat: Seat = 'north';
+      const priorBotSeat: Seat = 'east';
+      const botSeat: Seat = 'west';
+      const priorBotCard = round.players[priorBotSeat].hand[0];
+
+      round.players[humanSeat].finishOrder = 1;
+      round.finishOrder = [humanSeat];
+      round.currentTurn = botSeat;
+      round.currentTrick = {
+        plays: [{
+          seat: priorBotSeat,
+          combination: {
+            type: CombinationType.Single,
+            cards: [priorBotCard],
+            rank: 14,
+            length: 1,
+            isBomb: false,
+          },
+        }],
+        passes: [],
+        leadSeat: priorBotSeat,
+        currentWinner: priorBotSeat,
+      };
+
+      const bot: BotStrategy = {
+        chooseGrandTichu: () => false,
+        chooseRegularTichu: () => false,
+        chooseCardsToPass: vi.fn(),
+        choosePlay: () => ({ action: 'pass' }),
+        chooseDragonGiftRecipient: vi.fn().mockReturnValue('north'),
+        chooseMahjongWish: vi.fn().mockReturnValue(null),
+      };
+      const afterAction = vi.fn();
+
+      runner = new BotRunner(
+        actor,
+        { minDelayMs: 1000, maxDelayMs: 1000, soloHumanBotPassDelayMs: 500 },
+        new MoveHandler(actor),
+      );
+      runner.addBot(priorBotSeat, new Bot());
+      runner.addBot('south', new Bot());
+      runner.addBot(botSeat, bot);
+
+      runner.onStateChange(afterAction);
+      vi.advanceTimersByTime(0);
+
+      expect(getContext(actor).currentRound!.currentTrick?.passes).toContain(botSeat);
+      expect(afterAction).toHaveBeenCalledTimes(1);
+    });
+
     it('should keep normal play delay in one-human games for non-pass actions', () => {
       actor = createTestActor();
       advanceToPlaying(actor);
