@@ -125,5 +125,5 @@ export interface RoomSnapshot {
   votingEnabled?: boolean;
   seatToUserId: Record<string, string>;
   readySeats?: Seat[];
-  chatHistory?: Array<{ from: Seat | null; text: string; timestamp: number; spectatorName?: string }>;
+  chatHistory?: Array<{ from: Seat | null; text: string; timestamp: number; playerName?: string; spectatorName?: string }>;
 }

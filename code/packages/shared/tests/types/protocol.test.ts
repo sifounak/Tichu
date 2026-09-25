@@ -284,8 +284,18 @@ describe('serverMessageSchema', () => {
   });
 
   it('validates CHAT_RECEIVED message', () => {
-    expect(serverMessageSchema.parse({ type: 'CHAT_RECEIVED', from: 'north', text: 'Hello' })).toBeTruthy();
+    expect(serverMessageSchema.parse({ type: 'CHAT_RECEIVED', from: 'north', playerName: 'Alice', text: 'Hello' })).toBeTruthy();
     expect(serverMessageSchema.parse({ type: 'CHAT_RECEIVED', from: null, text: 'Quiet system note', silent: true })).toBeTruthy();
+  });
+
+  it('validates CHAT_HISTORY with captured player names', () => {
+    expect(serverMessageSchema.parse({
+      type: 'CHAT_HISTORY',
+      messages: [
+        { from: 'north', playerName: 'Alice', text: 'Hello', timestamp: 1 },
+        { from: null, spectatorName: 'Watcher', text: 'Nice play', timestamp: 2 },
+      ],
+    })).toBeTruthy();
   });
 
   it('validates ERROR message', () => {

@@ -10,7 +10,7 @@ describe('RoomManager serialization', () => {
     manager.joinRoom('user-2', roomCode, 'Bob');
     manager.addBot(roomCode, 'east');
     manager.addBot(roomCode, 'west');
-    manager.addChatMessage(roomCode, { from: 'south', text: 'hello' });
+    manager.addChatMessage(roomCode, { from: 'south', playerName: 'Alice', text: 'hello' });
     manager.addChatMessage(roomCode, { from: null, text: 'Spectator says hi', spectatorName: 'Watcher' });
     manager.startGame(roomCode);
 
@@ -22,7 +22,7 @@ describe('RoomManager serialization', () => {
     expect(snapshots[0].seatToUserId).toHaveProperty('south');
     expect(snapshots[0].seatToUserId).toHaveProperty('north');
     expect(snapshots[0].chatHistory).toEqual([
-      expect.objectContaining({ from: 'south', text: 'hello' }),
+      expect.objectContaining({ from: 'south', playerName: 'Alice', text: 'hello' }),
       expect.objectContaining({ from: null, text: 'Spectator says hi', spectatorName: 'Watcher' }),
     ]);
     manager.dispose();
@@ -85,7 +85,7 @@ describe('RoomManager serialization', () => {
       seatToUserId: { south: 'user-1', west: 'user-2' },
       readySeats: ['north', 'east'],
       chatHistory: [
-        { from: 'south', text: 'before restart', timestamp: 123 },
+        { from: 'south', playerName: 'Alice', text: 'before restart', timestamp: 123 },
         { from: null, text: 'system note', timestamp: 124 },
       ],
     };

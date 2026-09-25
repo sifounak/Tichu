@@ -46,6 +46,22 @@ describe('ChatPanel (REQ-F-MP07)', () => {
     expect(screen.getByText('East:')).toBeInTheDocument();
   });
 
+  it('renders captured player name instead of the current occupant of the original seat', () => {
+    render(
+      <ChatPanel
+        messages={[{ from: 'east', playerName: 'Alice', text: 'hello before moving', timestamp: 1000 }]}
+        onSend={vi.fn()}
+        isOpen={true}
+        onToggle={vi.fn()}
+        unreadCount={0}
+        seatNames={{ north: 'Nina', east: 'Bob', south: 'Sam', west: 'Wendy' }}
+      />,
+    );
+
+    expect(screen.getByText('Alice:')).toBeInTheDocument();
+    expect(screen.queryByText('Bob:')).not.toBeInTheDocument();
+  });
+
   it('scrolls to the latest messages when opened in mobile mode', () => {
     const scrollIntoView = vi.fn();
     HTMLDivElement.prototype.scrollIntoView = scrollIntoView;

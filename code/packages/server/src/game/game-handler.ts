@@ -87,11 +87,12 @@ export class GameHandler {
     }
 
     if (info.seat) {
-      // Player chat — existing behavior
-      this.roomManager.addChatMessage(info.roomCode, { from: info.seat, text: msg.text });
+      // Keep the sender name captured at send time so history does not follow later seat changes.
+      this.roomManager.addChatMessage(info.roomCode, { from: info.seat, playerName: info.playerName, text: msg.text });
       this.broadcaster.broadcastToRoom(info.roomCode, {
         type: 'CHAT_RECEIVED',
         from: info.seat,
+        playerName: info.playerName,
         text: msg.text,
       });
     } else {

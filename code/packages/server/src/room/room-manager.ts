@@ -16,6 +16,14 @@ const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I, O, 0, 1 to 
 /** 36 hours in ms — maximum time a frozen solo game room stays alive without reconnection. */
 const FROZEN_ROOM_TIMEOUT_MS = 36 * 60 * 60 * 1000;
 
+export interface StoredChatMessage {
+  from: Seat | null;
+  text: string;
+  timestamp: number;
+  playerName?: string;
+  spectatorName?: string;
+}
+
 export interface RoomManagerOptions {
   staleTimeoutMs?: number;
   frozenRoomTimeoutMs?: number;
@@ -36,7 +44,7 @@ export class RoomManager {
   // REQ-F-SP02: Spectator userId → roomCode mapping
   private readonly spectatorToRoom = new Map<string, string>();
   // In-memory chat history per room for the room lifetime.
-  private readonly chatHistory = new Map<string, { from: Seat | null; text: string; timestamp: number; spectatorName?: string }[]>();
+  private readonly chatHistory = new Map<string, StoredChatMessage[]>();
 
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
   private readonly staleTimeoutMs: number;
@@ -796,7 +804,7 @@ export class RoomManager {
     }
   }
 
-  addChatMessage(roomCode: string, msg: { from: Seat | null; text: string; spectatorName?: string }): void {
+  addChatMessage(roomCode: string, msg: Omit<StoredChatMessage, 'timestamp'>): void {
     let history = this.chatHistory.get(roomCode);
     if (!history) {
       history = [];
@@ -805,7 +813,7 @@ export class RoomManager {
     history.push({ ...msg, timestamp: Date.now() });
   }
 
-  getChatHistory(roomCode: string): { from: Seat | null; text: string; timestamp: number; spectatorName?: string }[] {
+  getChatHistory(roomCode: string): StoredChatMessage[] {
     return this.chatHistory.get(roomCode) ?? [];
   }
 

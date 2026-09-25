@@ -10,6 +10,7 @@ export interface ChatMessage {
   from: Seat | null;
   text: string;
   timestamp: number;
+  playerName?: string;
   spectatorName?: string;
 }
 
@@ -261,7 +262,7 @@ export const ChatPanel = memo(function ChatPanel({
                   }
                   return (
                     <div key={i} className={styles.message}>
-                      <span className={styles.sender}>{seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}:</span>
+                      <span className={styles.sender}>{msg.playerName ?? seatNames?.[msg.from] ?? SEAT_LABELS[msg.from]}:</span>
                       <span className={styles.messageText}>{renderMessageText(msg.text)}</span>
                     </div>
                   );

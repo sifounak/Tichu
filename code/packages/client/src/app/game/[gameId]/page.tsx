@@ -354,6 +354,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           from: msg.from,
           text: msg.text,
           timestamp: Date.now(),
+          playerName: msg.playerName,
           spectatorName: msg.spectatorName,
         });
       } else if (msg.type === 'CHAT_HISTORY') {
