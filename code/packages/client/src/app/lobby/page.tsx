@@ -173,13 +173,15 @@ export default function LobbyPage() {
       case 'ERROR':
         setCreatingGame(false);
         setJoiningGame(false);
-        setError(msg.message);
+        setError(msg.message.includes('Already in a room')
+          ? 'You can only join one game at a time. Rejoin your current game or leave it before joining another.'
+          : msg.message);
         break;
     }
   }, [setLobbyRooms, setRoom, router]);
 
   // Use effective identity in WS URL
-  const wsUrl = `${WS_BASE}?userId=${effectiveUserId}&playerName=${encodeURIComponent(effectivePlayerName || 'Guest')}`;
+  const wsUrl = `${WS_BASE}?userId=${effectiveUserId}&playerName=${encodeURIComponent(effectivePlayerName || 'Guest')}&restore=passive`;
 
   const { send, status } = useWebSocket({
     url: wsUrl,

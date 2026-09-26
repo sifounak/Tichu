@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ScaleProvider } from '@/components/ScaleProvider';
 import { DebugOutlines } from '@/components/DebugOutlines';
+import { ActiveGameBanner } from '@/components/ActiveGameBanner';
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
@@ -29,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" href={`${basePath}/images/cards/dog.png`} as="image" />
         <link rel="preload" href={`${basePath}/images/cards/mahjong.png`} as="image" />
       </head>
-      <body><DebugOutlines /><ScaleProvider>{children}</ScaleProvider></body>
+      <body><DebugOutlines /><ActiveGameBanner /><ScaleProvider>{children}</ScaleProvider></body>
     </html>
   );
 }

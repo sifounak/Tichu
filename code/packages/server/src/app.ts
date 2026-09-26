@@ -14,6 +14,7 @@ import { RoomHandler } from './room/room-handler.js';
 import { GameHandler } from './game/game-handler.js';
 import { createDatabase, type Database } from './db/connection.js';
 import { registerAuthRoutes } from './auth/auth-routes.js';
+import { verifyToken } from './auth/account.js';
 import { saveActiveGames, saveActiveRooms, loadActiveGames, loadActiveRooms, clearActiveGames, clearActiveRooms } from './db/active-game-persistence.js';
 import { GameManager } from './game/game-manager.js';
 import { recoverFromCrash } from './db/event-persistence.js';
@@ -106,6 +107,40 @@ export function createApp(config: Partial<AppConfig> = {}) {
   // REQ-F-GMR01: Route game messages (play, pass, tichu, etc.) to GameManager
   const gameHandler = new GameHandler(router, connections, broadcaster, gameStore, roomHandler.roomManager);
 
+  fastify.get('/api/active-room', async (request, reply) => {
+    const query = request.query as { userId?: string };
+    let userId = query.userId;
+
+    const authHeader = request.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      const payload = verifyToken(authHeader.slice(7), jwtSecret);
+      if (!payload) {
+        return reply.status(401).send({ error: 'Invalid token' });
+      }
+      userId = payload.userId;
+    }
+
+    if (!userId) {
+      return reply.status(400).send({ error: 'userId is required' });
+    }
+
+    const roomCode = roomHandler.roomManager.getUserRoom(userId);
+    const seat = roomHandler.roomManager.getUserSeat(userId);
+    const room = roomCode ? roomHandler.roomManager.getRoom(roomCode) : undefined;
+    if (!room || !seat) {
+      return { activeRoom: null };
+    }
+
+    return {
+      activeRoom: {
+        roomCode,
+        roomName: room.roomName,
+        seat,
+        gameInProgress: room.gameInProgress,
+      },
+    };
+  });
+
   // Wire room destruction → game + idempotency cleanup
   roomHandler.roomManager.onRoomDestroyed = (roomCode) => {
     gameStore.destroyGameByRoom(roomCode);
@@ -139,6 +174,8 @@ export function createApp(config: Partial<AppConfig> = {}) {
     const url = new URL(request.url ?? '/', `http://${request.headers.host}`);
     const userId = url.searchParams.get('userId');
     const playerName = url.searchParams.get('playerName');
+    const restoreMode = url.searchParams.get('restore') ?? 'auto';
+    const requestedRoomCode = url.searchParams.get('roomCode');
 
     if (!userId || !playerName) {
       ws.close(4001, 'Missing userId or playerName query parameters');
@@ -151,20 +188,37 @@ export function createApp(config: Partial<AppConfig> = {}) {
     const existingRoom = roomHandler.roomManager.getUserRoom(userId);
     const existingSeat = roomHandler.roomManager.getUserSeat(userId);
     if (existingRoom && existingSeat) {
-      connections.assignToRoom(ws, existingRoom, existingSeat);
-      roomHandler.roomManager.markReconnected(userId);
-      broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: existingRoom, seat: existingSeat });
-      broadcaster.send(ws, { type: 'CHAT_HISTORY', messages: roomHandler.roomManager.getChatHistory(existingRoom) });
-      roomHandler.broadcastRoomUpdate(existingRoom);
+      const shouldReportOnly =
+        restoreMode === 'passive'
+        || (restoreMode === 'target' && requestedRoomCode !== null && requestedRoomCode !== existingRoom);
 
-      // REQ-F-SG02: If a game is in progress, send GAME_STATE to reconnected player
-      const game = gameStore.getGameByRoom(existingRoom);
-      if (game) {
-        game.handleReconnect(ws, existingSeat);
-        gameStore.cancelReconnectionTTL(game.gameId);
-        game.resumeAfterRestore();
+      if (shouldReportOnly) {
+        const room = roomHandler.roomManager.getRoom(existingRoom);
+        if (room) {
+          broadcaster.send(ws, {
+            type: 'ACTIVE_ROOM',
+            roomCode: existingRoom,
+            roomName: room.roomName,
+            seat: existingSeat,
+            gameInProgress: room.gameInProgress,
+          });
+        }
+      } else {
+        connections.assignToRoom(ws, existingRoom, existingSeat);
+        roomHandler.roomManager.markReconnected(userId);
+        broadcaster.send(ws, { type: 'ROOM_JOINED', roomCode: existingRoom, seat: existingSeat });
+        broadcaster.send(ws, { type: 'CHAT_HISTORY', messages: roomHandler.roomManager.getChatHistory(existingRoom) });
+        roomHandler.broadcastRoomUpdate(existingRoom);
+
+        // REQ-F-SG02: If a game is in progress, send GAME_STATE to reconnected player
+        const game = gameStore.getGameByRoom(existingRoom);
+        if (game) {
+          game.handleReconnect(ws, existingSeat);
+          gameStore.cancelReconnectionTTL(game.gameId);
+          game.resumeAfterRestore();
+        }
       }
-    } else {
+    } else if (restoreMode !== 'passive') {
       // REQ-F-SP13: Detect returning spectator
       const spectatorRoom = roomHandler.roomManager.getSpectatorRoom(userId);
       if (spectatorRoom) {

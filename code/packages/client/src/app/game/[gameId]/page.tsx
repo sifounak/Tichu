@@ -451,6 +451,17 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         gameStore.reset();
         sessionStorage.setItem('tichu_kicked_message', msg.message ?? 'The room was closed');
         router.push('/lobby');
+      } else if (msg.type === 'ACTIVE_ROOM') {
+        if (msg.roomCode !== urlGameId) {
+          confirmNavigation();
+          leaveRoom();
+          gameStore.reset();
+          sessionStorage.setItem(
+            'tichu_kicked_message',
+            'You can only join one game at a time. Rejoin your current game or leave it before joining another.',
+          );
+          router.push('/lobby');
+        }
       } else if (msg.type === 'ROOM_JOINED') {
         // REQ-F-SP09: Spectator promoted to player — update seat
         const roomStore = useRoomStore.getState();
@@ -508,7 +519,12 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
           confirmNavigation();
           leaveRoom();
           gameStore.reset();
-          sessionStorage.setItem('tichu_kicked_message', 'Requested game does not exist.');
+          sessionStorage.setItem(
+            'tichu_kicked_message',
+            msg.message.includes('Already in a room')
+              ? 'You can only join one game at a time. Rejoin your current game or leave it before joining another.'
+              : 'Requested game does not exist.',
+          );
           router.push('/lobby');
         } else if (msg.code === 'PARTNER_ALREADY_CALLED') {
           // Parse partner call level from message (format: "PARTNER_ALREADY_CALLED:grandTichu")
@@ -530,7 +546,7 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
     [gameStore, uiStore, leaveRoom, router, animEnabled, animMultiplier, anyHumanActive, roomPlayers, confirmNavigation, playSound, mySeatFromRoom, playTimerOutOfTimeOnce],
   );
 
-  const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}`;
+  const wsUrl = `${WS_BASE}?userId=${userId}&playerName=${encodeURIComponent(playerName)}&restore=target&roomCode=${encodeURIComponent(urlGameId)}`;
   const handleStatusChange = useCallback((s: import('@/hooks/useWebSocket').ConnectionStatus) => {
     uiStore.setConnectionStatus(s);
     if (s === 'connected') {

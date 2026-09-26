@@ -127,6 +127,7 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ROOM_CREATED'), roomCode: z.string() }),
   // REQ-F-SP04: seat is nullable — null indicates spectator
   z.object({ type: z.literal('ROOM_JOINED'), roomCode: z.string(), seat: seatSchema.nullable() }),
+  z.object({ type: z.literal('ACTIVE_ROOM'), roomCode: z.string(), roomName: z.string(), seat: seatSchema, gameInProgress: z.boolean() }),
   // REQ-F-SP16: ROOM_UPDATE includes spectatorCount and readyPlayers
   // REQ-F-GA52: ROOM_UPDATE includes votingEnabled for non-host vote toggle
   z.object({ type: z.literal('ROOM_UPDATE'), roomName: z.string(), players: z.array(z.object({ seat: seatSchema, name: z.string(), isBot: z.boolean(), isConnected: z.boolean(), isAutopilot: z.boolean().optional() })), hostSeat: seatSchema, config: z.any(), gameInProgress: z.boolean(), spectatorCount: z.number().int().min(0), spectatorNames: z.array(z.string()).optional(), readyPlayers: z.array(seatSchema), votingEnabled: z.boolean().optional() }),
