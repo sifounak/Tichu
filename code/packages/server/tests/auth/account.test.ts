@@ -7,6 +7,17 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 
 const JWT_SECRET = 'test-secret-key';
+const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
+
+function getJwtLifetimeSeconds(token: string): number {
+  const decoded = jwt.decode(token);
+  expect(decoded).toBeTypeOf('object');
+  expect(decoded).not.toBeNull();
+  const payload = decoded as { exp?: unknown; iat?: unknown };
+  expect(payload.exp).toBeTypeOf('number');
+  expect(payload.iat).toBeTypeOf('number');
+  return (payload.exp as number) - (payload.iat as number);
+}
 
 // ─── Mock helpers ────────────────────────────────────────────────────
 
@@ -178,6 +189,7 @@ describe('account auth', () => {
       const decoded = verifyToken(result.token, JWT_SECRET);
       expect(decoded!.userId).toBe('new-user');
       expect(decoded!.email).toBe('alice@test.com');
+      expect(getJwtLifetimeSeconds(result.token)).toBe(ONE_YEAR_SECONDS);
       expect(mockDb.db.insert).toHaveBeenCalled();
     });
 
@@ -289,6 +301,7 @@ describe('account auth', () => {
       expect(result.username).toBe('Alice');
       const decoded = verifyToken(result.token, JWT_SECRET);
       expect(decoded!.userId).toBe('user1');
+      expect(getJwtLifetimeSeconds(result.token)).toBe(ONE_YEAR_SECONDS);
       expect(mockDb.db.update).toHaveBeenCalled();
     });
 

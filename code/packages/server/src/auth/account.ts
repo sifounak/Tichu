@@ -13,7 +13,7 @@ import type { Database } from '../db/connection.js';
 import { users } from '../db/schema.js';
 
 const SALT_ROUNDS = 10;
-const JWT_EXPIRY = '7d';
+const JWT_EXPIRY = '365d';
 
 export interface AuthTokenPayload {
   userId: string;
