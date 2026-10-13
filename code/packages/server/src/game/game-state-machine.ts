@@ -211,17 +211,29 @@ function isDragonPlay(combination: Combination): boolean {
   return combination.cards.length === 1 && isDragon(combination.cards[0].card);
 }
 
-/** REQ-F-DR01: Check if Dragon gift is needed (Dragon won the trick, not by bomb) */
-function needsDragonGift(trick: TrickState): boolean {
-  // Find the winning play — search from end so that if the winner played multiple
-  // times (e.g. Dragon first, then an out-of-turn bomb), the LAST play is found
-  let winningPlay: (typeof trick.plays)[number] | undefined;
+function getWinningPlay(trick: TrickState): (typeof trick.plays)[number] | undefined {
   for (let i = trick.plays.length - 1; i >= 0; i--) {
     if (trick.plays[i].seat === trick.currentWinner) {
-      winningPlay = trick.plays[i];
-      break;
+      return trick.plays[i];
     }
   }
+  return undefined;
+}
+
+function canSkipBombWindowWhenOnlyWinnerCouldBomb(trick: TrickState, round: RoundState): boolean {
+  const winningPlay = getWinningPlay(trick);
+  if (!winningPlay || isDragonPlay(winningPlay.combination)) return false;
+
+  return SEATS_IN_ORDER
+    .filter((s) => s !== trick.currentWinner && round.players[s].finishOrder === null)
+    .every((s) => round.players[s].hand.length < 4);
+}
+
+/** REQ-F-DR01: Check if Dragon gift is needed (Dragon won the trick, not by bomb) */
+function needsDragonGift(trick: TrickState): boolean {
+  // Search from the end so that if the winner played multiple
+  // times (e.g. Dragon first, then an out-of-turn bomb), the LAST play is found
+  const winningPlay = getWinningPlay(trick);
   if (!winningPlay) return false;
 
   // Only applies when Dragon is the winning single card
@@ -334,6 +346,7 @@ export const gameMachine = setup({
         (s) => round.players[s].finishOrder === null && round.players[s].hand.length >= 4,
       );
       if (!canAnyoneBomb) return false;
+      if (canSkipBombWindowWhenOnlyWinnerCouldBomb(round.currentTrick, round)) return false;
       return true;
     },
 
@@ -345,7 +358,7 @@ export const gameMachine = setup({
       if (round.dragonGiftPending) return false;
       if (isRoundOver(round)) return false;
       // This guard fires only when isTrickCompleteForBombWindow returned false
-      // (i.e., no player has 4+ cards)
+      // (e.g., no player has 4+ cards or only the non-Dragon winner could bomb)
       return true;
     },
 

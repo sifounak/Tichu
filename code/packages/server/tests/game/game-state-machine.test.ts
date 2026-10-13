@@ -605,6 +605,50 @@ describe('GameStateMachine', () => {
     });
   });
 
+  describe('End-of-Trick Bomb Window', () => {
+    it('skips the bomb window when only the non-Dragon trick winner could bomb', () => {
+      const actor = createTestActor();
+      getToPlayingPhase(actor);
+      setUpEndOfTrickBombWindowScenario(actor, {
+        winningCombination: createSingleCombination(10),
+      });
+
+      actor.send({ type: 'PASS_TURN', seat: 'west' });
+
+      expect(actor.getSnapshot().value).toBe('playing');
+      expect(actor.getSnapshot().context.currentRound!.currentTrick).toBeNull();
+      expect(actor.getSnapshot().context.currentRound!.currentTurn).toBe('north');
+      actor.stop();
+    });
+
+    it('keeps the bomb window when only the winner could bomb but the Dragon won', () => {
+      const actor = createTestActor();
+      getToPlayingPhase(actor);
+      setUpEndOfTrickBombWindowScenario(actor, {
+        winningCombination: createDragonCombination(),
+      });
+
+      actor.send({ type: 'PASS_TURN', seat: 'west' });
+
+      expect(actor.getSnapshot().value).toBe('awaitingEndOfTrickBomb');
+      actor.stop();
+    });
+
+    it('keeps the bomb window when an active non-winner has 4 or more cards', () => {
+      const actor = createTestActor();
+      getToPlayingPhase(actor);
+      setUpEndOfTrickBombWindowScenario(actor, {
+        winningCombination: createSingleCombination(10),
+        eastHandSize: 4,
+      });
+
+      actor.send({ type: 'PASS_TURN', seat: 'west' });
+
+      expect(actor.getSnapshot().value).toBe('awaitingEndOfTrickBomb');
+      actor.stop();
+    });
+  });
+
   // Verifies: REQ-F-GF01 (full lifecycle)
   describe('Full Round Lifecycle', () => {
     it('progresses through all phases', () => {
@@ -982,5 +1026,43 @@ function createSingleCombination(rank: number): Combination {
     rank,
     length: 1,
     isBomb: false,
+  };
+}
+
+function createDragonCombination(): Combination {
+  return {
+    type: CombinationType.Single,
+    cards: [{ id: 900_000, card: { kind: 'dragon' } }],
+    rank: 16,
+    length: 1,
+    isBomb: false,
+  };
+}
+
+function makeCards(startId: number, count: number): GameCard[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: startId + index,
+    card: { kind: 'standard', suit: 'jade', rank: (2 + (index % 13)) as Rank },
+  }));
+}
+
+function setUpEndOfTrickBombWindowScenario(
+  actor: ReturnType<typeof createTestActor>,
+  options: {
+    winningCombination: Combination;
+    eastHandSize?: number;
+  },
+): void {
+  const round = actor.getSnapshot().context.currentRound!;
+  round.players.north.hand = makeCards(100_000, 4);
+  round.players.east.hand = makeCards(200_000, options.eastHandSize ?? 3);
+  round.players.south.hand = makeCards(300_000, 3);
+  round.players.west.hand = makeCards(400_000, 3);
+  round.currentTurn = 'west';
+  round.currentTrick = {
+    plays: [{ seat: 'north', combination: options.winningCombination }],
+    passes: ['east', 'south'],
+    leadSeat: 'north',
+    currentWinner: 'north',
   };
 }
