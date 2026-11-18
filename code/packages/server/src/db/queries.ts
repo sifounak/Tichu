@@ -1,3 +1,4 @@
+import type { ParticipationView } from '@tichu/shared';
 // REQ-F-AU04: Leaderboard — top players by win rate, recent games, player profile stats
 
 import { desc, sql } from 'drizzle-orm';
@@ -84,6 +85,12 @@ export interface PlayerProfile {
   phoenixUsedInConsecutivePairs: number;
   phoenixUsedInStraight: number;
   longestStraightWithPhoenix: number;
+  longestStraight: number;
+  totalBombsReceived: number;
+  opponentBlindGrandTichuBroken: number;
+  partnerBlindGrandTichuBroken: number;
+  blindGrandTichuBrokenByPartner: number;
+
   // REQ-F-CS06–CS09: Dog control tracking
   dogControlToPartner: number;
   dogControlToOpponent: number;
@@ -139,6 +146,7 @@ export function getLeaderboard(
   database: Database,
   limit = 20,
   minGames = MIN_GAMES_FOR_LEADERBOARD,
+  participation: ParticipationView = 'all',
 ): LeaderboardEntry[] {
   const { db } = database;
 
@@ -163,7 +171,7 @@ export function getLeaderboard(
       END as grandTichuSuccessRate
     FROM stats_cache ps
     JOIN users u ON u.id = ps.user_id
-    WHERE ps.games_played >= ${minGames}
+    WHERE ps.participation = ${participation} AND ps.games_played >= ${minGames}
     ORDER BY ps.win_rate DESC, ps.games_played DESC
     LIMIT ${limit}
   `);
@@ -204,6 +212,7 @@ export function getRecentGames(
 export function getPlayerProfile(
   database: Database,
   userId: string,
+  participation: ParticipationView = 'all',
 ): PlayerProfile | undefined {
   const { db } = database;
 
@@ -274,6 +283,12 @@ export function getPlayerProfile(
       ps.phoenix_used_in_consecutive_pairs as phoenixUsedInConsecutivePairs,
       ps.phoenix_used_in_straight as phoenixUsedInStraight,
       ps.longest_straight_with_phoenix as longestStraightWithPhoenix,
+      ps.longest_straight as longestStraight,
+      ps.total_bombs_received as totalBombsReceived,
+      ps.opponent_blind_grand_tichu_broken as opponentBlindGrandTichuBroken,
+      ps.partner_blind_grand_tichu_broken as partnerBlindGrandTichuBroken,
+      ps.blind_grand_tichu_broken_by_partner as blindGrandTichuBrokenByPartner,
+
       -- REQ-F-CS06–CS09: Dog control tracking
       ps.dog_control_to_partner as dogControlToPartner,
       ps.dog_control_to_opponent as dogControlToOpponent,
@@ -317,7 +332,7 @@ export function getPlayerProfile(
       ps.all_players_bomb_in_round as allPlayersBombInRound
     FROM stats_cache ps
     JOIN users u ON u.id = ps.user_id
-    WHERE ps.user_id = ${userId}
+    WHERE ps.user_id = ${userId} AND ps.participation = ${participation}
     LIMIT 1
   `);
 
@@ -353,7 +368,7 @@ export function getPlayerPartners(
       END as winRate
     FROM relational_stats_cache prs
     LEFT JOIN users u ON u.id = prs.other_user_id
-    WHERE prs.user_id = ${userId} AND prs.relationship = 'partner'
+    WHERE prs.user_id = ${userId} AND prs.participation = 'all' AND prs.relationship = 'partner'
     ORDER BY prs.games_played DESC
     LIMIT ${limit}
   `) as RelationalStatEntry[];
@@ -378,7 +393,7 @@ export function getPlayerOpponents(
       END as winRate
     FROM relational_stats_cache prs
     LEFT JOIN users u ON u.id = prs.other_user_id
-    WHERE prs.user_id = ${userId} AND prs.relationship = 'opponent'
+    WHERE prs.user_id = ${userId} AND prs.participation = 'all' AND prs.relationship = 'opponent'
     ORDER BY prs.games_played DESC
     LIMIT ${limit}
   `) as RelationalStatEntry[];
@@ -403,6 +418,7 @@ export interface MergedRelationalEntry {
 export function getPlayerRelationships(
   database: Database,
   userId: string,
+  participation: ParticipationView = 'all',
 ): MergedRelationalEntry[] {
   const { db } = database;
   return db.all(sql`
@@ -427,7 +443,7 @@ export function getPlayerRelationships(
       SUM(CASE WHEN prs.relationship = 'opponent' THEN prs.total_team_bombs ELSE 0 END) as opponentTotalTeamBombs
     FROM relational_stats_cache prs
     LEFT JOIN users u ON u.id = prs.other_user_id
-    WHERE prs.user_id = ${userId}
+    WHERE prs.user_id = ${userId} AND prs.participation = ${participation}
     GROUP BY prs.other_user_id
     ORDER BY displayName ASC
   `) as MergedRelationalEntry[];

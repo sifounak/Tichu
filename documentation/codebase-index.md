@@ -1,5 +1,7 @@
 # Tichu Web Game — Codebase Index
 
+For the current statistics pipeline, cache migration and participation views, see [Play statistics](play-statistics.md). The shared participation vocabulary lives in `shared/src/types/stats.ts`; server `db/participation.ts` persists/infer classifications and `db/bomb-pass-stats.ts` canonicalizes pass contributions. Client statistics surfaces share `components/stats/participation-filter.tsx` for URL selection, provenance and request cancellation.
+
 For architecture decision rationale, see [decisions/](decisions/).
 
 ## Tech Stack & Infrastructure

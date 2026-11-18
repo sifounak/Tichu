@@ -1093,7 +1093,7 @@ describe('Stats Cache', () => {
         `INSERT INTO plays (game_id, round_number, trick_number, sequence_number, seat,
           action_type, cards, combination_type, combination_length, phoenix_used_as, is_bomb,
           partner_tichu_active)
-        VALUES (?, 1, 1, 1, 'north', 'play', '[54]', 'Single', 1, 14, 0, 0)`,
+        VALUES (?, 1, 1, 1, 'north', 'play', '[54]', 'single', 1, NULL, 0, 0)`,
       ).run(gameId);
 
       // ── plays: A's bomb in round 1 (4-card), forced by wish ──

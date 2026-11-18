@@ -1,0 +1,1 @@
+39 authentication/navigation scenarios pass; authStore/AuthGuard 100% statements, 87.32%/100% branches; navigation 97.40% statements/96.66% branches; banner 100%. Client lint/typecheck passed; full client suite: 422 tests passed.

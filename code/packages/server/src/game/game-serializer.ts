@@ -1,3 +1,4 @@
+import type { ParticipationRecord } from '@tichu/shared';
 import type {
   Seat,
   Team,
@@ -97,6 +98,7 @@ export interface BotSnapshot {
 }
 
 export interface GameSnapshot {
+  participation?: ParticipationRecord;
   gameId: string;
   roomCode: string;
   machineSnapshot: unknown;

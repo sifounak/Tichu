@@ -1,3 +1,5 @@
+import type { ParticipationView } from '@tichu/shared';
+import { inferLegacyParticipation, participationCondition } from './participation.js';
 // REQ-F-AU03: Game history persistence — save completed games and rounds to DB
 
 import { and, eq, desc, or, sql } from 'drizzle-orm';
@@ -168,6 +170,7 @@ export function saveGameProgress(
       client.prepare(`
         UPDATE games SET
           status = ?,
+          stats_revision = stats_revision + 1,
           ended_at = datetime('now'),
           winner_team = ?,
           final_score_ns = ?,
@@ -219,6 +222,7 @@ export function completeGameProgress(
   database.client.prepare(`
     UPDATE games SET
       status = 'completed',
+      stats_revision = stats_revision + 1,
       ended_at = datetime('now'),
       winner_team = ?,
       final_score_ns = ?,
@@ -261,12 +265,17 @@ export function getPlayerGameHistory(
   userId: string,
   limit = 20,
   offset = 0,
+  participation: ParticipationView = 'all',
 ) {
   const { db } = database;
+  inferLegacyParticipation(database);
 
   // REQ-F-SO19: Include userId columns for player team detection
   return db.select({
     id: games.id,
+    participation: games.participation,
+    participationInferred: games.participationInferred,
+    playerSeat: sql<Seat | null>`(SELECT seat FROM player_rounds WHERE game_id = games.id AND user_id = ${userId} ORDER BY round_number DESC LIMIT 1)`,
     roomCode: games.roomCode,
     startedAt: games.startedAt,
     endedAt: games.endedAt,
@@ -286,7 +295,9 @@ export function getPlayerGameHistory(
     .from(games)
     .where(and(
       eq(games.status, 'completed'),
+      participationCondition(participation),
       or(
+        sql`games.id IN (SELECT game_id FROM player_rounds WHERE user_id = ${userId})`,
         eq(games.northUserId, userId),
         eq(games.eastUserId, userId),
         eq(games.southUserId, userId),

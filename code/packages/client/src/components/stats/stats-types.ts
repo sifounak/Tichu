@@ -63,6 +63,12 @@ export interface PlayerProfile {
   phoenixUsedInConsecutivePairs: number;
   phoenixUsedInStraight: number;
   longestStraightWithPhoenix: number;
+  longestStraight: number;
+  totalBombsReceived: number;
+  opponentBlindGrandTichuBroken: number;
+  partnerBlindGrandTichuBroken: number;
+  blindGrandTichuBrokenByPartner: number;
+
   dogControlToPartner: number;
   dogControlToOpponent: number;
   dogControlToSelf: number;
@@ -117,6 +123,9 @@ export interface MergedRelationalStat {
 }
 
 export interface GameHistoryEntry {
+  participation?: 'human-only' | 'mixed' | 'solo';
+  participationInferred?: boolean;
+  playerSeat?: 'north' | 'east' | 'south' | 'west' | null;
   id: number;
   roomCode: string;
   endedAt: string;

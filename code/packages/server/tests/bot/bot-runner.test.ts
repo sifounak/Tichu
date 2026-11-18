@@ -460,6 +460,23 @@ describe('BotRunner', () => {
     it('reassesses Tichu after an earlier pass before calling on a later play', async () => {
       actor = createTestActor();
       advanceToPlaying(actor);
+      // The second lead must be beatable: a random high card could leave the
+      // mock strategy without a legal response. Swap known 2/3 cards into the
+      // relevant hands while preserving hand sizes and unique card ownership.
+      const setupRound = getContext(actor).currentRound!;
+      const expectedLead = setupRound.currentTurn!;
+      const expectedBot = SEATS_IN_ORDER[(SEATS_IN_ORDER.indexOf(expectedLead) + 1) % 4];
+      const giveCard = (cardId: number, target: Seat) => {
+        const owner = SEATS_IN_ORDER.find(seat => setupRound.players[seat].hand.some(card => card.id === cardId))!;
+        if (owner === target) return;
+        const source = setupRound.players[owner].hand;
+        const recipient = setupRound.players[target].hand;
+        const sourceIndex = source.findIndex(card => card.id === cardId);
+        const targetIndex = recipient.findIndex(card => ![0, 1, 52].includes(card.id));
+        [source[sourceIndex], recipient[targetIndex]] = [recipient[targetIndex], source[sourceIndex]];
+      };
+      giveCard(0, expectedLead);
+      giveCard(1, expectedBot);
       const leadSeat = playOpeningMahjong(actor);
 
       const botSeat = getContext(actor).currentRound!.currentTurn!;
@@ -503,7 +520,7 @@ describe('BotRunner', () => {
       const leader = getContext(actor).currentRound!.currentTurn!;
       expect(leader).toBe(leadSeat);
       const leadCard = getContext(actor).currentRound!.players[leader].hand.find(
-        (gc) => gc.card.kind === 'standard',
+        (gc) => gc.id === 0,
       )!;
       actor.send({ type: 'PLAY_CARDS', seat: leader, cards: [leadCard] });
       expect(getContext(actor).currentRound!.currentTurn).toBe(botSeat);

@@ -1,3 +1,5 @@
+import { Suspense } from 'react';
+import { ParticipationSelector } from '@/components/stats/participation-filter';
 import Link from 'next/link';
 import { StatsTabNav } from '@/components/stats/StatsTabNav';
 
@@ -15,8 +17,11 @@ export default function StatsLayout({ children }: { children: React.ReactNode })
             Back to Lobby
           </Link>
         </div>
-        <StatsTabNav />
-        {children}
+        <Suspense fallback={<p>Loading statistics...</p>}>
+          <ParticipationSelector />
+          <StatsTabNav />
+          {children}
+        </Suspense>
       </div>
     </main>
   );

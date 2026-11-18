@@ -1,3 +1,4 @@
+import { saveParticipation } from './participation.js';
 // REQ-F-ST02–ST06: Event data persistence — batch writes, recovery files, abandonment handling
 
 import { sql } from 'drizzle-orm';
@@ -56,7 +57,7 @@ export function writeEventData(
 ): void {
   const { db } = database;
   const roundFilter = roundNumbers ? new Set(roundNumbers) : null;
-  db.transaction((tx: any) => {
+  db.transaction((tx) => {
     for (const round of accumulator.rounds) {
       if (roundFilter && !roundFilter.has(round.roundNumber)) continue;
       const existingRound = database.client.prepare(
@@ -80,26 +81,26 @@ export function writeEventData(
           userId: pr.userId,
           first8Cards: pr.first8Cards,
           fullHandPrePass: pr.fullHandPrePass,
-          passedToLeft: pr.passedToLeft as any,
-          passedToPartner: pr.passedToPartner as any,
-          passedToRight: pr.passedToRight as any,
-          receivedFromLeft: pr.receivedFromLeft as any,
-          receivedFromPartner: pr.receivedFromPartner as any,
-          receivedFromRight: pr.receivedFromRight as any,
+          passedToLeft: pr.passedToLeft,
+          passedToPartner: pr.passedToPartner,
+          passedToRight: pr.passedToRight,
+          receivedFromLeft: pr.receivedFromLeft,
+          receivedFromPartner: pr.receivedFromPartner,
+          receivedFromRight: pr.receivedFromRight,
           handAfterPass: pr.handAfterPass,
           blindGrandTichuCall: pr.blindGrandTichuCall,
           grandTichuCall: pr.grandTichuCall,
           tichuCall: pr.tichuCall,
           tichuCallPhase: pr.tichuCallPhase,
           tichuCallTrickNumber: pr.tichuCallTrickNumber,
-          tichuCallHandSizes: pr.tichuCallHandSizes as any,
+          tichuCallHandSizes: pr.tichuCallHandSizes,
           tichuCallSuccess: pr.tichuCallSuccess,
           finishPosition: pr.finishPosition,
           finishTrickNumber: pr.finishTrickNumber,
           cardPointsCaptured: pr.cardPointsCaptured,
           handPointsGivenToOpponents: pr.handPointsGivenToOpponents,
           capturedPointsGivenToFirstOut: pr.capturedPointsGivenToFirstOut,
-          trickPointRunningTotal: pr.trickPointRunningTotal as any,
+          trickPointRunningTotal: pr.trickPointRunningTotal,
         }).run();
       }
 
@@ -122,7 +123,7 @@ export function writeEventData(
           winningCombinationLength: trick.winningCombinationLength,
           containsDragon: trick.containsDragon,
           containsPhoenix: trick.containsPhoenix,
-          activeTichuSeats: trick.activeTichuSeats as any,
+          activeTichuSeats: trick.activeTichuSeats,
         }).run();
       }
 
@@ -137,7 +138,7 @@ export function writeEventData(
           actionType: play.actionType,
           actionAt: play.actionAt,
           actionSource: play.actionSource,
-          cards: play.cards as any,
+          cards: play.cards,
           combinationType: play.combinationType,
           combinationRank: play.combinationRank,
           combinationLength: play.combinationLength,
@@ -162,7 +163,7 @@ export function writeEventData(
           wishRank: play.wishRank,
           playForcedByWish: play.playForcedByWish,
           partnerTichuActive: play.partnerTichuActive,
-          opponentTichuActive: play.opponentTichuActive as any,
+          opponentTichuActive: play.opponentTichuActive,
           turnStartedAt: play.turnStartedAt,
           durationMs: play.durationMs,
         }).run();
@@ -225,12 +226,12 @@ export function writeEventData(
           roundNumber: bi.roundNumber,
           playerSeat: bi.playerSeat,
           bombType: bi.bombType,
-          cards: bi.cards as any,
+          cards: bi.cards,
           rank: bi.rank,
           size: bi.size,
           acquiredPhase: bi.acquiredPhase,
           bombPlaysFromRun: bi.bombPlaysFromRun,
-          overlapsWith: bi.overlapsWith as any,
+          overlapsWith: bi.overlapsWith,
           fate: bi.fate,
           fateTrickNumber: bi.fateTrickNumber,
           fateTarget: bi.fateTarget,
@@ -261,6 +262,9 @@ export function writeEventData(
       }
     }
   });
+  if (accumulator.participation) saveParticipation(database, dbGameId, accumulator.participation);
+  else database.client.prepare('UPDATE games SET stats_revision = stats_revision + 1 WHERE id = ?').run(dbGameId);
+
 }
 
 // ─── REQ-F-ST02: Recovery File Serialization ────────────────────────────

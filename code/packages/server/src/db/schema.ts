@@ -3,7 +3,7 @@
 // REQ-F-AU03: Game history persistence — games + game_rounds tables
 // REQ-F-AU04: Leaderboard — player_stats for aggregated stats
 
-import { sqliteTable, text, integer, real, uniqueIndex, unique } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, uniqueIndex, unique, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import type { UserPreferences } from '@tichu/shared';
 
@@ -39,6 +39,11 @@ export const games = sqliteTable('games', {
   finalScoreEW: integer('final_score_ew').notNull(),
   targetScore: integer('target_score').notNull().default(1000),
   roundCount: integer('round_count').notNull(),
+  participation: text('participation'),
+  humanParticipantIds: text('human_participant_ids'),
+  hadBot: integer('had_bot', { mode: 'boolean' }).notNull().default(false),
+  participationInferred: integer('participation_inferred', { mode: 'boolean' }).notNull().default(true),
+  statsRevision: integer('stats_revision').notNull().default(0),
   northUserId: text('north_user_id').references(() => users.id),
   eastUserId: text('east_user_id').references(() => users.id),
   southUserId: text('south_user_id').references(() => users.id),
@@ -350,7 +355,10 @@ export const playerGlobalStats = sqliteTable('player_global_stats', {
 // REQ-F-MC01: V1 cache table — same schema as player_stats, rebuildable from raw events
 // REQ-F-MC05: Cache disposability — dropping and rebuilding restores all stats
 export const statsCache = sqliteTable('stats_cache', {
-  userId: text('user_id').primaryKey().references(() => users.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  participation: text('participation').notNull().default('all'),
+  cacheVersion: integer('cache_version').notNull().default(0),
+  sourceSignature: text('source_signature').notNull().default(''),
 
   // ── Core stats ──
   gamesPlayed: integer('games_played').notNull().default(0),
@@ -422,6 +430,12 @@ export const statsCache = sqliteTable('stats_cache', {
   phoenixUsedInConsecutivePairs: integer('phoenix_used_in_consecutive_pairs').notNull().default(0),
   phoenixUsedInStraight: integer('phoenix_used_in_straight').notNull().default(0),
   longestStraightWithPhoenix: integer('longest_straight_with_phoenix').notNull().default(0),
+  longestStraight: integer('longest_straight').notNull().default(0),
+  totalBombsReceived: integer('total_bombs_received').notNull().default(0),
+  opponentBlindGrandTichuBroken: integer('opponent_blind_grand_tichu_broken').notNull().default(0),
+  partnerBlindGrandTichuBroken: integer('partner_blind_grand_tichu_broken').notNull().default(0),
+  blindGrandTichuBrokenByPartner: integer('blind_grand_tichu_broken_by_partner').notNull().default(0),
+
 
   // ── Dog control tracking ──
   dogControlToPartner: integer('dog_control_to_partner').notNull().default(0),
@@ -474,10 +488,11 @@ export const statsCache = sqliteTable('stats_cache', {
   allCardsUnder10AfterPass: integer('all_cards_under_10_after_pass').notNull().default(0),
   doubleBombInTrick: integer('double_bomb_in_trick').notNull().default(0),
   allPlayersBombInRound: integer('all_players_bomb_in_round').notNull().default(0),
-});
+}, table => [primaryKey({ columns: [table.userId, table.participation] })]);
 
 // REQ-F-MC01: Relational stats cache — per-partner, per-opponent stats
 export const relationalStatsCache = sqliteTable('relational_stats_cache', {
+  participation: text('participation').notNull().default('all'),
   id: integer('id').primaryKey({ autoIncrement: true }),
   userId: text('user_id').notNull().references(() => users.id),
   otherUserId: text('other_user_id').notNull().references(() => users.id),
@@ -487,7 +502,7 @@ export const relationalStatsCache = sqliteTable('relational_stats_cache', {
   oneTwoWins: integer('one_two_wins').notNull().default(0),
   totalTeamBombs: integer('total_team_bombs').notNull().default(0),
 }, (table) => [
-  unique('relational_stats_cache_unique').on(table.userId, table.otherUserId, table.relationship),
+  unique('relational_stats_cache_unique').on(table.userId, table.otherUserId, table.relationship, table.participation),
 ]);
 
 

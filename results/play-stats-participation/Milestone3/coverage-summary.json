@@ -1,0 +1,37 @@
+{
+  "server": {
+    "code/packages/server/src/db/bomb-pass-stats.ts": {
+      "statements": 25,
+      "covered": 25,
+      "percent": 100.0
+    },
+    "code/packages/server/src/db/participation.ts": {
+      "statements": 50,
+      "covered": 50,
+      "percent": 100.0
+    },
+    "code/packages/server/src/db/stats-cache.ts": {
+      "statements": 672,
+      "covered": 640,
+      "percent": 95.24
+    }
+  },
+  "shared": {},
+  "client": {
+    "code/packages/client/src/components/stats/StatSection.tsx": {
+      "statements": 38,
+      "covered": 38,
+      "percent": 100.0
+    },
+    "code/packages/client/src/components/stats/StatsTabNav.tsx": {
+      "statements": 46,
+      "covered": 46,
+      "percent": 100.0
+    },
+    "code/packages/client/src/components/stats/participation-filter.tsx": {
+      "statements": 78,
+      "covered": 78,
+      "percent": 100.0
+    }
+  }
+}

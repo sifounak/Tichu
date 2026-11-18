@@ -1,3 +1,5 @@
+import { parseParticipation } from '@tichu/shared';
+import { getParticipationMetadata } from '../db/participation.js';
 // REQ-F-AU01: Guest access routes
 // REQ-F-AU02: Account registration and login routes
 // REQ-F-AU03: Game history routes
@@ -87,11 +89,13 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
 
   // ─── Player profile stats ────────────────────────────────────────────
 
-  fastify.get('/api/players/:userId/profile', async (request) => {
+  fastify.get('/api/players/:userId/profile', async (request, reply) => {
+    const participation = parseParticipation((request.query as { participation?: string }).participation);
+    if (participation === undefined) return reply.status(400).send({ error: 'Invalid participation filter' });
     const { userId } = request.params as { userId: string };
     refreshPlayerStatsCacheIfStale(database, userId);
-    const profile = await getPlayerProfile(database, userId);
-    return { profile: profile ?? null };
+    const profile = await getPlayerProfile(database, userId, participation);
+    return { profile: profile ?? null, metadata: getParticipationMetadata(database, participation, userId) };
   });
 
   // ─── REQ-F-API02: Partner stats ──────────────────────────────────────
@@ -116,16 +120,20 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
 
   // ─── Merged relational stats (partner + opponent) ───────────────────
 
-  fastify.get('/api/players/:userId/relationships', async (request) => {
+  fastify.get('/api/players/:userId/relationships', async (request, reply) => {
+    const participation = parseParticipation((request.query as { participation?: string }).participation);
+    if (participation === undefined) return reply.status(400).send({ error: 'Invalid participation filter' });
     const { userId } = request.params as { userId: string };
     refreshPlayerStatsCacheIfStale(database, userId);
-    const relationships = getPlayerRelationships(database, userId);
-    return { relationships };
+    const relationships = getPlayerRelationships(database, userId, participation);
+    return { relationships, metadata: getParticipationMetadata(database, participation, userId) };
   });
 
   // ─── Game history ────────────────────────────────────────────────────
 
   fastify.get('/api/players/:userId/games', async (request, reply) => {
+    const participation = parseParticipation((request.query as { participation?: string }).participation);
+    if (participation === undefined) return reply.status(400).send({ error: 'Invalid participation filter' });
     const { userId } = request.params as { userId: string };
     const query = request.query as { limit?: string; offset?: string };
     const limit = Math.min(parseInt(query.limit ?? '20', 10), 50);
@@ -133,8 +141,8 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
     if (isNaN(limit) || isNaN(offset)) {
       return reply.status(400).send({ error: 'limit and offset must be numbers' });
     }
-    const games = await getPlayerGameHistory(database, userId, limit, offset);
-    return { games };
+    const games = await getPlayerGameHistory(database, userId, limit, offset, participation);
+    return { games, metadata: getParticipationMetadata(database, participation, userId) };
   });
 
   // ─── Game round details ──────────────────────────────────────────────
@@ -152,6 +160,8 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
   // ─── Leaderboard ─────────────────────────────────────────────────────
 
   fastify.get('/api/leaderboard', async (request, reply) => {
+    const participation = parseParticipation((request.query as { participation?: string }).participation);
+    if (participation === undefined) return reply.status(400).send({ error: 'Invalid participation filter' });
     const query = request.query as { limit?: string; minGames?: string };
     const limit = Math.min(parseInt(query.limit ?? '20', 10), 100);
     const minGames = parseInt(query.minGames ?? '5', 10);
@@ -159,8 +169,8 @@ export function registerAuthRoutes(fastify: FastifyInstance, database: Database,
       return reply.status(400).send({ error: 'limit and minGames must be numbers' });
     }
     refreshLeaderboardStatsCacheIfStale(database);
-    const leaderboard = await getLeaderboard(database, limit, minGames);
-    return { leaderboard };
+    const leaderboard = await getLeaderboard(database, limit, minGames, participation);
+    return { leaderboard, metadata: getParticipationMetadata(database, participation) };
   });
 
   // ─── Recent games ────────────────────────────────────────────────────

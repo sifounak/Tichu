@@ -1,7 +1,7 @@
 // REQ-F-SC03–SC11, REQ-F-CP01–CP02: TypeScript interfaces for raw event data layers
 // These replace the flat RoundEventSummary with structured per-layer records.
 
-import type { Seat } from '@tichu/shared';
+import type { Seat, ParticipationRecord } from '@tichu/shared';
 
 // ─── Action Source ──────────────────────────────────────────────────────
 
@@ -309,6 +309,7 @@ export interface RoundEventData {
 
 /** Full game accumulator — holds all event data across all rounds */
 export interface GameEventAccumulator {
+  participation?: ParticipationRecord;
   gameId: number;
   rounds: RoundEventData[];
 }

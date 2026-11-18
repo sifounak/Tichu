@@ -512,6 +512,60 @@ function syncSchema(client: BetterSqlite3Database): void {
     }
   }
 
+  // REQ-F-PS05/PS06: Preserve raw records and existing all-game cache during migration.
+  const participationColumns = [
+    ['games', 'participation TEXT'], ['games', 'human_participant_ids TEXT'],
+    ['games', 'had_bot INTEGER NOT NULL DEFAULT 0'], ['games', 'participation_inferred INTEGER NOT NULL DEFAULT 1'],
+    ['games', 'stats_revision INTEGER NOT NULL DEFAULT 0'],
+    ['stats_cache', "participation TEXT NOT NULL DEFAULT 'all'"],
+    ['stats_cache', 'cache_version INTEGER NOT NULL DEFAULT 0'],
+    ['stats_cache', "source_signature TEXT NOT NULL DEFAULT ''"],
+    ['relational_stats_cache', "participation TEXT NOT NULL DEFAULT 'all'"],
+  ] as const;
+  for (const [table, definition] of participationColumns) {
+    const columns = client.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+    if (!columns.some(column => column.name === definition.split(' ')[0])) client.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+  }
+  const cacheSchema = client.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'stats_cache'").get() as { sql?: string };
+  if (cacheSchema.sql && /user_id TEXT PRIMARY KEY/i.test(cacheSchema.sql)) {
+    const migrate = client.transaction(() => {
+      const definition = cacheSchema.sql!.replace(/CREATE TABLE (?:IF NOT EXISTS )?"?stats_cache"?/i, 'CREATE TABLE stats_cache_scoped')
+        .replace(/user_id TEXT PRIMARY KEY/i, 'user_id TEXT NOT NULL').replace(/\)\s*$/, ', PRIMARY KEY(user_id, participation))');
+      client.exec(definition);
+      client.exec('INSERT INTO stats_cache_scoped SELECT * FROM stats_cache');
+      client.exec('DROP TABLE stats_cache');
+      client.exec('ALTER TABLE stats_cache_scoped RENAME TO stats_cache');
+    });
+    migrate();
+  }
+  const relationshipSchema = client.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'relational_stats_cache'").get() as { sql?: string };
+  if (relationshipSchema.sql && /UNIQUE\(user_id, other_user_id, relationship\)/i.test(relationshipSchema.sql)) {
+    const migrate = client.transaction(() => {
+      const definition = relationshipSchema.sql!.replace(/CREATE TABLE (?:IF NOT EXISTS )?"?relational_stats_cache"?/i, 'CREATE TABLE relational_stats_cache_scoped')
+        .replace(/UNIQUE\(user_id, other_user_id, relationship\)/i, 'UNIQUE(user_id, other_user_id, relationship, participation)');
+      client.exec(definition);
+      client.exec('INSERT INTO relational_stats_cache_scoped SELECT * FROM relational_stats_cache');
+      client.exec('DROP TABLE relational_stats_cache');
+      client.exec('ALTER TABLE relational_stats_cache_scoped RENAME TO relational_stats_cache');
+    });
+    migrate();
+  }
+
+  // REQ-F-PS01/PS03: Additive stat repair migration.
+  const statRepairColumns = [
+    'longest_straight',
+    'total_bombs_received',
+    'opponent_blind_grand_tichu_broken',
+    'partner_blind_grand_tichu_broken',
+    'blind_grand_tichu_broken_by_partner',
+  ];
+  const cacheColumns = client.prepare('PRAGMA table_info(stats_cache)').all() as { name: string }[];
+  for (const column of statRepairColumns) {
+    if (!cacheColumns.some(existing => existing.name === column)) {
+      client.exec(`ALTER TABLE stats_cache ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`);
+    }
+  }
+
   // Ensure the synthetic __bot__ user exists so relational_stats_cache FK
   // references are valid when aggregating bot-partner/opponent relationships.
   client.exec(`
@@ -552,6 +606,7 @@ export function backfillPlayerRoundsUserId(client: BetterSqlite3Database): numbe
       WHERE games.id = player_rounds.game_id
     )
     WHERE player_rounds.user_id IS NULL
+      AND EXISTS (SELECT 1 FROM games WHERE games.id = player_rounds.game_id AND games.participation_inferred = 1)
   `).run();
   return result.changes;
 }

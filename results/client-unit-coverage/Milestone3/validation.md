@@ -1,0 +1,1 @@
+473 client tests passed; full client statement coverage 91.34%, branch coverage 85.17%. ActionBar 98.09%/94.59%; PreRoomView 98.04%/87.87%; other critical dialogs exceed 90% statements/80% branches. Typecheck/lint pass.

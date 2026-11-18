@@ -1,34 +1,24 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePlayerStats, ParticipationNotice } from '@/components/stats/participation-filter';
+import type { ParticipationMetadata } from '@tichu/shared';
 import { AuthGuard } from '@/components/AuthGuard';
-import { API_BASE, getUserId, pct, type PlayerProfile } from '@/components/stats/stats-types';
+import { pct, type PlayerProfile } from '@/components/stats/stats-types';
 import { StatCard } from '@/components/stats/StatCard';
 import { StatSection } from '@/components/stats/StatSection';
 import { RecordBanner } from '@/components/stats/RecordBanner';
 import { getTichuCallStats, getTichuSuccessSubtitle } from '@/components/stats/tichu-call-stats';
 
 export default function StatsOverviewPage() {
-  const router = useRouter();
-  const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, metadata } = usePlayerStats<{ profile: PlayerProfile | null; metadata?: ParticipationMetadata }>('profile');
+  const profile = data?.profile ?? null;
 
-  useEffect(() => {
-    const userId = getUserId();
-    if (!userId) { router.push('/lobby'); return; }
-
-    fetch(`${API_BASE}/api/players/${userId}/profile`)
-      .then(r => r.json())
-      .then(data => { setProfile(data.profile ?? null); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [router]);
-
+  if (error) return <p role="alert" style={{ color: 'var(--color-error)' }}>{error}</p>;
   if (loading) {
     return <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: '2rem' }}>Loading stats...</p>;
   }
   if (!profile) {
-    return <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No stats yet. Play some games!</p>;
+    return <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No statistics in this view.</p>;
   }
 
   const dogTotal = profile.dogControlToPartner + profile.dogControlToOpponent + profile.dogControlToSelf;
@@ -38,6 +28,7 @@ export default function StatsOverviewPage() {
   return (
     <AuthGuard>
       <div>
+        <ParticipationNotice metadata={metadata} />
         <RecordBanner profile={profile} />
 
       <StatSection title="Tichu Calls" href="/stats/tichu">
@@ -70,7 +61,7 @@ export default function StatsOverviewPage() {
 
       <StatSection title="Special Cards" href="/stats/cards">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Dragon" value={`${profile.dragonTrickWins} trick wins`} subtitle={`held ${profile.roundsWithDragon} rounds`} coloredLabel />
+          <StatCard label="Dragon" value={`${profile.dragonTrickWins} trick wins`} subtitle={`held after pass in ${profile.roundsWithDragon} rounds`} coloredLabel />
           <StatCard label="Phoenix" value={profile.longestStraightWithPhoenix > 0 ? `${profile.longestStraightWithPhoenix}-card straight` : '-'} subtitle="longest w/ Phoenix" coloredLabel />
           <StatCard label="Dog" value={dogTotal > 0 ? `${dogPartnerPct} to partner` : '-'} subtitle={dogTotal > 0 ? `${profile.dogControlToPartner} of ${dogTotal} plays` : undefined} coloredLabel />
           <StatCard label="Dog" value={`${profile.dogStuckAsLastCard}x stuck`} subtitle="as last card" coloredLabel />
@@ -91,7 +82,7 @@ export default function StatsOverviewPage() {
           <StatCard label="The Tichu (Clean)" value={profile.theTichuClean} subtitle="13-card straight" coloredLabel highlight />
           <StatCard label="The Tichu (Dirty)" value={profile.theTichuDirty} subtitle="w/ Phoenix" coloredLabel />
           <StatCard label="Double Bomb" value={profile.doubleBombInTrick} subtitle="2+ bombs in one trick" />
-          <StatCard label="Stacked Deck" value={profile.allPowerCardsBeforePass} subtitle="6+ power cards pre-pass" coloredLabel />
+          <StatCard label="Stacked Deck" value={profile.allPowerCardsBeforePass} subtitle="All Aces, Dragon & Phoenix before pass" coloredLabel />
         </div>
       </StatSection>
       </div>
