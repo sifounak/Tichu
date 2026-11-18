@@ -512,6 +512,21 @@ function syncSchema(client: BetterSqlite3Database): void {
     }
   }
 
+  // REQ-F-PS01/PS03: Additive stat repair migration.
+  const statRepairColumns = [
+    'longest_straight',
+    'total_bombs_received',
+    'opponent_blind_grand_tichu_broken',
+    'partner_blind_grand_tichu_broken',
+    'blind_grand_tichu_broken_by_partner',
+  ];
+  const cacheColumns = client.prepare('PRAGMA table_info(stats_cache)').all() as { name: string }[];
+  for (const column of statRepairColumns) {
+    if (!cacheColumns.some(existing => existing.name === column)) {
+      client.exec(`ALTER TABLE stats_cache ADD COLUMN ${column} INTEGER NOT NULL DEFAULT 0`);
+    }
+  }
+
   // Ensure the synthetic __bot__ user exists so relational_stats_cache FK
   // references are valid when aggregating bot-partner/opponent relationships.
   client.exec(`

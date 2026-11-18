@@ -84,6 +84,12 @@ export interface PlayerProfile {
   phoenixUsedInConsecutivePairs: number;
   phoenixUsedInStraight: number;
   longestStraightWithPhoenix: number;
+  longestStraight: number;
+  totalBombsReceived: number;
+  opponentBlindGrandTichuBroken: number;
+  partnerBlindGrandTichuBroken: number;
+  blindGrandTichuBrokenByPartner: number;
+
   // REQ-F-CS06–CS09: Dog control tracking
   dogControlToPartner: number;
   dogControlToOpponent: number;
@@ -274,6 +280,12 @@ export function getPlayerProfile(
       ps.phoenix_used_in_consecutive_pairs as phoenixUsedInConsecutivePairs,
       ps.phoenix_used_in_straight as phoenixUsedInStraight,
       ps.longest_straight_with_phoenix as longestStraightWithPhoenix,
+      ps.longest_straight as longestStraight,
+      ps.total_bombs_received as totalBombsReceived,
+      ps.opponent_blind_grand_tichu_broken as opponentBlindGrandTichuBroken,
+      ps.partner_blind_grand_tichu_broken as partnerBlindGrandTichuBroken,
+      ps.blind_grand_tichu_broken_by_partner as blindGrandTichuBrokenByPartner,
+
       -- REQ-F-CS06–CS09: Dog control tracking
       ps.dog_control_to_partner as dogControlToPartner,
       ps.dog_control_to_opponent as dogControlToOpponent,

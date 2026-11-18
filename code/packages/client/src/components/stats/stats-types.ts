@@ -63,6 +63,12 @@ export interface PlayerProfile {
   phoenixUsedInConsecutivePairs: number;
   phoenixUsedInStraight: number;
   longestStraightWithPhoenix: number;
+  longestStraight: number;
+  totalBombsReceived: number;
+  opponentBlindGrandTichuBroken: number;
+  partnerBlindGrandTichuBroken: number;
+  blindGrandTichuBrokenByPartner: number;
+
   dogControlToPartner: number;
   dogControlToOpponent: number;
   dogControlToSelf: number;

@@ -9,6 +9,7 @@ const mockExec = vi.fn();
 let mockSqliteVersion = '3.42.0';
 const mockPrepare = vi.fn(() => ({
   get: () => ({ v: mockSqliteVersion }),
+  all: () => [],
   run: () => ({ changes: 0 }),
 }));
 vi.mock('better-sqlite3', () => ({

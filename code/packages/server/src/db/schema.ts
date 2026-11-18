@@ -422,6 +422,12 @@ export const statsCache = sqliteTable('stats_cache', {
   phoenixUsedInConsecutivePairs: integer('phoenix_used_in_consecutive_pairs').notNull().default(0),
   phoenixUsedInStraight: integer('phoenix_used_in_straight').notNull().default(0),
   longestStraightWithPhoenix: integer('longest_straight_with_phoenix').notNull().default(0),
+  longestStraight: integer('longest_straight').notNull().default(0),
+  totalBombsReceived: integer('total_bombs_received').notNull().default(0),
+  opponentBlindGrandTichuBroken: integer('opponent_blind_grand_tichu_broken').notNull().default(0),
+  partnerBlindGrandTichuBroken: integer('partner_blind_grand_tichu_broken').notNull().default(0),
+  blindGrandTichuBrokenByPartner: integer('blind_grand_tichu_broken_by_partner').notNull().default(0),
+
 
   // ── Dog control tracking ──
   dogControlToPartner: integer('dog_control_to_partner').notNull().default(0),

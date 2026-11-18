@@ -5,9 +5,10 @@
 // incremental updates (REQ-F-MC02).
 
 import { sql } from 'drizzle-orm';
+import { countBombContributions, getReceivedBombStats } from './bomb-pass-stats.js';
 import type { Database } from './connection.js';
 import type { Seat } from '@tichu/shared';
-import { getTeam, getPartner, SEATS_IN_ORDER } from '@tichu/shared';
+import { CombinationType, getTeam, getPartner, SEATS_IN_ORDER } from '@tichu/shared';
 
 // ─── Card ID Constants ─────────────────────────────────────────────────
 // Deck layout: 0-51 standard (4 suits × 13 ranks), 52-55 specials
@@ -18,13 +19,6 @@ const DRAGON_ID = 55;
 const ACE_IDS = [12, 25, 38, 51]; // rank 14 in each suit (Jade, Pagoda, Star, Sword)
 
 // ─── Helper: seat column mapping ───────────────────────────────────────
-
-const SEAT_USER_COLS: Record<Seat, string> = {
-  north: 'north_user_id',
-  east: 'east_user_id',
-  south: 'south_user_id',
-  west: 'west_user_id',
-};
 
 function getOpponentSeats(seat: Seat): [Seat, Seat] {
   const myTeam = getTeam(seat);
@@ -255,6 +249,12 @@ interface StatsResult {
   phoenixUsedInConsecutivePairs: number;
   phoenixUsedInStraight: number;
   longestStraightWithPhoenix: number;
+  longestStraight: number;
+  totalBombsReceived: number;
+  opponentBlindGrandTichuBroken: number;
+  partnerBlindGrandTichuBroken: number;
+  blindGrandTichuBrokenByPartner: number;
+
   dogControlToPartner: number;
   dogControlToOpponent: number;
   dogControlToSelf: number;
@@ -320,6 +320,12 @@ function createEmptyStats(): StatsResult {
     phoenixUsedAsSingle: 0, phoenixUsedForPair: 0, phoenixUsedInTriple: 0,
     phoenixUsedInFullHouse: 0, phoenixUsedInConsecutivePairs: 0, phoenixUsedInStraight: 0,
     longestStraightWithPhoenix: 0,
+    longestStraight: 0,
+    totalBombsReceived: 0,
+    opponentBlindGrandTichuBroken: 0,
+    partnerBlindGrandTichuBroken: 0,
+    blindGrandTichuBrokenByPartner: 0,
+
     dogControlToPartner: 0, dogControlToOpponent: 0, dogControlToSelf: 0, dogStuckAsLastCard: 0,
     bombSize4: 0, bombSize5: 0, bombSize6: 0, bombSize7: 0, bombSize8: 0,
     bombSize9: 0, bombSize10: 0, bombSize11: 0, bombSize12: 0, bombSize13: 0, bombSize14: 0,
@@ -618,6 +624,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
       if (!oppPr) continue;
       if (oppPr.tichu_call && !oppPr.tichu_call_success) stats.opponentTichuBroken++;
       if (oppPr.grand_tichu_call && !oppPr.tichu_call_success) stats.opponentGrandTichuBroken++;
+      if (oppPr.blind_grand_tichu_call && !oppPr.tichu_call_success) stats.opponentBlindGrandTichuBroken++;
     }
 
     // Partner tichu broken by me (partner called, I went out first, partner failed)
@@ -625,13 +632,15 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
     if (partnerPr && !partnerPr.tichu_call_success && pr.finish_position === 1) {
       if (partnerPr.tichu_call) stats.partnerTichuBroken++;
       if (partnerPr.grand_tichu_call) stats.partnerGrandTichuBroken++;
+      if (partnerPr.blind_grand_tichu_call) stats.partnerBlindGrandTichuBroken++;
     }
 
     // My tichu broken by partner (I called, partner went out first, I failed)
-    if ((pr.tichu_call || pr.grand_tichu_call) && !pr.tichu_call_success) {
+    if ((pr.tichu_call || pr.grand_tichu_call || pr.blind_grand_tichu_call) && !pr.tichu_call_success) {
       if (partnerPr && partnerPr.finish_position === 1) {
         if (pr.tichu_call) stats.tichuBrokenByPartner++;
         if (pr.grand_tichu_call) stats.grandTichuBrokenByPartner++;
+        if (pr.blind_grand_tichu_call) stats.blindGrandTichuBrokenByPartner++;
       }
     }
 
@@ -728,15 +737,19 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
 
   for (const play of filteredPlays) {
     if (play.action_type === 'play' || play.action_type === 'bomb') {
+      // REQ-F-PS01: Production enum values and card IDs, including Phoenix singles.
+      if (play.combination_type === CombinationType.Straight) {
+        stats.longestStraight = Math.max(stats.longestStraight, play.combination_length ?? 0);
+      }
       // Phoenix usage
-      if (play.phoenix_used_as != null) {
+      if (parseJsonArray(play.cards).includes(PHOENIX_ID)) {
         switch (play.combination_type) {
-          case 'Single': stats.phoenixUsedAsSingle++; break;
-          case 'Pair': stats.phoenixUsedForPair++; break;
-          case 'Triple': stats.phoenixUsedInTriple++; break;
-          case 'FullHouse': stats.phoenixUsedInFullHouse++; break;
-          case 'PairSequence': stats.phoenixUsedInConsecutivePairs++; break;
-          case 'Straight':
+          case CombinationType.Single: stats.phoenixUsedAsSingle++; break;
+          case CombinationType.Pair: stats.phoenixUsedForPair++; break;
+          case CombinationType.Triple: stats.phoenixUsedInTriple++; break;
+          case CombinationType.FullHouse: stats.phoenixUsedInFullHouse++; break;
+          case CombinationType.PairSequence: stats.phoenixUsedInConsecutivePairs++; break;
+          case CombinationType.Straight:
             stats.phoenixUsedInStraight++;
             if (play.combination_length != null) {
               stats.longestStraightWithPhoenix = Math.max(
@@ -834,7 +847,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
           stats.sixPlusCardBombs++;
           const sizeKey = `bombSize${bomb.size}` as keyof StatsResult;
           if (sizeKey in stats && bomb.size >= 6 && bomb.size <= 14) {
-            (stats as any)[sizeKey]++;
+            stats[sizeKey]++;
           }
         }
 
@@ -890,8 +903,8 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
   // theTichuClean/Dirty: a 2-Ace straight (13 cards). Clean = no Phoenix, Dirty = with Phoenix
   // Detect from plays: combination_type = 'Straight' AND combination_length = 13
   for (const play of filteredPlays) {
-    if (play.combination_type === 'Straight' && play.combination_length === 13) {
-      if (play.phoenix_used_as != null) {
+    if (play.combination_type === CombinationType.Straight && play.combination_length === 13) {
+      if (parseJsonArray(play.cards).includes(PHOENIX_ID)) {
         stats.theTichuDirty++;
       } else {
         stats.theTichuClean++;
@@ -901,20 +914,16 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
 
   // Double bomb in trick: 2+ bombs in same trick. Credit the user only if they
   // played the specific round (REQ-F-SA05).
-  const bombsByTrick = new Map<string, { gameId: number; roundNumber: number; seats: Set<string> }>();
+  // REQ-F-PS03: Two bomb plays, including two by the same seat.
+  const bombsByTrick = new Map<string, { gameId: number; roundNumber: number; count: number }>();
   for (const play of allPlays) {
-    if (play.is_bomb) {
-      const key = `${play.game_id}-${play.round_number}-${play.trick_number}`;
-      if (!bombsByTrick.has(key)) {
-        bombsByTrick.set(key, { gameId: play.game_id, roundNumber: play.round_number, seats: new Set() });
-      }
-      bombsByTrick.get(key)!.seats.add(play.seat);
-    }
+    const key = `${play.game_id}-${play.round_number}-${play.trick_number}`;
+    const entry = bombsByTrick.get(key) ?? { gameId: play.game_id, roundNumber: play.round_number, count: 0 };
+    entry.count++;
+    bombsByTrick.set(key, entry);
   }
-  for (const { gameId, roundNumber, seats } of bombsByTrick.values()) {
-    if (seats.size >= 2 && myRoundsByGame.get(gameId)?.has(roundNumber)) {
-      stats.doubleBombInTrick++;
-    }
+  for (const { gameId, roundNumber, count } of bombsByTrick.values()) {
+    if (count >= 2 && myRoundsByGame.get(gameId)?.has(roundNumber)) stats.doubleBombInTrick++;
   }
 
   // All-players-bomb-in-round: all 4 seats played a bomb this round. Credit the
@@ -939,70 +948,25 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
   // Bomb pass tracking (bombGivenToPartner/Opponent, bombReceivedFromPartner/Opponent)
   // ═══════════════════════════════════════════════════════════════════════
 
-  // Check bomb_inventory where acquiredPhase = 'postPass' for received bombs
-  // and check if passed cards contributed to another player's bomb
-  // For V1: use a simplified heuristic from pass data + bomb inventory
+  // REQ-F-PS02: Exact contribution to canonical bombs in each recipient's hand.
   for (const pr of myPlayerRounds) {
     const seat = pr.seat as Seat;
-    const game = userGames.find(g => g.id === pr.game_id);
-    if (!game) continue;
-
-    const partner = getPartner(seat);
-    const opponents = getOpponentSeats(seat);
-
-    // Check if cards I passed completed a bomb for the recipient
-    const passedToPartnerCards = parseJsonArray(pr.passed_to_partner);
-    // Get bomb inventory for all players in this round
-    const roundKey = `${pr.game_id}-${pr.round_number}`;
-    const roundPlayers = prByGameRound.get(roundKey) || [];
-
-    // Check partner's bombs for postPass phase containing my passed card
-    const partnerPr = roundPlayers.find(p => p.seat === partner);
-    if (partnerPr && passedToPartnerCards.length > 0) {
-      const partnerBombs = filteredBombs.filter(b =>
-        b.game_id === pr.game_id && b.round_number === pr.round_number && b.player_seat === partner);
-      // Not exact — simplified for V1: if partner got a postPass bomb and we passed them cards
-      // The old tracker checks if passed cards complete a 4-of-a-kind
-      // For now, check bomb_inventory for partner with acquiredPhase='postPass'
-      for (const bomb of partnerBombs) {
-        if (bomb.acquired_phase === 'postPass') {
-          stats.bombGivenToPartner++;
-          break;
-        }
-      }
+    const roundPlayers = prByGameRound.get(`${pr.game_id}-${pr.round_number}`) ?? [];
+    const partnerHand = parseJsonArray(roundPlayers.find(p => p.seat === getPartner(seat))?.hand_after_pass ?? null);
+    stats.bombGivenToPartner += countBombContributions(partnerHand, parseJsonArray(pr.passed_to_partner));
+    // Passing order follows SEATS_IN_ORDER; left/right are the next/previous seat.
+    const seatIndex = SEATS_IN_ORDER.indexOf(seat);
+    for (const [offset, passed] of [[1, pr.passed_to_left], [3, pr.passed_to_right]] as const) {
+      const recipient = SEATS_IN_ORDER[(seatIndex + offset) % 4];
+      const hand = parseJsonArray(roundPlayers.find(p => p.seat === recipient)?.hand_after_pass ?? null);
+      stats.bombGivenToOpponent += countBombContributions(hand, parseJsonArray(passed));
     }
-
-    // Similar for opponents
-    for (const oppSeat of opponents) {
-      const oppBombs = filteredBombs.filter(b =>
-        b.game_id === pr.game_id && b.round_number === pr.round_number && b.player_seat === oppSeat);
-      for (const bomb of oppBombs) {
-        if (bomb.acquired_phase === 'postPass') {
-          stats.bombGivenToOpponent++;
-          break;
-        }
-      }
-    }
-
-    // Check if I received bombs via pass
-    const myBombsThisRound = filteredBombs.filter(b =>
-      b.game_id === pr.game_id && b.round_number === pr.round_number && b.player_seat === seat);
-    for (const bomb of myBombsThisRound) {
-      if (bomb.acquired_phase === 'postPass') {
-        // Determine if it came from partner or opponent
-        // Check if received_from_partner cards are in the bomb
-        const bombCards = parseJsonArray((bomb as any).cards);
-        const fromPartner = parseJsonArray(pr.received_from_partner);
-        const fromOpponents = [...parseJsonArray(pr.received_from_left), ...parseJsonArray(pr.received_from_right)];
-
-        if (fromPartner.some(c => bombCards.includes(c))) {
-          stats.bombReceivedFromPartner++;
-        } else if (fromOpponents.some(c => bombCards.includes(c))) {
-          stats.bombReceivedFromOpponent++;
-        }
-        break;
-      }
-    }
+    const received = getReceivedBombStats(parseJsonArray(pr.hand_after_pass),
+      parseJsonArray(pr.received_from_partner),
+      [...parseJsonArray(pr.received_from_left), ...parseJsonArray(pr.received_from_right)]);
+    stats.bombReceivedFromPartner += received.partner;
+    stats.bombReceivedFromOpponent += received.opponent;
+    stats.totalBombsReceived += received.total;
   }
 
   return stats;
@@ -1026,118 +990,51 @@ function computeRelationalStatsForUser(database: Database, userId: string): Rela
   const { db } = database;
   const results: RelationalStatsResult[] = [];
 
-  // Get all games for this user
+  // REQ-F-PS03: Only co-participating round tuples establish a relationship.
   const userGames = db.all(sql`
-    SELECT id, status, winner_team, final_score_ns, final_score_ew,
-           north_user_id, east_user_id, south_user_id, west_user_id
-    FROM games
-    WHERE status = 'completed'
-      AND (north_user_id = ${userId} OR east_user_id = ${userId}
-       OR south_user_id = ${userId} OR west_user_id = ${userId})
+    SELECT * FROM games WHERE status = 'completed' AND id IN (
+      SELECT game_id FROM player_rounds WHERE user_id = ${userId}
+    )
   `) as GameRow[];
-
   if (userGames.length === 0) return results;
-
-  const gameIds = userGames.map(g => g.id);
-
-  // Get game_rounds for 1-2 bonus
-  const allRounds = db.all(sql`
-    SELECT game_id, one_two_bonus
-    FROM game_rounds
-    WHERE game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
-  `) as { game_id: number; one_two_bonus: string | null }[];
-
-  // Get bomb plays per seat per game for team bomb counting
-  const bombCounts = db.all(sql`
-    SELECT game_id, round_number, seat, COUNT(*) as bomb_count
-    FROM plays
-    WHERE game_id IN (${sql.join(gameIds.map(id => sql`${id}`), sql`, `)})
-      AND is_bomb = 1
-    GROUP BY game_id, round_number, seat
-  `) as { game_id: number; round_number: number; seat: string; bomb_count: number }[];
-
-  // Accumulate relational stats per (otherUser, relationship)
+  const gameIds = userGames.map(game => game.id);
+  const idList = sql.join(gameIds.map(id => sql`${id}`), sql`, `);
+  const participants = db.all(sql`SELECT game_id, round_number, seat, user_id FROM player_rounds
+    WHERE game_id IN (${idList})`) as PlayerRoundRow[];
+  const rounds = db.all(sql`SELECT game_id, round_number, one_two_bonus FROM game_rounds
+    WHERE game_id IN (${idList})`) as GameRoundRow[];
+  const bombs = db.all(sql`SELECT game_id, round_number, seat FROM plays
+    WHERE game_id IN (${idList}) AND is_bomb = 1 AND action_type IN ('play', 'bomb')`) as PlayRow[];
   const accumulator = new Map<string, RelationalStatsResult>();
-
   for (const game of userGames) {
-    const mySeat = getUserSeat(game, userId)!;
-    const myTeam = getTeam(mySeat);
-    const myTeamStr = getUserTeamStr(mySeat);
-    const won = game.winner_team === myTeamStr;
-
-    // Count 1-2 wins for my team in this game
-    const gameRounds = allRounds.filter(r => r.game_id === game.id);
-    let oneTwoCount = 0;
-    for (const r of gameRounds) {
-      if (r.one_two_bonus === myTeamStr) oneTwoCount++;
-    }
-
-    // Count team bombs in this game
-    let teamBombs = 0;
-    for (const bc of bombCounts) {
-      if (bc.game_id === game.id && getTeam(bc.seat as Seat) === myTeam) {
-        teamBombs += bc.bomb_count;
+    const seenGames = new Set<string>();
+    const seenRounds = new Set<string>();
+    for (const mine of participants.filter(row => row.game_id === game.id && row.user_id === userId)) {
+      const myTeam = getTeam(mine.seat as Seat);
+      const others = participants.filter(row => row.game_id === game.id
+        && row.round_number === mine.round_number && row.seat !== mine.seat);
+      for (const other of others) {
+        const otherUserId = other.user_id ?? '__bot__';
+        const relationship = getTeam(other.seat as Seat) === myTeam ? 'partner' : 'opponent';
+        const key = `${otherUserId}-${relationship}`;
+        const entry = accumulator.get(key) ?? {
+          userId, otherUserId, relationship, gamesPlayed: 0, gamesWon: 0, oneTwoWins: 0, totalTeamBombs: 0,
+        };
+        if (!seenGames.has(key)) {
+          entry.gamesPlayed++;
+          if (getUserSeat(game, userId) !== null && game.winner_team === getUserTeamStr(mine.seat as Seat)) entry.gamesWon++;
+          seenGames.add(key);
+        }
+        const roundKey = `${key}-${mine.round_number}`;
+        if (!seenRounds.has(roundKey)) {
+          if (rounds.some(round => round.game_id === game.id && round.round_number === mine.round_number
+            && round.one_two_bonus === getUserTeamStr(mine.seat as Seat))) entry.oneTwoWins++;
+          entry.totalTeamBombs += bombs.filter(bomb => bomb.game_id === game.id
+            && bomb.round_number === mine.round_number && getTeam(bomb.seat as Seat) === myTeam).length;
+          seenRounds.add(roundKey);
+        }
+        accumulator.set(key, entry);
       }
-    }
-
-    // Process each other player
-    const allSeats: Seat[] = ['north', 'east', 'south', 'west'];
-    const humanPlayers = allSeats
-      .filter(s => s !== mySeat)
-      .map(s => ({ seat: s, id: (game as any)[SEAT_USER_COLS[s]] as string | null }));
-
-    const botSeats = humanPlayers.filter(p => !p.id).map(p => p.seat);
-    const BOT_USER_ID = '__bot__';
-
-    for (const { seat: otherSeat, id: otherUserId } of humanPlayers) {
-      if (!otherUserId) continue;
-      const relationship = getTeam(otherSeat) === myTeam ? 'partner' : 'opponent';
-      const key = `${otherUserId}-${relationship}`;
-
-      if (!accumulator.has(key)) {
-        accumulator.set(key, {
-          userId, otherUserId, relationship,
-          gamesPlayed: 0, gamesWon: 0, oneTwoWins: 0, totalTeamBombs: 0,
-        });
-      }
-      const entry = accumulator.get(key)!;
-      entry.gamesPlayed++;
-      if (won) entry.gamesWon++;
-      entry.oneTwoWins += oneTwoCount;
-      entry.totalTeamBombs += teamBombs;
-    }
-
-    // Bot relationships
-    const hasPartnerBot = botSeats.some(s => getTeam(s) === myTeam);
-    if (hasPartnerBot) {
-      const key = `${BOT_USER_ID}-partner`;
-      if (!accumulator.has(key)) {
-        accumulator.set(key, {
-          userId, otherUserId: BOT_USER_ID, relationship: 'partner',
-          gamesPlayed: 0, gamesWon: 0, oneTwoWins: 0, totalTeamBombs: 0,
-        });
-      }
-      const entry = accumulator.get(key)!;
-      entry.gamesPlayed++;
-      if (won) entry.gamesWon++;
-      entry.oneTwoWins += oneTwoCount;
-      entry.totalTeamBombs += teamBombs;
-    }
-
-    const hasOpponentBot = botSeats.some(s => getTeam(s) !== myTeam);
-    if (hasOpponentBot) {
-      const key = `${BOT_USER_ID}-opponent`;
-      if (!accumulator.has(key)) {
-        accumulator.set(key, {
-          userId, otherUserId: BOT_USER_ID, relationship: 'opponent',
-          gamesPlayed: 0, gamesWon: 0, oneTwoWins: 0, totalTeamBombs: 0,
-        });
-      }
-      const entry = accumulator.get(key)!;
-      entry.gamesPlayed++;
-      if (won) entry.gamesWon++;
-      entry.oneTwoWins += oneTwoCount;
-      entry.totalTeamBombs += teamBombs;
     }
   }
 
@@ -1176,6 +1073,12 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
       phoenix_used_as_single, phoenix_used_for_pair, phoenix_used_in_triple,
       phoenix_used_in_full_house, phoenix_used_in_consecutive_pairs, phoenix_used_in_straight,
       longest_straight_with_phoenix,
+      longest_straight,
+      total_bombs_received,
+      opponent_blind_grand_tichu_broken,
+      partner_blind_grand_tichu_broken,
+      blind_grand_tichu_broken_by_partner,
+
       dog_control_to_partner, dog_control_to_opponent, dog_control_to_self, dog_stuck_as_last_card,
       bomb_size_4, bomb_size_5, bomb_size_6, bomb_size_7, bomb_size_8,
       bomb_size_9, bomb_size_10, bomb_size_11, bomb_size_12, bomb_size_13, bomb_size_14,
@@ -1213,6 +1116,12 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
       ${stats.phoenixUsedAsSingle}, ${stats.phoenixUsedForPair}, ${stats.phoenixUsedInTriple},
       ${stats.phoenixUsedInFullHouse}, ${stats.phoenixUsedInConsecutivePairs}, ${stats.phoenixUsedInStraight},
       ${stats.longestStraightWithPhoenix},
+      ${stats.longestStraight},
+      ${stats.totalBombsReceived},
+      ${stats.opponentBlindGrandTichuBroken},
+      ${stats.partnerBlindGrandTichuBroken},
+      ${stats.blindGrandTichuBrokenByPartner},
+
       ${stats.dogControlToPartner}, ${stats.dogControlToOpponent}, ${stats.dogControlToSelf}, ${stats.dogStuckAsLastCard},
       ${stats.bombSize4}, ${stats.bombSize5}, ${stats.bombSize6}, ${stats.bombSize7}, ${stats.bombSize8},
       ${stats.bombSize9}, ${stats.bombSize10}, ${stats.bombSize11}, ${stats.bombSize12}, ${stats.bombSize13}, ${stats.bombSize14},
