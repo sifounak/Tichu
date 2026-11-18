@@ -111,6 +111,7 @@
 }
 
 .cards {
+  isolation: isolate;
   display: flex;
   transform: translateX(var(--trick-card-center-offset, 0));
   transform-origin: center;

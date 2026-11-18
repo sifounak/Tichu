@@ -108,7 +108,7 @@ describe('TrickDisplay', () => {
       edgePadding: 10,
     });
 
-    expect(layout.overlapPx).toBe(60);
+    expect(layout.overlapPx).toBeCloseTo(105 * 0.54);
     expect(layout.scale).toBeLessThan(1);
     expect(layout.cardWidthPx).toBeLessThan(105);
   });
@@ -122,7 +122,7 @@ describe('TrickDisplay', () => {
       edgePadding: 10,
     });
 
-    expect(layout.overlapPx).toBe(60);
+    expect(layout.overlapPx).toBeCloseTo(105 * 0.54);
     expect(layout.scale).toBeLessThan(1);
   });
 

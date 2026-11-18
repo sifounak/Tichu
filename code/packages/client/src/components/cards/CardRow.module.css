@@ -1,0 +1,24 @@
+.wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.row {
+  display: flex;
+  isolation: isolate;
+  transform-origin: center;
+  flex-shrink: 0;
+}
+
+.slot {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.slot + .slot {
+  /* At least 46% remains visible, including the full width of Do/Ph corner labels. */
+  margin-left: calc(-0.54 * var(--card-width));
+}

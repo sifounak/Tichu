@@ -5,6 +5,7 @@
 
 import { sqliteTable, text, integer, real, uniqueIndex, unique } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import type { UserPreferences } from '@tichu/shared';
 
 // ─── Users ──────────────────────────────────────────────────────────────
 
@@ -46,6 +47,12 @@ export const games = sqliteTable('games', {
   eastName: text('east_name').notNull(),
   southName: text('south_name').notNull(),
   westName: text('west_name').notNull(),
+});
+
+// REQ-F-UP01: One private preferences record per registered account.
+export const userPreferences = sqliteTable('user_preferences', {
+  userId: text('user_id').primaryKey().references(() => users.id),
+  preferences: text('preferences', { mode: 'json' }).$type<UserPreferences>().notNull(),
 });
 
 // ─── Game Rounds ────────────────────────────────────────────────────────

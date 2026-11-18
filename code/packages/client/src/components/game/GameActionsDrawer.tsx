@@ -131,6 +131,7 @@ export const GameActionsDrawer = memo(function GameActionsDrawer({
     }
   }
 
+  items.push({ action: { type: 'preferences' }, label: 'Preferences' });
   items.push({ action: { type: 'gameSettings' }, label: 'Game Settings' });
 
   if (!visible) return null;

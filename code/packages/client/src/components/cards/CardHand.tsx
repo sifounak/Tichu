@@ -2,11 +2,12 @@
 // REQ-NF-U02: Framer Motion card deal + selection animations
 'use client';
 
-import { memo, useMemo, useRef, useState, useEffect, useCallback } from 'react';
+import { memo, useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { GameCard, CardId } from '@tichu/shared';
 import { Card, type CardState } from './Card';
-import { cardSortKey } from './card-utils';
+import { cardIdentifierSide, cardStackIndex, sortCardsForDisplay } from './card-utils';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import { useRovingTabIndex } from '@/hooks/useRovingTabIndex';
 import styles from './CardHand.module.css';
@@ -27,9 +28,10 @@ export const CardHand = memo(function CardHand({
   onCardClick,
   faceDown = false,
 }: CardHandProps) {
+  const { cardOrder, cardOverlap } = usePreferencesStore((s) => s.preferences);
   const sortedCards = useMemo(
-    () => [...cards].sort((a, b) => cardSortKey(b.card) - cardSortKey(a.card)),
-    [cards],
+    () => sortCardsForDisplay(cards, cardOrder),
+    [cards, cardOrder],
   );
 
   const { durations, enabled } = useAnimationSettings();
@@ -39,6 +41,13 @@ export const CardHand = memo(function CardHand({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const [handScale, setHandScale] = useState(1);
+
+  // REQ-F-UP06: Moving a focused DOM node can blur it; restore the same card after sorting.
+  const focusedCardId = typeof document !== 'undefined' && innerRef.current?.contains(document.activeElement)
+    ? document.activeElement?.getAttribute('data-card-id') : null;
+  useLayoutEffect(() => {
+    if (focusedCardId) innerRef.current?.querySelector<HTMLButtonElement>(`button[data-card-id="${focusedCardId}"]`)?.focus();
+  }, [sortedCards, focusedCardId]);
 
   const updateHandScale = useCallback(() => {
     const wrapper = wrapperRef.current;
@@ -57,7 +66,7 @@ export const CardHand = memo(function CardHand({
     inner.offsetHeight; // eslint-disable-line @typescript-eslint/no-unused-expressions
     inner.style.transition = prevTransition;
     if (natural > available) {
-      setHandScale(Math.max(0.5, available / natural));
+      setHandScale(available / natural);
     } else {
       setHandScale(1);
     }
@@ -107,7 +116,7 @@ export const CardHand = memo(function CardHand({
           <motion.div
             key={gc.id}
             className={styles.cardSlot}
-            style={{ '--card-index': i } as React.CSSProperties}
+            style={{ '--card-index': i, zIndex: cardStackIndex(i, sortedCards.length, cardOverlap) } as React.CSSProperties}
             layout={enabled}
             initial={enabled ? { opacity: 0, y: 40, scale: 0.8 } : false}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -121,6 +130,7 @@ export const CardHand = memo(function CardHand({
           >
             <Card
               gameCard={faceDown ? undefined : gc}
+              identifierSide={cardIdentifierSide(cardOverlap)}
               state={getState(gc.id)}
               onClick={onCardClick ? () => onCardClick(gc.id) : undefined}
             />

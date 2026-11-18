@@ -14,6 +14,7 @@ import { RoomHandler } from './room/room-handler.js';
 import { GameHandler } from './game/game-handler.js';
 import { createDatabase, type Database } from './db/connection.js';
 import { registerAuthRoutes } from './auth/auth-routes.js';
+import { registerPreferencesRoutes } from './auth/preferences-routes.js';
 import { verifyToken } from './auth/account.js';
 import { saveActiveGames, saveActiveRooms, loadActiveGames, loadActiveRooms, clearActiveGames, clearActiveRooms } from './db/active-game-persistence.js';
 import { GameManager } from './game/game-manager.js';
@@ -49,7 +50,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
   // CORS headers
   fastify.addHook('onRequest', async (request, reply) => {
     reply.header('Access-Control-Allow-Origin', cfg.corsOrigin);
-    reply.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
     reply.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (request.method === 'OPTIONS') {
       reply.status(204).send();
@@ -68,6 +69,7 @@ export function createApp(config: Partial<AppConfig> = {}) {
   try {
     database = createDatabase(dbPath);
     registerAuthRoutes(fastify, database, jwtSecret);
+    registerPreferencesRoutes(fastify, database, jwtSecret);
     // REQ-F-ST05: Recover any event data from previous server crashes
     try {
       recoverFromCrash(database);

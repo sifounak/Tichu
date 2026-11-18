@@ -3,6 +3,7 @@ import './globals.css';
 import { ScaleProvider } from '@/components/ScaleProvider';
 import { DebugOutlines } from '@/components/DebugOutlines';
 import { ActiveGameBanner } from '@/components/ActiveGameBanner';
+import { PreferencesController } from '@/components/preferences/PreferencesController';
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preload" href={`${basePath}/images/cards/dog.png`} as="image" />
         <link rel="preload" href={`${basePath}/images/cards/mahjong.png`} as="image" />
       </head>
-      <body><DebugOutlines /><ActiveGameBanner /><ScaleProvider>{children}</ScaleProvider></body>
+      <body><DebugOutlines /><ActiveGameBanner /><ScaleProvider><PreferencesController />{children}</ScaleProvider></body>
     </html>
   );
 }

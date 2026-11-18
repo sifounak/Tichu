@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 
 interface UserMenuProps {
   user: { username: string };
@@ -97,6 +98,14 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
             Play Stats
           </Link>
 
+          <button
+            type="button"
+            onClick={() => { setOpen(false); void usePreferencesStore.getState().openDialog(); }}
+            style={{ display: 'block', width: '100%', padding: '10px 16px', color: 'var(--color-text-primary)',
+              background: 'transparent', border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: '14px' }}
+          >
+            Preferences
+          </button>
           <div style={{ height: '1px', background: 'var(--color-border)' }} />
 
           {/* REQ-F-LU05: Log Out */}

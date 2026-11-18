@@ -185,6 +185,7 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 | `uiStore.ts` | selectedCardIds, phoenixPickerOptions, connectionStatus, animationSpeed, chatMessages, chatOpen, chatUnread, disconnectedSeat, disconnectVoteRequired, tichuEvent, errorToast | Client-only UI state. Card selection, chat, animations, disconnect overlay. |
 | `roomStore.ts` | roomCode, mySeat, players, hostSeat, config, gameInProgress, lobbyRooms | Room membership and lobby browsing. |
 | `authStore.ts` | user, token, loading, error | Guest/account auth. Methods: initGuest, register, login, logout, loadFromStorage. |
+| `preferencesStore.ts` | saved preferences, draft, account identity, loading/saving/error | Account-only preferences; drafts apply after successful Save; stale responses ignored. See [Account preferences](account-preferences.md). |
 
 ### Hooks (`hooks/`)
 
@@ -225,7 +226,8 @@ Card points (K/10=10, 5=5, Dragon=25, Phoenix=-25), deck size (56), deal sizes (
 | Component | Purpose |
 |-----------|---------|
 | `Card.tsx` | Single card (face/back). States: normal, selected, disabled, faceDown. |
-| `CardHand.tsx` | Fan layout with selection, staggered deal animation, sorted by cardSortKey, roving tabindex. |
+| `CardHand.tsx` | Fan layout with selection, deal animation, user-selected sorting/stacking, exposed-edge identifiers, keyboard focus preservation. |
+| `CardRow.tsx` | Shared non-interactive card rows for preference and bomb previews, using the same sort/stack rules as gameplay. |
 | `PhoenixValuePicker.tsx` | Modal grid to choose Phoenix rank (2-A). |
 | `card-utils.ts` | SUIT_SYMBOLS, RANK_LABELS, suitColor(), cardSortKey(), cardAriaLabel(). |
 

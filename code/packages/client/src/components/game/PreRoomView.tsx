@@ -24,6 +24,7 @@ import { ActionConfirmDialog, type ConfirmDialogAction } from './ActionConfirmDi
 import { SpectatorPresence } from './SpectatorPresence';
 import { useUiStore, isOnCooldown, getCooldownRemaining } from '@/stores/uiStore';
 import { useRoomStore } from '@/stores/roomStore';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import styles from './PreRoomView.module.css';
 
 // REQ-F-GA49: Allow self-kick (set to false to disallow)
@@ -245,6 +246,9 @@ export function PreRoomView({
         break;
       case 'gameSettings':
         setShowSettings(true);
+        break;
+      case 'preferences':
+        void usePreferencesStore.getState().openDialog();
         break;
       case 'toggleVoting':
         send({ type: 'TOGGLE_VOTING' });

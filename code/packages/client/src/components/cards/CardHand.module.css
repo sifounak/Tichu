@@ -8,6 +8,7 @@
 
 /* Card hand fan layout with overlap */
 .hand {
+  isolation: isolate;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -17,7 +18,8 @@
 }
 
 .cardSlot {
-  margin-left: calc(-1 * var(--card-overlap-desktop));
+  position: relative;
+  margin-left: calc(-1 * min(var(--card-overlap-desktop), var(--card-width) * 0.54));
   transition: margin var(--duration-fast) var(--easing-smooth);
 }
 
@@ -27,7 +29,7 @@
 
 /* Mobile tier: use the same --card-overlap-desktop variable (dynamically set per card count) */
 :root[data-layout="mobile"] .cardSlot {
-  margin-left: calc(-1 * var(--card-overlap-desktop));
+  margin-left: calc(-1 * min(var(--card-overlap-desktop), var(--card-width) * 0.54));
 }
 
 :root[data-layout="mobile"] .cardSlot:first-child {

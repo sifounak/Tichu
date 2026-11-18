@@ -24,6 +24,10 @@ export interface CardProps {
   style?: React.CSSProperties;
   /** REQ-NF-U03: Tab index for roving tabindex keyboard navigation */
   tabIndex?: number;
+  /** Identifier edge exposed by the enclosing card group's stacking direction. */
+  identifierSide?: 'left' | 'right';
+  /** Non-interactive previews do not participate in tab navigation. */
+  preview?: boolean;
 }
 
 /** Image paths for special card icons — drop PNG files into public/images/cards/ */
@@ -84,7 +88,7 @@ function CardBack() {
   );
 }
 
-export const Card = memo(function Card({ gameCard, state = 'normal', onClick, style, tabIndex }: CardProps) {
+export const Card = memo(function Card({ gameCard, state = 'normal', onClick, style, tabIndex, identifierSide = 'left', preview = false }: CardProps) {
   const isFaceDown = state === 'faceDown' || !gameCard;
   const isDisabled = state === 'disabled';
   const isSelected = state === 'selected';
@@ -94,10 +98,19 @@ export const Card = memo(function Card({ gameCard, state = 'normal', onClick, st
     isSelected && styles.selected,
     isDisabled && styles.disabled,
     isFaceDown && styles.faceDown,
+    identifierSide === 'right' && styles.identifiersRight,
+    preview && styles.preview,
   ]
     .filter(Boolean)
     .join(' ');
 
+  if (preview) {
+    return (
+      <div className={className} style={style} data-card-id={gameCard?.id} data-identifier-side={identifierSide}>
+        {isFaceDown ? <CardBack /> : <CardFace card={gameCard!.card} />}
+      </div>
+    );
+  }
   return (
     <button
       type="button"
@@ -109,6 +122,7 @@ export const Card = memo(function Card({ gameCard, state = 'normal', onClick, st
       style={style}
       tabIndex={tabIndex}
       data-card-id={gameCard?.id}
+      data-identifier-side={identifierSide}
     >
       {isFaceDown ? <CardBack /> : <CardFace card={gameCard!.card} />}
     </button>

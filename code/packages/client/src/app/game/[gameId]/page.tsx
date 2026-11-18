@@ -34,7 +34,7 @@ import { SpectatorOverlay } from '@/components/game/SpectatorOverlay';
 import { KickDialog } from '@/components/game/KickDialog';
 import { SeatClaimRejectedDialog } from '@/components/game/SeatClaimRejectedDialog';
 import { HostTransferDialog } from '@/components/game/HostTransferDialog';
-import { Card } from '@/components/cards/Card';
+import { CardRow } from '@/components/cards/CardRow';
 import { CardHand } from '@/components/cards/CardHand';
 import { PhoenixValuePicker } from '@/components/cards/PhoenixValuePicker';
 import { WishPicker } from '@/components/game/WishPicker';
@@ -50,6 +50,7 @@ import { ActionConfirmDialog, type ConfirmDialogAction } from '@/components/game
 import { ActionSpinner } from '@/components/game/ActionSpinner';
 import { SpectatorPresence } from '@/components/game/SpectatorPresence';
 import { GameSettingsForm } from '@/components/ui/GameSettingsForm';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { isOnCooldown, getCooldownRemaining } from '@/stores/uiStore';
 import { shouldResetPassStateForPhaseTransition } from '@/lib/passPhaseState';
 import {
@@ -1114,6 +1115,9 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
         break;
       case 'gameSettings':
         setShowSettings(true);
+        break;
+      case 'preferences':
+        void usePreferencesStore.getState().openDialog();
         break;
       case 'toggleVoting':
         send({ type: 'TOGGLE_VOTING' });
@@ -2426,11 +2430,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                               }}
                               aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
                             >
-                              {bomb.cards.map((gc, j) => (
-                                <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
-                                  <Card gameCard={gc} state="normal" />
-                                </div>
-                              ))}
+                              <CardRow cards={bomb.cards} combination={bomb} label="Bomb preview"
+                                  style={{ '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))',
+                                    '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))',
+                                    '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties} />
                             </div>
                           ))}
                         </div>
@@ -2774,11 +2777,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                               aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
                             >
-                              {bomb.cards.map((gc, j) => (
-                                <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
-                                  <Card gameCard={gc} state="normal" />
-                                </div>
-                              ))}
+                              <CardRow cards={bomb.cards} combination={bomb} label="Bomb preview"
+                                  style={{ '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))',
+                                    '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))',
+                                    '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties} />
                             </div>
                           ))}
                         </div>
@@ -2870,11 +2872,10 @@ function GamePageInner(props: { params: Promise<{ gameId: string }> }) {
                   }}
                   aria-label={bomb.type === CombinationType.FourBomb ? `Four ${bomb.rank}s bomb` : `Straight flush bomb ${bomb.cards.length} cards`}
                 >
-                  {bomb.cards.map((gc, j) => (
-                    <div key={gc.id} style={{ pointerEvents: 'none', marginLeft: j > 0 ? 'calc(-18px * var(--scale))' : 0, '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))', '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))', '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties}>
-                      <Card gameCard={gc} state="normal" />
-                    </div>
-                  ))}
+                  <CardRow cards={bomb.cards} combination={bomb} label="Bomb preview"
+                                  style={{ '--card-width': 'calc(42px * var(--scale))', '--card-height': 'calc(60px * var(--scale))',
+                                    '--card-font-size': 'calc(11px * var(--scale))', '--card-suit-size': 'calc(13px * var(--scale))',
+                                    '--card-border-radius': 'calc(4px * var(--scale))' } as React.CSSProperties} />
                 </div>
               ))}
             </div>

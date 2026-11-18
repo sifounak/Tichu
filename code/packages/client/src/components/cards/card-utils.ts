@@ -1,5 +1,5 @@
 // Card display utilities: suit symbols, rank labels, colors
-import { Suit, CombinationType, type Card, type GameCard, type Rank, type Combination } from '@tichu/shared';
+import { Suit, CombinationType, type Card, type GameCard, type Rank, type Combination, type CardOrder, type CardOverlap } from '@tichu/shared';
 
 /** Unicode suit symbols — REQ-NF-U05: symbols distinguish suits, not just color */
 export const SUIT_SYMBOLS: Record<Suit, string> = {
@@ -57,17 +57,10 @@ export function cardAriaLabel(card: Card): string {
   return SPECIAL_NAMES[card.kind];
 }
 
-/**
- * Sort key for ordering cards in hand.
- * Hand is sorted descending left-to-right: highest-value cards on the left, lowest on the right.
- * Order (left to right): Dragon, Phoenix, A…2 by rank, Mahjong, Dog
- *
- * Dog = 0 (leftmost), standard cards by ascending rank,
- * Dragon = 16 (rightmost).
- */
+/** Ascending display key: Dog, Mahjong, 2 through Ace, Phoenix, Dragon; ties use suit. */
 export function cardSortKey(card: Card): number {
   switch (card.kind) {
-    case 'dog': return 0;               // leftmost (lowest value)
+    case 'dog': return 0;               // lowest display value
     case 'mahjong': return 1;           // after dog, before 2s
     case 'standard': {
       // Rank 2 → key 2, Rank 14 (Ace) → key 14; within same rank, break tie by suit
@@ -75,7 +68,7 @@ export function cardSortKey(card: Card): number {
       return 2 + (card.rank - 2) + suitTie[card.suit];
     }
     case 'phoenix': return 15;          // after aces, before dragon
-    case 'dragon': return 16;           // rightmost (highest value)
+    case 'dragon': return 16;           // highest display value
   }
 }
 
@@ -87,130 +80,41 @@ function effectiveRank(gc: GameCard, phoenixUsedAs?: Rank): number {
   return 0;
 }
 
-/**
- * Sort combination cards for display in the trick area.
- *
- * - Full House: 3-of-a-kind on the left, pair on the right
- * - Straight / Straight Flush Bomb: descending rank (highest left); Phoenix in its substituted slot
- * - Pair Sequence: descending rank (highest left); Phoenix after its duplicate card
- * - Pair / Triple: Phoenix at end of group
- * - Single / Four Bomb: no reordering needed
- */
-export function sortCombinationForDisplay(combo: Combination): GameCard[] {
-  const { type, cards, phoenixUsedAs } = combo;
+/** REQ-F-UP04: Display copies preserve card identity and never reorder game state. */
+export function sortCardsForDisplay(cards: GameCard[], order: CardOrder = 'descending'): GameCard[] {
+  const direction = order === 'ascending' ? 1 : -1;
+  return [...cards].sort((a, b) => direction * (cardSortKey(a.card) - cardSortKey(b.card)));
+}
 
-  if (cards.length <= 1) return cards;
-
-  const phoenixIdx = cards.findIndex((gc) => gc.card.kind === 'phoenix');
-  const hasPhoenix = phoenixIdx >= 0;
-
-  switch (type) {
-    case CombinationType.FullHouse: {
-      // Group by rank, 3-of-a-kind first (left), pair second (right)
-      const nonPhoenix = cards.filter((gc) => gc.card.kind !== 'phoenix');
-      const rankCounts = new Map<number, GameCard[]>();
-      for (const gc of nonPhoenix) {
-        const r = effectiveRank(gc, phoenixUsedAs);
-        const arr = rankCounts.get(r) ?? [];
-        arr.push(gc);
-        rankCounts.set(r, arr);
-      }
-
-      let tripleCards: GameCard[] = [];
-      let pairCards: GameCard[] = [];
-
-      if (hasPhoenix && phoenixUsedAs !== undefined) {
-        // Phoenix completes either the triple or the pair
-        // Find which group has 2 cards and which has 1 — Phoenix fills the smaller
-        for (const [rank, group] of rankCounts) {
-          if (group.length === 3) {
-            tripleCards = group;
-          } else if (group.length === 2) {
-            // Check if Phoenix is completing this to a triple or if it's the pair
-            if (rank === phoenixUsedAs && tripleCards.length === 0) {
-              // Phoenix makes this group a triple
-              tripleCards = [cards[phoenixIdx], ...group];
-            } else {
-              pairCards = group;
-            }
-          } else if (group.length === 1) {
-            if (rank === phoenixUsedAs) {
-              pairCards = [cards[phoenixIdx], ...group];
-            } else {
-              pairCards = group;
-            }
-          }
-        }
-        // Fallback: if we still don't have both groups assigned
-        if (tripleCards.length === 0 || pairCards.length === 0) {
-          const groups = [...rankCounts.values()].sort((a, b) => b.length - a.length);
-          if (groups.length >= 2) {
-            const bigger = groups[0];
-            const smaller = groups[1];
-            if (bigger.length === 2 && smaller.length === 2) {
-              // 2+2+phoenix: phoenix completes one to triple
-              tripleCards = [cards[phoenixIdx], ...rankCounts.get(phoenixUsedAs)!];
-              pairCards = [...rankCounts.values()].find(
-                (g) => effectiveRank(g[0], phoenixUsedAs) !== phoenixUsedAs,
-              )!;
-            } else {
-              tripleCards = bigger;
-              pairCards = [cards[phoenixIdx], ...smaller];
-            }
-          }
-        }
-      } else {
-        // No phoenix — straightforward grouping
-        for (const group of rankCounts.values()) {
-          if (group.length === 3) tripleCards = group;
-          else if (group.length === 2) pairCards = group;
-        }
-      }
-
-      return [...tripleCards, ...pairCards];
-    }
-
-    case CombinationType.Straight:
-    case CombinationType.StraightFlushBomb: {
-      // Sort by descending rank (highest left); Phoenix goes in its phoenixUsedAs slot
-      const sorted = [...cards].sort((a, b) => {
-        const ra = effectiveRank(a, phoenixUsedAs);
-        const rb = effectiveRank(b, phoenixUsedAs);
-        if (ra !== rb) return rb - ra;
-        // If same effective rank (shouldn't happen in a straight, but safety):
-        // put standard card before phoenix
-        if (a.card.kind === 'phoenix') return 1;
-        if (b.card.kind === 'phoenix') return -1;
-        return 0;
-      });
-      return sorted;
-    }
-
-    case CombinationType.PairSequence: {
-      // Sort descending by rank (highest left); within each pair, Phoenix goes after its duplicate
-      const sorted = [...cards].sort((a, b) => {
-        const ra = effectiveRank(a, phoenixUsedAs);
-        const rb = effectiveRank(b, phoenixUsedAs);
-        if (ra !== rb) return rb - ra;
-        // Same rank: put phoenix after standard card
-        if (a.card.kind === 'phoenix') return 1;
-        if (b.card.kind === 'phoenix') return -1;
-        return 0;
-      });
-      return sorted;
-    }
-
-    case CombinationType.Pair:
-    case CombinationType.Triple: {
-      // Phoenix at the start of the group for unambiguous display
-      if (!hasPhoenix) return cards;
-      const nonPhoenix = cards.filter((gc) => gc.card.kind !== 'phoenix');
-      return [cards[phoenixIdx], ...nonPhoenix];
-    }
-
-    case CombinationType.FourBomb:
-    case CombinationType.Single:
-    default:
-      return cards;
+/** REQ-F-UP05: The full-house triple sits at the top end of the chosen stack. */
+export function sortCombinationForDisplay(
+  combo: Combination,
+  order: CardOrder = 'descending',
+  overlap: CardOverlap = 'rightOnTop',
+): GameCard[] {
+  const direction = order === 'ascending' ? 1 : -1;
+  const sameRank = (a: GameCard, b: GameCard) => {
+    // Preserve Phoenix's existing position within equal-rank groups.
+    if (a.card.kind === 'phoenix') return combo.type === CombinationType.PairSequence ? 1 : -1;
+    if (b.card.kind === 'phoenix') return combo.type === CombinationType.PairSequence ? -1 : 1;
+    return direction * (cardSortKey(a.card) - cardSortKey(b.card));
+  };
+  if (combo.type === CombinationType.FullHouse) {
+    const triple = combo.cards.filter((gc) => effectiveRank(gc, combo.phoenixUsedAs) === combo.rank).sort(sameRank);
+    const pair = combo.cards.filter((gc) => effectiveRank(gc, combo.phoenixUsedAs) !== combo.rank).sort(sameRank);
+    return overlap === 'leftOnTop' ? [...triple, ...pair] : [...pair, ...triple];
   }
+  return [...combo.cards].sort((a, b) => {
+    const rankDifference = effectiveRank(a, combo.phoenixUsedAs) - effectiveRank(b, combo.phoenixUsedAs);
+    return rankDifference ? direction * rankDifference : sameRank(a, b);
+  });
+}
+
+/** REQ-F-UP06: Explicit local stacking leaves the identifier edge exposed. */
+export function cardStackIndex(index: number, count: number, overlap: CardOverlap): number {
+  return overlap === 'leftOnTop' ? count - index : index + 1;
+}
+
+export function cardIdentifierSide(overlap: CardOverlap): 'left' | 'right' {
+  return overlap === 'leftOnTop' ? 'right' : 'left';
 }

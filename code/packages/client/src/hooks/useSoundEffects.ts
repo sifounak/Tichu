@@ -3,6 +3,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import type { UserPreferences } from '@tichu/shared';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 
 export type SoundEvent =
   | 'dragon'
@@ -33,22 +35,18 @@ const SOUND_FILES: Record<SoundEvent, string> = {
   timerOutOfTime: `${BASE_PATH}/sounds/timer-out-of-time.mp3`,
 };
 
-const STORAGE_KEY_MUTED = 'tichu_sound_muted';
-const STORAGE_KEY_VOLUME = 'tichu_sound_volume';
+const PLAYBACK_VOLUME = 0.7;
 
-function loadMuted(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(STORAGE_KEY_MUTED) === 'true';
-}
-
-function loadVolume(): number {
-  if (typeof window === 'undefined') return 0.7;
-  const stored = localStorage.getItem(STORAGE_KEY_VOLUME);
-  if (stored !== null) {
-    const v = parseFloat(stored);
-    if (!isNaN(v) && v >= 0 && v <= 1) return v;
+/** REQ-F-UP07: One sound gate for both playback implementations. */
+export function isSoundEnabled(event: SoundEvent, preferences: UserPreferences): boolean {
+  if (!preferences.soundEnabled) return false;
+  switch (event) {
+    case 'yourTurn': return preferences.yourTurnSound;
+    case 'timerCountdown':
+    case 'timerOutOfTime': return preferences.timerWarningSound;
+    case 'chat': return preferences.chatSound;
+    default: return preferences.cardsAndWagersSound;
   }
-  return 0.7;
 }
 
 /**
@@ -61,8 +59,6 @@ export function useSoundEffects() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const buffersRef = useRef<Map<SoundEvent, AudioBuffer>>(new Map());
   const gainNodeRef = useRef<GainNode | null>(null);
-  const mutedRef = useRef(loadMuted());
-  const volumeRef = useRef(loadVolume());
   // Fallback for browsers without Web Audio API
   const fallbackPoolRef = useRef<Map<SoundEvent, HTMLAudioElement[]>>(new Map());
   const usingWebAudioRef = useRef(true);
@@ -78,7 +74,7 @@ export function useSoundEffects() {
         const instances = [new Audio(src), new Audio(src)];
         for (const audio of instances) {
           audio.preload = 'auto';
-          audio.volume = volumeRef.current;
+          audio.volume = PLAYBACK_VOLUME;
         }
         pool.set(event, instances);
       }
@@ -91,7 +87,7 @@ export function useSoundEffects() {
 
     // Create a gain node for volume control
     const gainNode = ctx.createGain();
-    gainNode.gain.value = volumeRef.current;
+    gainNode.gain.value = PLAYBACK_VOLUME;
     gainNode.connect(ctx.destination);
     gainNodeRef.current = gainNode;
 
@@ -114,7 +110,7 @@ export function useSoundEffects() {
   }, []);
 
   const playSound = useCallback((event: SoundEvent) => {
-    if (mutedRef.current) return;
+    if (!isSoundEnabled(event, usePreferencesStore.getState().preferences)) return;
 
     // Web Audio API path — near-instant playback from pre-decoded buffer
     if (usingWebAudioRef.current) {
@@ -139,37 +135,10 @@ export function useSoundEffects() {
     const instances = fallbackPoolRef.current.get(event);
     if (!instances) return;
     const audio = instances.find(a => a.paused || a.ended) ?? instances[0];
-    audio.volume = volumeRef.current;
+    audio.volume = PLAYBACK_VOLUME;
     audio.currentTime = 0;
     audio.play().catch(() => {});
   }, []);
 
-  const setMuted = useCallback((muted: boolean) => {
-    mutedRef.current = muted;
-    localStorage.setItem(STORAGE_KEY_MUTED, String(muted));
-  }, []);
-
-  const setVolume = useCallback((volume: number) => {
-    const v = Math.max(0, Math.min(1, volume));
-    volumeRef.current = v;
-    localStorage.setItem(STORAGE_KEY_VOLUME, String(v));
-    // Update gain node for Web Audio API
-    if (gainNodeRef.current) {
-      gainNodeRef.current.gain.value = v;
-    }
-    // Update fallback pool if in use
-    for (const instances of fallbackPoolRef.current.values()) {
-      for (const audio of instances) {
-        audio.volume = v;
-      }
-    }
-  }, []);
-
-  return {
-    playSound,
-    isMuted: () => mutedRef.current,
-    getVolume: () => volumeRef.current,
-    setMuted,
-    setVolume,
-  };
+  return { playSound };
 }

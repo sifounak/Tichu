@@ -3,6 +3,7 @@
 // Both client and server import this package.
 
 export * from './types/index.js';
+export * from './types/preferences.js';
 export * from './constants.js';
 export * from './engine/deck.js';
 export * from './engine/combination-detector.js';

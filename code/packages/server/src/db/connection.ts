@@ -69,6 +69,11 @@ function syncSchema(client: BetterSqlite3Database): void {
     CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users(email);
     CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username);
 
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id TEXT PRIMARY KEY REFERENCES users(id),
+      preferences TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS games (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       room_code TEXT NOT NULL,

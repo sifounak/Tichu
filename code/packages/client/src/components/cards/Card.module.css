@@ -71,8 +71,8 @@
 
 .rank {
   position: absolute;
-  top: var(--space-1);
-  left: calc(6px * var(--scale));
+  top: calc(var(--card-width) * 0.04);
+  left: calc(var(--card-width) * 0.045);
   font-size: var(--card-font-size);
   font-weight: 700;
   line-height: 1;
@@ -80,10 +80,21 @@
 
 .suitCorner {
   position: absolute;
-  top: calc(var(--card-font-size) + var(--space-2));
-  left: calc(6px * var(--scale));
-  font-size: var(--font-base);
+  top: calc(var(--card-font-size) + var(--card-width) * 0.09);
+  left: calc(var(--card-width) * 0.045);
+  font-size: calc(var(--card-font-size) * 0.65);
   line-height: 1;
+}
+
+.identifiersRight .rank,
+.identifiersRight .suitCorner {
+  left: auto;
+  right: calc(var(--card-width) * 0.045);
+}
+
+.preview {
+  cursor: default;
+  pointer-events: none;
 }
 
 .suitCenter {

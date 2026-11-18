@@ -8,7 +8,8 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import { AnimatePresence, motion } from 'framer-motion';
 import type { TrickState, Seat, Rank } from '@tichu/shared';
 import { Card } from '../cards/Card';
-import { sortCombinationForDisplay } from '../cards/card-utils';
+import { cardIdentifierSide, cardStackIndex, sortCombinationForDisplay } from '../cards/card-utils';
+import { usePreferencesStore } from '@/stores/preferencesStore';
 import { useAnimationSettings } from '@/hooks/useAnimationSettings';
 import styles from './TrickDisplay.module.css';
 
@@ -22,7 +23,7 @@ const RANK_FULL_NAMES: Record<number, string> = {
   8: '8', 9: '9', 10: '10', 11: 'Jack', 12: 'Queen', 13: 'King', 14: 'Ace',
 };
 
-const TRICK_CARD_MIN_VISIBLE_RATIO = 0.28;
+const TRICK_CARD_MIN_VISIBLE_RATIO = 0.46;
 const TRICK_CARD_EDGE_PADDING_PX = 10;
 
 interface TrickCardLayout {
@@ -217,6 +218,7 @@ export const TrickDisplay = memo(function TrickDisplay({
   endOfTrickBombWindowEndTime,
   serverClockOffsetMs = 0,
 }: TrickDisplayProps) {
+  const { cardOrder, cardOverlap } = usePreferencesStore((s) => s.preferences);
   const { durations, enabled } = useAnimationSettings();
   const trickRef = useRef<HTMLDivElement>(null);
   const [cardLayout, setCardLayout] = useState<TrickCardLayout>({
@@ -458,7 +460,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                         '--trick-card-center-offset': `${cardLayout.centerOffsetPx}px`,
                       } as React.CSSProperties}
                     >
-                      {sortCombinationForDisplay(latestPlay.combination).map((gc, cardIdx) => {
+                      {sortCombinationForDisplay(latestPlay.combination, cardOrder, cardOverlap).map((gc, cardIdx) => {
                         const isPhoenixSingle =
                           latestPlay.combination.type === 'single' &&
                           gc.card.kind === 'phoenix';
@@ -472,6 +474,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                           <motion.div
                             key={gc.id}
                             className={styles.trickCard}
+                            style={{ zIndex: cardStackIndex(cardIdx, cardCount, cardOverlap) }}
                             initial={enabled && isBombPlay ? { scale: 1.5, rotate: 0, y: 0, x: 0, opacity: 1 } : false}
                             animate={enabled && isBombPlay
                               ? { scale: [1.5, 1, 1], rotate: [0, 0, fanRotate], y: [0, 0, fanY], x: [0, 0, fanX], opacity: 1 }
@@ -480,7 +483,7 @@ export const TrickDisplay = memo(function TrickDisplay({
                               ? { duration: 0.45, times: [0, 0.33, 1], ease: ['easeIn', 'easeOut'] }
                               : { duration: durations.bombEffect }}
                           >
-                            <Card gameCard={gc} state="normal" />
+                            <Card gameCard={gc} state="normal" identifierSide={cardIdentifierSide(cardOverlap)} />
                             {isPhoenixSingle && (
                               <div className={styles.phoenixValue}>
                                 {formatPhoenixValue(latestPlay.combination.rank)}

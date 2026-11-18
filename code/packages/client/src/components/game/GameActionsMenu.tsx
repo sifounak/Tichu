@@ -24,6 +24,7 @@ export type MenuAction =
   | { type: 'restartGame' }
   | { type: 'transferHost' }
   | { type: 'gameSettings' }
+  | { type: 'preferences' }
   | { type: 'toggleVoting' }
   | { type: 'toggleBlindGrand' }
   | { type: 'toggleAutopilot' }
@@ -168,6 +169,7 @@ export const GameActionsMenu = memo(function GameActionsMenu({
   }
 
   // REQ-F-GA30: Game Settings always last
+  items.push({ action: { type: 'preferences' }, label: 'Preferences' });
   items.push({ action: { type: 'gameSettings' }, label: 'Game Settings' });
 
   // REQ-F-GA58: Arrow key navigation
