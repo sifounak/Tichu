@@ -1,3 +1,4 @@
+import type { ParticipationRecord } from '@tichu/shared';
 // REQ-F-DR01: Dragon trick given to opponent
 // REQ-F-DR02: Dragon auto-select when 1 opponent left
 // REQ-F-DR03: Bomb overrides Dragon gift
@@ -103,6 +104,9 @@ export class GameManager {
   private readonly joinedAfterSpectating = new Set<string>();
   /** Track all human users who have occupied seats during this game */
   private readonly humanParticipants = new Set<string>();
+  private hadBotParticipant = false;
+  private participationInferred = false;
+  private onParticipationChanged?: (record: ParticipationRecord) => void;
   /** REQ-F-CP01/ST01: New event capture system — accumulates structured event data in memory */
   private readonly eventCapture: GameEventCapture;
   /** REQ-F-CP02: Track when each player's turn started (for durationMs) */
@@ -433,7 +437,24 @@ export class GameManager {
 
   /** Record a human user as having participated in this game. */
   addHumanParticipant(userId: string): void {
+    const isNew = !this.humanParticipants.has(userId);
     this.humanParticipants.add(userId);
+    if (isNew) this.notifyParticipationChanged();
+  }
+
+  // REQ-F-PS05: Sticky participation survives bot removal and game restoration.
+  getParticipationRecord(): ParticipationRecord {
+    return { humanUserIds: [...this.humanParticipants], hadBot: this.hadBotParticipant, inferred: this.participationInferred };
+  }
+
+  wireParticipationChangedCallback(callback: (record: ParticipationRecord) => void): void {
+    this.onParticipationChanged = callback;
+  }
+
+  private notifyParticipationChanged(): void {
+    const record = this.getParticipationRecord();
+    this.eventCapture.getAccumulator().participation = record;
+    this.onParticipationChanged?.(record);
   }
 
   /** True when 2+ distinct humans have occupied seats during this game. */
@@ -543,6 +564,10 @@ export class GameManager {
   /** REQ-F-MP01: Register a bot at the given seat */
   registerBot(seat: Seat): void {
     this.botRunner.addBot(seat, new Bot());
+    if (!this.hadBotParticipant) {
+      this.hadBotParticipant = true;
+      this.notifyParticipationChanged();
+    }
   }
 
   /** Get the disconnect handler (for state projection access) */
@@ -1252,6 +1277,7 @@ export class GameManager {
       choosingSeats: serializeSet(this.choosingSeats),
       joinedAfterSpectating: serializeSet(this.joinedAfterSpectating),
       humanParticipants: serializeSet(this.humanParticipants),
+      participation: this.getParticipationRecord(),
       endOfTrickBombWindowEndTime: this.endOfTrickBombWindowEndTime,
       timerState: this.timer.serialize(),
       botSeats: this.botRunner.getBotSeats(),
@@ -1379,10 +1405,13 @@ export class GameManager {
     }
     (instance as unknown as { joinedAfterSpectating: Set<string> }).joinedAfterSpectating = deserializeSet(snapshot.joinedAfterSpectating);
     (instance as unknown as { humanParticipants: Set<string> }).humanParticipants =
-      new Set(snapshot.humanParticipants ?? []);
+      new Set(snapshot.participation?.humanUserIds ?? snapshot.humanParticipants ?? []);
+    instance.hadBotParticipant = snapshot.participation?.hadBot ?? (snapshot.botSeats.length > 0);
+    instance.participationInferred = snapshot.participation?.inferred ?? true;
 
     // REQ-F-CP01: Initialize fresh event capture for restored game
     (instance as unknown as { eventCapture: GameEventCapture }).eventCapture = new GameEventCapture(parseInt(snapshot.gameId) || 0);
+    instance.eventCapture.getAccumulator().participation = instance.getParticipationRecord();
     (instance as unknown as { turnStartTimes: Map<Seat, string> }).turnStartTimes = new Map();
 
     // Scalar fields

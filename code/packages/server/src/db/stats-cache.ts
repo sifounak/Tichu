@@ -1,3 +1,6 @@
+import { PARTICIPATION_VIEWS, type ParticipationView } from '@tichu/shared';
+import { inferLegacyParticipation, participationCondition, getStatsSource } from './participation.js';
+export const STATS_CACHE_VERSION = 2;
 // REQ-F-MC01–MC05: Materialized stats cache — rebuild from raw events, incremental update
 //
 // Design: Both rebuild and incremental paths recompute all stats for affected users
@@ -346,7 +349,7 @@ function createEmptyStats(): StatsResult {
 // final seat occupancy in the games table. A user who played rounds 1–4 of
 // an 8-round game and was replaced before game end still receives correct
 // per-play/per-round credit for the rounds they actually played.
-function computeStatsForUser(database: Database, userId: string): StatsResult {
+function computeStatsForUser(database: Database, userId: string, participation: ParticipationView): StatsResult {
   const { db } = database;
   const stats = createEmptyStats();
 
@@ -361,6 +364,7 @@ function computeStatsForUser(database: Database, userId: string): StatsResult {
            tichu_call_hand_sizes, tichu_call_success, finish_position, finish_trick_number
     FROM player_rounds
     WHERE user_id = ${userId}
+      AND game_id IN (SELECT id FROM games WHERE ${participationCondition(participation)})
   `) as PlayerRoundRow[];
 
   if (myPlayerRounds.length === 0) return stats;
@@ -986,13 +990,13 @@ interface RelationalStatsResult {
   totalTeamBombs: number;
 }
 
-function computeRelationalStatsForUser(database: Database, userId: string): RelationalStatsResult[] {
+function computeRelationalStatsForUser(database: Database, userId: string, participation: ParticipationView): RelationalStatsResult[] {
   const { db } = database;
   const results: RelationalStatsResult[] = [];
 
   // REQ-F-PS03: Only co-participating round tuples establish a relationship.
   const userGames = db.all(sql`
-    SELECT * FROM games WHERE status = 'completed' AND id IN (
+    SELECT * FROM games WHERE status = 'completed' AND ${participationCondition(participation)} AND id IN (
       SELECT game_id FROM player_rounds WHERE user_id = ${userId}
     )
   `) as GameRow[];
@@ -1045,11 +1049,11 @@ function computeRelationalStatsForUser(database: Database, userId: string): Rela
 // Write Stats to Cache Tables
 // ═══════════════════════════════════════════════════════════════════════════
 
-function writeStatsToCache(database: Database, userId: string, stats: StatsResult): void {
+function writeStatsToCache(database: Database, userId: string, stats: StatsResult, participation: ParticipationView): void {
   const { db } = database;
   db.run(sql`
     INSERT OR REPLACE INTO stats_cache (
-      user_id, games_played, games_won, win_rate,
+      user_id, participation, cache_version, source_signature, games_played, games_won, win_rate,
       tichu_calls, tichu_successes, blind_grand_tichu_calls, blind_grand_tichu_successes,
       grand_tichu_calls, grand_tichu_successes,
       total_rounds_played, first_finishes, last_updated_at,
@@ -1092,7 +1096,7 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
       all_power_cards_before_pass, all_cards_under_10_after_pass,
       double_bomb_in_trick, all_players_bomb_in_round
     ) VALUES (
-      ${userId}, ${stats.gamesPlayed}, ${stats.gamesWon}, ${stats.winRate},
+      ${userId}, ${participation}, ${STATS_CACHE_VERSION}, ${getStatsSource(database, userId).signature}, ${stats.gamesPlayed}, ${stats.gamesWon}, ${stats.winRate},
       ${stats.tichuCalls}, ${stats.tichuSuccesses}, ${stats.blindGrandTichuCalls}, ${stats.blindGrandTichuSuccesses},
       ${stats.grandTichuCalls}, ${stats.grandTichuSuccesses},
       ${stats.totalRoundsPlayed}, ${stats.firstFinishes}, datetime('now'),
@@ -1138,15 +1142,15 @@ function writeStatsToCache(database: Database, userId: string, stats: StatsResul
   `);
 }
 
-function writeRelationalStatsToCache(database: Database, userId: string, relStats: RelationalStatsResult[]): void {
+function writeRelationalStatsToCache(database: Database, userId: string, relStats: RelationalStatsResult[], participation: ParticipationView): void {
   const { db } = database;
   // Delete existing entries for this user
-  db.run(sql`DELETE FROM relational_stats_cache WHERE user_id = ${userId}`);
+  db.run(sql`DELETE FROM relational_stats_cache WHERE user_id = ${userId} AND participation = ${participation}`);
   // Insert new entries
   for (const entry of relStats) {
     db.run(sql`
-      INSERT INTO relational_stats_cache (user_id, other_user_id, relationship, games_played, games_won, one_two_wins, total_team_bombs)
-      VALUES (${entry.userId}, ${entry.otherUserId}, ${entry.relationship},
+      INSERT INTO relational_stats_cache (user_id, participation, other_user_id, relationship, games_played, games_won, one_two_wins, total_team_bombs)
+      VALUES (${entry.userId}, ${participation}, ${entry.otherUserId}, ${entry.relationship},
               ${entry.gamesPlayed}, ${entry.gamesWon}, ${entry.oneTwoWins}, ${entry.totalTeamBombs})
     `);
   }
@@ -1162,6 +1166,7 @@ function writeRelationalStatsToCache(database: Database, userId: string, relStat
  */
 export function rebuildStatsCache(database: Database): void {
   const { db } = database;
+  inferLegacyParticipation(database);
 
   // Get all users who have played any round — includes users who were swapped
   // out before the game ended and therefore do not appear in games.{seat}_user_id.
@@ -1183,11 +1188,7 @@ export function rebuildStatsCache(database: Database): void {
 
   // Rebuild for each user
   for (const { user_id: userId } of userIds) {
-    const stats = computeStatsForUser(database, userId);
-    writeStatsToCache(database, userId, stats);
-
-    const relStats = computeRelationalStatsForUser(database, userId);
-    writeRelationalStatsToCache(database, userId, relStats);
+    rebuildPlayerCache(database, userId, false);
   }
   console.log(`[STATS] Rebuilt stats cache for ${userIds.length} user(s)`);
 }
@@ -1199,6 +1200,7 @@ export function rebuildStatsCache(database: Database): void {
 export function updateCacheAfterGame(database: Database, dbGameId: number): void {
   const { db } = database;
   console.log(`[STATS] updateCacheAfterGame called for dbGameId=${dbGameId}`);
+  inferLegacyParticipation(database);
 
   // Get all humans who played any round of this game — not just final occupants.
   // REQ-F-SA01/SA12: swapped-out players must be refreshed so their
@@ -1216,11 +1218,7 @@ export function updateCacheAfterGame(database: Database, dbGameId: number): void
   const uniqueIds = played.map((r) => r.user_id);
 
   for (const userId of uniqueIds) {
-    const stats = computeStatsForUser(database, userId);
-    writeStatsToCache(database, userId, stats);
-
-    const relStats = computeRelationalStatsForUser(database, userId);
-    writeRelationalStatsToCache(database, userId, relStats);
+    rebuildPlayerCache(database, userId, false);
   }
   console.log(`[STATS] Updated stats cache for ${uniqueIds.length} user(s) after game ${dbGameId}`);
 }
@@ -1228,47 +1226,25 @@ export function updateCacheAfterGame(database: Database, dbGameId: number): void
 /**
  * REQ-F-MC04: Rebuild stats for a single user (useful for retroactive stat addition).
  */
-export function rebuildPlayerCache(database: Database, userId: string): void {
-  const stats = computeStatsForUser(database, userId);
-  writeStatsToCache(database, userId, stats);
-
-  const relStats = computeRelationalStatsForUser(database, userId);
-  writeRelationalStatsToCache(database, userId, relStats);
+export function rebuildPlayerCache(database: Database, userId: string, infer = true): void {
+  if (infer) inferLegacyParticipation(database);
+  database.db.transaction(() => {
+    for (const participation of PARTICIPATION_VIEWS) {
+      const stats = computeStatsForUser(database, userId, participation);
+      writeStatsToCache(database, userId, stats, participation);
+      const relStats = computeRelationalStatsForUser(database, userId, participation);
+      writeRelationalStatsToCache(database, userId, relStats, participation);
+    }
+  });
 }
 
 export function refreshLeaderboardStatsCacheIfStale(database: Database): boolean {
-  const { db } = database;
-
-  const rawRows = db.all(sql`
-    SELECT COUNT(*) as completedGames, MAX(ended_at) as latestEndedAt
-    FROM games
-    WHERE status = 'completed'
-  `) as { completedGames: number; latestEndedAt: string | null }[];
-  const raw = rawRows[0];
-  if (!raw || raw.completedGames === 0) {
-    return false;
-  }
-
-  const cacheRows = db.all(sql`
-    SELECT COUNT(*) as cacheRows, MAX(last_updated_at) as latestCacheAt
-    FROM stats_cache
-  `) as { cacheRows: number; latestCacheAt: string | null }[];
-  const cache = cacheRows[0];
-  const isMissing = !cache || cache.cacheRows === 0;
-  const latestEndedAtMs = raw.latestEndedAt === null ? null : parseDbTimestampMs(raw.latestEndedAt);
-  const latestCacheAtMs = cache?.latestCacheAt === null || cache?.latestCacheAt === undefined
-    ? null
-    : parseDbTimestampMs(cache.latestCacheAt);
-  const hasNewerCompletedGame = latestEndedAtMs !== null
-    && latestCacheAtMs !== null
-    && latestEndedAtMs > latestCacheAtMs;
-
-  if (!isMissing && !hasNewerCompletedGame) {
-    return false;
-  }
-
-  rebuildStatsCache(database);
-  return true;
+  inferLegacyParticipation(database);
+  const users = database.client.prepare("SELECT DISTINCT pr.user_id FROM player_rounds pr JOIN games g ON g.id = pr.game_id WHERE pr.user_id IS NOT NULL AND g.status = 'completed'")
+    .all() as { user_id: string }[];
+  let refreshed = false;
+  for (const { user_id: userId } of users) refreshed = refreshPlayerStatsCacheIfStale(database, userId) || refreshed;
+  return refreshed;
 }
 
 function parseDbTimestampMs(value: string): number | null {
@@ -1285,43 +1261,20 @@ function parseDbTimestampMs(value: string): number | null {
  * keeping normal stats-page visits cheap.
  */
 export function refreshPlayerStatsCacheIfStale(database: Database, userId: string): boolean {
-  const { db } = database;
-
-  const rawRows = db.all(sql`
-    SELECT
-      COUNT(DISTINCT pr.game_id) as gameCount,
-      MAX(g.ended_at) as latestEndedAt
-    FROM player_rounds pr
-    JOIN games g ON g.id = pr.game_id
-    WHERE pr.user_id = ${userId}
-  `) as { gameCount: number; latestEndedAt: string | null }[];
-
-  const raw = rawRows[0];
-  if (!raw || raw.gameCount === 0) {
-    return false;
-  }
-
-  const cacheRows = db.all(sql`
-    SELECT games_played as gamesPlayed, last_updated_at as lastUpdatedAt
-    FROM stats_cache
-    WHERE user_id = ${userId}
-    LIMIT 1
-  `) as { gamesPlayed: number; lastUpdatedAt: string }[];
-
-  const cache = cacheRows[0];
-  const isMissing = cache === undefined;
-  const gameCountChanged = cache !== undefined && cache.gamesPlayed !== raw.gameCount;
-  const latestEndedAtMs = raw.latestEndedAt === null ? null : parseDbTimestampMs(raw.latestEndedAt);
-  const lastUpdatedAtMs = cache === undefined ? null : parseDbTimestampMs(cache.lastUpdatedAt);
-  const hasNewerRawGame = cache !== undefined
-    && latestEndedAtMs !== null
-    && lastUpdatedAtMs !== null
-    && latestEndedAtMs > lastUpdatedAtMs;
-
-  if (!isMissing && !gameCountChanged && !hasNewerRawGame) {
-    return false;
-  }
-
-  rebuildPlayerCache(database, userId);
+  inferLegacyParticipation(database);
+  const raw = getStatsSource(database, userId);
+  if (raw.gameCount === 0) return false;
+  const caches = database.client.prepare(`SELECT cache_version, source_signature, last_updated_at
+    FROM stats_cache WHERE user_id = ?`).all(userId) as {
+      cache_version: number; source_signature: string; last_updated_at: string;
+    }[];
+  const latestRaw = raw.latestEndedAt === null ? null : parseDbTimestampMs(raw.latestEndedAt);
+  const stale = caches.length !== PARTICIPATION_VIEWS.length || caches.some(cache => {
+    const latestCache = parseDbTimestampMs(cache.last_updated_at);
+    return cache.cache_version !== STATS_CACHE_VERSION || cache.source_signature !== raw.signature
+      || (latestRaw !== null && latestCache !== null && latestRaw > latestCache);
+  });
+  if (!stale) return false;
+  rebuildPlayerCache(database, userId, false);
   return true;
 }

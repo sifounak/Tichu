@@ -7,3 +7,15 @@ Bomb passing counts each four-of-a-kind and each longest consecutive run of one 
 Every contributing sender earns credit. Received partner/opponent counts can overlap; two opponent cards forming the same bomb count once in the opponent direction. Total bombs received counts distinct bombs once regardless of contributor count.
 
 Relationship statistics count shared rounds, with one game per relationship; round achievements and team bombs are restricted to those shared rounds. Game wins retain final-occupant credit. Double Bomb counts two bomb plays, even by one seat. Blind Grand broken calls are distinct from Grand and ordinary Tichu.
+
+## Participation views
+
+All games includes all eligible records. Human-only excludes an entire game if an actual bot occupied any seat, even briefly. Humans and bots means at least two distinct humans and a bot participated. Solo means exactly one human participated alongside bots. A second human joining a solo game changes it to Humans and bots. Human-owned autopilot and timeout automation do not change these categories.
+
+Personal statistics default to All games; the leaderboard defaults to Human-only. API callers can supply `participation=all|human-only|mixed|solo` on profile, relationships, game history and leaderboard endpoints. Omitted parameters preserve All-game behavior. Responses include `metadata` with the selected view and total/inferred game counts; history records include classification and whether it was inferred.
+
+New games persist participant identities and sticky bot participation from the beginning and through replacements. Older records are inferred from stored participants and final occupants; they cannot prove that no brief mid-round replacement occurred. Filtered displays identify inferred historical coverage. Restart snapshots and recovery event data preserve participation; new recorded bot rounds are excluded from the legacy user-ID backfill.
+
+## Migration and cache repair
+
+Startup adds participation/stat columns and changes disposable caches to user/view keys while preserving existing All-game rows. Calculation version 2 refreshes corrected statistics, with completed-round and participation changes tracked by source revision. The admin `rebuild-stats` command rebuilds all four views; user count remains distinct users, while cache row count reflects the views. No history is deleted. Cached final results remain completion-dependent, and finished rounds in ongoing games still contribute round statistics.

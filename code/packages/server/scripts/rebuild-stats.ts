@@ -26,7 +26,7 @@ export function runRebuild(database: Database): RebuildResult {
   const statsRows = (client.prepare(`SELECT COUNT(*) AS n FROM stats_cache`).get() as { n: number }).n;
   const relRows = (client.prepare(`SELECT COUNT(*) AS n FROM relational_stats_cache`).get() as { n: number }).n;
   return {
-    usersUpdated: statsRows,
+    usersUpdated: (client.prepare("SELECT COUNT(DISTINCT user_id) AS n FROM stats_cache").get() as { n: number }).n,
     statsCacheRows: statsRows,
     relationalStatsCacheRows: relRows,
   };

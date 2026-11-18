@@ -14,3 +14,5 @@ export * from './engine/hand-filter.js';
 export * from './engine/scoring.js';
 export * from './engine/wish.js';
 export * from './engine/rules.js';
+
+export * from './types/stats.js';

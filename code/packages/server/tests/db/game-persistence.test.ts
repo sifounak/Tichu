@@ -86,7 +86,8 @@ function createMockDatabase(mockTx?: any): Database {
       }),
       execute: vi.fn().mockResolvedValue({ rows: [] }),
     } as any,
-    client: {} as any,
+    client: { prepare: vi.fn(() => ({ all: () => [],
+      get: () => ({ gameCount: 0, roundCount: 0, revision: 0, latestEndedAt: null }), run: vi.fn() })) } as any,
     close: vi.fn(),
   } as unknown as Database;
 }
