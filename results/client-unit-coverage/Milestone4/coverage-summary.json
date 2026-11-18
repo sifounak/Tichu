@@ -1,0 +1,282 @@
+{
+  "src/components/ActiveGameBanner.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/AuthGuard.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/DebugOutlines.tsx": {
+    "statements": 0.0,
+    "branches": 100.0
+  },
+  "src/components/ScaleProvider.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/cards/Card.tsx": {
+    "statements": 100.0,
+    "branches": 95.65
+  },
+  "src/components/cards/CardHand.tsx": {
+    "statements": 85.45,
+    "branches": 75.0
+  },
+  "src/components/cards/CardRow.tsx": {
+    "statements": 100.0,
+    "branches": 75.0
+  },
+  "src/components/cards/PhoenixValuePicker.tsx": {
+    "statements": 93.18,
+    "branches": 66.67
+  },
+  "src/components/cards/card-utils.ts": {
+    "statements": 97.78,
+    "branches": 93.75
+  },
+  "src/components/game/ActionBar.tsx": {
+    "statements": 98.1,
+    "branches": 94.59
+  },
+  "src/components/game/ActionConfirmDialog.tsx": {
+    "statements": 92.16,
+    "branches": 89.47
+  },
+  "src/components/game/ActionSpinner.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/game/AnimatedScore.tsx": {
+    "statements": 55.17,
+    "branches": 66.67
+  },
+  "src/components/game/ChatPanel.tsx": {
+    "statements": 98.25,
+    "branches": 92.21
+  },
+  "src/components/game/GameActionsDrawer.tsx": {
+    "statements": 100.0,
+    "branches": 95.31
+  },
+  "src/components/game/GameActionsMenu.tsx": {
+    "statements": 100.0,
+    "branches": 91.03
+  },
+  "src/components/game/GameTable.tsx": {
+    "statements": 76.08,
+    "branches": 48.86
+  },
+  "src/components/game/HostTransferDialog.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/game/KickDialog.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/game/LeaveConfirmDialog.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/game/PlayerSeat.tsx": {
+    "statements": 85.92,
+    "branches": 62.04
+  },
+  "src/components/game/PreRoomView.tsx": {
+    "statements": 98.04,
+    "branches": 87.88
+  },
+  "src/components/game/ScorePanel.tsx": {
+    "statements": 76.22,
+    "branches": 74.0
+  },
+  "src/components/game/SeatClaimRejectedDialog.tsx": {
+    "statements": 100.0,
+    "branches": 80.0
+  },
+  "src/components/game/SpectatorOverlay.tsx": {
+    "statements": 98.39,
+    "branches": 93.75
+  },
+  "src/components/game/SpectatorPresence.tsx": {
+    "statements": 87.3,
+    "branches": 90.24
+  },
+  "src/components/game/TichuBanner.tsx": {
+    "statements": 97.44,
+    "branches": 78.95
+  },
+  "src/components/game/TrickDisplay.tsx": {
+    "statements": 86.49,
+    "branches": 70.79
+  },
+  "src/components/game/TurnTimer.tsx": {
+    "statements": 100.0,
+    "branches": 84.62
+  },
+  "src/components/game/VoteOverlay.tsx": {
+    "statements": 100.0,
+    "branches": 93.48
+  },
+  "src/components/game/WaitingForReconnectOverlay.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/game/WishPicker.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/lobby/CreateGamePopup.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/lobby/UserMenu.tsx": {
+    "statements": 98.06,
+    "branches": 90.0
+  },
+  "src/components/phases/GameEndPhase.tsx": {
+    "statements": 85.45,
+    "branches": 80.0
+  },
+  "src/components/phases/PreGamePhase.tsx": {
+    "statements": 100.0,
+    "branches": 93.85
+  },
+  "src/components/preferences/PreferencesController.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/preferences/PreferencesDialog.tsx": {
+    "statements": 99.13,
+    "branches": 91.67
+  },
+  "src/components/stats/CompactTable.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/stats/RecordBanner.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/stats/StatCard.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/stats/StatSection.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/stats/StatsTabNav.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/stats/TablePanel.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/stats/participation-filter.tsx": {
+    "statements": 100.0,
+    "branches": 97.37
+  },
+  "src/components/stats/stats-types.ts": {
+    "statements": 80.0,
+    "branches": 71.43
+  },
+  "src/components/stats/tichu-call-stats.ts": {
+    "statements": 100.0,
+    "branches": 75.0
+  },
+  "src/components/ui/ConnectionStatus.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/ui/ErrorToast.tsx": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/components/ui/GameSettingsForm.tsx": {
+    "statements": 100.0,
+    "branches": 91.67
+  },
+  "src/hooks/useAnimationSettings.ts": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/hooks/useBombWindow.ts": {
+    "statements": 88.46,
+    "branches": 92.86
+  },
+  "src/hooks/useCardSelection.ts": {
+    "statements": 91.67,
+    "branches": 87.1
+  },
+  "src/hooks/useLayoutTier.ts": {
+    "statements": 92.0,
+    "branches": 100.0
+  },
+  "src/hooks/useNavigationBlock.ts": {
+    "statements": 97.4,
+    "branches": 96.67
+  },
+  "src/hooks/useRovingTabIndex.ts": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/hooks/useScaleFactor.ts": {
+    "statements": 97.73,
+    "branches": 92.86
+  },
+  "src/hooks/useSoundEffects.ts": {
+    "statements": 100.0,
+    "branches": 87.1
+  },
+  "src/hooks/useTurnTimer.ts": {
+    "statements": 100.0,
+    "branches": 94.29
+  },
+  "src/hooks/useTurnTimerAudio.ts": {
+    "statements": 100.0,
+    "branches": 86.67
+  },
+  "src/hooks/useWebSocket.ts": {
+    "statements": 86.96,
+    "branches": 80.0
+  },
+  "src/lib/authRedirect.ts": {
+    "statements": 94.12,
+    "branches": 87.8
+  },
+  "src/lib/passPhaseState.ts": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/lib/receivedCardsDismissal.ts": {
+    "statements": 92.05,
+    "branches": 76.19
+  },
+  "src/services/PendingActionManager.ts": {
+    "statements": 100.0,
+    "branches": 90.91
+  },
+  "src/stores/authStore.ts": {
+    "statements": 100.0,
+    "branches": 87.32
+  },
+  "src/stores/gameStore.ts": {
+    "statements": 87.26,
+    "branches": 64.71
+  },
+  "src/stores/preferencesStore.ts": {
+    "statements": 100.0,
+    "branches": 95.65
+  },
+  "src/stores/roomStore.ts": {
+    "statements": 100.0,
+    "branches": 100.0
+  },
+  "src/stores/uiStore.ts": {
+    "statements": 88.64,
+    "branches": 100.0
+  }
+}
