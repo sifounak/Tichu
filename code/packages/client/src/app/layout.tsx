@@ -9,7 +9,7 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 export const metadata: Metadata = {
   title: 'Tichu',
-  description: 'Web-based Tichu card game',
+  description: 'A team-based trick-taking card game with dragons, bombs, and high-stakes wagers.',
 };
 
 // REQ-NF-U06: Touch targets via viewport config
