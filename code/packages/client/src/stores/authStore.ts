@@ -8,6 +8,8 @@ import { create } from 'zustand';
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/api\/?$/, '');
 
 const USER_PROFILE_KEY = 'tichu_user_profile';
+// REQ-F-UC02: New authentication intent invalidates earlier async responses.
+let requestVersion = 0;
 
 function saveUserProfile(user: AuthUser): void {
   try {
@@ -68,6 +70,7 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
   authReady: false,
 
   initGuest: async (userId, displayName) => {
+    const version = ++requestVersion;
     set({ loading: true, error: null });
     try {
       const res = await fetch(`${API_BASE}/api/auth/guest`, {
@@ -75,18 +78,22 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, displayName }),
       });
+      if (version !== requestVersion) return;
       if (!res.ok) throw new Error('Failed to initialize guest');
       const data = await res.json();
+      if (version !== requestVersion) return;
       const user: AuthUser = { userId: data.user.id, username: data.user.displayName, isGuest: data.user.isGuest };
       sessionStorage.setItem('tichu_user_id', user.userId);
       set({ user, loading: false, authReady: true });
-    } catch (err: any) {
-      set({ error: err.message, loading: false, authReady: true });
+    } catch (err) {
+      if (version !== requestVersion) return;
+      set({ error: err instanceof Error ? err.message : 'Authentication failed', loading: false, authReady: true });
     }
   },
 
   // REQ-F-AU10: Register with username, email, password
   register: async (params) => {
+    const version = ++requestVersion;
     set({ loading: true, error: null });
     try {
       const res = await fetch(`${API_BASE}/api/auth/register`, {
@@ -94,11 +101,14 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
       });
+      if (version !== requestVersion) return;
       if (!res.ok) {
         const data = await res.json();
+        if (version !== requestVersion) return;
         throw new Error(data.error ?? 'Registration failed');
       }
       const data = await res.json();
+      if (version !== requestVersion) return;
       const token = data.token;
       localStorage.setItem('tichu_token', token);
       localStorage.setItem('tichu_user_id', data.userId);
@@ -108,6 +118,7 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         headers: { 'Authorization': `Bearer ${token}` },
       });
       const meData = await meRes.json();
+      if (version !== requestVersion) return;
       const user: AuthUser = {
         userId: meData.user.id,
         username: meData.user.username ?? meData.user.displayName,
@@ -116,13 +127,15 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
       };
       set({ user, token, loading: false, authReady: true });
       saveUserProfile(user);
-    } catch (err: any) {
-      set({ error: err.message, loading: false });
+    } catch (err) {
+      if (version !== requestVersion) return;
+      set({ error: err instanceof Error ? err.message : 'Authentication failed', loading: false });
     }
   },
 
   // REQ-F-AU14: Login with identifier (username or email) + password
   login: async (identifier, password) => {
+    const version = ++requestVersion;
     set({ loading: true, error: null });
     try {
       const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -130,30 +143,36 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identifier, password }),
       });
+      if (version !== requestVersion) return;
       if (!res.ok) {
         const data = await res.json();
+        if (version !== requestVersion) return;
         throw new Error(data.error ?? 'Login failed');
       }
       const data = await res.json();
+      if (version !== requestVersion) return;
       localStorage.setItem('tichu_token', data.token);
       localStorage.setItem('tichu_user_id', data.userId);
       const user: AuthUser = { userId: data.userId, username: data.username, isGuest: false };
       set({ user, token: data.token, loading: false, authReady: true });
       saveUserProfile(user);
-    } catch (err: any) {
-      set({ error: err.message, loading: false });
+    } catch (err) {
+      if (version !== requestVersion) return;
+      set({ error: err instanceof Error ? err.message : 'Authentication failed', loading: false });
     }
   },
 
   logout: () => {
+    requestVersion++;
     clearAuthStorage();
     sessionStorage.removeItem('tichu_user_id');
     sessionStorage.removeItem('tichu_player_name');
-    set({ user: null, token: null, error: null, authReady: true });
+    set({ user: null, token: null, error: null, loading: false, authReady: true });
   },
 
   // REQ-F-LU07: Load auth from storage, set authReady in all terminal paths
   loadFromStorage: () => {
+    const version = ++requestVersion;
     if (typeof window === 'undefined') {
       set({ authReady: true });
       return;
@@ -177,6 +196,7 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
       if (res.ok) return res.json();
       throw new Error('Token expired');
     }).then(data => {
+      if (version !== requestVersion) return;
       const freshUser: AuthUser = {
         userId: data.user.id,
         username: data.user.username ?? data.user.displayName,
@@ -186,6 +206,7 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
       set({ user: freshUser, token, authReady: true });
       saveUserProfile(freshUser);
     }).catch(() => {
+      if (version !== requestVersion) return;
       clearAuthStorage();
       sessionStorage.removeItem('tichu_user_id');
       set({ user: null, token: null, authReady: true });
