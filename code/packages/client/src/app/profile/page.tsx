@@ -1,12 +1,13 @@
 // REQ-F-AU03: Game history — viewable in profile
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import type { ParticipationMetadata } from '@tichu/shared';
+import { usePlayerStats, ParticipationSelector, ParticipationNotice } from '@/components/stats/participation-filter';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthGuard } from '@/components/AuthGuard';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/api\/?$/, '');
 
 interface PlayerProfile {
   userId: string;
@@ -25,6 +26,8 @@ interface PlayerProfile {
 }
 
 interface GameHistoryEntry {
+  participation?: 'human-only' | 'mixed' | 'solo';
+  participationInferred?: boolean;
   id: number;
   roomCode: string;
   startedAt: string;
@@ -54,42 +57,19 @@ export default function ProfilePage() {
 }
 
 function ProfileContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [games, setGames] = useState<GameHistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Check URL query param first, then fall back to storage
-    const queryUserId = searchParams.get('userId');
-    const storageUserId = typeof window !== 'undefined'
-      ? (localStorage.getItem('tichu_user_id') ?? sessionStorage.getItem('tichu_user_id'))
-      : null;
-    const userId = queryUserId ?? storageUserId;
-
-    if (!userId) {
-      router.push('/');
-      return;
-    }
-
-    Promise.all([
-      fetch(`${API_BASE}/api/players/${userId}/profile`).then(r => r.json()),
-      fetch(`${API_BASE}/api/players/${userId}/games`).then(r => r.json()),
-    ]).then(([profileData, gamesData]) => {
-      setProfile(profileData.profile);
-      setGames(gamesData.games ?? []);
-      setLoading(false);
-    }).catch(() => {
-      setError('Failed to load profile. Please try again later.');
-      setLoading(false);
-    });
-  }, [router, searchParams]);
+  const userId = searchParams.get('userId');
+  const profileResponse = usePlayerStats<{ profile: PlayerProfile | null; metadata?: ParticipationMetadata }>('profile', userId);
+  const gamesResponse = usePlayerStats<{ games: GameHistoryEntry[]; metadata?: ParticipationMetadata }>('games', userId);
+  const profile = profileResponse.data?.profile ?? null;
+  const games = gamesResponse.data?.games ?? [];
+  const loading = profileResponse.loading || gamesResponse.loading;
+  const error = profileResponse.error || gamesResponse.error;
 
   if (loading) {
     return (
       <main className="min-h-dvh flex items-center justify-center" style={{ background: 'var(--color-felt-green-dark)' }}>
+        <ParticipationSelector />
         <p style={{ color: 'var(--color-text-secondary)' }}>Loading...</p>
       </main>
     );
@@ -106,6 +86,9 @@ function ProfileContent() {
             Back to Lobby
           </Link>
         </div>
+
+        <ParticipationSelector />
+        <ParticipationNotice metadata={profileResponse.metadata} />
 
         {error && (
           <div className="mb-4 text-center py-2 px-4 rounded-lg"
@@ -131,7 +114,7 @@ function ProfileContent() {
           </div>
         ) : (
           <div className="mb-8 p-4 rounded-xl text-center" style={{ background: 'var(--color-bg-panel)', color: 'var(--color-text-muted)' }}>
-            No stats yet. Play some games!
+            No statistics in this view.
           </div>
         )}
 
@@ -162,7 +145,7 @@ function ProfileContent() {
                       {game.winnerTeam} won
                     </span>
                     <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-                      {game.roundCount} rounds
+                      {game.roundCount} rounds{game.participation ? ` ? ${game.participation}` : ''}{game.participationInferred ? ' (inferred)' : ''}
                     </span>
                   </div>
                 </div>

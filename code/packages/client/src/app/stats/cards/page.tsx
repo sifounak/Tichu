@@ -1,51 +1,46 @@
 // code/packages/client/src/app/stats/cards/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePlayerStats, ParticipationNotice } from '@/components/stats/participation-filter';
+import type { ParticipationMetadata } from '@tichu/shared';
 import { AuthGuard } from '@/components/AuthGuard';
-import { API_BASE, getUserId, type PlayerProfile } from '@/components/stats/stats-types';
+import { type PlayerProfile } from '@/components/stats/stats-types';
 import { StatCard } from '@/components/stats/StatCard';
 import { StatSection } from '@/components/stats/StatSection';
 import { CompactTable } from '@/components/stats/CompactTable';
 import { TablePanel } from '@/components/stats/TablePanel';
 
 export default function CardStatsPage() {
-  const router = useRouter();
-  const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, metadata } = usePlayerStats<{ profile: PlayerProfile | null; metadata?: ParticipationMetadata }>('profile');
+  const profile = data?.profile ?? null;
 
-  useEffect(() => {
-    const userId = getUserId();
-    if (!userId) { router.push('/lobby'); return; }
-    fetch(`${API_BASE}/api/players/${userId}/profile`)
-      .then(r => r.json())
-      .then(data => { setProfile(data.profile ?? null); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [router]);
-
+  if (error) return <p role="alert" style={{ color: 'var(--color-error)' }}>{error}</p>;
   if (loading) return <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: '2rem' }}>Loading...</p>;
-  if (!profile) return <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No stats yet.</p>;
+  if (!profile) return <><ParticipationNotice metadata={metadata} /><p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No statistics in this view.</p></>;
 
   return (
     <AuthGuard>
       <div>
+        <ParticipationNotice metadata={metadata} />
         {/* Dragon */}
         <StatSection title="Dragon">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard label="Trick Wins" value={profile.dragonTrickWins} coloredLabel />
-          <StatCard label="Rounds Held" value={profile.roundsWithDragon} coloredLabel />
+          <StatCard label="Held After Pass" value={profile.roundsWithDragon} coloredLabel />
           <StatCard label="Rounds Won w/ Dragon" value={profile.roundsWithDragonWon} coloredLabel />
           <StatCard label="Captured w/ Bomb" value={profile.capturedDragonWithBomb} coloredLabel />
         </div>
       </StatSection>
 
+      <StatSection title="Straights">
+        <StatCard label="Longest Straight" value={profile.longestStraight > 0 ? `${profile.longestStraight} cards` : '-'} />
+      </StatSection>
       {/* Phoenix */}
       <StatSection title="Phoenix">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <StatCard label="Rounds Held" value={profile.roundsWithPhoenix} coloredLabel />
+          <StatCard label="Held After Pass" value={profile.roundsWithPhoenix} coloredLabel />
           <StatCard label="Rounds Won" value={profile.roundsWithPhoenixWon} coloredLabel />
-          <StatCard label="Longest Straight" value={profile.longestStraightWithPhoenix > 0 ? `${profile.longestStraightWithPhoenix} cards` : '-'} coloredLabel />
+          <StatCard label="Longest Straight w/ Phoenix" value={profile.longestStraightWithPhoenix > 0 ? `${profile.longestStraightWithPhoenix} cards` : '-'} coloredLabel />
           <StatCard label="Total Uses" value={profile.phoenixUsedAsSingle + profile.phoenixUsedForPair + profile.phoenixUsedInTriple + profile.phoenixUsedInFullHouse + profile.phoenixUsedInConsecutivePairs + profile.phoenixUsedInStraight} coloredLabel />
         </div>
         <div className="flex flex-wrap gap-4">
@@ -65,7 +60,7 @@ export default function CardStatsPage() {
       {/* Dog */}
       <StatSection title="Dog">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <StatCard label="Hands Held" value={profile.handsWithDog} coloredLabel />
+          <StatCard label="Held After Pass" value={profile.handsWithDog} coloredLabel />
           <StatCard label="To Partner" value={profile.dogControlToPartner} subtitle={(() => { const t = profile.dogControlToPartner + profile.dogControlToOpponent + profile.dogControlToSelf; return t > 0 ? `${Math.round((profile.dogControlToPartner / t) * 100)}%` : undefined; })()} coloredLabel />
           <StatCard label="To Opponent" value={profile.dogControlToOpponent} coloredLabel />
           <StatCard label="Stuck as Last Card" value={profile.dogStuckAsLastCard} coloredLabel />
@@ -75,7 +70,7 @@ export default function CardStatsPage() {
             <CompactTable headers={['Stat', 'Count']} rows={[
               { label: 'Control to self', value: profile.dogControlToSelf },
               { label: 'Played for Tichu partner', value: profile.dogPlayedForTichuPartner },
-              { label: 'Opportunities for Tichu partner', value: profile.dogOpportunitiesForTichuPartner },
+              { label: 'Leads with a Tichu partner', value: profile.dogOpportunitiesForTichuPartner },
               { label: 'Kept during pass', value: profile.keptDogDuringPass },
             ]} />
           </TablePanel>
@@ -111,8 +106,12 @@ export default function CardStatsPage() {
 
       {/* Pass Tracking */}
       <StatSection title="Pass Tracking">
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.8rem', marginBottom: '1rem' }}>
+          Bomb directions credit each contributor and can overlap. Total bombs received counts each bomb once.
+        </p>
+        <StatCard label="Total Bombs Received" value={profile.totalBombsReceived} />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-          <StatCard label="Strong Pre-Pass Hand" value={profile.strongPrePassHand} />
+          <StatCard label="2+ Power Cards Before Pass" subtitle="Dragon, Phoenix, or Aces" value={profile.strongPrePassHand} />
           <StatCard label="Kept Dog During Pass" value={profile.keptDogDuringPass} />
         </div>
         <div className="flex flex-wrap gap-4">

@@ -123,6 +123,9 @@ export interface MergedRelationalStat {
 }
 
 export interface GameHistoryEntry {
+  participation?: 'human-only' | 'mixed' | 'solo';
+  participationInferred?: boolean;
+  playerSeat?: 'north' | 'east' | 'south' | 'west' | null;
   id: number;
   roomCode: string;
   endedAt: string;

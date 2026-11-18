@@ -1,26 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePlayerStats, ParticipationNotice } from '@/components/stats/participation-filter';
+import type { ParticipationMetadata } from '@tichu/shared';
 import { AuthGuard } from '@/components/AuthGuard';
-import { API_BASE, getUserId, perGame, type MergedRelationalStat } from '@/components/stats/stats-types';
+import { perGame, type MergedRelationalStat } from '@/components/stats/stats-types';
 
 export default function PlayersPage() {
-  const router = useRouter();
-  const [relationships, setRelationships] = useState<MergedRelationalStat[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, metadata } = usePlayerStats<{ relationships: MergedRelationalStat[]; metadata?: ParticipationMetadata }>('relationships');
+  const relationships = data?.relationships ?? [];
 
-  useEffect(() => {
-    const userId = getUserId();
-    if (!userId) { router.push('/lobby'); return; }
-    fetch(`${API_BASE}/api/players/${userId}/relationships`)
-      .then(r => r.json())
-      .then(data => { setRelationships(data.relationships ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [router]);
-
+  if (error) return <p role="alert" style={{ color: 'var(--color-error)' }}>{error}</p>;
   if (loading) return <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: '2rem' }}>Loading...</p>;
-  if (relationships.length === 0) return <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No relationship data yet.</p>;
+  if (relationships.length === 0) return <><ParticipationNotice metadata={metadata} /><p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No relationship data in this view.</p></>;
 
   const thStyle = { textAlign: 'left' as const, color: 'rgba(255,255,255,0.3)', fontSize: '0.65rem', textTransform: 'uppercase' as const, letterSpacing: '1px', padding: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: 600 };
   const thR = { ...thStyle, textAlign: 'right' as const };
@@ -33,6 +24,7 @@ export default function PlayersPage() {
   return (
     <AuthGuard>
       <div style={{ overflowX: 'auto' }}>
+        <ParticipationNotice metadata={metadata} />
         <table style={{ maxWidth: '640px', borderCollapse: 'collapse', width: '100%' }}>
         <thead>
           <tr>

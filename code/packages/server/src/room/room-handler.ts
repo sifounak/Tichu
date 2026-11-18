@@ -1067,20 +1067,24 @@ export class RoomHandler {
         game.getEventAccumulator().gameId = progress.id;
       }
       game.wireParticipationChangedCallback(record => {
-        const room = this.roomManager.getRoom(roomCode);
-        if (!room) return;
-        const snapshot = this.buildGamePersistenceSnapshot(roomCode, room.players, game.context);
-        const dbGameId = saveGameProgress(database, snapshot.gameResult, [], this.progressGameIds.get(roomCode));
-        this.progressGameIds.set(roomCode, dbGameId);
-        const currentHumans = room.players.filter(player => !player.isBot)
-          .map(player => this.roomManager.getUserIdAtSeat(roomCode, player.seat))
-          .filter((id): id is string => id !== undefined && id !== null);
-        const participation = { ...record, humanUserIds: [...new Set([...record.humanUserIds, ...currentHumans])],
-          hadBot: record.hadBot || room.players.some(player => player.isBot) };
-        saveParticipation(database, dbGameId, participation);
-        game.getEventAccumulator().gameId = dbGameId;
-        game.getEventAccumulator().participation = participation;
-        updateCacheAfterGame(database, dbGameId);
+        try {
+          const room = this.roomManager.getRoom(roomCode);
+          if (!room) return;
+          const snapshot = this.buildGamePersistenceSnapshot(roomCode, room.players, game.context);
+          const dbGameId = saveGameProgress(database, snapshot.gameResult, [], this.progressGameIds.get(roomCode));
+          this.progressGameIds.set(roomCode, dbGameId);
+          const currentHumans = room.players.filter(player => !player.isBot)
+            .map(player => this.roomManager.getUserIdAtSeat(roomCode, player.seat))
+            .filter((id): id is string => id !== undefined && id !== null);
+          const participation = { ...record, humanUserIds: [...new Set([...record.humanUserIds, ...currentHumans])],
+            hadBot: record.hadBot || room.players.some(player => player.isBot) };
+          saveParticipation(database, dbGameId, participation);
+          game.getEventAccumulator().gameId = dbGameId;
+          game.getEventAccumulator().participation = participation;
+          updateCacheAfterGame(database, dbGameId);
+        } catch (error) {
+          console.error(`[PERSIST] Failed to persist participation for room ${roomCode}:`, error);
+        }
       });
     }
     game.wireAutopilotChangedCallback((rc, seat, enabled) => {

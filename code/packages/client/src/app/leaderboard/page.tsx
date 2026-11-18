@@ -1,11 +1,12 @@
 // REQ-F-AU04: Leaderboard — top players by win rate
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense } from 'react';
+import type { ParticipationMetadata } from '@tichu/shared';
+import { useStatsData, ParticipationSelector, ParticipationNotice, withParticipation } from '@/components/stats/participation-filter';
 import Link from 'next/link';
 import { AuthGuard } from '@/components/AuthGuard';
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/api\/?$/, '');
 
 interface LeaderboardEntry {
   userId: string;
@@ -24,22 +25,12 @@ function formatRate(rate: number | null | undefined): string {
 }
 
 export default function LeaderboardPage() {
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  return <AuthGuard><Suspense fallback={<p>Loading leaderboard...</p>}><LeaderboardContent /></Suspense></AuthGuard>;
+}
 
-  useEffect(() => {
-    fetch(`${API_BASE}/api/leaderboard`)
-      .then(r => r.json())
-      .then(data => {
-        setEntries(data.leaderboard ?? []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Failed to load leaderboard. Please try again later.');
-        setLoading(false);
-      });
-  }, []);
+function LeaderboardContent() {
+  const { data, loading, error, metadata, participation } = useStatsData<{ leaderboard: LeaderboardEntry[]; metadata?: ParticipationMetadata }>('/api/leaderboard', 'human-only');
+  const entries = data?.leaderboard ?? [];
 
   return (
     <AuthGuard>
@@ -51,6 +42,9 @@ export default function LeaderboardPage() {
             Back to Lobby
           </Link>
         </div>
+
+        <ParticipationSelector defaultView="human-only" />
+        <ParticipationNotice metadata={metadata} />
 
         {error && (
           <div className="mb-4 text-center py-2 px-4 rounded-lg"
@@ -65,7 +59,7 @@ export default function LeaderboardPage() {
             <p className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>Loading...</p>
           ) : entries.length === 0 && !error ? (
             <p className="text-center py-8" style={{ color: 'var(--color-text-muted)' }}>
-              No players yet. Minimum 5 games required to appear on the leaderboard.
+              No players yet. Minimum 5 games in this view required to appear on the leaderboard.
             </p>
           ) : (
             <table className="w-full" aria-label="Player leaderboard">
@@ -88,7 +82,7 @@ export default function LeaderboardPage() {
                       {i + 1}
                     </td>
                     <td className="px-4 py-3 font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                      <Link href={`/profile?userId=${entry.userId}`} className="hover:underline">
+                      <Link href={withParticipation(`/profile?userId=${encodeURIComponent(entry.userId)}`, participation)} className="hover:underline">
                         {entry.displayName}
                       </Link>
                     </td>

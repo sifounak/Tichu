@@ -170,6 +170,7 @@ export function saveGameProgress(
       client.prepare(`
         UPDATE games SET
           status = ?,
+          stats_revision = stats_revision + 1,
           ended_at = datetime('now'),
           winner_team = ?,
           final_score_ns = ?,
@@ -221,6 +222,7 @@ export function completeGameProgress(
   database.client.prepare(`
     UPDATE games SET
       status = 'completed',
+      stats_revision = stats_revision + 1,
       ended_at = datetime('now'),
       winner_team = ?,
       final_score_ns = ?,
@@ -273,6 +275,7 @@ export function getPlayerGameHistory(
     id: games.id,
     participation: games.participation,
     participationInferred: games.participationInferred,
+    playerSeat: sql<Seat | null>`(SELECT seat FROM player_rounds WHERE game_id = games.id AND user_id = ${userId} ORDER BY round_number DESC LIMIT 1)`,
     roomCode: games.roomCode,
     startedAt: games.startedAt,
     endedAt: games.endedAt,

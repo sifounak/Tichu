@@ -74,7 +74,7 @@ describe('Play statistics repairs', () => {
 
   it('tracks general/Phoenix longest straights and clean/dirty achievements', () => {
     addRound();
-    for (const [sequence, cards, length] of [[1, '[0,1,2,3,4,5,6,7,8,9,10,11,12]', 13], [2, '[0,1,2,3,4,5,6,7,8,9,10,11,54]', 13]]) {
+    for (const [sequence, cards, length] of [[1, '[0,14,2,16,4,18,6,20,8,22,10,24,12]', 13], [2, '[0,14,2,16,4,18,6,20,8,22,10,24,54]', 13]]) {
       database.client.prepare(`INSERT INTO plays (game_id,round_number,trick_number,sequence_number,seat,
         action_type,cards,combination_type,combination_length) VALUES (1,1,1,?,'north','play',?,'straight',?)`)
         .run(sequence, cards, length);
@@ -82,6 +82,16 @@ describe('Play statistics repairs', () => {
     rebuildStatsCache(database);
     expect(getPlayerProfile(database, 'a')).toMatchObject({ longestStraight: 13, longestStraightWithPhoenix: 13,
       theTichuClean: 1, theTichuDirty: 1 });
+  });
+
+  it('tracks a longer ordinary straight independently of the Phoenix record', () => {
+    addRound();
+    database.client.exec(`INSERT INTO plays (game_id,round_number,trick_number,sequence_number,seat,
+      action_type,cards,combination_type,combination_length) VALUES
+      (1,1,1,1,'north','play','[0,14,2,16,4,18,6,20,8]','straight',9),
+      (1,1,2,2,'north','play','[0,14,2,16,4,18,54]','straight',7);`);
+    rebuildStatsCache(database);
+    expect(getPlayerProfile(database, 'a')).toMatchObject({ longestStraight: 9, longestStraightWithPhoenix: 7 });
   });
 
   it('counts only maximal runs, while retaining an overlapping four-of-a-kind', () => {

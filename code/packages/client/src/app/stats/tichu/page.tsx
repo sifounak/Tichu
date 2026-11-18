@@ -1,35 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePlayerStats, ParticipationNotice } from '@/components/stats/participation-filter';
+import type { ParticipationMetadata } from '@tichu/shared';
 import { AuthGuard } from '@/components/AuthGuard';
-import { API_BASE, getUserId, pct, type PlayerProfile } from '@/components/stats/stats-types';
+import { pct, type PlayerProfile } from '@/components/stats/stats-types';
 import { StatCard } from '@/components/stats/StatCard';
 import { CompactTable } from '@/components/stats/CompactTable';
 import { TablePanel } from '@/components/stats/TablePanel';
 import { getTichuCallStats, getTichuSuccessSubtitle } from '@/components/stats/tichu-call-stats';
 
 export default function TichuCallsPage() {
-  const router = useRouter();
-  const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, loading, error, metadata } = usePlayerStats<{ profile: PlayerProfile | null; metadata?: ParticipationMetadata }>('profile');
+  const profile = data?.profile ?? null;
 
-  useEffect(() => {
-    const userId = getUserId();
-    if (!userId) { router.push('/lobby'); return; }
-    fetch(`${API_BASE}/api/players/${userId}/profile`)
-      .then(r => r.json())
-      .then(data => { setProfile(data.profile ?? null); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [router]);
-
+  if (error) return <p role="alert" style={{ color: 'var(--color-error)' }}>{error}</p>;
   if (loading) return <p style={{ color: 'rgba(255,255,255,0.5)', textAlign: 'center', padding: '2rem' }}>Loading...</p>;
-  if (!profile) return <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No stats yet.</p>;
+  if (!profile) return <><ParticipationNotice metadata={metadata} /><p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>No statistics in this view.</p></>;
   const tichuCallStats = getTichuCallStats(profile);
 
   return (
     <AuthGuard>
       <div>
+        <ParticipationNotice metadata={metadata} />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {tichuCallStats.map(({ label, successes, calls }, index) => (
             <StatCard
@@ -40,7 +32,7 @@ export default function TichuCallsPage() {
               highlight={index === 0}
             />
           ))}
-          <StatCard label="Opponent Calls Broken" value={profile.opponentTichuBroken + profile.opponentGrandTichuBroken} />
+          <StatCard label="Opponent Calls Broken" value={profile.opponentTichuBroken + profile.opponentGrandTichuBroken + profile.opponentBlindGrandTichuBroken} />
           <StatCard label="Total Calls Made" value={profile.tichuCalls + profile.blindGrandTichuCalls + profile.grandTichuCalls} highlight />
         </div>
 
@@ -59,10 +51,13 @@ export default function TichuCallsPage() {
             <CompactTable headers={['Stat', 'Value']} rows={[
               { label: 'Opponent Tichus Broken', value: profile.opponentTichuBroken },
               { label: 'Opponent GTs Broken', value: profile.opponentGrandTichuBroken },
+              { label: 'Opponent Blind Grands Broken', value: profile.opponentBlindGrandTichuBroken },
               { label: 'Partner Tichus You Broke', value: profile.partnerTichuBroken },
               { label: 'Partner GTs You Broke', value: profile.partnerGrandTichuBroken },
+              { label: 'Partner Blind Grands You Broke', value: profile.partnerBlindGrandTichuBroken },
               { label: 'Your Tichu Broken by Partner', value: profile.tichuBrokenByPartner },
               { label: 'Your GT Broken by Partner', value: profile.grandTichuBrokenByPartner },
+              { label: 'Your Blind Grand Broken by Partner', value: profile.blindGrandTichuBrokenByPartner },
             ]} />
           </TablePanel>
         </div>

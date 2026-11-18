@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useParticipationView, withParticipation } from './participation-filter';
 
 interface StatSectionProps {
   title: string;
@@ -9,6 +10,7 @@ interface StatSectionProps {
 }
 
 export function StatSection({ title, href, children }: StatSectionProps) {
+  const participation = useParticipationView();
   return (
     <section style={{ marginBottom: '1.8rem' }}>
       <div
@@ -32,7 +34,7 @@ export function StatSection({ title, href, children }: StatSectionProps) {
         </span>
         {href && (
           <Link
-            href={href}
+            href={withParticipation(href, participation)}
             style={{
               fontSize: '0.7rem',
               color: 'rgba(255,255,255,0.3)',

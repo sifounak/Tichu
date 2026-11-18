@@ -6,7 +6,7 @@ import { createDatabase, type Database } from '../../src/db/connection.js';
 import { getParticipationMetadata, saveParticipation, inferLegacyParticipation } from '../../src/db/participation.js';
 import { getPlayerProfile, getLeaderboard } from '../../src/db/queries.js';
 import { rebuildStatsCache, refreshPlayerStatsCacheIfStale, updateCacheAfterGame } from '../../src/db/stats-cache.js';
-import { getPlayerGameHistory } from '../../src/db/game-persistence.js';
+import { completeGameProgress, getPlayerGameHistory } from '../../src/db/game-persistence.js';
 import { registerAuthRoutes } from '../../src/auth/auth-routes.js';
 
 describe('Participation', () => {
@@ -95,6 +95,22 @@ describe('Participation', () => {
     expect(refreshPlayerStatsCacheIfStale(database, 'a')).toBe(true);
     expect(getPlayerProfile(database, 'a', 'human-only')).toMatchObject({ gamesPlayed: 0, totalRoundsPlayed: 2 });
     expect(refreshPlayerStatsCacheIfStale(database, 'a')).toBe(false);
+  });
+
+  it('refreshes completion even when raw and cache timestamps fall in the same second', () => {
+    const gameId = seed(4, true, 'in_progress');
+    rebuildStatsCache(database);
+    completeGameProgress(database, gameId, {
+      roomCode: 'TEST', startedAt: new Date(), winnerTeam: 'NS', finalScoreNS: 1000, finalScoreEW: 500,
+      targetScore: 1000, roundCount: 1,
+      players: { north: { userId: 'a', name: 'A' }, east: { userId: 'b', name: 'B' },
+        south: { userId: 'c', name: 'C' }, west: { userId: 'd', name: 'D' } },
+    }, []);
+    database.client.prepare(`UPDATE games SET ended_at = (
+      SELECT last_updated_at FROM stats_cache WHERE user_id='a' AND participation='all'
+    ) WHERE id=?`).run(gameId);
+    expect(refreshPlayerStatsCacheIfStale(database, 'a')).toBe(true);
+    expect(getPlayerProfile(database, 'a', 'human-only')).toMatchObject({ gamesPlayed: 1, gamesWon: 1 });
   });
 
   it('exposes the filter and provenance through each HTTP surface and rejects invalid views', async () => {

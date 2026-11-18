@@ -1,4 +1,5 @@
 'use client';
+import { useParticipationView, withParticipation } from './participation-filter';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -13,6 +14,7 @@ const TABS = [
 
 export function StatsTabNav() {
   const pathname = usePathname();
+  const participation = useParticipationView();
 
   return (
     <nav
@@ -29,7 +31,7 @@ export function StatsTabNav() {
         return (
           <Link
             key={href}
-            href={href}
+            href={withParticipation(href, participation)}
             style={{
               display: 'inline-block',
               padding: '0.6rem 1rem',

@@ -708,13 +708,6 @@ function computeStatsForUser(database: Database, userId: string, participation: 
     if (passedToPartner.includes(DOG_ID)) stats.dogGivenToPartner++;
     if (passedToLeft.includes(DOG_ID) || passedToRight.includes(DOG_ID)) stats.dogGivenToOpponent++;
 
-    // Bomb completion in pass — check if passed/received cards complete a bomb
-    // For partner: check if passedToPartner cards complete a 4-of-a-kind with partner's hand
-    // Simplified: track if a bomb card was passed to/from partner/opponent
-    // The old tracker used bombGivenToPartnerInPass etc. — these are approximate checks
-    // For now, count bomb inventory items with acquiredPhase = 'postPass' per recipient
-    // (This is handled in the bomb inventory section below)
-
     // Kept dog during pass
     if (fullHandPrePass.length > 0 && handAfterPass.length > 0) {
       if (fullHandPrePass.includes(DOG_ID) && handAfterPass.includes(DOG_ID)) {
@@ -905,7 +898,7 @@ function computeStatsForUser(database: Database, userId: string, participation: 
   // ═══════════════════════════════════════════════════════════════════════
 
   // theTichuClean/Dirty: a 2-Ace straight (13 cards). Clean = no Phoenix, Dirty = with Phoenix
-  // Detect from plays: combination_type = 'Straight' AND combination_length = 13
+  // Detect ordinary straight plays with combination_length = 13
   for (const play of filteredPlays) {
     if (play.combination_type === CombinationType.Straight && play.combination_length === 13) {
       if (parseJsonArray(play.cards).includes(PHOENIX_ID)) {

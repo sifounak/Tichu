@@ -19,3 +19,13 @@ New games persist participant identities and sticky bot participation from the b
 ## Migration and cache repair
 
 Startup adds participation/stat columns and changes disposable caches to user/view keys while preserving existing All-game rows. Calculation version 2 refreshes corrected statistics, with completed-round and participation changes tracked by source revision. The admin `rebuild-stats` command rebuilds all four views; user count remains distinct users, while cache row count reflects the views. No history is deleted. Cached final results remain completion-dependent, and finished rounds in ongoing games still contribute round statistics.
+
+Game completion and progress updates advance the source revision even when their timestamps match the cache's second. This lets on-demand refresh recover a missed incremental update. History includes replaced participants, uses their recorded seat for team-relative scores, and shows a forfeit when they were not final occupants.
+
+## Verification notes
+
+Final tests: 1,094 server, 440 shared and 383 client tests pass. Type checks pass for every package. New bomb-pass, participation classification, and client selector/request modules have 100% statement coverage; modified source passes ESLint with TypeScript handling global-name checking.
+
+The client now declares Node 24 type definitions so a cold Next.js build can type-check without auto-installing an undeclared dependency. On this Windows workstation, ordinary standalone packaging fails because directory symlink creation lacks permission. Production compilation, static generation and standalone packaging were verified using the local junction preload archived in `results/play-stats-participation/Milestone3/verify-junctions.mjs`; application configuration is unchanged. Build lint was run separately because the repository does not declare/install its ESLint tooling.
+
+The existing client-wide coverage gate remains below 80%: baseline 65.42%, repaired implementation 70.59%. All client tests pass, and new/modified filter-navigation components meet 100% statement coverage. This existing coverage deficit is recorded rather than changing the threshold or adding unrelated tests.
