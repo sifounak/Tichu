@@ -36,16 +36,12 @@ export const SpectatorOverlay = memo(function SpectatorOverlay({
 
   useEffect(() => {
     if (!seatOffer) { setCountdown(30); return; }
-    setCountdown(Math.ceil(seatOffer.timeoutMs / 1000));
+    let remaining = Math.ceil(seatOffer.timeoutMs / 1000);
+    setCountdown(remaining);
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        const next = Math.max(0, prev - 1);
-        // Auto-dismiss seat offer when countdown expires (treat as timeout)
-        if (next === 0 && seatOffer) {
-          onDeclineSeat();
-        }
-        return next;
-      });
+      remaining = Math.max(0, remaining - 1);
+      setCountdown(remaining);
+      if (remaining === 0) { clearInterval(interval); onDeclineSeat(); }
     }, 1000);
     return () => clearInterval(interval);
   }, [seatOffer, onDeclineSeat]);

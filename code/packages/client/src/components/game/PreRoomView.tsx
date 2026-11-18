@@ -9,6 +9,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { GamePhase } from '@tichu/shared';
 import type { Seat, GameConfig, RoomPlayer } from '@tichu/shared';
 import type { ClientGameView } from '@tichu/shared';
 import type { LayoutTier } from '@/hooks/useLayoutTier';
@@ -71,7 +72,7 @@ function makeDummyView(mySeat: Seat): ClientGameView {
   return {
     gameId: '',
     config: { targetScore: 1000, turnTimerSeconds: null, spectatorsAllowed: true, isPrivate: false, spectatorChatEnabled: false, blindGrandTichuEnabled: false },
-    phase: 'playing' as any,
+    phase: GamePhase.Playing,
     scores: { northSouth: 0, eastWest: 0 },
     roundHistory: [],
     mySeat,
@@ -146,16 +147,15 @@ export function PreRoomView({
   useEffect(() => {
     const timeoutMs = seatOffer?.timeoutMs ?? queueStatus?.timeoutMs;
     if (!timeoutMs) { setCountdown(0); return; }
-    setCountdown(Math.ceil(timeoutMs / 1000));
+    let remaining = Math.ceil(timeoutMs / 1000);
+    setCountdown(remaining);
     const interval = setInterval(() => {
-      setCountdown((prev) => {
-        const next = Math.max(0, prev - 1);
-        // Auto-dismiss seat offer when countdown expires (treat as timeout)
-        if (next === 0 && seatOffer && onDeclineSeat) {
-          onDeclineSeat();
-        }
-        return next;
-      });
+      remaining = Math.max(0, remaining - 1);
+      setCountdown(remaining);
+      if (remaining === 0) {
+        clearInterval(interval);
+        if (seatOffer) onDeclineSeat?.();
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, [seatOffer, queueStatus, onDeclineSeat]);
@@ -439,12 +439,12 @@ export function PreRoomView({
                   </button>
                 ) : null
               ) : (
-                <button onClick={() => handleSwapSeat(seat)} className={styles.sitHereBtn}>
+                <button onClick={() => handleSwapSeat(seat)} aria-label="Sit Here" className={styles.sitHereBtn}>
                   Sit<br />Here
                 </button>
               )}
               {isHost && (
-                <button onClick={() => handleAddBot(seat)} className={styles.addBotBtn}>
+                <button onClick={() => handleAddBot(seat)} aria-label="Add Bot" className={styles.addBotBtn}>
                   Add<br />Bot
                 </button>
               )}
@@ -453,7 +453,6 @@ export function PreRoomView({
         }
       />
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [players, mySeat, hostSeat, readyPlayers, isHost, seatOffer, availableSeats, preGameKickTargetMode, transferHostTargetMode]);
 
   // Helper for ordinal suffixes (1st, 2nd, 3rd, 4th, ...)
@@ -597,7 +596,7 @@ export function PreRoomView({
   return (
     <>
       {/* Desktop top-left chrome — same compact layout as mobile */}
-      <div data-debug-area="Control Panel" style={{
+      {!isMobileLayout && <div data-debug-area="Control Panel" style={{
         position: 'fixed',
         top: '12px',
         left: '16px',
@@ -774,7 +773,7 @@ export function PreRoomView({
             Click a player to transfer host (Esc to cancel)
           </div>
         )}
-      </div>
+      </div>}
 
       {/* REQ-F-CG15: Settings panel (opened via menu) */}
       {showSettings && config && (

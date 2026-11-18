@@ -1,7 +1,7 @@
 // REQ-F-LRC01, REQ-F-LRC02, REQ-F-LRC03: Confirmation dialog shown before leaving a room
 'use client';
 
-import { memo, useState, useCallback, useEffect } from 'react';
+import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 
 interface LeaveConfirmDialogProps {
@@ -28,6 +28,7 @@ export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
   onClose,
 }: LeaveConfirmDialogProps) {
   const [show, setShow] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const open = useCallback(() => setShow(true), []);
   const close = useCallback(() => {
@@ -46,6 +47,25 @@ export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
       setShow(true);
     }
   }, [externalOpen]);
+
+  // REQ-F-UC03: Keyboard cancellation, focus containment and opener restoration.
+  useEffect(() => {
+    if (!show) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+    const buttons = panel?.querySelectorAll<HTMLButtonElement>('button');
+    buttons?.[0]?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); close(); }
+      if (event.key === 'Tab' && buttons?.length) {
+        const first = buttons[0], last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => { window.removeEventListener('keydown', handleKey); opener?.focus(); };
+  }, [show, close]);
 
   return (
     <>
@@ -72,6 +92,10 @@ export const LeaveConfirmDialog = memo(function LeaveConfirmDialog({
               textAlign: 'center',
               maxWidth: 'calc(480px * var(--scale))',
             }}
+            ref={panelRef}
+            role="dialog"
+            aria-label={title}
+            aria-modal="true"
             onClick={(e) => e.stopPropagation()}
           >
             <p style={{ fontSize: 'var(--font-2xl)', fontWeight: 600, marginBottom: subtitle ? 'var(--space-3)' : 'var(--space-6)' }}>

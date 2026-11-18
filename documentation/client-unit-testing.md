@@ -13,3 +13,5 @@ Coverage gates and additional behavior scenarios are introduced in the subsequen
 Authentication tests exercise real store/guard composition, persisted profiles, credential rejection, retries and asynchronous races. New authentication intent invalidates prior responses; logging out stops a pending login or background verification from restoring the account. Logout also settles loading. Existing guest access remains hidden.
 
 Navigation tests simulate the Navigation API, popstate and persisted pageshow contracts in jsdom, including delayed arming, confirm/cancel and listener teardown. Active-game banner tests check identity/header selection, refresh, hidden routes and rejoin actions.
+
+Game/room tests cover actual menus, drawers, role restrictions, settings updates, seat claims, votes, Tichu/passing controls, pending play and cancellation. Seat offers now decline once at expiry and stop their timers. Mobile pre-room renders its own chrome only, preventing duplicated leave dialogs. Leave confirmation exposes dialog semantics, supports Escape, contains Tab focus and restores the opener on cancellation.
