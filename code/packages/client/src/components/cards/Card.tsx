@@ -54,8 +54,10 @@ function CardFace({ card }: { card: CardType }) {
     const color = suitColor(card.suit);
     return (
       <div className={styles.face} style={{ color }}>
-        <span className={styles.rank}>{label}</span>
-        <span className={styles.suitCorner}>{symbol}</span>
+        <span className={styles.corner} data-card-corner>
+          <span className={styles.rank} data-card-rank>{label}</span>
+          <span className={styles.suitCorner} data-card-suit>{symbol}</span>
+        </span>
         <span className={styles.suitCenter}>{symbol}</span>
       </div>
     );
@@ -68,7 +70,9 @@ function CardFace({ card }: { card: CardType }) {
   const imgSrc = SPECIAL_CARD_IMAGES[card.kind];
   return (
     <div className={styles.face} style={{ color }}>
-      <span className={styles.rank}>{label}</span>
+      <span className={styles.corner} data-card-corner>
+        <span className={styles.rank} data-card-rank>{label}</span>
+      </span>
       <img
         className={styles.specialIcon}
         src={imgSrc}

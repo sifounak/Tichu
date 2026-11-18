@@ -18,7 +18,7 @@ describe('Preferences dialog', () => {
       json: async () => ({ preferences: init?.body ? JSON.parse(init.body) : DEFAULT_USER_PREFERENCES }) })));
   });
 
-  it('updates the non-interactive hand/full-house previews without affecting saved preferences', async () => {
+  it('updates one non-interactive example hand without affecting saved preferences', async () => {
     const user = userEvent.setup();
     render(<PreferencesDialog />);
     const descending = ids('Example hand');
@@ -29,7 +29,9 @@ describe('Preferences dialog', () => {
     const cards = screen.getByRole('img', { name: 'Example hand' }).querySelectorAll('[data-card-id]');
     expect(cards[0]).toHaveAttribute('data-identifier-side', 'right');
     expect(Number((cards[0].parentElement as HTMLElement).style.zIndex)).toBeGreaterThan(Number((cards[1].parentElement as HTMLElement).style.zIndex));
-    expect(ids('Full house: three 9s and two Kings').slice(0, 3).sort()).toEqual(['200', '201', '202']);
+    expect(screen.getAllByRole('img', { name: 'Example hand' })).toHaveLength(1);
+    expect(screen.queryByRole('img', { name: /Full house/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Full house')).not.toBeInTheDocument();
     expect(within(screen.getByRole('img', { name: 'Example hand' })).queryAllByRole('button')).toHaveLength(0);
     expect(store().preferences).toEqual(DEFAULT_USER_PREFERENCES);
     expect(fetch).not.toHaveBeenCalled();

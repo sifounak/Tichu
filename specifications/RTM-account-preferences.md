@@ -8,3 +8,5 @@
 | UP04–UP06 | client/src/components/cards/card-utils.ts:85; CardHand.tsx:30; CardRow.tsx; Card.module.css; game/TrickDisplay.tsx; game page bomb previews | card-preferences.test.tsx: 13 passed; production browser checks all modes, exposed labels, and 14-card hands | Passed |
 | UP07 | client/src/hooks/useSoundEffects.ts | useSoundEffects.test.ts: 7 passed, 100% statement coverage | Passed |
 | NF-UP01 | Preferences store/controller/dialog | PreferencesController.test.tsx: 2 passed; store and dialog regression tests | Passed |
+| UP08 | client/src/components/cards/Card.tsx and Card.module.css | Chromium: centered rank/suit, equal insets, no clipping at five sizes and all four order/overlap combinations | Passed |
+| UP09 | client/src/components/preferences/PreferencesDialog.tsx | PreferencesDialog.test.tsx: one live hand, no full-house preview; Chromium Save/Cancel and preview checks | Passed |

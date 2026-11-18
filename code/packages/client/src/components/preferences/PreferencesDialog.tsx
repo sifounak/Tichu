@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { CombinationType, Suit, type Combination, type GameCard, type UserPreferences } from '@tichu/shared';
+import { Suit, type GameCard, type UserPreferences } from '@tichu/shared';
 import { CardRow } from '@/components/cards/CardRow';
 import { usePreferencesStore } from '@/stores/preferencesStore';
 import styles from './PreferencesDialog.module.css';
@@ -16,16 +16,6 @@ const hand: GameCard[] = [
   { id: 106, card: { kind: 'standard', suit: Suit.Jade, rank: 14 } },
   { id: 107, card: { kind: 'phoenix' } }, { id: 108, card: { kind: 'dragon' } },
 ];
-const fullHouse: Combination = {
-  type: CombinationType.FullHouse, rank: 9, length: 1, isBomb: false,
-  cards: [
-    { id: 200, card: { kind: 'standard', suit: Suit.Jade, rank: 9 } },
-    { id: 201, card: { kind: 'standard', suit: Suit.Pagoda, rank: 9 } },
-    { id: 202, card: { kind: 'standard', suit: Suit.Star, rank: 9 } },
-    { id: 203, card: { kind: 'standard', suit: Suit.Jade, rank: 13 } },
-    { id: 204, card: { kind: 'standard', suit: Suit.Sword, rank: 13 } },
-  ],
-};
 const previewStyle = {
   '--card-width': '64px', '--card-height': '92px', '--card-font-size': '16px',
   '--card-suit-size': '24px', '--card-border-radius': '5px',
@@ -110,9 +100,6 @@ export function PreferencesDialog() {
             <div className={styles.preview}>
               <p className={styles.previewLabel}>Example hand</p>
               <CardRow cards={hand} preferences={draft} style={previewStyle} label="Example hand" />
-              <p className={styles.previewLabel}>Full house</p>
-              <CardRow cards={fullHouse.cards} combination={fullHouse} preferences={draft} style={previewStyle} label="Full house: three 9s and two Kings" />
-              <p className={styles.hint}>Full houses always show the three matching cards on top.</p>
             </div>
             <h3>Sounds</h3>
             {sounds.map(({ field, label, description }) => <label key={field} className={styles.soundRow}>

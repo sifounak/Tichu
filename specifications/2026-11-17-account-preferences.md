@@ -1,6 +1,6 @@
 # Account preferences
 
-Approved design: account preferences with Save/Cancel and live, non-interactive hand and full-house previews. No guest, volume, or animation preferences.
+Approved design: account preferences with Save/Cancel and one live, non-interactive example hand (revised 2026-11-18). No guest, volume, or animation preferences.
 
 | Requirement | Behavior |
 |---|---|
@@ -12,5 +12,7 @@ Approved design: account preferences with Save/Cancel and live, non-interactive 
 | REQ-F-UP06 | Exposed-edge identifiers remain readable; preserve selection, identity, keyboard focus, and semantic seat slots. |
 | REQ-F-UP07 | Sound enabled plus Cards and wagers/Your turn/Timer warning/Chat switches; default 70% playback; legacy browser controls retired. |
 | REQ-NF-UP01 | Accessible responsive dialog; isolated account state and stale request protection; refresh on focus when closed. |
+| REQ-F-UP08 | Rank and suit share a centered corner block, 1.5 times rank font size, inset equally by 4.5% of card width on either side. |
+| REQ-F-UP09 | Preferences contains one live example hand; remove the full-house preview and caption while retaining the gameplay triple-on-top rule. |
 
 Guest removal, volume, animation, card size, and default chat visibility remain separate work.
